@@ -163,13 +163,16 @@ pub fn semantic_search(
 ) -> Result<Vec<SemanticSearchResult>, String> {
     let k = limit.unwrap_or(10);
 
-    // Lock pipeline for vector search (may be slow if ONNX runs)
+    // Lock pipeline for vector search (may be slow if ONNX runs). If the
+    // optional semantic assets are absent, continue with the FTS5 fallback
+    // below so context search still works in free/lightweight installs.
     let vector_results = {
         let mut pipeline = pipeline_state.lock().map_err(|e| e.to_string())?;
-        if !pipeline.has_semantic() {
-            return Err("Semantic search not available — model or embeddings not loaded".into());
+        if pipeline.has_semantic() {
+            pipeline.semantic_search(&query, k)
+        } else {
+            Vec::new()
         }
-        pipeline.semantic_search(&query, k)
     }; // Pipeline lock dropped
 
     // Lock AppState for DB lookups only (fast)

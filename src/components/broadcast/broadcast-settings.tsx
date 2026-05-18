@@ -35,6 +35,7 @@ import {
   RefreshCwIcon,
   RadioIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 
 type OutputType = "display" | "ndi"
 
@@ -55,6 +56,10 @@ const NDI_ALPHA_OPTIONS: Array<{ value: NdiAlphaMode; label: string }> = [
   { value: "straightAlpha", label: "Straight Alpha" },
   { value: "premultipliedAlpha", label: "Premultiplied Alpha" },
 ]
+
+function showBroadcastError(title: string, error: unknown) {
+  toast.error(title, { description: String(error) })
+}
 
 function ndiFrameRateToNumber(frameRate: NdiFrameRate): number {
   switch (frameRate) {
@@ -146,9 +151,9 @@ export function BroadcastSettings({
       if (result.length > 0 && selectedMonitor === "0") {
         setSelectedMonitor("0")
       }
-    } catch {
-      // Tauri command may not exist yet — use placeholder
+    } catch (error) {
       setMonitors([])
+      showBroadcastError("Could not load display monitors", error)
     } finally {
       setRefreshing(false)
     }
@@ -229,8 +234,8 @@ export function BroadcastSettings({
           useBroadcastStore.getState().syncBroadcastOutputFor("main")
         }, 150)
       }
-    } catch {
-      // Command may not exist yet
+    } catch (error) {
+      showBroadcastError("Could not toggle broadcast preview", error)
     }
   }
 
@@ -265,8 +270,8 @@ export function BroadcastSettings({
           syncNdiConfigToOutput("main", true, ndiFrameRate, ndiResolution)
         }, 300)
       }
-    } catch {
-      // Command may not exist yet
+    } catch (error) {
+      showBroadcastError("Could not toggle NDI output", error)
     }
   }
 
@@ -276,16 +281,16 @@ export function BroadcastSettings({
       if (isPreviewOpen) {
         try {
           await invoke("close_broadcast_window", { outputId: "main" })
-        } catch {
-          console.error("Failed to close broadcast window")
+        } catch (error) {
+          showBroadcastError("Could not close broadcast preview", error)
         }
         setIsPreviewOpen(false)
       }
       if (ndiActive) {
         try {
           await invoke("stop_ndi", { outputId: "main" })
-        } catch {
-          console.error("Failed to stop NDI")
+        } catch (error) {
+          showBroadcastError("Could not stop NDI output", error)
         }
         syncNdiConfigToOutput("main", false, ndiFrameRate, ndiResolution)
         setNdiActive(false)
@@ -320,7 +325,7 @@ export function BroadcastSettings({
         }, 150)
       }
     } catch (error) {
-      console.warn("Failed to toggle alt preview window", error)
+      showBroadcastError("Could not toggle alternate preview", error)
     }
   }
 
@@ -356,7 +361,7 @@ export function BroadcastSettings({
         }, 300)
       }
     } catch (error) {
-      console.warn("Failed to toggle alt NDI", error)
+      showBroadcastError("Could not toggle alternate NDI output", error)
     }
   }
 

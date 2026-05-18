@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS verses (
 
 CREATE INDEX IF NOT EXISTS idx_verses_lookup ON verses(translation_id, book_number, chapter, verse);
 CREATE INDEX IF NOT EXISTS idx_verses_chapter ON verses(translation_id, book_number, chapter);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_verses_unique_lookup ON verses(translation_id, book_number, chapter, verse);
 
 CREATE TABLE IF NOT EXISTS cross_references (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

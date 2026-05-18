@@ -58,6 +58,33 @@ describe("queue-store", () => {
     expect(useQueueStore.getState().activeIndex).toBe(0)
   })
 
+  it("keeps active item attached when another item is dragged around it", () => {
+    useQueueStore.setState({
+      items: [makeItem("a", 16), makeItem("b", 17), makeItem("c", 18)],
+      activeIndex: 1,
+      highlightedId: null,
+    })
+
+    useQueueStore.getState().reorderItems(2, 0)
+
+    expect(useQueueStore.getState().items.map((i) => i.id)).toEqual(["c", "a", "b"])
+    expect(useQueueStore.getState().activeIndex).toBe(2)
+  })
+
+  it("ignores invalid reorder requests", () => {
+    useQueueStore.setState({
+      items: [makeItem("a", 16), makeItem("b", 17)],
+      activeIndex: 0,
+      highlightedId: null,
+    })
+
+    useQueueStore.getState().reorderItems(-1, 1)
+    useQueueStore.getState().reorderItems(0, 2)
+
+    expect(useQueueStore.getState().items.map((i) => i.id)).toEqual(["a", "b"])
+    expect(useQueueStore.getState().activeIndex).toBe(0)
+  })
+
   it("flashes instead of adding duplicate detection item", () => {
     useQueueStore.setState({
       items: [makeItem("a", 16)],

@@ -285,6 +285,11 @@ function SpeechSection() {
             Whisper is the free local speech engine. If the model is missing,
             transcription will not start until it is installed.
           </p>
+          {!assetsLoading && !assetStatus?.whisper_model && (
+            <p className="rounded-md bg-background px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
+              bun run download:whisper
+            </p>
+          )}
 
           <Button
             size="sm"
@@ -293,7 +298,7 @@ function SpeechSection() {
             className="w-fit text-xs"
           >
             <DownloadIcon className="size-3" />
-            Recheck local assets
+            Refresh asset status
           </Button>
         </div>
       )}
