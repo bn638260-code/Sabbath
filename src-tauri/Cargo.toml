@@ -28,12 +28,12 @@ missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 
 [package]
-name = "rhema"
+name = "sabbathcue"
 version = "0.1.0"
-description = "Rhema - Real-Time AI Bible Verse Detection"
-authors = ["Faithful"]
+description = "SabbathCue - Real-Time AI Bible Verse Detection"
+authors = ["BongaNdlovu"]
 license = "MIT"
-repository = "https://github.com/openbezal/rhema"
+repository = "https://github.com/BongaNdlovu/SabbathCue"
 edition = "2021"
 rust-version = "1.77.2"
 
@@ -42,7 +42,7 @@ name = "rhema_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "Rhema"
+name = "SabbathCue"
 path = "src/main.rs"
 
 [build-dependencies]

@@ -14,18 +14,18 @@ export function ComparisonSection() {
     >
       <Container className="flex flex-col gap-10 md:gap-14 lg:gap-16">
         <Reveal>
-          <SectionHeading id="comparison-heading">Why Rhema</SectionHeading>
+          <SectionHeading id="comparison-heading">Why SabbathCue</SectionHeading>
         </Reveal>
         <div className="grid grid-cols-1 md:grid-cols-2 md:[&>*]:-ml-px md:[&>*]:-mt-px">
           <Reveal className="flex">
             <ComparisonCard
-              title="Without Rhema"
+              title="Without SabbathCue"
               items={WITHOUT}
               tone="negative"
             />
           </Reveal>
           <Reveal delay={80} className="flex">
-            <ComparisonCard title="With Rhema" items={WITH} tone="positive" />
+            <ComparisonCard title="With SabbathCue" items={WITH} tone="positive" />
           </Reveal>
         </div>
       </Container>

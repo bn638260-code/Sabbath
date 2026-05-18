@@ -60,8 +60,8 @@ export function TestimonialsSection() {
           ))}
         </div>
         <Reveal className="flex justify-center">
-          <Button href={SITE.socials.twitter} variant="secondary" size="lg">
-            See more reviews
+          <Button href={SITE.repo.discussions} variant="secondary" size="lg">
+            Join the community
           </Button>
         </Reveal>
       </Container>

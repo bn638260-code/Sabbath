@@ -1,11 +1,11 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import { SITE } from "@/app/_lib/site";
-import { RhemaLogo } from "@/app/_components/ui/rhema-logo";
+import { SabbathCueLogo } from "@/app/_components/ui/sabbathcue-logo";
 
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
-      title: <RhemaLogo size="sm" />,
+      title: <SabbathCueLogo size="sm" />,
       url: "/",
     },
     githubUrl: SITE.repo.url,

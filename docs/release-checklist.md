@@ -1,4 +1,4 @@
-# Rhema Desktop Release Checklist
+# SabbathCue Desktop Release Checklist
 
 ## Free Public Installer Rules
 

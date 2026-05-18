@@ -1,5 +1,5 @@
 /**
- * Unified pipeline: sets up everything needed for Rhema from scratch.
+ * Unified pipeline: sets up everything needed for SabbathCue from scratch.
  *
  *   Phase 1 – Python environment (.venv + all pip deps)
  *   Phase 2 – Download Bible data (pre-built zip + cross-refs)
@@ -77,7 +77,7 @@ async function run(
 // ── Main ─────────────────────────────────────────────────────────────
 async function main() {
   console.log("\n╔══════════════════════════════════════════════╗")
-  console.log("║   Rhema – Full Setup Pipeline                ║")
+  console.log("║   SabbathCue – Full Setup Pipeline                ║")
   console.log("╚══════════════════════════════════════════════╝")
   if (force) console.log("  (--force: re-running all phases)\n")
 

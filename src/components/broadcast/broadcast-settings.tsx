@@ -80,7 +80,7 @@ export function BroadcastSettings({
   const [monitors, setMonitors] = useState<Monitor[]>([])
   const [selectedMonitor, setSelectedMonitor] = useState("0")
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [ndiSourceName, setNdiSourceName] = useState("Rhema Output")
+  const [ndiSourceName, setNdiSourceName] = useState("SabbathCue Output")
   const [ndiResolution, setNdiResolution] = useState<NdiResolution>("r1080p")
   const [ndiFrameRate, setNdiFrameRate] = useState<NdiFrameRate>("fps24")
   const [ndiAlphaMode, setNdiAlphaMode] = useState<NdiAlphaMode>("straightAlpha")
@@ -94,7 +94,7 @@ export function BroadcastSettings({
   const [altOutputType, setAltOutputType] = useState<OutputType>("ndi")
   const [altSelectedMonitor, setAltSelectedMonitor] = useState("0")
   const [altIsPreviewOpen, setAltIsPreviewOpen] = useState(false)
-  const [altNdiSourceName, setAltNdiSourceName] = useState("Rhema Alt")
+  const [altNdiSourceName, setAltNdiSourceName] = useState("SabbathCue Alt")
   const [altNdiResolution, setAltNdiResolution] = useState<NdiResolution>("r1080p")
   const [altNdiFrameRate, setAltNdiFrameRate] = useState<NdiFrameRate>("fps24")
   const [altNdiAlphaMode, setAltNdiAlphaMode] = useState<NdiAlphaMode>("straightAlpha")
@@ -599,7 +599,7 @@ export function BroadcastSettings({
                   <Input
                     value={ndiSourceName}
                     onChange={(e) => setNdiSourceName(e.target.value)}
-                    placeholder="Rhema Output"
+                    placeholder="SabbathCue Output"
                   />
                 </div>
                 <Button
@@ -745,7 +745,7 @@ export function BroadcastSettings({
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground">Source Name</label>
-                  <Input value={altNdiSourceName} onChange={(e) => setAltNdiSourceName(e.target.value)} placeholder="Rhema Alt" />
+                  <Input value={altNdiSourceName} onChange={(e) => setAltNdiSourceName(e.target.value)} placeholder="SabbathCue Alt" />
                 </div>
                 <Button
                   variant="outline"

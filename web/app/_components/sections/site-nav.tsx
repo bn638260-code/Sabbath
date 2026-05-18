@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { IconBrandGithub, IconMenu2, IconX } from "@tabler/icons-react";
 import { Button } from "../ui/button";
-import { RhemaLogo } from "../ui/rhema-logo";
+import { SabbathCueLogo } from "../ui/sabbathcue-logo";
 import { SITE } from "../../_lib/site";
 import { cn } from "../../_lib/utils";
 
@@ -47,8 +47,8 @@ export function SiteNav({ stars }: { stars: number }) {
       )}
     >
       <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-12 xl:px-[140px]">
-        <Link href="/" aria-label="Rhema home" className="shrink-0">
-          <RhemaLogo />
+        <Link href="/" aria-label="SabbathCue home" className="shrink-0">
+          <SabbathCueLogo />
         </Link>
 
         <nav
@@ -73,7 +73,7 @@ export function SiteNav({ stars }: { stars: number }) {
             href={SITE.repo.url}
             variant="secondary"
             size="md"
-            aria-label={`Rhema on GitHub, ${stars} stars`}
+            aria-label={`SabbathCue on GitHub, ${stars} stars`}
           >
             <IconBrandGithub size={16} aria-hidden stroke={2} />
             <span>

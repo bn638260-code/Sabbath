@@ -169,7 +169,7 @@ struct HealthResponse {
 async fn health_handler() -> impl IntoResponse {
     Json(HealthResponse {
         status: "ok",
-        service: "rhema",
+        service: "sabbathcue",
         version: env!("CARGO_PKG_VERSION"),
     })
 }
@@ -335,7 +335,7 @@ mod tests {
         let resp = raw_http_request(port, "GET", "/api/v1/health", None).await;
         assert!(resp.contains("200 OK"), "Expected 200, got: {resp}");
         assert!(resp.contains("\"status\":\"ok\""));
-        assert!(resp.contains("\"service\":\"rhema\""));
+        assert!(resp.contains("\"service\":\"sabbathcue\""));
 
         let mut handle = result.handle;
         handle.stop();

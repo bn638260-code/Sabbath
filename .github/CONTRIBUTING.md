@@ -1,8 +1,8 @@
-# Rhema Contributing Guide
+# SabbathCue Contributing Guide
 
-Hi! We're really excited that you're interested in contributing to Rhema. Before submitting your contribution, please read through this guide.
+Hi! We're really excited that you're interested in contributing to SabbathCue. Before submitting your contribution, please read through this guide.
 
-Rhema is a Tauri v2 desktop app. The frontend is React 19 + TypeScript + Tailwind + Zustand; the backend is a Rust workspace with seven crates under `src-tauri/crates/` (audio, STT, Bible/FTS, verse detection, NDI broadcast, Tauri command API, and notes). Bun is the package manager and the runtime for the data pipeline scripts. Contributions on either side are welcome.
+SabbathCue is a Tauri v2 desktop app. The frontend is React 19 + TypeScript + Tailwind + Zustand; the backend is a Rust workspace with seven crates under `src-tauri/crates/` (audio, STT, Bible/FTS, verse detection, NDI broadcast, Tauri command API, and notes). Bun is the package manager and the runtime for the data pipeline scripts. Contributions on either side are welcome.
 
 ## Table of contents
 
@@ -37,7 +37,7 @@ Rhema is a Tauri v2 desktop app. The frontend is React 19 + TypeScript + Tailwin
 
 ### Bible data, models, and embeddings
 
-Much of Rhema's behavior depends on artifacts that aren't checked into the repo: the SQLite Bible database, copyrighted translations, the Qwen3 ONNX embedding model, and precomputed verse embeddings. For anything touching verse detection, Bible search, or rendering, you'll want these in place.
+Much of SabbathCue's behavior depends on artifacts that aren't checked into the repo: the SQLite Bible database, copyrighted translations, the Qwen3 ONNX embedding model, and precomputed verse embeddings. For anything touching verse detection, Bible search, or rendering, you'll want these in place.
 
 One command sets everything up (idempotent — it skips phases that are already complete):
 
@@ -60,7 +60,7 @@ bun run download:ndi-sdk
 ## Repository layout
 
 ```
-rhema/
+sabbathcue/
 ├── src/              React frontend (components, hooks, Zustand stores, lib)
 ├── src-tauri/        Rust workspace
 │   ├── crates/
@@ -190,7 +190,7 @@ cargo test
 
 ## How to pick up an issue
 
-- You don't need permission to work on an open issue. Browse the [issue list](https://github.com/openbezal/rhema/issues) and start.
+- You don't need permission to work on an open issue. Browse the [issue list](https://github.com/BongaNdlovu/SabbathCue/issues) and start.
 - If an issue looks good but you want to confirm the approach before spending time, leave a comment describing the direction you plan to take. A one-line "I'm picking this up" is not required and doesn't reserve the issue.
 - If two people end up working on the same thing, the later PR can still be useful as a second pair of eyes — review, validate, or merge ideas.
 - For non-trivial features, open a discussion or issue **before** the PR. Getting alignment on scope first saves rewrites later.
@@ -203,7 +203,7 @@ cargo test
 - **New features** need a convincing reason. If there isn't an issue with maintainer agreement that the feature is wanted, open one (or a discussion) before writing code.
 - **Bug fixes**: reference the issue in the PR title if one exists, e.g. `fix: handle missing NDI library on Linux (fix #123)`. Include reproduction steps. Add test coverage when practical.
 - **UI changes**: include a screenshot or a short recording. The PR template has a slot for it.
-- **Cross-platform work**: Rhema ships on macOS, Windows, and Linux. If you only tested on one, say so — the "Tested on" checklist is how we know.
+- **Cross-platform work**: SabbathCue ships on macOS, Windows, and Linux. If you only tested on one, say so — the "Tested on" checklist is how we know.
 - **PR title** must follow the [Commit message format](#commit-message-format). It becomes the merge commit message and shows up in release notes.
 - Multiple small commits during review are fine; they'll be squashed on merge.
 
@@ -225,8 +225,8 @@ AI coding assistants are fine — many contributors (and maintainers) use them. 
 
 ## Getting help
 
-- **Questions, ideas, general discussion** — [GitHub Discussions](https://github.com/openbezal/rhema/discussions).
-- **Bugs and feature requests** — use the [issue templates](https://github.com/openbezal/rhema/issues/new/choose). A reproduction (short recording, minimal repo, or precise steps) speeds triage considerably.
+- **Questions, ideas, general discussion** — [GitHub Discussions](https://github.com/BongaNdlovu/SabbathCue/discussions).
+- **Bugs and feature requests** — use the [issue templates](https://github.com/BongaNdlovu/SabbathCue/issues/new/choose). A reproduction (short recording, minimal repo, or precise steps) speeds triage considerably.
 - **Security vulnerabilities** — don't open a public issue. Follow the process in [SECURITY.md](./SECURITY.md).
 
 ## Code of Conduct

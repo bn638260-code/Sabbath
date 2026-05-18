@@ -50,7 +50,7 @@ export default async function Image() {
           />
           <span style={{ color: "#FFFFFF", fontWeight: 600 }}>{SITE.name}</span>
           <span>·</span>
-          <span>openrhema.com</span>
+          <span>github.com/BongaNdlovu/SabbathCue</span>
         </div>
 
         <div
@@ -81,7 +81,7 @@ export default async function Image() {
               color: "#0099FF",
             }}
           >
-            Rhema finds the verse.
+            SabbathCue finds the verse.
           </div>
           <div
             style={{

@@ -1,6 +1,6 @@
 import { cn } from "../../_lib/utils";
 
-export function RhemaLogo({
+export function SabbathCueLogo({
   className,
   wordmarkClassName,
   size = "md",
@@ -37,7 +37,7 @@ export function RhemaLogo({
         </svg>
       </span>
       <span className={cn("font-medium text-foreground", textSize, wordmarkClassName)}>
-        Rhema
+        SabbathCue
       </span>
     </span>
   );

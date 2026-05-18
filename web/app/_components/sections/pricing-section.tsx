@@ -22,7 +22,7 @@ export function PricingSection() {
                 Free
               </p>
               <p className="max-w-[1080px] text-lg leading-8 text-muted-foreground lg:text-2xl">
-                Rhema is a gift from us to help church display scripture
+                SabbathCue is a gift from us to help church display scripture
                 effortlessly during every sermon.
               </p>
             </div>

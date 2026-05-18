@@ -31,7 +31,7 @@ export function QuickStartSection() {
         <Reveal>
           <SectionHeading
             id="quick-start-heading"
-            subtitle="No account. No subscription to start. Just download, connect your audio feed, and Rhema handles everything else from the moment your service begins."
+            subtitle="No account. No subscription to start. Just download, connect your audio feed, and SabbathCue handles everything else from the moment your service begins."
           >
             Ready in under five minutes.
           </SectionHeading>

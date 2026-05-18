@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     "vMix scripture overlay",
     "church livestream tools",
     "speech-to-scripture",
-    "Rhema",
+    "SabbathCue",
   ],
   authors: [{ name: SITE.legalName, url: SITE.repo.url }],
   creator: SITE.legalName,

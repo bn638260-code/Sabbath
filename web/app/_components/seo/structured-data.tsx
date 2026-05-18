@@ -22,11 +22,7 @@ export function StructuredData() {
           width: 1024,
           height: 1024,
         },
-        sameAs: [
-          SITE.socials.github,
-          SITE.socials.twitter,
-          SITE.socials.linkedin,
-        ],
+        sameAs: [SITE.socials.github],
         foundingDate: SITE.founded,
       },
       {

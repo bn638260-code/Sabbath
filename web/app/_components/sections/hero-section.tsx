@@ -9,7 +9,7 @@ export function HeroSection({ stars }: { stars: number }) {
     <section
       id="top"
       className="relative overflow-hidden"
-      aria-label="Rhema introduction"
+      aria-label="SabbathCue introduction"
     >
       <HeroGlow />
       <Container
@@ -19,10 +19,10 @@ export function HeroSection({ stars }: { stars: number }) {
         <div className="flex max-w-[830px] flex-col items-center gap-6">
           <h1 className="text-balance font-medium tracking-[-0.035em] text-foreground text-[44px] leading-[1.05] sm:text-[56px] md:text-[72px] lg:text-[84px] lg:tracking-[-0.05em]">
             <span>Your Pastor speaks. </span>
-            <span className="text-accent">Rhema finds the verse.</span>
+            <span className="text-accent">SabbathCue finds the verse.</span>
           </h1>
           <p className="text-pretty text-base leading-[1.5] text-muted-foreground sm:text-lg md:text-xl lg:text-2xl lg:leading-8">
-            Rhema listens to a live sermon audio feed, transcribes speech in
+            SabbathCue listens to a live sermon audio feed, transcribes speech in
             real time, detects Bible verse references (both explicit citations
             and quoted passages), and renders them as broadcast-ready overlays
             via NDI for live production.
@@ -36,7 +36,7 @@ export function HeroSection({ stars }: { stars: number }) {
               href={SITE.repo.url}
               variant="secondary"
               size="md"
-              aria-label={`Star Rhema on GitHub, ${stars} stars`}
+              aria-label={`Star SabbathCue on GitHub, ${stars} stars`}
             >
               <IconBrandGithub size={16} aria-hidden stroke={2} />
               <span>

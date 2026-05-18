@@ -180,7 +180,7 @@ pub async fn start_http(
         return Err("HTTP API server is already running".into());
     }
 
-    let token = std::env::var("RHEMA_REMOTE_TOKEN").ok().filter(|v| !v.is_empty());
+    let token = std::env::var("SABBATHCUE_REMOTE_TOKEN").ok().filter(|v| !v.is_empty());
 
     let config = HttpConfig {
         port: port.unwrap_or(8080),

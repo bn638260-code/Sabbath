@@ -65,7 +65,7 @@ pub fn ensure_broadcast_window(app: tauri::AppHandle, output_id: String) -> Resu
         label,
         WebviewUrl::App(window_url(&output_id).into()),
     )
-    .title(if output_id == "alt" { "Rhema NDI Alt" } else { "Rhema NDI" })
+    .title(if output_id == "alt" { "SabbathCue NDI Alt" } else { "SabbathCue NDI" })
     .inner_size(1920.0, 1080.0)
     .visible(false)
     .skip_taskbar(true)

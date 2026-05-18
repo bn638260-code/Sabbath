@@ -27,7 +27,7 @@ fn main() {
     let output_ids = get_arg(&args, "--output-ids")
         .unwrap_or_else(|| "embeddings/kjv-qwen3-0.6b-ids.bin".to_string());
 
-    log::info!("=== Rhema Verse Embedding Pre-computation ===");
+    log::info!("=== SabbathCue Verse Embedding Pre-computation ===");
     log::info!("Model: {}", model_path);
     log::info!("Tokenizer: {}", tokenizer_path);
     log::info!("Verses: {}", verses_path);

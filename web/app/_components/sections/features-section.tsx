@@ -23,7 +23,7 @@ const FEATURES: Feature[] = [
   {
     icon: IconMicrophone,
     title: "Listens to Your Sermon Live",
-    body: "Rhema listens as the pastor speaks and turns the message into text instantly. No setup or typing needed. Just press start and let it run.",
+    body: "SabbathCue listens as the pastor speaks and turns the message into text instantly. No setup or typing needed. Just press start and let it run.",
   },
   {
     icon: IconSearch,
@@ -38,7 +38,7 @@ const FEATURES: Feature[] = [
   {
     icon: IconPlug,
     title: "Works With Your Live Setup",
-    body: "Rhema connects easily to tools like OBS Studio and vMix. You don’t need to change how you already run your service. Just add it to your setup.",
+    body: "SabbathCue connects easily to tools like OBS Studio and vMix. You don’t need to change how you already run your service. Just add it to your setup.",
   },
   {
     icon: IconLayoutBoard,

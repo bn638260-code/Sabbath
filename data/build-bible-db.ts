@@ -61,7 +61,7 @@ interface ScrollmapperJSON {
   }>
 }
 
-const PUBLIC_RELEASE = process.env.RHEMA_PUBLIC_RELEASE === "1"
+const PUBLIC_RELEASE = process.env.SABBATHCUE_PUBLIC_RELEASE === "1"
 
 const TRANSLATIONS_META: Array<{
   file: string

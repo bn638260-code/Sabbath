@@ -8,7 +8,7 @@ const STEPS = [
   {
     icon: IconMicrophone,
     title: "Listen",
-    body: "Rhema connects to your sermon audio and transcribes it in real time.",
+    body: "SabbathCue connects to your sermon audio and transcribes it in real time.",
   },
   {
     icon: IconSearch,

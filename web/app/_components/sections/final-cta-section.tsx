@@ -28,7 +28,7 @@ export function FinalCtaSection({ stars }: { stars: number }) {
               href={SITE.repo.url}
               variant="secondary"
               size="md"
-              aria-label={`Star Rhema on GitHub, ${stars} stars`}
+              aria-label={`Star SabbathCue on GitHub, ${stars} stars`}
             >
               <IconBrandGithub size={16} aria-hidden stroke={2} />
               <span>

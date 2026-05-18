@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="public/rhema.svg" alt="Rhema logo" width="160" height="160" />
+  <img src="public/sabbathcue.svg" alt="SabbathCue logo" width="160" height="160" />
 </p>
 
-<h1 align="center">Rhema</h1>
+<h1 align="center">SabbathCue</h1>
 
 <p align="center">Real-time AI-powered Bible verse detection for live sermons and broadcasts. A Tauri v2 desktop app with a React frontend and Rust backend.</p>
 
-Rhema listens to a live sermon audio feed, transcribes speech in real time, detects Bible verse references (both explicit citations and quoted passages), and renders them as broadcast-ready overlays via NDI for live production.
+SabbathCue listens to a live sermon audio feed, transcribes speech in real time, detects Bible verse references (both explicit citations and quoted passages), and renders them as broadcast-ready overlays via NDI for live production.
 
 ## Free Desktop Distribution
 
-Rhema's public desktop installer is local-first and free to operate. It ships
+SabbathCue's public desktop installer is local-first and free to operate. It ships
 with redistributable Bible content only, defaults to local Whisper speech-to-text,
 does not require Deepgram, and does not bundle NDI SDK binaries. Deepgram and NDI
 remain optional integrations that users configure separately.
@@ -127,7 +127,7 @@ Windows needs an extra build-tools bootstrap before the shared setup pipeline �
 
 ```bash
 git clone <repo-url>
-cd rhema
+cd SabbathCue
 bun install
 ```
 
@@ -155,7 +155,7 @@ This runs 7 idempotent phases in sequence, skipping any whose output artifacts a
 
 #### Speech-to-Text Options
 
-Rhema supports two speech-to-text engines:
+SabbathCue supports two speech-to-text engines:
 
 **Option 1: Whisper (Local, Free)**
 Whisper runs locally on your machine with no API costs or per-minute billing.
@@ -207,7 +207,7 @@ bun run tauri build
 ## Project Structure
 
 ```
-rhema/
+sabbathcue/
 ├── src/                          # React frontend
 │   ├── components/
 │   │   ├── broadcast/            # Theme designer, NDI settings
@@ -276,7 +276,7 @@ rhema/
 
 ## Security
 
-Rhema enforces a restrictive Content Security Policy on the Tauri webview to prevent script injection and unauthorized data exfiltration. The policy is defined in `src-tauri/tauri.conf.json`; see **[SECURITY.md](.github/SECURITY.md)** for the directive-by-directive rationale, threat model, and vulnerability reporting process.
+SabbathCue enforces a restrictive Content Security Policy on the Tauri webview to prevent script injection and unauthorized data exfiltration. The policy is defined in `src-tauri/tauri.conf.json`; see **[SECURITY.md](.github/SECURITY.md)** for the directive-by-directive rationale, threat model, and vulnerability reporting process.
 
 ## Environment Variables
 
