@@ -9,6 +9,7 @@ interface QueueState {
 
   addItem: (item: QueueItem) => void
   addOrFlashItem: (item: QueueItem) => "added" | "duplicate"
+  addOrFlashDetectionItem: (item: QueueItem) => "added" | "duplicate"
   removeItem: (id: string) => void
   reorderItems: (fromIndex: number, toIndex: number) => void
   setActive: (index: number | null) => void
@@ -49,6 +50,31 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     if (duplicateIndex !== -1) {
       const existing = get().items[duplicateIndex]
       if (existing) get().flashItem(existing.id)
+      return "duplicate"
+    }
+
+    get().addItem(item)
+    return "added"
+  },
+  addOrFlashDetectionItem: (item) => {
+    const duplicateIndex = item.is_chapter_only
+      ? get().items.findIndex(
+          (i) =>
+            i.verse.book_number === item.verse.book_number &&
+            i.verse.chapter === item.verse.chapter,
+        )
+      : get().findDuplicate(
+          item.verse.book_number,
+          item.verse.chapter,
+          item.verse.verse,
+        )
+
+    if (duplicateIndex !== -1) {
+      const existing = get().items[duplicateIndex]
+      if (existing) {
+        get().flashItem(existing.id)
+        if (!item.is_chapter_only) get().setActive(duplicateIndex)
+      }
       return "duplicate"
     }
 

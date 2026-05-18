@@ -40,7 +40,7 @@ to local Whisper speech recognition.
   - Reading mode — locks to book/chapter as soon as it's mentioned, with voice navigation ("next chapter", "chapter 5")
   - Sermon context tracking and sentence buffering
 - **SQLite Bible database** with FTS5 full-text search (BM25 ranking by default)
-- **10 bundled translations** — KJV, NIV, ESV, NASB, NKJV, NLT, AMP, plus SpaRV (Spanish), FreJND (French), and PorBLivre (Portuguese)
+- **Public-release translations** — KJV, SpaRV (Spanish), FreJND (French), and PorBLivre (Portuguese) ship in the free public installer. NIV, ESV, NASB, NKJV, NLT, and AMP are supported only for licensed/private builds or user-provided data.
 - **Cross-reference lookup** (340k+ refs from openbible.info; the bundled file ships with 344,800 entries)
 - **NDI broadcast output** for live production integration — configurable resolution, 24/30/60 fps, and three alpha modes (none, straight, premultiplied)
 - **Theme designer** — visual canvas editor for verse overlays with backgrounds (solid, gradient, image, transparent), text styling, positioning, shadows, and outlines
@@ -144,7 +144,7 @@ bun run setup:all
 This runs 7 idempotent phases in sequence, skipping any whose output artifacts already exist (pass `--force` to re-run all):
 
 1. Python environment (`.venv` + pip deps: `optimum-onnx[onnxruntime]`, `sentence-transformers`, `accelerate`, `tokenizers`, `numpy`, `torch`, `meaningless`)
-2. Download Bible source data — single bundled archive containing all 10 translations plus the openbible.info cross-references zip
+2. Download Bible source data — public-release builds include redistributable translations only; private/development builds may include additional licensed translations if the developer has the rights to use them.
 3. Build SQLite Bible database (`data/rhema.db` with FTS5 + cross-references)
 4. Download & export ONNX model (`Qwen3-Embedding-0.6B`) + INT8 quantization for ARM64
 5. Export KJV verses to JSON for embedding precomputation
@@ -184,7 +184,8 @@ bun run download:ndi-sdk
 Each phase can also be run independently:
 
 ```bash
-bun run download:bible-data          # Bundled translations + cross-refs
+bun run download:bible-data          # Source translations + cross-refs for local data builds
+bun run build:bible:public           # Build redistributable public-release DB only
 bun run build:bible                  # Build SQLite database
 bun run download:model               # Download & export ONNX model
 bun run export:verses                # Export verses to JSON
@@ -235,7 +236,7 @@ sabbathcue/
 │   ├── prepare-embeddings.ts     # Unified setup orchestrator (bun run setup:all)
 │   ├── lib/python-env.ts         # Shared Python venv management utilities
 │   ├── download-sources.ts       # Download public domain translations + cross-refs
-│   ├── download-biblegateway.py  # Download copyrighted translations (NIV, ESV, etc.)
+│   ├── download-biblegateway.py  # Private/licensed translation import helper; not part of public release packaging
 │   ├── build-bible-db.ts         # Build SQLite DB from JSON sources
 │   ├── compute-embeddings.ts     # Export verses to JSON for embedding
 │   ├── precompute-embeddings.py  # Precompute embeddings (GPU auto-detect, ONNX fallback)
