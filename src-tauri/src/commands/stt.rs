@@ -86,8 +86,8 @@ pub async fn start_transcription(
         #[cfg(feature = "whisper")]
         "whisper" => {
             // Resolve bundled Whisper model path.
-            // Dev: {CARGO_MANIFEST_DIR}/../models/whisper/ggml-large-v3-turbo-q8_0.bin
-            // Prod: resource_dir()/models/whisper/ggml-large-v3-turbo-q8_0.bin
+            // Dev: {CARGO_MANIFEST_DIR}/../models/whisper/ggml-base.en.bin
+            // Prod: resource_dir()/models/whisper/ggml-base.en.bin
             let model_path = asset_paths::whisper_model_path(&app);
             if !model_path.exists() {
                 return Err(format!(

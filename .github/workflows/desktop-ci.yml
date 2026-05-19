@@ -68,8 +68,8 @@ jobs:
       - name: Cache Whisper model
         uses: actions/cache@v4
         with:
-          path: models/whisper/ggml-large-v3-turbo-q8_0.bin
-          key: whisper-ggml-large-v3-turbo-q8-0
+          path: models/whisper/ggml-base.en.bin
+          key: whisper-ggml-base-en
 
       - name: Download Whisper model
         run: bun run download:whisper

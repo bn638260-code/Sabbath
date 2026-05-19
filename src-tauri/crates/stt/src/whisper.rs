@@ -22,7 +22,7 @@ const MAX_BUFFER_SAMPLES: usize = 16_000 * 10;
 
 /// Flush speech to Whisper periodically so live transcription doesn't wait
 /// forever for a silence boundary during continuous speaking.
-const LIVE_CHUNK_SAMPLES: usize = 16_000 * 3;
+const LIVE_CHUNK_SAMPLES: usize = 16_000 * 2;
 
 /// Minimum audio buffer for inference (1.0 seconds).
 /// Whisper warns "input is too short" below 1s.
@@ -276,8 +276,12 @@ impl SttProvider for WhisperProvider {
                 params.set_print_progress(false);
                 params.set_print_special(false);
                 params.set_print_realtime(false);
-                params.set_single_segment(false);
-                params.set_token_timestamps(true);
+                params.set_no_context(true);
+                params.set_no_timestamps(true);
+                params.set_single_segment(true);
+                params.set_token_timestamps(false);
+                params.set_audio_ctx(384);
+                params.set_max_tokens(96);
                 params.set_no_speech_thold(0.6);
                 params.set_suppress_blank(true);
                 params.set_suppress_nst(true);

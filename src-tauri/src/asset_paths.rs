@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use tauri::{AppHandle, Manager};
 
-pub const WHISPER_MODEL_FILENAME: &str = "ggml-large-v3-turbo-q8_0.bin";
+pub const WHISPER_MODEL_FILENAME: &str = "ggml-base.en.bin";
+const WHISPER_MODEL_FALLBACK_FILENAME: &str = "ggml-large-v3-turbo-q8_0.bin";
 
 fn dev_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -34,29 +35,24 @@ pub fn bible_db_path(app: &AppHandle) -> PathBuf {
 }
 
 pub fn whisper_model_path(app: &AppHandle) -> PathBuf {
-    first_existing(
-        [
-            app_data_dir(app)
-                .ok()
-                .map(|p| p.join("models").join("whisper").join(WHISPER_MODEL_FILENAME)),
-            app.path()
-                .resource_dir()
-                .ok()
-                .map(|p| {
-                    p.join("models")
-                        .join("whisper")
-                        .join(WHISPER_MODEL_FILENAME)
-                }),
-            Some(
-                dev_root()
-                    .join("models")
-                    .join("whisper")
-                    .join(WHISPER_MODEL_FILENAME),
-            ),
-        ]
+    let candidates = [WHISPER_MODEL_FILENAME, WHISPER_MODEL_FALLBACK_FILENAME]
         .into_iter()
-        .flatten(),
-    )
+        .flat_map(|filename| {
+            [
+                app_data_dir(app)
+                    .ok()
+                    .map(|p| p.join("models").join("whisper").join(filename)),
+                app.path()
+                    .resource_dir()
+                    .ok()
+                    .map(|p| p.join("models").join("whisper").join(filename)),
+                Some(dev_root().join("models").join("whisper").join(filename)),
+            ]
+            .into_iter()
+            .flatten()
+        });
+
+    first_existing(candidates)
     .unwrap_or_else(|| {
         app_data_dir(app)
             .unwrap_or_else(|_| dev_root())
