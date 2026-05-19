@@ -105,4 +105,14 @@ describe("broadcast store sync", () => {
       }),
     )
   })
+
+  it("stores the reading mode auto-live preference without emitting output", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().setReadingModeAutoLive(false)
+
+    expect(useBroadcastStore.getState().readingModeAutoLive).toBe(false)
+    expect(emitToMock).not.toHaveBeenCalled()
+  })
 })
