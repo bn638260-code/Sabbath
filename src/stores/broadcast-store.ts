@@ -83,13 +83,13 @@ function emitDraftToBroadcast(state: BroadcastState): void {
   if (id === state.activeThemeId) {
     void emitTo("broadcast", "broadcast:verse-update", {
       theme: state.draftTheme,
-      verse: state.liveVerse,
+      verse: state.isLive ? state.liveVerse : null,
     }).catch(() => {})
   }
   if (id === state.altActiveThemeId) {
     void emitTo("broadcast-alt", "broadcast:verse-update", {
       theme: state.draftTheme,
-      verse: state.liveVerse,
+      verse: state.isLive ? state.liveVerse : null,
     }).catch(() => {})
   }
 }
@@ -175,7 +175,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
 
     void emitTo(label, "broadcast:verse-update", {
       theme,
-      verse: s.liveVerse,
+      verse: s.isLive ? s.liveVerse : null,
     }).catch(() => {})
   },
   syncBroadcastOutput: () => {
@@ -190,7 +190,10 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     set({ altActiveThemeId })
     get().syncBroadcastOutputFor("alt")
   },
-  setLive: (isLive) => set({ isLive }),
+  setLive: (isLive) => {
+    set({ isLive })
+    get().syncBroadcastOutput()
+  },
   setLiveVerse: (liveVerse) => {
     set({ liveVerse })
     get().syncBroadcastOutput()
