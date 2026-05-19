@@ -470,54 +470,72 @@ impl SttProvider for DeepgramClient {
                 .await;
 
             let rest_client = crate::rest::DeepgramRestClient::new(self.config.clone());
-            let mut audio_buffer: Vec<i16> = Vec::new();
             let flush_interval = std::time::Duration::from_secs(5);
-            let mut last_flush = std::time::Instant::now();
             let cancelled = self.cancelled.clone();
+            let (rest_audio_tx, mut rest_audio_rx) = mpsc::channel::<Vec<i16>>(4);
 
-            loop {
-                if cancelled.load(Ordering::SeqCst) {
-                    break;
+            let rest_reader = tokio::task::spawn_blocking(move || {
+                let mut audio_buffer: Vec<i16> = Vec::new();
+                let mut last_flush = std::time::Instant::now();
+
+                loop {
+                    if cancelled.load(Ordering::SeqCst) {
+                        if !audio_buffer.is_empty() {
+                            let _ = rest_audio_tx.blocking_send(std::mem::take(&mut audio_buffer));
+                        }
+                        break;
+                    }
+
+                    match audio_rx.recv_timeout(Duration::from_millis(100)) {
+                        Ok(samples) => {
+                            audio_buffer.extend(samples);
+
+                            if last_flush.elapsed() >= flush_interval && !audio_buffer.is_empty() {
+                                if rest_audio_tx
+                                    .blocking_send(std::mem::take(&mut audio_buffer))
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                                last_flush = std::time::Instant::now();
+                            }
+                        }
+                        Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                            if last_flush.elapsed() >= flush_interval && !audio_buffer.is_empty() {
+                                if rest_audio_tx
+                                    .blocking_send(std::mem::take(&mut audio_buffer))
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                                last_flush = std::time::Instant::now();
+                            }
+                        }
+                        Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
+                            if !audio_buffer.is_empty() {
+                                let _ =
+                                    rest_audio_tx.blocking_send(std::mem::take(&mut audio_buffer));
+                            }
+                            break;
+                        }
+                    }
                 }
+            });
 
-                match audio_rx.recv_timeout(Duration::from_millis(100)) {
-                    Ok(samples) => {
-                        audio_buffer.extend(samples);
-
-                        if last_flush.elapsed() >= flush_interval && !audio_buffer.is_empty() {
-                            match rest_client.transcribe(&audio_buffer).await {
-                                Ok(events) => {
-                                    for evt in events {
-                                        let _ = event_tx.send(evt).await;
-                                    }
-                                }
-                                Err(e) => {
-                                    log::error!("[STT-REST] Transcription failed: {e}");
-                                }
-                            }
-                            audio_buffer.clear();
-                            last_flush = std::time::Instant::now();
+            while let Some(samples) = rest_audio_rx.recv().await {
+                match rest_client.transcribe(&samples).await {
+                    Ok(events) => {
+                        for evt in events {
+                            let _ = event_tx.send(evt).await;
                         }
                     }
-                    Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                        if last_flush.elapsed() >= flush_interval && !audio_buffer.is_empty() {
-                            match rest_client.transcribe(&audio_buffer).await {
-                                Ok(events) => {
-                                    for evt in events {
-                                        let _ = event_tx.send(evt).await;
-                                    }
-                                }
-                                Err(e) => {
-                                    log::error!("[STT-REST] Transcription failed: {e}");
-                                }
-                            }
-                            audio_buffer.clear();
-                            last_flush = std::time::Instant::now();
-                        }
+                    Err(e) => {
+                        log::error!("[STT-REST] Transcription failed: {e}");
                     }
-                    Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
                 }
             }
+
+            let _ = rest_reader.await;
         }
 
         Ok(())
