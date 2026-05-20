@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use tauri::{AppHandle, Manager};
 
-pub const WHISPER_MODEL_FILENAME: &str = "ggml-base.en.bin";
-const WHISPER_MODEL_FALLBACK_FILENAME: &str = "ggml-large-v3-turbo-q8_0.bin";
+pub const WHISPER_MODEL_FILENAME: &str = "ggml-tiny.en.bin";
+const WHISPER_MODEL_FALLBACK_FILENAMES: [&str; 2] =
+    ["ggml-base.en.bin", "ggml-large-v3-turbo-q8_0.bin"];
 
 fn dev_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -32,7 +33,8 @@ pub fn bible_db_path(app: &AppHandle) -> PathBuf {
 }
 
 pub fn whisper_model_path(app: &AppHandle) -> PathBuf {
-    let candidates = [WHISPER_MODEL_FILENAME, WHISPER_MODEL_FALLBACK_FILENAME]
+    let candidates = std::iter::once(WHISPER_MODEL_FILENAME)
+        .chain(WHISPER_MODEL_FALLBACK_FILENAMES)
         .into_iter()
         .flat_map(|filename| {
             [

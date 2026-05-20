@@ -1,7 +1,7 @@
 /**
- * Downloads the Whisper base.en GGML model for local speech-to-text.
+ * Downloads the Whisper tiny.en GGML model for local speech-to-text.
  *
- * Model: ggml-base.en.bin (~148MB)
+ * Model: ggml-tiny.en.bin (~75MB)
  * Source: https://huggingface.co/ggerganov/whisper.cpp
  *
  * Run: bun run download:whisper
@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, createWriteStream } from "node:fs"
 
 const PROJECT_ROOT = join(import.meta.dir, "..")
 const MODELS_DIR = join(PROJECT_ROOT, "models", "whisper")
-const MODEL_FILE = "ggml-base.en.bin"
+const MODEL_FILE = "ggml-tiny.en.bin"
 const MODEL_PATH = join(MODELS_DIR, MODEL_FILE)
 const MODEL_URL = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_FILE}`
 

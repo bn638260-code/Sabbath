@@ -102,8 +102,8 @@ impl WhisperProfile {
 
     pub(crate) const fn live_chunk_samples(self) -> usize {
         match self {
-            Self::Fast => 16_000,
-            Self::Balanced => 16_000 * 2,
+            Self::Fast => 16_000 + 4_000,
+            Self::Balanced => (16_000 * 2) + 4_000,
         }
     }
 
