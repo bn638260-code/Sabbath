@@ -8,7 +8,7 @@ import { toVerseRenderData } from "@/hooks/use-broadcast"
 import { commitPreviewToLive } from "@/lib/presentation-workflow"
 import { useBibleStore } from "@/stores/bible-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
-import { MonitorIcon, SendIcon } from "lucide-react"
+import { MonitorIcon, SendIcon, XIcon } from "lucide-react"
 
 export function PreviewPanel() {
   const selectedVerse = useBibleStore((s) => s.selectedVerse)
@@ -16,6 +16,8 @@ export function PreviewPanel() {
   const activeTranslationId = useBibleStore((s) => s.activeTranslationId)
   const themes = useBroadcastStore((s) => s.themes)
   const activeThemeId = useBroadcastStore((s) => s.activeThemeId)
+  const isLive = useBroadcastStore((s) => s.isLive)
+  const readingModeAutoLive = useBroadcastStore((s) => s.readingModeAutoLive)
 
   useEffect(() => {
     const verse = useBibleStore.getState().selectedVerse
@@ -43,6 +45,12 @@ export function PreviewPanel() {
     () => (selectedVerse ? toVerseRenderData(selectedVerse, translation) : null),
     [selectedVerse, translation],
   )
+  const clearPreviewBlocked = isLive && readingModeAutoLive
+
+  const clearPreview = () => {
+    if (clearPreviewBlocked) return
+    useBibleStore.getState().selectVerse(null)
+  }
 
   return (
     <div
@@ -65,15 +73,32 @@ export function PreviewPanel() {
           </p>
         </div>
 
-        <Button
-          size="sm"
-          disabled={!verseData}
-          className="gap-1.5"
-          onClick={() => commitPreviewToLive()}
-        >
-          <SendIcon className="size-3.5" />
-          Send Live
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!verseData || clearPreviewBlocked}
+            className="gap-1.5"
+            onClick={clearPreview}
+            title={
+              clearPreviewBlocked
+                ? "Turn off Auto-live reading mode or hide Live Output before clearing preview"
+                : "Clear preview"
+            }
+          >
+            <XIcon className="size-3.5" />
+            Clear
+          </Button>
+          <Button
+            size="sm"
+            disabled={!verseData}
+            className="gap-1.5"
+            onClick={() => commitPreviewToLive()}
+          >
+            <SendIcon className="size-3.5" />
+            Send Live
+          </Button>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 items-center justify-center p-3">
