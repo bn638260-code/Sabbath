@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { CanvasVerse } from "@/components/ui/canvas-verse"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { Switch } from "@/components/ui/switch"
+import { isPanelFullscreen, togglePanelFullscreen } from "@/components/panels/live-output-panel-fullscreen"
 import { commitPreviewToLive } from "@/lib/presentation-workflow"
 import { cn } from "@/lib/utils"
 import { useBibleStore } from "@/stores/bible-store"
@@ -37,11 +38,11 @@ export function LiveOutputPanel() {
     if (!panel) return
 
     try {
-      if (document.fullscreenElement === panel) {
-        await document.exitFullscreen()
-      } else {
-        await panel.requestFullscreen()
-      }
+      await togglePanelFullscreen(
+        panel,
+        document.fullscreenElement,
+        () => document.exitFullscreen(),
+      )
     } catch (error) {
       toast.error("Fullscreen failed", {
         description: String(error),
@@ -51,7 +52,7 @@ export function LiveOutputPanel() {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement === panelRef.current)
+      setIsFullscreen(isPanelFullscreen(panelRef.current, document.fullscreenElement))
     }
 
     document.addEventListener("fullscreenchange", handleFullscreenChange)

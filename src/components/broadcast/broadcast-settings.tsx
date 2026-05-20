@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { buildOpenBroadcastWindowArgs, clampMonitorIndex } from "@/components/broadcast/broadcast-settings-wiring"
 import { cn } from "@/lib/utils"
 import { useAssets } from "@/hooks/use-assets"
 import { useBroadcastStore } from "@/stores/broadcast-store"
@@ -201,8 +202,8 @@ export function BroadcastSettings({
       const result = await invoke<MonitorInfo[]>("list_monitors")
       setMonitors(result)
       // Validate and clamp saved monitor indices
-      const mainIndex = Math.min(mainDisplayMonitorIndex, Math.max(0, result.length - 1))
-      const altIndex = Math.min(altDisplayMonitorIndex, Math.max(0, result.length - 1))
+      const mainIndex = clampMonitorIndex(mainDisplayMonitorIndex, result.length)
+      const altIndex = clampMonitorIndex(altDisplayMonitorIndex, result.length)
       setSelectedMonitor(String(mainIndex))
       setAltSelectedMonitor(String(altIndex))
       useBroadcastStore.getState().setMainDisplayMonitorIndex(mainIndex)
@@ -293,9 +294,7 @@ export function BroadcastSettings({
         setIsPreviewOpen(await reconcilePreviewState("main"))
       } else {
         await invoke("open_broadcast_window", {
-          outputId: "main",
-          monitorIndex: Number(selectedMonitor),
-          fullscreen: mainProjectorFullscreen,
+          ...buildOpenBroadcastWindowArgs("main", selectedMonitor, mainProjectorFullscreen),
         })
         const opened = await reconcilePreviewState("main")
         setIsPreviewOpen(opened)
@@ -395,9 +394,7 @@ export function BroadcastSettings({
         setAltIsPreviewOpen(await reconcilePreviewState("alt"))
       } else {
         await invoke("open_broadcast_window", {
-          outputId: "alt",
-          monitorIndex: Number(altSelectedMonitor),
-          fullscreen: altProjectorFullscreen,
+          ...buildOpenBroadcastWindowArgs("alt", altSelectedMonitor, altProjectorFullscreen),
         })
         const opened = await reconcilePreviewState("alt")
         setAltIsPreviewOpen(opened)
