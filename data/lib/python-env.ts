@@ -118,6 +118,15 @@ export async function ensurePythonEnv(
 ): Promise<string> {
   console.log("\n🐍 Setting up Python environment...\n")
 
+  const venvPython = getVenvBin(
+    process.platform === "win32" ? "python" : "python3"
+  )
+  if (existsSync(venvPython)) {
+    console.log(`  ⏭ Virtual environment already exists at ${VENV_DIR}`)
+    await installPipDeps(packages)
+    return venvPython
+  }
+
   const pythonCmd = await findPython()
 
   const versionProc = Bun.spawn([pythonCmd, "--version"], {
@@ -139,5 +148,5 @@ export async function ensurePythonEnv(
   await ensureVenv(pythonCmd)
   await installPipDeps(packages)
 
-  return getVenvBin(process.platform === "win32" ? "python" : "python3")
+  return venvPython
 }

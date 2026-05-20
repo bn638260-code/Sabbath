@@ -110,7 +110,7 @@ pub async fn start_transcription(
             let parallelism = std::thread::available_parallelism()
                 .map_or(4, usize::from);
             let profile_log = whisper_profile.as_deref().unwrap_or("balanced");
-            let n_threads = i32::try_from(parallelism / 2).unwrap_or(2).max(1);
+            let n_threads = i32::try_from(parallelism).unwrap_or(4).max(1);
 
             log::info!(
                 "Starting Whisper transcription: model={}, profile={profile_log}, threads={n_threads}, device_id={device_id:?}",

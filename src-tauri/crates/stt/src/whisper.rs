@@ -5,8 +5,8 @@
 //! [`TranscriptEvent`] types as the Deepgram provider.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::Receiver;
@@ -25,9 +25,8 @@ const MAX_BUFFER_SAMPLES: usize = 16_000 * 10;
 /// Minimum audio buffer for inference (1.0 seconds).
 /// Whisper warns "input is too short" below 1s.
 const MIN_BUFFER_SAMPLES: usize = 16_000;
-const WHISPER_PROMPT_PREAMBLE: &str =
-    "Sermon and Bible reading transcription. Common words: Jesus, Christ, God, Lord, Holy Spirit, Genesis, Exodus, Psalms, Proverbs, Matthew, Mark, Luke, John, Romans, Corinthians, Revelation.";
-const MAX_ROLLING_PROMPT_CHARS: usize = 640;
+const WHISPER_PROMPT_PREAMBLE: &str = "Sermon and Bible reading transcription. Spell Bible references and book names exactly. Common Bible words: Jesus, Christ, God, Lord, Holy Spirit, Genesis, Exodus, Leviticus, Numbers, Deuteronomy, Joshua, Judges, Ruth, Samuel, Kings, Chronicles, Ezra, Nehemiah, Esther, Job, Psalms, Proverbs, Ecclesiastes, Song of Solomon, Isaiah, Jeremiah, Lamentations, Ezekiel, Daniel, Hosea, Joel, Amos, Obadiah, Jonah, Micah, Nahum, Habakkuk, Zephaniah, Haggai, Zechariah, Malachi, Matthew, Mark, Luke, John, Acts, Romans, Corinthians, Galatians, Ephesians, Philippians, Colossians, Thessalonians, Timothy, Titus, Philemon, Hebrews, James, Peter, Jude, Revelation.";
+const MAX_ROLLING_PROMPT_CHARS: usize = 1_200;
 const MAX_ROLLING_TRANSCRIPTS: usize = 6;
 const ROLLING_PROMPT_MAX_AGE: Duration = Duration::from_secs(45);
 
@@ -105,14 +104,30 @@ impl WhisperProfile {
 
     pub(crate) const fn live_chunk_samples(self) -> usize {
         match self {
-            Self::Fast => 16_000 * 2,
-            Self::Balanced => 16_000 * 3,
+            Self::Fast => 16_000,
+            Self::Balanced => 16_000 * 2,
             Self::Accurate => 16_000 * 6,
         }
     }
 
     pub(crate) const fn uses_latency_decoder(self) -> bool {
-        matches!(self, Self::Fast)
+        matches!(self, Self::Fast | Self::Balanced)
+    }
+
+    pub(crate) const fn audio_ctx(self) -> i32 {
+        match self {
+            Self::Fast => 384,
+            Self::Balanced => 768,
+            Self::Accurate => 0,
+        }
+    }
+
+    pub(crate) const fn max_tokens(self) -> i32 {
+        match self {
+            Self::Fast => 64,
+            Self::Balanced => 96,
+            Self::Accurate => 0,
+        }
     }
 }
 
@@ -405,8 +420,8 @@ impl SttProvider for WhisperProvider {
                     params.set_no_timestamps(true);
                     params.set_single_segment(true);
                     params.set_token_timestamps(false);
-                    params.set_audio_ctx(768);
-                    params.set_max_tokens(96);
+                    params.set_audio_ctx(profile.audio_ctx());
+                    params.set_max_tokens(profile.max_tokens());
                 } else {
                     params.set_no_context(true);
                     params.set_n_max_text_ctx(0);
@@ -489,8 +504,10 @@ mod tests {
         assert!(fast.live_chunk_samples() < balanced.live_chunk_samples());
         assert!(balanced.live_chunk_samples() < accurate.live_chunk_samples());
         assert!(fast.uses_latency_decoder());
-        assert!(!balanced.uses_latency_decoder());
+        assert!(balanced.uses_latency_decoder());
         assert!(!accurate.uses_latency_decoder());
+        assert!(fast.audio_ctx() < balanced.audio_ctx());
+        assert_eq!(accurate.audio_ctx(), 0);
     }
 
     #[test]
@@ -502,6 +519,8 @@ mod tests {
 
         let text = prompt.prompt();
         assert!(text.contains("Jesus"));
+        assert!(text.contains("Zechariah"));
+        assert!(text.contains("Malachi"));
         assert!(text.contains("segment 9"));
         assert!(!text.contains("segment 0"));
         assert!(text.len() <= MAX_ROLLING_PROMPT_CHARS);

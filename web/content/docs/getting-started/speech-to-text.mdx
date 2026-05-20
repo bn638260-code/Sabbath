@@ -30,7 +30,7 @@ through the `whisper-rs = "0.16"` Rust crate (gated behind the
 `whisper` feature on `rhema-stt`). The first `cargo build` compiles
 the C++ source via `bindgen`.
 
-The model file (`ggml-large-v3-turbo-q8_0.bin`) is downloaded once
+The model file (`ggml-base.en.bin`) is downloaded once
 into `models/whisper/` as **phase 7** of `setup:all`. If you skipped
 or interrupted that phase, run it on its own:
 

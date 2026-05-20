@@ -31,7 +31,13 @@
     "targets": "all",
     "resources": {
       "../data/rhema.db": "rhema.db",
-      "../models/whisper/ggml-base.en.bin": "models/whisper/ggml-base.en.bin"
+      "../models/whisper/ggml-base.en.bin": "models/whisper/ggml-base.en.bin",
+      "../models/qwen3-embedding-0.6b/onnx/model.onnx": "models/qwen3-embedding-0.6b/onnx/model.onnx",
+      "../models/qwen3-embedding-0.6b/onnx/model.onnx_data": "models/qwen3-embedding-0.6b/onnx/model.onnx_data",
+      "../models/qwen3-embedding-0.6b/tokenizer.json": "models/qwen3-embedding-0.6b/tokenizer.json",
+      "../models/qwen3-embedding-0.6b-int8/onnx/model_quantized.onnx": "models/qwen3-embedding-0.6b-int8/onnx/model_quantized.onnx",
+      "../embeddings/kjv-qwen3-0.6b.bin": "embeddings/kjv-qwen3-0.6b.bin",
+      "../embeddings/kjv-qwen3-0.6b-ids.bin": "embeddings/kjv-qwen3-0.6b-ids.bin"
     },
     "icon": [
       "icons/32x32.png",

@@ -36,8 +36,8 @@ repository's top-level `package.json`.
 | `precompute:embeddings` | Precompute embeddings via the `rhema-detection` Rust ONNX binary (recommended) |
 | `precompute:embeddings-onnx` | Same, but via Python ONNX Runtime |
 | `precompute:embeddings-py` | Same, but via Python sentence-transformers (GPU path) |
-| `quantize:model` | Quantize ONNX model to INT8 for ARM64 (`optimum-cli onnxruntime quantize --arm64`) |
-| `download:whisper` | Download `ggml-large-v3-turbo-q8_0.bin` for local Whisper STT |
+| `quantize:model` | Re-run the Qwen3 ONNX export and INT8 quantization |
+| `download:whisper` | Download `ggml-base.en.bin` for local Whisper STT |
 | `download:ndi-sdk` | Download NDI 6 SDK headers and platform libraries |
 
 ## Web subsite scripts

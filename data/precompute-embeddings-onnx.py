@@ -29,8 +29,8 @@ EMB_OUT = ROOT / "embeddings" / "kjv-qwen3-0.6b.bin"
 IDS_OUT = ROOT / "embeddings" / "kjv-qwen3-0.6b-ids.bin"
 
 # Try INT8 first, fall back to FP32
-MODEL_INT8 = ROOT / "models" / "qwen3-embedding-0.6b-int8" / "model_quantized.onnx"
-MODEL_FP32 = ROOT / "models" / "qwen3-embedding-0.6b" / "model.onnx"
+MODEL_INT8 = ROOT / "models" / "qwen3-embedding-0.6b-int8" / "onnx" / "model_quantized.onnx"
+MODEL_FP32 = ROOT / "models" / "qwen3-embedding-0.6b" / "onnx" / "model.onnx"
 TOKENIZER_PATH = ROOT / "models" / "qwen3-embedding-0.6b" / "tokenizer.json"
 
 MAX_LENGTH = 128  # Bible verses are short (~20 tokens avg). 128 is plenty and 4x faster than 512.

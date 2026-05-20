@@ -2,7 +2,7 @@
 //!
 //! Usage:
 //!   cargo run -p rhema-detection --features onnx,vector-search --bin precompute -- \
-//!     --model models/qwen3-embedding-0.6b/model.onnx \
+//!     --model models/qwen3-embedding-0.6b-int8/onnx/model_quantized.onnx \
 //!     --tokenizer models/qwen3-embedding-0.6b/tokenizer.json \
 //!     --verses data/verses-for-embedding.json \
 //!     --output-embeddings embeddings/kjv-qwen3-0.6b.bin \
@@ -16,12 +16,13 @@ fn main() {
 
     let args: Vec<String> = std::env::args().collect();
 
-    let model_path = get_arg(&args, "--model")
-        .unwrap_or_else(|| "models/qwen3-embedding-0.6b/model.onnx".to_string());
+    let model_path = get_arg(&args, "--model").unwrap_or_else(|| {
+        "models/qwen3-embedding-0.6b-int8/onnx/model_quantized.onnx".to_string()
+    });
     let tokenizer_path = get_arg(&args, "--tokenizer")
         .unwrap_or_else(|| "models/qwen3-embedding-0.6b/tokenizer.json".to_string());
-    let verses_path = get_arg(&args, "--verses")
-        .unwrap_or_else(|| "data/verses-for-embedding.json".to_string());
+    let verses_path =
+        get_arg(&args, "--verses").unwrap_or_else(|| "data/verses-for-embedding.json".to_string());
     let output_embeddings = get_arg(&args, "--output-embeddings")
         .unwrap_or_else(|| "embeddings/kjv-qwen3-0.6b.bin".to_string());
     let output_ids = get_arg(&args, "--output-ids")

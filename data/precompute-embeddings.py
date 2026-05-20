@@ -32,10 +32,11 @@ VERSES_PATH = ROOT / "data" / "verses-for-embedding.json"
 EMB_OUT = ROOT / "embeddings" / "kjv-qwen3-0.6b.bin"
 IDS_OUT = ROOT / "embeddings" / "kjv-qwen3-0.6b-ids.bin"
 MODEL_NAME = "Qwen/Qwen3-Embedding-0.6B"
+LOCAL_MODEL_DIR = ROOT / "models" / "qwen3-embedding-0.6b"
 
 # ONNX model paths (for fallback)
-MODEL_INT8 = ROOT / "models" / "qwen3-embedding-0.6b-int8" / "model_quantized.onnx"
-MODEL_FP32 = ROOT / "models" / "qwen3-embedding-0.6b" / "model.onnx"
+MODEL_INT8 = ROOT / "models" / "qwen3-embedding-0.6b-int8" / "onnx" / "model_quantized.onnx"
+MODEL_FP32 = ROOT / "models" / "qwen3-embedding-0.6b" / "onnx" / "model.onnx"
 TOKENIZER_PATH = ROOT / "models" / "qwen3-embedding-0.6b" / "tokenizer.json"
 
 MAX_LENGTH = 128
@@ -56,10 +57,11 @@ def encode_with_sentence_transformers(texts):
         device = "cpu"
 
     print(f"Backend: sentence-transformers ({device})")
-    print(f"Model:   {MODEL_NAME}")
+    model_name_or_path = str(LOCAL_MODEL_DIR) if LOCAL_MODEL_DIR.exists() else MODEL_NAME
+    print(f"Model:   {model_name_or_path}")
 
     print(f"\nLoading model (may download on first run)...")
-    model = SentenceTransformer(MODEL_NAME, device=device)
+    model = SentenceTransformer(model_name_or_path, device=device)
     dim = model.get_embedding_dimension()
     print(f"  Embedding dimension: {dim}")
 
@@ -183,12 +185,12 @@ def main():
     ids = [e["id"] for e in entries]
     texts = [e["text"] for e in entries]
 
-    # Try GPU path first, fall back to ONNX
+    # Try GPU/CPU sentence-transformers first, fall back to the local ONNX model.
     try:
         import torch
         all_embeddings = encode_with_sentence_transformers(texts)
-    except ImportError:
-        print("  torch not available, falling back to ONNX Runtime...")
+    except Exception as err:
+        print(f"  sentence-transformers unavailable ({err}), falling back to ONNX Runtime...")
         all_embeddings = encode_with_onnx(texts)
 
     dim = all_embeddings.shape[1]

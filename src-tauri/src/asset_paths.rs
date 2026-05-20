@@ -22,10 +22,7 @@ pub fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
 pub fn bible_db_path(app: &AppHandle) -> PathBuf {
     first_existing(
         [
-            app.path()
-                .resource_dir()
-                .ok()
-                .map(|p| p.join("rhema.db")),
+            app.path().resource_dir().ok().map(|p| p.join("rhema.db")),
             Some(dev_root().join("data").join("rhema.db")),
         ]
         .into_iter()
@@ -52,8 +49,7 @@ pub fn whisper_model_path(app: &AppHandle) -> PathBuf {
             .flatten()
         });
 
-    first_existing(candidates)
-    .unwrap_or_else(|| {
+    first_existing(candidates).unwrap_or_else(|| {
         app_data_dir(app)
             .unwrap_or_else(|_| dev_root())
             .join("models")
@@ -68,33 +64,39 @@ pub fn onnx_model_path(app: &AppHandle) -> PathBuf {
             app_data_dir(app).ok().map(|p| {
                 p.join("models")
                     .join("qwen3-embedding-0.6b-int8")
+                    .join("onnx")
                     .join("model_quantized.onnx")
             }),
             app.path().resource_dir().ok().map(|p| {
                 p.join("models")
                     .join("qwen3-embedding-0.6b-int8")
+                    .join("onnx")
                     .join("model_quantized.onnx")
             }),
             Some(
                 dev_root()
                     .join("models")
                     .join("qwen3-embedding-0.6b-int8")
+                    .join("onnx")
                     .join("model_quantized.onnx"),
             ),
             app_data_dir(app).ok().map(|p| {
                 p.join("models")
                     .join("qwen3-embedding-0.6b")
+                    .join("onnx")
                     .join("model.onnx")
             }),
             app.path().resource_dir().ok().map(|p| {
                 p.join("models")
                     .join("qwen3-embedding-0.6b")
+                    .join("onnx")
                     .join("model.onnx")
             }),
             Some(
                 dev_root()
                     .join("models")
                     .join("qwen3-embedding-0.6b")
+                    .join("onnx")
                     .join("model.onnx"),
             ),
         ]
@@ -106,6 +108,7 @@ pub fn onnx_model_path(app: &AppHandle) -> PathBuf {
             .unwrap_or_else(|_| dev_root())
             .join("models")
             .join("qwen3-embedding-0.6b-int8")
+            .join("onnx")
             .join("model_quantized.onnx")
     })
 }

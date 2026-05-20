@@ -42,8 +42,9 @@ const VERSES_JSON = join(DATA_DIR, "verses-for-embedding.json")
 const EMB_BIN = join(PROJECT_ROOT, "embeddings", "kjv-qwen3-0.6b.bin")
 const IDS_BIN = join(PROJECT_ROOT, "embeddings", "kjv-qwen3-0.6b-ids.bin")
 const WHISPER_MODEL = join(PROJECT_ROOT, "models", "whisper", "ggml-base.en.bin")
-const MODEL_ONNX = join(MODELS_DIR, "model.onnx")
-const MODEL_INT8 = join(MODELS_DIR_INT8, "model_quantized.onnx")
+const MODEL_ONNX = join(MODELS_DIR, "onnx", "model.onnx")
+const MODEL_ONNX_DATA = join(MODELS_DIR, "onnx", "model.onnx_data")
+const MODEL_INT8 = join(MODELS_DIR_INT8, "onnx", "model_quantized.onnx")
 
 const force = process.argv.includes("--force")
 
@@ -115,49 +116,15 @@ async function main() {
 
   // ── Phase 4: ONNX model download + quantize ────────────────────
   console.log("\n━━━ Phase 4/7: ONNX model download & quantize ━━━")
-  if (!shouldSkip("ONNX models", MODEL_ONNX, MODEL_INT8)) {
-    const optimumCli = getVenvBin("optimum-cli")
-
-    // Export FP32
-    if (force || !existsSync(MODEL_ONNX)) {
-      console.log(
-        "\n  🧠 Exporting Qwen3-Embedding-0.6B to ONNX (feature-extraction)..."
-      )
-      console.log("     This may take a few minutes on first run.\n")
-      await run([
-        optimumCli,
-        "export",
-        "onnx",
-        "--model",
-        "Qwen/Qwen3-Embedding-0.6B",
-        "--task",
-        "feature-extraction",
-        MODELS_DIR,
-      ])
-      console.log(`  ✓ Model exported to ${MODELS_DIR}`)
-    }
-
-    // Quantize to INT8
-    if (force || !existsSync(MODEL_INT8)) {
-      console.log("\n  ⚡ Quantizing to INT8 (ARM64)...")
-      try {
-        await run([
-          optimumCli,
-          "onnxruntime",
-          "quantize",
-          "--onnx_model",
-          MODELS_DIR,
-          "--arm64",
-          "-o",
-          MODELS_DIR_INT8,
-        ])
-        console.log(`  ✓ INT8 model saved to ${MODELS_DIR_INT8}`)
-      } catch {
-        console.error(
-          "  ⚠️  Quantization failed. The FP32 model is still usable."
-        )
-      }
-    }
+  if (!shouldSkip("ONNX models", MODEL_ONNX, MODEL_ONNX_DATA, MODEL_INT8)) {
+    const venvPython = getVenvBin(
+      process.platform === "win32" ? "python" : "python3"
+    )
+    await run(
+      [venvPython, join(DATA_DIR, "export-qwen3-onnx.py")],
+      undefined,
+      { PYTHONUTF8: "1" }
+    )
   }
 
   // ── Phase 5: Export verses to JSON ─────────────────────────────
