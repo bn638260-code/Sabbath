@@ -144,7 +144,7 @@ pub async fn start_transcription(
                 model: "nova-3".to_string(),
                 sample_rate: 16_000,
                 encoding: "linear16".to_string(),
-                language: None,
+                language: Some("en-US".to_string()),
             };
 
             Box::new(DeepgramClient::new(stt_config))
@@ -155,7 +155,7 @@ pub async fn start_transcription(
     audio_active.store(true, Ordering::SeqCst);
 
     // ── 3. Prepare channels ─────────────────────────────────────────────
-    let (audio_send_tx, audio_send_rx) = crossbeam_channel::bounded::<Vec<i16>>(64);
+    let (audio_send_tx, audio_send_rx) = crossbeam_channel::bounded::<Vec<i16>>(128);
 
     // ── 4. Spawn the audio-capture + fan-out thread ─────────────────────
     // cpal's `Stream` (inside `AudioCapture`) is !Send, so we must create
@@ -192,7 +192,7 @@ pub async fn start_transcription(
                     gain: gain_val,
                 };
 
-                let (audio_tx, audio_rx) = crossbeam_channel::bounded::<AudioFrame>(64);
+                let (audio_tx, audio_rx) = crossbeam_channel::bounded::<AudioFrame>(128);
                 device_lost.store(false, Ordering::SeqCst);
 
                 let capture = match rhema_audio::capture::start(
@@ -277,8 +277,14 @@ pub async fn start_transcription(
                                 );
                             }
 
-                            // (b) Forward all audio to STT provider
-                            let _ = audio_send_tx.try_send(frame.samples);
+                            // (b) Forward all audio to STT provider. A short timeout avoids
+                            // silently dropping speech during transient provider backpressure.
+                            if audio_send_tx
+                                .send_timeout(frame.samples, Duration::from_millis(20))
+                                .is_err()
+                            {
+                                log::warn!("[AUDIO] Dropped STT frame: provider queue full");
+                            }
                         }
                         Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
                         Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {

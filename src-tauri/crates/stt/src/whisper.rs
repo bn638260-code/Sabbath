@@ -44,26 +44,14 @@ impl WhisperProfile {
 
     pub(crate) const fn live_chunk_samples(self) -> usize {
         match self {
-            Self::Fast => 16_000,
-            Self::Balanced => 16_000 * 2,
-            Self::Accurate => 16_000 * 3,
+            Self::Fast => 16_000 * 2,
+            Self::Balanced => 16_000 * 3,
+            Self::Accurate => 16_000 * 6,
         }
     }
 
-    pub(crate) const fn audio_ctx(self) -> i32 {
-        match self {
-            Self::Fast => 256,
-            Self::Balanced => 384,
-            Self::Accurate => 768,
-        }
-    }
-
-    pub(crate) const fn max_tokens(self) -> i32 {
-        match self {
-            Self::Fast => 64,
-            Self::Balanced => 96,
-            Self::Accurate => 144,
-        }
+    pub(crate) const fn uses_latency_decoder(self) -> bool {
+        matches!(self, Self::Fast)
     }
 }
 
@@ -343,12 +331,20 @@ impl SttProvider for WhisperProvider {
                 params.set_print_progress(false);
                 params.set_print_special(false);
                 params.set_print_realtime(false);
-                params.set_no_context(true);
-                params.set_no_timestamps(true);
-                params.set_single_segment(true);
-                params.set_token_timestamps(false);
-                params.set_audio_ctx(profile.audio_ctx());
-                params.set_max_tokens(profile.max_tokens());
+                if profile.uses_latency_decoder() {
+                    params.set_no_context(false);
+                    params.set_n_max_text_ctx(224);
+                    params.set_no_timestamps(true);
+                    params.set_single_segment(true);
+                    params.set_token_timestamps(false);
+                    params.set_audio_ctx(384);
+                    params.set_max_tokens(96);
+                } else {
+                    params.set_no_context(false);
+                    params.set_no_timestamps(false);
+                    params.set_single_segment(false);
+                    params.set_token_timestamps(true);
+                }
                 params.set_no_speech_thold(0.6);
                 params.set_suppress_blank(true);
                 params.set_suppress_nst(true);
@@ -415,16 +411,15 @@ mod tests {
     }
 
     #[test]
-    fn profiles_trade_latency_for_context_and_tokens() {
+    fn profiles_trade_latency_for_phrase_context() {
         let fast = WhisperProfile::Fast;
         let balanced = WhisperProfile::Balanced;
         let accurate = WhisperProfile::Accurate;
 
         assert!(fast.live_chunk_samples() < balanced.live_chunk_samples());
         assert!(balanced.live_chunk_samples() < accurate.live_chunk_samples());
-        assert!(fast.audio_ctx() < balanced.audio_ctx());
-        assert!(balanced.audio_ctx() < accurate.audio_ctx());
-        assert!(fast.max_tokens() < balanced.max_tokens());
-        assert!(balanced.max_tokens() < accurate.max_tokens());
+        assert!(fast.uses_latency_decoder());
+        assert!(!balanced.uses_latency_decoder());
+        assert!(!accurate.uses_latency_decoder());
     }
 }

@@ -125,17 +125,16 @@ pub fn start(
     let stream = match sample_format {
         SampleFormat::I16 => {
             let sender = sender.clone();
+            let mut processor = AudioProcessor::new(
+                source_channels,
+                source_sample_rate,
+                target_sample_rate,
+                gain,
+            );
             device.build_input_stream(
                 &stream_config,
                 move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                    process_and_send(
-                        data,
-                        source_channels,
-                        source_sample_rate,
-                        target_sample_rate,
-                        gain,
-                        &sender,
-                    );
+                    processor.process_i16_and_send(data, &sender);
                 },
                 make_err_fn(),
                 None,
@@ -143,6 +142,12 @@ pub fn start(
         }
         SampleFormat::F32 => {
             let sender = sender.clone();
+            let mut processor = AudioProcessor::new(
+                source_channels,
+                source_sample_rate,
+                target_sample_rate,
+                gain,
+            );
             device.build_input_stream(
                 &stream_config,
                 move |data: &[f32], _: &cpal::InputCallbackInfo| {
@@ -158,14 +163,7 @@ pub fn start(
                             (clamped * f32::from(i16::MAX)) as i16
                         })
                         .collect();
-                    process_and_send(
-                        &i16_data,
-                        source_channels,
-                        source_sample_rate,
-                        target_sample_rate,
-                        gain,
-                        &sender,
-                    );
+                    processor.process_i16_and_send(&i16_data, &sender);
                 },
                 make_err_fn(),
                 None,
@@ -173,6 +171,12 @@ pub fn start(
         }
         SampleFormat::U16 => {
             let sender = sender.clone();
+            let mut processor = AudioProcessor::new(
+                source_channels,
+                source_sample_rate,
+                target_sample_rate,
+                gain,
+            );
             device.build_input_stream(
                 &stream_config,
                 move |data: &[u16], _: &cpal::InputCallbackInfo| {
@@ -185,14 +189,7 @@ pub fn start(
                         .iter()
                         .map(|&s| (i32::from(s) - 32768) as i16)
                         .collect();
-                    process_and_send(
-                        &i16_data,
-                        source_channels,
-                        source_sample_rate,
-                        target_sample_rate,
-                        gain,
-                        &sender,
-                    );
+                    processor.process_i16_and_send(&i16_data, &sender);
                 },
                 make_err_fn(),
                 None,
@@ -213,96 +210,181 @@ pub fn start(
     Ok(AudioCapture { stream })
 }
 
-/// Downmix to mono, apply gain, resample to target rate, and send as `AudioFrame`.
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "audio sample conversions are intentionally truncating"
-)]
-#[expect(clippy::cast_possible_wrap, reason = "channel count fits in i32")]
-fn process_and_send(
-    samples: &[i16],
+struct AudioProcessor {
     source_channels: usize,
     source_rate: u32,
     target_rate: u32,
     gain: f32,
-    sender: &Sender<AudioFrame>,
-) {
-    if samples.is_empty() {
-        return;
-    }
-
-    // Downmix to mono and apply gain in one pass to keep the audio callback
-    // allocation-light.
-    let gained: Vec<i16> = samples
-        .chunks(source_channels)
-        .map(|frame| {
-            let sum: i32 = frame.iter().map(|&s| i32::from(s)).sum();
-            let mono = sum / source_channels as i32;
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "clamped audio sample intentionally narrows to i16"
-            )]
-            {
-                ((mono as f32) * gain).clamp(f32::from(i16::MIN), f32::from(i16::MAX)) as i16
-            }
-        })
-        .collect();
-
-    // Resample to target rate (simple linear interpolation).
-    let resampled = if source_rate == target_rate {
-        gained
-    } else {
-        resample(&gained, source_rate, target_rate)
-    };
-
-    let timestamp_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
-
-    let frame = AudioFrame {
-        samples: resampled,
-        timestamp_ms,
-    };
-
-    // Best-effort send; if the receiver is gone, just drop the frame.
-    let _ = sender.try_send(frame);
+    resampler: LinearResampler,
 }
 
-/// Simple linear-interpolation resampler.
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "resampling math intentionally truncates to i16/usize"
-)]
-#[expect(
-    clippy::cast_precision_loss,
-    reason = "sample indices and rates fit comfortably in f64"
-)]
-#[expect(clippy::cast_sign_loss, reason = "output_len is always non-negative")]
-fn resample(input: &[i16], from_rate: u32, to_rate: u32) -> Vec<i16> {
-    if input.is_empty() {
-        return Vec::new();
+impl AudioProcessor {
+    fn new(source_channels: usize, source_rate: u32, target_rate: u32, gain: f32) -> Self {
+        Self {
+            source_channels,
+            source_rate,
+            target_rate,
+            gain,
+            resampler: LinearResampler::new(source_rate, target_rate),
+        }
     }
 
-    let ratio = f64::from(from_rate) / f64::from(to_rate);
-    let output_len = ((input.len() as f64) / ratio).ceil() as usize;
-    let mut output = Vec::with_capacity(output_len);
+    /// Downmix to mono, apply gain, resample to target rate, and send as `AudioFrame`.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "audio sample conversions are intentionally truncating"
+    )]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "i16 audio samples fit exactly enough for gain scaling"
+    )]
+    #[expect(clippy::cast_possible_wrap, reason = "channel count fits in i32")]
+    fn process_i16_and_send(&mut self, samples: &[i16], sender: &Sender<AudioFrame>) {
+        if samples.is_empty() || self.source_channels == 0 {
+            return;
+        }
 
-    for i in 0..output_len {
-        let src_pos = i as f64 * ratio;
-        let idx = src_pos as usize;
-        let frac = src_pos - idx as f64;
+        let gained: Vec<i16> = samples
+            .chunks_exact(self.source_channels)
+            .map(|frame| {
+                let sum: i32 = frame.iter().map(|&s| i32::from(s)).sum();
+                let mono = sum / self.source_channels as i32;
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    reason = "clamped audio sample intentionally narrows to i16"
+                )]
+                {
+                    ((mono as f32) * self.gain).clamp(f32::from(i16::MIN), f32::from(i16::MAX))
+                        as i16
+                }
+            })
+            .collect();
 
-        let sample = if idx + 1 < input.len() {
-            let a = f64::from(input[idx]);
-            let b = f64::from(input[idx + 1]);
-            (a + (b - a) * frac) as i16
+        let processed = if self.source_rate == self.target_rate {
+            gained
         } else {
-            input[input.len() - 1]
+            self.resampler.resample(&gained)
         };
 
-        output.push(sample);
+        if processed.is_empty() {
+            return;
+        }
+
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let frame = AudioFrame {
+            samples: processed,
+            timestamp_ms,
+        };
+
+        let _ = sender.try_send(frame);
+    }
+}
+
+/// Stateful linear-interpolation resampler.
+///
+/// The previous implementation restarted interpolation at every cpal callback.
+/// Keeping position across callbacks avoids subtle timing jitter at 44.1 kHz and
+/// other non-16 kHz source rates.
+struct LinearResampler {
+    ratio: f64,
+    next_input_index: f64,
+    samples_seen: u64,
+    last_sample: Option<i16>,
+}
+
+impl LinearResampler {
+    fn new(from_rate: u32, to_rate: u32) -> Self {
+        Self {
+            ratio: f64::from(from_rate) / f64::from(to_rate),
+            next_input_index: 0.0,
+            samples_seen: 0,
+            last_sample: None,
+        }
     }
 
-    output
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "resampling math intentionally truncates to i16/usize"
+    )]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "sample indices and rates fit comfortably in f64"
+    )]
+    #[expect(
+        clippy::cast_sign_loss,
+        reason = "global sample positions are non-negative"
+    )]
+    fn resample(&mut self, input: &[i16]) -> Vec<i16> {
+        if input.is_empty() {
+            return Vec::new();
+        }
+
+        let start = self.samples_seen as f64;
+        let end = start + input.len() as f64;
+        let estimate = ((input.len() as f64) / self.ratio).ceil() as usize;
+        let mut output = Vec::with_capacity(estimate);
+
+        while self.next_input_index + 1.0 < end {
+            let idx = self.next_input_index.floor() as u64;
+            let frac = self.next_input_index - idx as f64;
+
+            let Some(a) = self.sample_at(input, start, idx) else {
+                self.next_input_index += self.ratio;
+                continue;
+            };
+            let Some(b) = self.sample_at(input, start, idx + 1) else {
+                break;
+            };
+
+            output.push((f64::from(a) + (f64::from(b) - f64::from(a)) * frac) as i16);
+            self.next_input_index += self.ratio;
+        }
+
+        self.samples_seen += input.len() as u64;
+        self.last_sample = input.last().copied();
+        output
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "requested indices are bounded by the current audio chunk"
+    )]
+    #[expect(clippy::cast_sign_loss, reason = "requested indices are non-negative")]
+    fn sample_at(&self, input: &[i16], start: f64, index: u64) -> Option<i16> {
+        let start_index = start as u64;
+        if index + 1 == start_index {
+            return self.last_sample;
+        }
+        if index < start_index {
+            return None;
+        }
+        input.get((index - start_index) as usize).copied()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn streaming_resampler_matches_single_pass_across_callback_boundaries() {
+        let input = (0..5000)
+            .map(|i| ((i % 200) - 100) as i16)
+            .collect::<Vec<_>>();
+
+        let mut single_pass = LinearResampler::new(44_100, 16_000);
+        let expected = single_pass.resample(&input);
+
+        let mut streaming = LinearResampler::new(44_100, 16_000);
+        let mut actual = Vec::new();
+        for chunk in input.chunks(137) {
+            actual.extend(streaming.resample(chunk));
+        }
+
+        assert_eq!(actual, expected);
+    }
 }

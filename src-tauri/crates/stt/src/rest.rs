@@ -163,6 +163,7 @@ mod tests {
         assert!(pairs.contains(&("channels".into(), "1".into())));
         assert!(pairs.contains(&("punctuate".into(), "true".into())));
         assert!(pairs.contains(&("smart_format".into(), "true".into())));
+        assert!(pairs.contains(&("numerals".into(), "true".into())));
         assert!(pairs.contains(&("language".into(), "en".into())));
         assert!(pairs.contains(&("keyterm".into(), "Jesus".into())));
     }

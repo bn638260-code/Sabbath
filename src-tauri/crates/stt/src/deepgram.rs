@@ -19,7 +19,7 @@ const MAX_RECONNECT_ATTEMPTS: u32 = 5;
 const RECONNECT_DELAY: Duration = Duration::from_secs(1);
 /// Batch up to 100ms of audio before sending (at 16kHz, that is 1600 samples).
 const BATCH_SAMPLES: usize = 1600;
-pub(crate) const DEEPGRAM_ENDPOINTING_MS: &str = "300";
+pub(crate) const DEEPGRAM_ENDPOINTING_MS: &str = "500";
 pub(crate) const DEEPGRAM_UTTERANCE_END_MS: &str = "1000";
 pub(crate) const MAX_DEEPGRAM_KEYTERMS: usize = 100;
 
@@ -327,6 +327,7 @@ pub(crate) fn append_deepgram_base_query(
     q.append_pair("channels", "1");
     q.append_pair("punctuate", "true");
     q.append_pair("smart_format", "true");
+    q.append_pair("numerals", "true");
 
     if let Some(ref lang) = config.language {
         q.append_pair("language", lang);
@@ -593,6 +594,7 @@ mod tests {
         assert!(pairs.contains(&("encoding".into(), "linear16".into())));
         assert!(pairs.contains(&("sample_rate".into(), "16000".into())));
         assert!(pairs.contains(&("channels".into(), "1".into())));
+        assert!(pairs.contains(&("numerals".into(), "true".into())));
         assert!(pairs.contains(&("interim_results".into(), "true".into())));
         assert!(pairs.contains(&("endpointing".into(), DEEPGRAM_ENDPOINTING_MS.into())));
         assert!(pairs.contains(&("utterance_end_ms".into(), DEEPGRAM_UTTERANCE_END_MS.into())));
