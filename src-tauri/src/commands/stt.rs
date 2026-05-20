@@ -132,7 +132,7 @@ pub async fn start_transcription(
         _ => {
             // Deepgram (default)
             let resolved_api_key = match std::env::var("DEEPGRAM_API_KEY") {
-                Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
+                Ok(v) if !v.trim().is_empty() => secrets::normalize_deepgram_api_key(&v),
                 _ => secrets::get_deepgram_api_key()?,
             };
 

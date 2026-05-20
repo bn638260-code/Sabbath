@@ -25,6 +25,48 @@ const MAX_BUFFER_SAMPLES: usize = 16_000 * 10;
 /// Minimum audio buffer for inference (1.0 seconds).
 /// Whisper warns "input is too short" below 1s.
 const MIN_BUFFER_SAMPLES: usize = 16_000;
+const WHISPER_PROMPT_PREAMBLE: &str =
+    "Sermon and Bible reading transcription. Common words: Jesus, Christ, God, Lord, Holy Spirit, Genesis, Exodus, Psalms, Proverbs, Matthew, Mark, Luke, John, Romans, Corinthians, Revelation.";
+const MAX_ROLLING_PROMPT_CHARS: usize = 480;
+const MAX_ROLLING_TRANSCRIPTS: usize = 6;
+
+#[derive(Debug, Default)]
+struct RollingTranscriptPrompt {
+    recent: std::collections::VecDeque<String>,
+}
+
+impl RollingTranscriptPrompt {
+    fn push(&mut self, text: &str) {
+        let cleaned = text.trim();
+        if cleaned.is_empty() {
+            return;
+        }
+
+        self.recent.push_back(cleaned.to_string());
+        while self.recent.len() > MAX_ROLLING_TRANSCRIPTS {
+            self.recent.pop_front();
+        }
+    }
+
+    fn prompt(&self) -> String {
+        let mut prompt = WHISPER_PROMPT_PREAMBLE.to_string();
+        if self.recent.is_empty() {
+            return prompt;
+        }
+
+        prompt.push_str(" Recent transcript: ");
+        for text in self.recent.iter().rev() {
+            if prompt.len() + text.len() + 1 > MAX_ROLLING_PROMPT_CHARS {
+                break;
+            }
+            if !prompt.ends_with(' ') {
+                prompt.push(' ');
+            }
+            prompt.push_str(text);
+        }
+        prompt
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum WhisperProfile {
@@ -321,6 +363,8 @@ impl SttProvider for WhisperProvider {
                 "[Whisper] Model loaded, ready for inference: profile={profile:?}, threads={n_threads}"
             );
 
+            let mut rolling_prompt = RollingTranscriptPrompt::default();
+
             while let Some(audio_i16) = inference_rx.blocking_recv() {
                 if inf_cancelled.load(Ordering::SeqCst) {
                     break;
@@ -334,16 +378,18 @@ impl SttProvider for WhisperProvider {
                 params.set_print_progress(false);
                 params.set_print_special(false);
                 params.set_print_realtime(false);
+                params.set_initial_prompt(&rolling_prompt.prompt());
                 if profile.uses_latency_decoder() {
-                    params.set_no_context(false);
-                    params.set_n_max_text_ctx(224);
+                    params.set_no_context(true);
+                    params.set_n_max_text_ctx(0);
                     params.set_no_timestamps(true);
                     params.set_single_segment(true);
                     params.set_token_timestamps(false);
-                    params.set_audio_ctx(384);
+                    params.set_audio_ctx(512);
                     params.set_max_tokens(96);
                 } else {
-                    params.set_no_context(false);
+                    params.set_no_context(true);
+                    params.set_n_max_text_ctx(0);
                     params.set_no_timestamps(false);
                     params.set_single_segment(false);
                     params.set_token_timestamps(true);
@@ -371,6 +417,7 @@ impl SttProvider for WhisperProvider {
                 );
 
                 if !text.is_empty() {
+                    rolling_prompt.push(&text);
                     let _ = inf_event_tx.blocking_send(TranscriptEvent::Final {
                         transcript: text,
                         words,
@@ -424,5 +471,19 @@ mod tests {
         assert!(fast.uses_latency_decoder());
         assert!(!balanced.uses_latency_decoder());
         assert!(!accurate.uses_latency_decoder());
+    }
+
+    #[test]
+    fn rolling_prompt_keeps_bounded_recent_transcript() {
+        let mut prompt = RollingTranscriptPrompt::default();
+        for i in 0..10 {
+            prompt.push(&format!("segment {i}"));
+        }
+
+        let text = prompt.prompt();
+        assert!(text.contains("Jesus"));
+        assert!(text.contains("segment 9"));
+        assert!(!text.contains("segment 0"));
+        assert!(text.len() <= MAX_ROLLING_PROMPT_CHARS);
     }
 }

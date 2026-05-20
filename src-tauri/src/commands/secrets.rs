@@ -39,6 +39,24 @@ fn generate_token() -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
+pub fn normalize_deepgram_api_key(api_key: &str) -> String {
+    let trimmed = api_key
+        .trim()
+        .trim_matches(|c| matches!(c, '"' | '\'' | '`'));
+    let without_header = trimmed
+        .strip_prefix("Authorization:")
+        .map(str::trim)
+        .unwrap_or(trimmed);
+
+    for prefix in ["Token ", "token ", "Bearer ", "bearer "] {
+        if let Some(key) = without_header.strip_prefix(prefix) {
+            return key.trim().to_string();
+        }
+    }
+
+    without_header.to_string()
+}
+
 #[command]
 pub fn has_deepgram_api_key() -> Result<bool, String> {
     match entry("deepgram_api_key").get_password() {
@@ -50,11 +68,12 @@ pub fn has_deepgram_api_key() -> Result<bool, String> {
 
 #[command]
 pub fn set_deepgram_api_key(api_key: String) -> Result<(), String> {
-    if api_key.trim().is_empty() {
+    let normalized = normalize_deepgram_api_key(&api_key);
+    if normalized.is_empty() {
         return Err("API key cannot be empty".into());
     }
     entry("deepgram_api_key")
-        .set_password(api_key.trim())
+        .set_password(&normalized)
         .map_err(|e| format!("Could not store Deepgram API key in OS keychain: {e}"))
 }
 
@@ -129,6 +148,7 @@ pub fn get_remote_http_token() -> Result<String, String> {
 pub fn get_deepgram_api_key() -> Result<String, String> {
     entry("deepgram_api_key")
         .get_password()
+        .map(|key| normalize_deepgram_api_key(&key))
         .map_err(|e| format!("Could not read Deepgram API key from OS keychain: {e}"))
 }
 
@@ -236,6 +256,18 @@ mod tests {
         let token2 = rotate_remote_http_token_with_store(&store).unwrap();
 
         assert_ne!(token1, token2);
+    }
+
+    #[test]
+    fn normalizes_deepgram_key_wrappers() {
+        assert_eq!(normalize_deepgram_api_key(" abc "), "abc");
+        assert_eq!(normalize_deepgram_api_key("Token abc"), "abc");
+        assert_eq!(normalize_deepgram_api_key("Bearer abc"), "abc");
+        assert_eq!(
+            normalize_deepgram_api_key("Authorization: Token abc"),
+            "abc"
+        );
+        assert_eq!(normalize_deepgram_api_key("\"abc\""), "abc");
     }
 }
 
