@@ -57,7 +57,11 @@ function QueueItemRow({
   }
 
   const sourceBadge =
-    item.source === "manual" ? (
+    item.source === "service-plan" ? (
+      <Badge className="shrink-0 bg-violet-500/15 text-[0.5rem] text-violet-300 hover:bg-violet-500/15">
+        Plan
+      </Badge>
+    ) : item.source === "manual" ? (
       <Badge variant="outline" className="shrink-0 text-[0.5rem]">
         Manual
       </Badge>

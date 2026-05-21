@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip.tsx"
 import { hydrateSettings } from "@/stores/settings-store"
 import { hydrateBibleStore, initBiblePersistence } from "@/stores/bible-store"
 import { hydrateBroadcastThemes } from "@/stores/broadcast-store"
+import { hydrateServicePlans } from "@/stores/service-plan-store"
 import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
 
 // Webview reloads do NOT restart the Rust backend, so any STT pipeline
@@ -22,7 +23,14 @@ const resetTranscription = isTauriRuntime()
 
 resetTranscription
   .catch(() => {})
-  .then(() => Promise.all([hydrateSettings(), hydrateBibleStore(), hydrateBroadcastThemes()]))
+  .then(() =>
+    Promise.all([
+      hydrateSettings(),
+      hydrateBibleStore(),
+      hydrateBroadcastThemes(),
+      hydrateServicePlans(),
+    ]),
+  )
   .then(() => initBiblePersistence())
   .finally(() => {
     createRoot(document.getElementById("root")!).render(

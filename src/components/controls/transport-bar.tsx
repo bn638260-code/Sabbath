@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { CastIcon, MoonIcon, PaletteIcon, SunIcon } from "lucide-react"
+import { CastIcon, ClipboardListIcon, MoonIcon, PaletteIcon, SunIcon } from "lucide-react"
+import { useServicePlanStore } from "@/stores/service-plan-store"
 import { Button } from "@/components/ui/button"
 import { SettingsDialog } from "@/components/settings-dialog"
 import { useBroadcastStore } from "@/stores/broadcast-store"
@@ -89,6 +90,14 @@ export function TransportBar() {
             <LazyThemeDesigner />
           </Suspense>
         )}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="Service Plan"
+          onClick={() => useServicePlanStore.getState().openPlanner()}
+        >
+          <ClipboardListIcon className="size-3.5" />
+        </Button>
         <SettingsDialog />
       </div>
     </div>

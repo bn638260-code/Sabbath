@@ -23,10 +23,23 @@ import {
   saveDashboardLayoutState,
   type DashboardViewMode,
 } from "@/lib/dashboard-layout"
+import { useServicePlanStore } from "@/stores/service-plan-store"
 
 const LazyHymnalPanel = lazy(() =>
   import("@/components/panels/hymnal-panel").then((mod) => ({
     default: mod.HymnalPanel,
+  })),
+)
+
+const LazyServicePlanLibraryPanel = lazy(() =>
+  import("@/components/service-plan/ServicePlanPage").then((mod) => ({
+    default: mod.ServicePlanLibraryPanel,
+  })),
+)
+
+const LazyServicePlanDialog = lazy(() =>
+  import("@/components/service-plan/ServicePlanPage").then((mod) => ({
+    default: mod.ServicePlanDialog,
   })),
 )
 
@@ -60,7 +73,10 @@ export function Dashboard() {
   const [windowWidth, setWindowWidth] = useState(() =>
     typeof window === "undefined" ? 1920 : window.innerWidth
   )
-  const [libraryMode, setLibraryMode] = useState<"scripture" | "hymnal">("scripture")
+  const [libraryMode, setLibraryMode] = useState<"scripture" | "hymnal" | "service-plan">(
+    "scripture",
+  )
+  const plannerOpen = useServicePlanStore((s) => s.plannerOpen)
   const [layout, setLayout] = useState(loadDashboardLayoutState)
   const isCompact = windowWidth < 1400
   const viewMode = layout.viewMode
@@ -204,6 +220,13 @@ export function Dashboard() {
         >
           Hymnal
         </Button>
+        <Button
+          size="xs"
+          variant={libraryMode === "service-plan" ? "default" : "outline"}
+          onClick={() => setLibraryMode("service-plan")}
+        >
+          Service Plan
+        </Button>
       </div>
 
       <div ref={contentRef} className="flex min-h-0 flex-1 flex-col gap-1.5 p-3">
@@ -258,9 +281,13 @@ export function Dashboard() {
         >
           {libraryMode === "scripture" ? (
             <SearchPanel />
-          ) : (
+          ) : libraryMode === "hymnal" ? (
             <Suspense fallback={<div className="rounded-lg border border-border bg-card" />}>
               <LazyHymnalPanel />
+            </Suspense>
+          ) : (
+            <Suspense fallback={<div className="rounded-lg border border-border bg-card" />}>
+              <LazyServicePlanLibraryPanel />
             </Suspense>
           )}
           {!isCompact && (
@@ -273,6 +300,11 @@ export function Dashboard() {
           <DetectionsPanel />
         </div>
       </div>
+      {plannerOpen && (
+        <Suspense fallback={null}>
+          <LazyServicePlanDialog />
+        </Suspense>
+      )}
     </div>
   )
 }

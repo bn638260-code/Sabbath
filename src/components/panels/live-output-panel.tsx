@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { EyeIcon, EyeOffIcon, RadioIcon, SendIcon, Maximize2Icon, Minimize2Icon } from "lucide-react"
 import { toast } from "sonner"
+import { ServiceLiveContextPanel } from "@/components/service-plan/ServiceLiveContextPanel"
 
 export function LiveOutputPanel() {
   const isLive = useBroadcastStore((s) => s.isLive)
@@ -98,6 +99,8 @@ export function LiveOutputPanel() {
           </div>
         </PanelHeader>
       )}
+
+      <ServiceLiveContextPanel />
 
       <div className={cn("flex min-h-10 items-center justify-between gap-2 border-b border-border px-3 py-1.5", isFullscreen && "hidden")}>
         <Button
