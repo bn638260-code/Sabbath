@@ -42,4 +42,37 @@ describe("service plan types and templates", () => {
     })
     expect(plan!.items.length).toBeGreaterThan(3)
   })
+
+  it("rejects malformed persisted plan shapes", () => {
+    const plan = createPlanFromTemplate("blank")!
+    expect(isValidServicePlan({ ...plan, status: "unknown" } as never)).toBe(false)
+    expect(isValidServicePlan({ ...plan, items: [{ id: "bad" }] } as never)).toBe(false)
+    expect(
+      isValidServicePlan({
+        ...plan,
+        items: [
+          {
+            id: "item",
+            order: 0,
+            title: "Media",
+            kind: "media",
+            status: "pending",
+            scriptureRefs: [],
+            hymnRefs: [],
+            mediaRefs: [],
+            attachments: [
+              {
+                id: "attachment",
+                kind: "slide",
+                label: "slides.png",
+                path: "C:/slides.png",
+                status: "pending",
+              },
+            ],
+            checklist: [],
+          },
+        ],
+      }),
+    ).toBe(true)
+  })
 })

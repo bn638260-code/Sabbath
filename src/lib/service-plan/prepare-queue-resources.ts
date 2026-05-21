@@ -10,7 +10,7 @@ import { useBibleStore } from "@/stores/bible-store"
 import { useQueueStore } from "@/stores/queue-store"
 import type { QueueItem } from "@/types/queue"
 import type { PresentationItem } from "@/types/presentation"
-import type { ServiceItem, ScriptureRef } from "@/types/service-plan"
+import type { MediaRef, ServiceAttachment, ServiceItem, ScriptureRef } from "@/types/service-plan"
 import type { Verse } from "@/types"
 
 const PLAN_PREFIX = "[Plan]"
@@ -38,6 +38,28 @@ function createPlaceholderScripturePresentation(
     kind: "scripture",
     verse,
     reference: planReference(label),
+  }
+}
+
+function createMediaPresentation(
+  input: Pick<ServiceAttachment, "id" | "kind" | "label"> | MediaRef,
+  kind: "media" | "slide" | "document",
+): PresentationItem {
+  const title = input.label
+  return {
+    kind: "media",
+    mediaId: "id" in input ? input.id : input.attachmentId,
+    mediaKind: kind,
+    title,
+    reference: planReference(`${kind === "slide" ? "Slide" : "Media"} - ${title}`),
+    segments: [
+      {
+        text:
+          kind === "slide"
+            ? "Prepared slide attachment. Open from the Service Plan to preview the selected file."
+            : "Prepared media attachment. Open from the Service Plan to preview the selected file.",
+      },
+    ],
   }
 }
 
@@ -130,23 +152,13 @@ export async function enqueuePreparedResourcesForItem(item: ServiceItem): Promis
   }
 
   for (const media of item.mediaRefs) {
-    const detail = media.path ?? media.label
-    queuePreparedItem(
-      createPlaceholderScripturePresentation(`Media · ${media.label}`, detail),
-    )
+    queuePreparedItem(createMediaPresentation(media, "media"))
     queued += 1
   }
 
   for (const attachment of item.attachments) {
     if (attachment.kind !== "media" && attachment.kind !== "slide") continue
-    const kindLabel = attachment.kind === "slide" ? "Slide" : "Media"
-    const detail = attachment.path ?? attachment.label
-    queuePreparedItem(
-      createPlaceholderScripturePresentation(
-        `${kindLabel} · ${attachment.label}`,
-        detail,
-      ),
-    )
+    queuePreparedItem(createMediaPresentation(attachment, attachment.kind))
     queued += 1
   }
 

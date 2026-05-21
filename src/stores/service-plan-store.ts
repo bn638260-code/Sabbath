@@ -1,15 +1,30 @@
 import { create } from "zustand"
-import { buildServiceContext } from "@/lib/service-plan/service-context"
+import {
+  addServiceItem,
+  completeCurrentServiceItem,
+  completeServicePlan,
+  deleteServiceItem,
+  duplicateServiceItem,
+  reorderServiceItems,
+  setActiveServiceItem,
+  setServiceItemReady,
+  skipCurrentServiceItem,
+  startLiveServiceMode,
+  startPracticeMode,
+  updateServiceItem,
+} from "@/lib/service-plan/service-plan-actions"
+import { createServicePlanAutosave } from "@/lib/service-plan/service-plan-autosave"
+import {
+  previewFirstHymnForItem,
+  releaseAllServiceMedia,
+  releaseCompletedItemMedia,
+  syncServiceContext,
+} from "@/lib/service-plan/service-plan-live-effects"
 import { servicePlanRepository } from "@/lib/service-plan/service-plan-repository"
 import { createPlanFromTemplate } from "@/lib/service-plan/service-plan-templates"
-import {
-  findNextServiceItem,
-  normalizeItemOrder,
-} from "@/lib/service-plan/service-plan-validation"
-import { mediaPreloadManager } from "@/services/media/media-preload-manager"
+import { findNextServiceItem, normalizeItemOrder } from "@/lib/service-plan/service-plan-validation"
 import type {
   ServiceContext,
-  ServiceEventLogEntry,
   ServiceItem,
   ServicePlan,
   ServicePlanReport,
@@ -52,47 +67,7 @@ interface ServicePlanState {
   generatePostServiceReport: () => Promise<void>
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
 let hydrationPromise: Promise<void> | null = null
-const SAVE_DEBOUNCE_MS = 400
-
-function appendEvent(plan: ServicePlan, type: ServiceEventLogEntry["type"], message: string): ServicePlan {
-  return {
-    ...plan,
-    eventLog: [
-      {
-        id: crypto.randomUUID(),
-        at: Date.now(),
-        type,
-        message,
-      },
-      ...plan.eventLog,
-    ].slice(0, 200),
-  }
-}
-
-function syncContext(plan: ServicePlan | null): ServiceContext {
-  const context = buildServiceContext(plan)
-  if (plan) {
-    mediaPreloadManager.syncFromContext(context)
-  } else {
-    mediaPreloadManager.releaseAll()
-  }
-  return context
-}
-
-function patchActivePlan(
-  updater: (plan: ServicePlan) => ServicePlan,
-  options?: { immediate?: boolean },
-): void {
-  const current = useServicePlanStore.getState().activePlan
-  if (!current) return
-
-  const next = updater({ ...current, updatedAt: Date.now() })
-  const serviceContext = syncContext(next)
-  useServicePlanStore.setState({ activePlan: next, serviceContext })
-  void useServicePlanStore.getState().savePlan({ immediate: options?.immediate })
-}
 
 async function persistPlan(plan: ServicePlan): Promise<void> {
   useServicePlanStore.setState({ isSaving: true })
@@ -105,10 +80,34 @@ async function persistPlan(plan: ServicePlan): Promise<void> {
   }
 }
 
+const autosave = createServicePlanAutosave(
+  persistPlan,
+  () => useServicePlanStore.getState().activePlan,
+)
+
+function setActivePlan(next: ServicePlan | null): void {
+  useServicePlanStore.setState({
+    activePlan: next,
+    serviceContext: syncServiceContext(next),
+  })
+}
+
+function patchActivePlan(
+  updater: (plan: ServicePlan) => ServicePlan,
+  options?: { immediate?: boolean },
+): void {
+  const current = useServicePlanStore.getState().activePlan
+  if (!current) return
+
+  const next = updater({ ...current, updatedAt: Date.now() })
+  setActivePlan(next)
+  void autosave.save(next, options)
+}
+
 export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
   summaries: [],
   activePlan: null,
-  serviceContext: buildServiceContext(null),
+  serviceContext: syncServiceContext(null),
   plannerOpen: false,
   isHydrated: false,
   isSaving: false,
@@ -132,39 +131,21 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
     if (!plan) return
     await servicePlanRepository.savePlan(plan)
     const summaries = await servicePlanRepository.listSummaries()
-    set({
-      summaries,
-      activePlan: plan,
-      serviceContext: syncContext(plan),
-      plannerOpen: true,
-    })
+    set({ summaries, plannerOpen: true })
+    setActivePlan(plan)
   },
 
   loadPlan: async (id) => {
     const plan = await servicePlanRepository.loadPlan(id)
     if (!plan) return
-    set({
-      activePlan: plan,
-      serviceContext: syncContext(plan),
-      plannerOpen: true,
-    })
+    set({ plannerOpen: true })
+    setActivePlan(plan)
   },
 
   savePlan: async (options) => {
     const plan = get().activePlan
     if (!plan) return
-
-    if (options?.immediate) {
-      if (saveTimer) clearTimeout(saveTimer)
-      await persistPlan(plan)
-      return
-    }
-
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => {
-      saveTimer = null
-      void persistPlan(get().activePlan!)
-    }, SAVE_DEBOUNCE_MS)
+    await autosave.save(plan, options)
   },
 
   updatePlanTitle: (title) => {
@@ -172,167 +153,48 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
   },
 
   addItem: (item) => {
-    patchActivePlan((plan) => {
-      const order = plan.items.length
-      const nextItem: ServiceItem = {
-        ...item,
-        id: crypto.randomUUID(),
-        order,
-        status: "pending",
-        scriptureRefs: item.scriptureRefs ?? [],
-        hymnRefs: item.hymnRefs ?? [],
-        mediaRefs: item.mediaRefs ?? [],
-        attachments: item.attachments ?? [],
-        checklist: item.checklist ?? [],
-      }
-      return { ...plan, items: [...plan.items, nextItem] }
-    })
+    patchActivePlan((plan) => addServiceItem(plan, item))
   },
 
   updateItem: (itemId, patch) => {
-    patchActivePlan((plan) => ({
-      ...plan,
-      items: plan.items.map((item) => (item.id === itemId ? { ...item, ...patch } : item)),
-    }))
+    patchActivePlan((plan) => updateServiceItem(plan, itemId, patch))
   },
 
   deleteItem: (itemId) => {
-    patchActivePlan((plan) => {
-      const items = normalizeItemOrder(plan.items.filter((item) => item.id !== itemId))
-      const activeItemId = plan.activeItemId === itemId ? null : plan.activeItemId
-      return { ...plan, items, activeItemId }
-    })
+    patchActivePlan((plan) => deleteServiceItem(plan, itemId))
   },
 
   duplicateItem: (itemId) => {
-    patchActivePlan((plan) => {
-      const source = plan.items.find((item) => item.id === itemId)
-      if (!source) return plan
-      const copy: ServiceItem = {
-        ...source,
-        id: crypto.randomUUID(),
-        title: `${source.title} (Copy)`,
-        order: plan.items.length,
-        status: "pending",
-      }
-      return { ...plan, items: [...plan.items, copy] }
-    })
+    patchActivePlan((plan) => duplicateServiceItem(plan, itemId))
   },
 
   reorderItems: (fromIndex, toIndex) => {
-    patchActivePlan((plan) => {
-      const items = [...plan.items].sort((a, b) => a.order - b.order)
-      const [moved] = items.splice(fromIndex, 1)
-      if (!moved) return plan
-      items.splice(toIndex, 0, moved)
-      return {
-        ...plan,
-        items: items.map((item, index) => ({ ...item, order: index })),
-      }
-    })
+    patchActivePlan((plan) => reorderServiceItems(plan, fromIndex, toIndex))
   },
 
   setActiveItem: async (itemId) => {
-    patchActivePlan(
-      (plan) => {
-        const items = plan.items.map((item) => ({
-          ...item,
-          status:
-            item.id === itemId
-              ? ("active" as const)
-              : item.status === "active"
-                ? ("ready" as const)
-                : item.status,
-        }))
-        return appendEvent(
-          { ...plan, items, activeItemId: itemId },
-          "item_activated",
-          itemId ? `Activated item` : "Cleared active item",
-        )
-      },
-      { immediate: true },
-    )
+    patchActivePlan((plan) => setActiveServiceItem(plan, itemId), { immediate: true })
   },
 
   markItemReady: (itemId) => {
-    patchActivePlan((plan) => ({
-      ...plan,
-      items: plan.items.map((item) =>
-        item.id === itemId ? { ...item, status: "ready" } : item,
-      ),
-    }))
+    patchActivePlan((plan) => setServiceItemReady(plan, itemId))
   },
 
   completeActiveItem: async () => {
-    const plan = get().activePlan
-    if (!plan?.activeItemId) return
-
-    patchActivePlan(
-      (plan) => {
-        const items = plan.items.map((item) =>
-          item.id === plan.activeItemId ? { ...item, status: "completed" as const } : item,
-        )
-        const next = findNextServiceItem(items, plan.activeItemId)
-        const nextItems = items.map((item) =>
-          next && item.id === next.id ? { ...item, status: "active" as const } : item,
-        )
-        const completedItem = plan.items.find((item) => item.id === plan.activeItemId)
-        const nextPlan = appendEvent(
-          {
-            ...plan,
-            items: nextItems,
-            activeItemId: next?.id ?? null,
-          },
-          "item_completed",
-          "Completed active item",
-        )
-        if (completedItem) {
-          for (const attachment of completedItem.attachments) {
-            mediaPreloadManager.releaseCompletedItem(attachment.id)
-          }
-          for (const media of completedItem.mediaRefs) {
-            mediaPreloadManager.releaseCompletedItem(media.attachmentId)
-          }
-        }
-        return nextPlan
-      },
-      { immediate: true },
-    )
+    const completed = get().activePlan?.items.find((item) => item.id === get().activePlan?.activeItemId)
+    patchActivePlan((plan) => completeCurrentServiceItem(plan), { immediate: true })
+    releaseCompletedItemMedia(completed)
   },
 
   skipActiveItem: async () => {
-    const plan = get().activePlan
-    if (!plan?.activeItemId) return
-
-    patchActivePlan(
-      (plan) => {
-        const items = plan.items.map((item) =>
-          item.id === plan.activeItemId ? { ...item, status: "skipped" as const } : item,
-        )
-        const next = findNextServiceItem(items, plan.activeItemId)
-        const nextItems = items.map((item) =>
-          next && item.id === next.id ? { ...item, status: "active" as const } : item,
-        )
-        return appendEvent(
-          {
-            ...plan,
-            items: nextItems,
-            activeItemId: next?.id ?? null,
-          },
-          "item_skipped",
-          "Skipped active item",
-        )
-      },
-      { immediate: true },
-    )
+    patchActivePlan((plan) => skipCurrentServiceItem(plan), { immediate: true })
   },
 
   goToNextItem: async () => {
     const plan = get().activePlan
     if (!plan) return
     const next = findNextServiceItem(plan.items, plan.activeItemId)
-    if (!next) return
-    await get().setActiveItem(next.id)
+    if (next) await get().setActiveItem(next.id)
   },
 
   goToPreviousItem: async () => {
@@ -340,32 +202,15 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
     if (!plan?.activeItemId) return
     const ordered = normalizeItemOrder(plan.items)
     const index = ordered.findIndex((item) => item.id === plan.activeItemId)
-    if (index <= 0) return
-    await get().setActiveItem(ordered[index - 1].id)
+    if (index > 0) await get().setActiveItem(ordered[index - 1].id)
   },
 
   startPractice: async () => {
-    patchActivePlan(
-      (plan) =>
-        appendEvent(
-          { ...plan, status: "practice", mode: "practice" },
-          "mode_changed",
-          "Practice mode started",
-        ),
-      { immediate: true },
-    )
+    patchActivePlan(startPracticeMode, { immediate: true })
   },
 
   startLiveService: async () => {
-    patchActivePlan(
-      (plan) =>
-        appendEvent(
-          { ...plan, status: "live", mode: "performance" },
-          "mode_changed",
-          "Live service started",
-        ),
-      { immediate: true },
-    )
+    patchActivePlan(startLiveServiceMode, { immediate: true })
 
     const plan = get().activePlan
     if (plan && !plan.activeItemId) {
@@ -375,17 +220,9 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
   },
 
   completeService: async () => {
-    patchActivePlan(
-      (plan) =>
-        appendEvent(
-          { ...plan, status: "completed", mode: "planning", activeItemId: null },
-          "mode_changed",
-          "Service completed",
-        ),
-      { immediate: true },
-    )
+    patchActivePlan(completeServicePlan, { immediate: true })
     set({ pendingReport: true })
-    mediaPreloadManager.releaseAll()
+    releaseAllServiceMedia()
   },
 
   enqueuePreparedResources: async () => {
@@ -401,35 +238,8 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
   practicePreviewActiveItem: async () => {
     const plan = get().activePlan
     if (!plan || plan.mode !== "practice") return
-
     const active = plan.items.find((item) => item.id === plan.activeItemId)
-    if (!active) return
-
-    const { selectPreviewItem } = await import("@/lib/presentation-workflow")
-    const { createHymnPresentationItem, defaultSelectedSectionIds } = await import(
-      "@/services/hymnal/hymn-presentation"
-    )
-    const { generateHymnScreens } = await import("@/services/hymnal/generate-hymn-screens")
-    const { getHymnByNumber } = await import("@/services/hymnal/hymnal-repository")
-
-    for (const hymnRef of active.hymnRefs) {
-      if (!hymnRef.hymnNumber) continue
-      try {
-        const hymn = await getHymnByNumber(hymnRef.hymnNumber)
-        if (!hymn) continue
-        const screens = generateHymnScreens({
-          hymn,
-          selectedSectionIds: defaultSelectedSectionIds(hymn),
-          maxLinesPerScreen: 4,
-        })
-        const first = screens[0]
-        if (!first) continue
-        selectPreviewItem(createHymnPresentationItem(first))
-        return
-      } catch {
-        // Practice preview failure is non-fatal.
-      }
-    }
+    if (active) await previewFirstHymnForItem(active)
   },
 
   generatePostServiceReport: async () => {
@@ -438,10 +248,7 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
     const { generateServicePlanReport } = await import("@/lib/service-plan/service-plan-report")
     const report = generateServicePlanReport(plan)
     patchActivePlan(
-      (current) => ({
-        ...current,
-        reportGeneratedAt: report.generatedAt,
-      }),
+      (current) => ({ ...current, reportGeneratedAt: report.generatedAt }),
       { immediate: true },
     )
     set({ pendingReport: false, lastReport: report })

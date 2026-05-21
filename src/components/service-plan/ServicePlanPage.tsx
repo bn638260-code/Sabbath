@@ -127,22 +127,9 @@ function ServicePlanEditor() {
         <ServiceItemDetailsPanel
           item={selectedItem}
           serviceContext={serviceContext}
-          onUpdateTitle={(title) => {
+          onPatchItem={(patch) => {
             if (!selectedItem) return
-            updateItem(selectedItem.id, { title })
-          }}
-          onUpdateNotes={(notes) => {
-            if (!selectedItem) return
-            updateItem(selectedItem.id, { notes })
-          }}
-          onAddHymnRef={(hymnNumber) => {
-            if (!selectedItem) return
-            updateItem(selectedItem.id, {
-              hymnRefs: [
-                ...selectedItem.hymnRefs,
-                { hymnNumber, hymnId: `sda-${hymnNumber}`, title: `Hymn ${hymnNumber}` },
-              ],
-            })
+            updateItem(selectedItem.id, patch)
           }}
           onEnqueuePrepared={() => void enqueuePreparedResources()}
           onPracticePreview={() => void practicePreviewActiveItem()}

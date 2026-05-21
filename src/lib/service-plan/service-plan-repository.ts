@@ -37,7 +37,13 @@ async function readState(): Promise<PersistedServicePlans> {
   if (!stored || !Array.isArray(stored.summaries) || !stored.plans) {
     return { summaries: [], plans: {} }
   }
-  return stored
+  const plans = Object.fromEntries(
+    Object.entries(stored.plans).filter((entry): entry is [string, ServicePlan] =>
+      isValidServicePlan(entry[1]),
+    ),
+  )
+  const summaries = stored.summaries.filter((summary) => plans[summary.id])
+  return { summaries, plans }
 }
 
 async function writeState(state: PersistedServicePlans): Promise<void> {
@@ -80,7 +86,8 @@ class LocalServicePlanRepository implements ServicePlanRepository {
 
   async loadPlan(id: string): Promise<ServicePlan | null> {
     const state = await readState()
-    return state.plans[id] ?? null
+    const plan = state.plans[id] ?? null
+    return plan && isValidServicePlan(plan) ? plan : null
   }
 
   async savePlan(plan: ServicePlan): Promise<void> {

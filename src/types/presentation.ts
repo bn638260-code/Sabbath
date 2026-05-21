@@ -1,6 +1,6 @@
 import type { Verse } from "./bible"
 
-export type PresentationItemKind = "scripture" | "hymn"
+export type PresentationItemKind = "scripture" | "hymn" | "media"
 
 export interface PresentationSegment {
   verseNumber?: number
@@ -29,7 +29,19 @@ export interface HymnPresentationItemData {
   segments: PresentationSegment[]
 }
 
-export type PresentationItem = ScripturePresentationItemData | HymnPresentationItemData
+export interface MediaPresentationItemData {
+  kind: "media"
+  mediaId: string
+  title: string
+  mediaKind: "media" | "slide" | "document"
+  reference: string
+  segments: PresentationSegment[]
+}
+
+export type PresentationItem =
+  | ScripturePresentationItemData
+  | HymnPresentationItemData
+  | MediaPresentationItemData
 
 export function getPresentationReference(item: PresentationItem): string {
   return item.reference
@@ -44,8 +56,16 @@ export function getPresentationRenderData(item: PresentationItem): PresentationR
     }
   }
 
+  if (item.kind === "hymn") {
+    return {
+      kind: "hymn",
+      reference: item.reference,
+      segments: item.segments,
+    }
+  }
+
   return {
-    kind: "hymn",
+    kind: "media",
     reference: item.reference,
     segments: item.segments,
   }
