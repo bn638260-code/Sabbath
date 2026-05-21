@@ -8,7 +8,7 @@ import {
 import { addRecentHymn } from "@/services/hymnal/hymnal-history"
 import { getHymnByNumber } from "@/services/hymnal/hymnal-repository"
 
-const VALID_HYMN_NUMBERS = new Set(SDA_HYMNAL_INDEX.map((hymn) => hymn.number))
+const VALID_HYMN_NUMBERS: Set<number> = new Set(SDA_HYMNAL_INDEX.map((hymn) => hymn.number))
 const DEDUPE_WINDOW_MS = 5000
 
 const HYMN_CUE_PATTERN =

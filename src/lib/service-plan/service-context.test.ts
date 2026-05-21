@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { buildServiceContext } from "./service-context"
 import { createPlanFromTemplate } from "./service-plan-templates"
-import {
-  resetServicePlanRepositoryForTests,
-  seedServicePlanRepositoryForTests,
-} from "./service-plan-repository"
+import { resetServicePlanRepositoryForTests } from "./service-plan-repository"
 import { mediaPreloadManager } from "@/services/media/media-preload-manager"
 
 vi.mock("@/stores/queue-store", () => ({

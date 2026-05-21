@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react"
+import { lazy, Suspense, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -70,12 +70,11 @@ function ServicePlanEditor() {
       <PanelHeader
         title={activePlan.title}
         icon={<ClipboardListIcon className="size-4" />}
-        actions={
-          <Badge variant="outline" className="text-[0.5625rem] uppercase">
-            {activePlan.status}
-          </Badge>
-        }
-      />
+      >
+        <Badge variant="outline" className="text-[0.5625rem] uppercase">
+          {activePlan.status}
+        </Badge>
+      </PanelHeader>
 
       <div className="border-b border-border px-3 py-2">
         <Input
@@ -279,11 +278,6 @@ export function ServicePlanDialog() {
   const plannerOpen = useServicePlanStore((s) => s.plannerOpen)
   const closePlanner = useServicePlanStore((s) => s.closePlanner)
   const activePlan = useServicePlanStore((s) => s.activePlan)
-  const [editorMounted, setEditorMounted] = useState(false)
-
-  useEffect(() => {
-    if (plannerOpen) setEditorMounted(true)
-  }, [plannerOpen])
 
   return (
     <Dialog open={plannerOpen} onOpenChange={(open) => !open && closePlanner()}>
@@ -296,7 +290,7 @@ export function ServicePlanDialog() {
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1">
-          {editorMounted && (
+          {plannerOpen && (
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
