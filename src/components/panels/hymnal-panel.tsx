@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -30,11 +30,27 @@ import {
 
 export function HymnalPanel() {
   const [query, setQuery] = useState("")
-  const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(() => getHymnById("sda-1"))
-  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>(() =>
-    selectedHymn ? defaultSelectedSectionIds(selectedHymn) : [],
-  )
+  const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(null)
+  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([])
   const [activeScreenIndex, setActiveScreenIndex] = useState(0)
+  const [isLoadingHymn, setIsLoadingHymn] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setIsLoadingHymn(true)
+    getHymnById("sda-1")
+      .then((hymn) => {
+        if (cancelled || !hymn) return
+        setSelectedHymn(hymn)
+        setSelectedSectionIds(defaultSelectedSectionIds(hymn))
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingHymn(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const results = useMemo<HymnSearchResult[]>(
     () => (query.trim() ? searchHymns(query, 24) : getInitialHymns(24)),
@@ -55,8 +71,10 @@ export function HymnalPanel() {
 
   const activeScreen = screens[Math.min(activeScreenIndex, Math.max(0, screens.length - 1))]
 
-  const selectHymn = (result: HymnSearchResult) => {
-    const hymn = getHymnById(result.id)
+  const selectHymn = async (result: HymnSearchResult) => {
+    setIsLoadingHymn(true)
+    const hymn = await getHymnById(result.id)
+    setIsLoadingHymn(false)
     if (!hymn) return
     setSelectedHymn(hymn)
     setSelectedSectionIds(defaultSelectedSectionIds(hymn))
@@ -180,8 +198,12 @@ export function HymnalPanel() {
             ) : (
               <PanelEmptyState
                 icon={<BookOpenTextIcon className="size-8" />}
-                title="No hymn selected"
-                description="Search for a hymn to preview and queue screens."
+                title={isLoadingHymn ? "Loading hymn" : "No hymn selected"}
+                description={
+                  isLoadingHymn
+                    ? "Fetching the selected hymn text."
+                    : "Search for a hymn to preview and queue screens."
+                }
               />
             )}
           </div>

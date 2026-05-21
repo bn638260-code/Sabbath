@@ -3,8 +3,8 @@ import { generateHymnScreens } from "./generate-hymn-screens"
 import { getHymnByNumber, searchHymns } from "./hymnal-repository"
 
 describe("hymnal services", () => {
-  it("loads the generated SDA hymnal data", () => {
-    const hymn = getHymnByNumber(1)
+  it("loads the generated SDA hymnal data", async () => {
+    const hymn = await getHymnByNumber(1)
 
     expect(hymn).toMatchObject({
       number: 1,
@@ -18,8 +18,8 @@ describe("hymnal services", () => {
     expect(searchHymns("Praise to the Lord", 1)[0]).toMatchObject({ number: 1 })
   })
 
-  it("generates multi-screen hymn presentation chunks", () => {
-    const hymn = getHymnByNumber(1)
+  it("generates multi-screen hymn presentation chunks", async () => {
+    const hymn = await getHymnByNumber(1)
     expect(hymn).not.toBeNull()
 
     const firstSectionId = hymn!.sections[0].id
