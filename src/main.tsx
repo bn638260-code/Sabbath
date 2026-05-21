@@ -9,6 +9,7 @@ import { hydrateSettings } from "@/stores/settings-store"
 import { hydrateBibleStore, initBiblePersistence } from "@/stores/bible-store"
 import { hydrateBroadcastThemes } from "@/stores/broadcast-store"
 import { hydrateServicePlans } from "@/stores/service-plan-store"
+import { hydrateVerification } from "@/stores/verification-store"
 import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
 
 // Webview reloads do NOT restart the Rust backend, so any STT pipeline
@@ -29,6 +30,7 @@ resetTranscription
       hydrateBibleStore(),
       hydrateBroadcastThemes(),
       hydrateServicePlans(),
+      hydrateVerification(),
     ]),
   )
   .then(() => initBiblePersistence())

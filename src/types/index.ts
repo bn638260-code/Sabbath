@@ -17,6 +17,11 @@ export type {
   ServicePlanStatus,
   ServiceMode,
 } from "./service-plan"
+export type {
+  VerificationSession,
+  VerificationStateSnapshot,
+  VerificationStatus,
+} from "./verification"
 export { getVerseFromItem, getReferenceFromItem } from "./queue"
 export type { DetectionResult, DetectionStatus, ReadingAdvance, SemanticSearchResult } from "./detection"
 export type { BroadcastTheme, VerseRenderData, VerseSegment, RenderOptions } from "./broadcast"

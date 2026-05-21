@@ -125,6 +125,41 @@ pub fn has_remote_http_token() -> Result<bool, String> {
     has_remote_http_token_with_store(&DEFAULT_STORE)
 }
 
+#[command]
+pub fn has_verification_token() -> Result<bool, String> {
+    has_verification_token_with_store(&DEFAULT_STORE)
+}
+
+pub fn has_verification_token_with_store(store: &dyn KeychainStore) -> Result<bool, String> {
+    match store.get_password("verification_token") {
+        Ok(pw) => Ok(!pw.trim().is_empty()),
+        Err(keyring::Error::NoEntry) => Ok(false),
+        Err(e) => Err(format!(
+            "Could not read verification token from OS keychain: {e}"
+        )),
+    }
+}
+
+#[command]
+pub fn rotate_verification_token() -> Result<String, String> {
+    rotate_verification_token_with_store(&DEFAULT_STORE)
+}
+
+pub fn rotate_verification_token_with_store(store: &dyn KeychainStore) -> Result<String, String> {
+    let token = generate_token();
+    store
+        .set_password("verification_token", &token)
+        .map_err(|e| format!("Could not store verification token in OS keychain: {e}"))?;
+    Ok(token)
+}
+
+#[command]
+pub fn clear_verification_token() -> Result<(), String> {
+    entry("verification_token")
+        .set_password("")
+        .map_err(|e| format!("Could not clear verification token from OS keychain: {e}"))
+}
+
 /// Testable version that accepts a `KeychainStore` implementation.
 pub fn has_remote_http_token_with_store(store: &dyn KeychainStore) -> Result<bool, String> {
     match store.get_password("remote_http_token") {
@@ -301,6 +336,17 @@ mod tests {
         let token2 = rotate_remote_http_token_with_store(&store).unwrap();
 
         assert_ne!(token1, token2);
+    }
+
+    #[test]
+    fn verification_token_is_detected_after_rotation() {
+        let store = MockKeychainStore::new();
+        assert!(!has_verification_token_with_store(&store).unwrap());
+
+        let token = rotate_verification_token_with_store(&store).unwrap();
+
+        assert!(!token.is_empty());
+        assert!(has_verification_token_with_store(&store).unwrap());
     }
 
     #[test]

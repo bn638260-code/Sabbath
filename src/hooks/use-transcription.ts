@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { useAudioStore } from "@/stores/audio-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
+import { isAppVerified } from "@/stores/verification-store"
 import { handleHymnVoiceControl } from "@/services/hymnal/hymn-voice-control"
 import { useTauriEvent } from "./use-tauri-event"
 
@@ -35,6 +36,14 @@ const NOT_RUNNING_ERROR = "Transcription is not running"
 export const transcriptionActions = {
   async start(onMissingApiKey?: () => void): Promise<void> {
     const transcript = useTranscriptStore.getState()
+    if (!isAppVerified()) {
+      transcript.setConnectionStatus("error")
+      toast.error("Verification required", {
+        description: "Verify this device before starting transcription.",
+      })
+      return
+    }
+
     transcript.setConnectionStatus("connecting")
 
     const settings = useSettingsStore.getState()
