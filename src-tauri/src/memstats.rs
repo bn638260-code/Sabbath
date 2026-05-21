@@ -18,11 +18,7 @@ pub fn spawn() {
         let refresh = ProcessRefreshKind::nothing().with_memory();
 
         loop {
-            sys.refresh_processes_specifics(
-                ProcessesToUpdate::Some(&[pid]),
-                true,
-                refresh,
-            );
+            sys.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), true, refresh);
 
             if let Some(proc_) = sys.process(pid) {
                 #[expect(

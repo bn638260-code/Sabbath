@@ -127,12 +127,14 @@ where
     let cors = CorsLayer::new()
         // Only allow loopback origins. This is about browser-based callers; non-browser
         // local processes can call the API directly (but still need the bearer token).
-        .allow_origin(tower_http::cors::AllowOrigin::predicate(|origin, _parts| {
-            let Ok(s) = origin.to_str() else { return false };
-            s.starts_with("http://localhost")
-                || s.starts_with("http://127.0.0.1")
-                || s.starts_with("tauri://localhost")
-        }))
+        .allow_origin(tower_http::cors::AllowOrigin::predicate(
+            |origin, _parts| {
+                let Ok(s) = origin.to_str() else { return false };
+                s.starts_with("http://localhost")
+                    || s.starts_with("http://127.0.0.1")
+                    || s.starts_with("tauri://localhost")
+            },
+        ))
         .allow_methods([
             axum::http::Method::GET,
             axum::http::Method::POST,
@@ -150,9 +152,11 @@ where
         .layer(cors)
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind(bind_addr).await.map_err(|e| {
-        CommandError::DispatchFailed(format!("Failed to bind HTTP on {bind_addr}: {e}"))
-    })?;
+    let listener = tokio::net::TcpListener::bind(bind_addr)
+        .await
+        .map_err(|e| {
+            CommandError::DispatchFailed(format!("Failed to bind HTTP on {bind_addr}: {e}"))
+        })?;
 
     let bound_port = listener.local_addr().map_or(config.port, |a| a.port());
 
@@ -467,7 +471,10 @@ mod tests {
 
         // Give dispatch a moment
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        assert!(sink.command_count() > 0, "Sink should have received command");
+        assert!(
+            sink.command_count() > 0,
+            "Sink should have received command"
+        );
 
         let mut handle = result.handle;
         handle.stop();
@@ -475,9 +482,7 @@ mod tests {
 
     #[tokio::test]
     async fn port_conflict_returns_error() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
 
         let sink = Arc::new(MockSink::new());
@@ -511,7 +516,10 @@ mod tests {
 
         let body = r#"{"command":"next"}"#;
         let resp = raw_http_request(port, "POST", "/api/v1/control", Some(body)).await;
-        assert!(resp.contains("401 Unauthorized"), "Expected 401, got: {resp}");
+        assert!(
+            resp.contains("401 Unauthorized"),
+            "Expected 401, got: {resp}"
+        );
         assert_eq!(
             sink.command_count(),
             0,

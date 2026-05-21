@@ -16,9 +16,8 @@ fn main() {
 
     let args: Vec<String> = std::env::args().collect();
 
-    let model_path = get_arg(&args, "--model").unwrap_or_else(|| {
-        "models/minilm-l6-v2-int8/onnx/model_quantized.onnx".to_string()
-    });
+    let model_path = get_arg(&args, "--model")
+        .unwrap_or_else(|| "models/minilm-l6-v2-int8/onnx/model_quantized.onnx".to_string());
     let tokenizer_path = get_arg(&args, "--tokenizer")
         .unwrap_or_else(|| "models/minilm-l6-v2/tokenizer.json".to_string());
     let verses_path =

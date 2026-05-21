@@ -70,8 +70,9 @@ keyring = { version = "3", features = ["windows-native"] }
 rand = "0.8"
 
 [features]
-default = ["whisper"]
+default = ["whisper", "faster-whisper"]
 whisper = ["rhema-stt/whisper"]
+faster-whisper = ["rhema-stt/faster-whisper"]
 
 [lints]
 workspace = true

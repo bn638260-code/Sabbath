@@ -242,7 +242,7 @@ function SpeechSection() {
     }
   }
 
-  const handleProviderChange = (provider: "deepgram" | "whisper") => {
+  const handleProviderChange = (provider: "deepgram" | "whisper" | "faster-whisper") => {
     if (provider === sttProvider || switchingStt) return
     setSttProvider(provider)
     void restartActiveTranscription()
@@ -295,7 +295,7 @@ function SpeechSection() {
 
         <RadioGroup
           value={sttProvider}
-          onValueChange={(v) => handleProviderChange(v as "deepgram" | "whisper")}
+          onValueChange={(v) => handleProviderChange(v as "deepgram" | "whisper" | "faster-whisper")}
           disabled={switchingStt}
           className="gap-3"
         >
@@ -314,6 +314,25 @@ function SpeechSection() {
                 Uses Deepgram Nova-3 for real-time streaming transcription.
                 Requires an API key and internet connection. Best accuracy with
                 keyword boosting for Bible terms.
+              </p>
+            </div>
+          </label>
+
+          {/* faster-whisper (local CTranslate2) */}
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-data-[state=checked]:border-primary/50 has-data-[state=checked]:bg-primary/5 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary/20 ${
+              sttProvider !== "faster-whisper" ? "hover:border-muted-foreground/25" : ""
+            }`}
+          >
+            <RadioGroupItem value="faster-whisper" className="mt-0.5" />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-foreground">
+                Local (faster-whisper / CTranslate2)
+              </span>
+              <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
+                Runs Whisper through the faster-whisper Python package and
+                CTranslate2. Best local option for trying larger Whisper models
+                with lower memory use.
               </p>
             </div>
           </label>
@@ -338,7 +357,7 @@ function SpeechSection() {
         </RadioGroup>
       </div>
 
-      {sttProvider === "whisper" && (
+      {(sttProvider === "whisper" || sttProvider === "faster-whisper") && (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -348,17 +367,20 @@ function SpeechSection() {
               </span>
             </div>
             <Badge variant="outline" className="text-[0.5rem]">
-              {assetsLoading
-                ? "Checking"
-                : assetStatus?.whisper_model
-                  ? "Installed"
-                  : "Missing"}
+              {sttProvider === "faster-whisper"
+                ? "External"
+                : assetsLoading
+                  ? "Checking"
+                  : assetStatus?.whisper_model
+                    ? "Installed"
+                    : "Missing"}
             </Badge>
           </div>
 
           <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-            Whisper is the free local speech engine. If the model is missing,
-            transcription will not start until it is installed.
+            {sttProvider === "faster-whisper"
+              ? "faster-whisper uses a Python/CTranslate2 worker. Install it with python -m pip install faster-whisper. The model is controlled by SABBATHCUE_FASTER_WHISPER_MODEL."
+              : "Whisper is the free local speech engine. If the model is missing, transcription will not start until it is installed."}
           </p>
           <div className="flex flex-col gap-2">
             <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -378,7 +400,12 @@ function SpeechSection() {
               </SelectContent>
             </Select>
           </div>
-          {!assetsLoading && !assetStatus?.whisper_model && (
+          {sttProvider === "faster-whisper" && (
+            <p className="rounded-md bg-background px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
+              python -m pip install faster-whisper
+            </p>
+          )}
+          {sttProvider === "whisper" && !assetsLoading && !assetStatus?.whisper_model && (
             <p className="rounded-md bg-background px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
               bun run download:whisper
             </p>

@@ -1,4 +1,7 @@
-#![expect(clippy::needless_pass_by_value, reason = "Tauri command extractors require pass-by-value")]
+#![expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri command extractors require pass-by-value"
+)]
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -74,7 +77,10 @@ fn to_word_payloads(words: Vec<Word>) -> Vec<WordPayload> {
 /// 3. Fans audio out to both the level meter (emits `audio_level` events) and STT.
 /// 4. Receives transcripts and emits `transcript_partial` / `transcript_final` events.
 /// 5. On final transcripts, runs the detection pipeline and emits `verse_detected` events.
-#[expect(clippy::too_many_lines, reason = "pipeline setup is inherently complex")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "pipeline setup is inherently complex"
+)]
 #[tauri::command]
 pub async fn start_transcription(
     app: AppHandle,
@@ -110,8 +116,7 @@ pub async fn start_transcription(
                 ));
             }
 
-            let parallelism = std::thread::available_parallelism()
-                .map_or(4, usize::from);
+            let parallelism = std::thread::available_parallelism().map_or(4, usize::from);
             let profile_log = whisper_profile.as_deref().unwrap_or("balanced");
             let n_threads = i32::try_from(parallelism).unwrap_or(4).max(1);
 
@@ -129,8 +134,42 @@ pub async fn start_transcription(
         }
         #[cfg(not(feature = "whisper"))]
         "whisper" => {
+            return Err("Whisper support not compiled. Rebuild with --features whisper".into());
+        }
+        #[cfg(feature = "faster-whisper")]
+        "faster-whisper" => {
+            let script_path = asset_paths::faster_whisper_worker_path(&app);
+            if !script_path.exists() {
+                return Err(format!(
+                    "faster-whisper worker not found at {}.",
+                    script_path.display()
+                ));
+            }
+
+            let python_path =
+                std::env::var("SABBATHCUE_PYTHON").unwrap_or_else(|_| "python".to_string());
+            let model = std::env::var("SABBATHCUE_FASTER_WHISPER_MODEL")
+                .unwrap_or_else(|_| "large-v3-turbo".to_string());
+            let profile_log = whisper_profile.as_deref().unwrap_or("balanced");
+
+            log::info!(
+                "Starting faster-whisper transcription: python={python_path}, worker={}, model={model}, profile={profile_log}, device_id={device_id:?}",
+                script_path.display()
+            );
+
+            Box::new(rhema_stt::FasterWhisperProvider::new(
+                python_path,
+                script_path,
+                model,
+                Some("en".to_string()),
+                whisper_profile.as_deref(),
+            ))
+        }
+        #[cfg(not(feature = "faster-whisper"))]
+        "faster-whisper" => {
             return Err(
-                "Whisper support not compiled. Rebuild with --features whisper".into(),
+                "faster-whisper support not compiled. Rebuild with --features faster-whisper"
+                    .into(),
             );
         }
         _ => {
@@ -207,36 +246,36 @@ pub async fn start_transcription(
                 let (audio_tx, audio_rx) = crossbeam_channel::bounded::<AudioFrame>(128);
                 device_lost.store(false, Ordering::SeqCst);
 
-                let capture = match rhema_audio::capture::start(
-                    config,
-                    audio_tx,
-                    device_lost.clone(),
-                ) {
-                    Ok(c) => {
-                        if announced_lost {
-                            log::info!("[AUDIO] Source recovered — capture rebuilt");
-                            let _ = fan_app.emit(EVENT_AUDIO_SOURCE_RECOVERED, ());
-                            announced_lost = false;
+                let capture =
+                    match rhema_audio::capture::start(config, audio_tx, device_lost.clone()) {
+                        Ok(c) => {
+                            if announced_lost {
+                                log::info!("[AUDIO] Source recovered — capture rebuilt");
+                                let _ = fan_app.emit(EVENT_AUDIO_SOURCE_RECOVERED, ());
+                                announced_lost = false;
+                            }
+                            c
                         }
-                        c
-                    }
-                    Err(e) => {
-                        if !announced_lost {
-                            log::warn!(
-                                "[AUDIO] Source unavailable: {e} — waiting for reconnect"
-                            );
-                            let _ = fan_app.emit(EVENT_AUDIO_SOURCE_LOST, ());
-                            announced_lost = true;
-                            // Drop level meter to zero so UI reflects the gap.
-                            let _ = fan_app.emit(
-                                EVENT_AUDIO_LEVEL,
-                                AudioLevelPayload { rms: 0.0, peak: 0.0 },
-                            );
+                        Err(e) => {
+                            if !announced_lost {
+                                log::warn!(
+                                    "[AUDIO] Source unavailable: {e} — waiting for reconnect"
+                                );
+                                let _ = fan_app.emit(EVENT_AUDIO_SOURCE_LOST, ());
+                                announced_lost = true;
+                                // Drop level meter to zero so UI reflects the gap.
+                                let _ = fan_app.emit(
+                                    EVENT_AUDIO_LEVEL,
+                                    AudioLevelPayload {
+                                        rms: 0.0,
+                                        peak: 0.0,
+                                    },
+                                );
+                            }
+                            std::thread::sleep(Duration::from_millis(750));
+                            continue 'outer;
                         }
-                        std::thread::sleep(Duration::from_millis(750));
-                        continue 'outer;
-                    }
-                };
+                    };
 
                 log::info!("Audio capture started on fanout thread");
 
@@ -264,7 +303,10 @@ pub async fn start_transcription(
                             let _ = fan_app.emit(EVENT_AUDIO_SOURCE_LOST, ());
                             let _ = fan_app.emit(
                                 EVENT_AUDIO_LEVEL,
-                                AudioLevelPayload { rms: 0.0, peak: 0.0 },
+                                AudioLevelPayload {
+                                    rms: 0.0,
+                                    peak: 0.0,
+                                },
                             );
                             announced_lost = true;
                         }
@@ -465,10 +507,13 @@ pub async fn start_transcription(
                             match partial_preview_tx.try_send((seq, preview_text)) {
                                 Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
                                     if transcript_logging_enabled() {
-                                        log::debug!("[QUEUE] partial_preview_tx dropped stale partial");
+                                        log::debug!(
+                                            "[QUEUE] partial_preview_tx dropped stale partial"
+                                        );
                                     }
                                 }
-                                Ok(()) | Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+                                Ok(()) | Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                                }
                             }
                         }
                         log::debug!("[EVT] Partial processed in {:?}", t0.elapsed());
@@ -519,10 +564,13 @@ pub async fn start_transcription(
                             match partial_preview_tx.try_send((seq, preview_text)) {
                                 Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
                                     if transcript_logging_enabled() {
-                                        log::debug!("[QUEUE] fast_preview_tx dropped stale transcript");
+                                        log::debug!(
+                                            "[QUEUE] fast_preview_tx dropped stale transcript"
+                                        );
                                     }
                                 }
-                                Ok(()) | Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+                                Ok(()) | Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                                }
                             }
                         }
 
@@ -700,9 +748,12 @@ fn run_partial_direct_preview_detection(
 /// Uses SEPARATE Mutex<DirectDetector> and Mutex<DetectionMerger> so it
 /// never blocks on the semantic worker, and cooldown state persists across calls.
 /// Returns true if high-confidence results were found (>= 0.90).
-#[expect(clippy::similar_names, reason = "merger and merged are naturally named")]
+#[expect(
+    clippy::similar_names,
+    reason = "merger and merged are naturally named"
+)]
 fn run_direct_detection(app: &AppHandle, transcript: &str) -> bool {
-    use rhema_detection::{DirectDetector, DetectionMerger};
+    use rhema_detection::{DetectionMerger, DirectDetector};
 
     let t0 = std::time::Instant::now();
     let detector_state: State<'_, Mutex<DirectDetector>> = app.state();
@@ -768,7 +819,11 @@ fn run_direct_detection(app: &AppHandle, transcript: &str) -> bool {
             })
             .collect();
         for r in &results {
-            log::info!("[DET-DIRECT] Found: {} ({:.0}%) (no DB)", r.verse_ref, r.confidence * 100.0);
+            log::info!(
+                "[DET-DIRECT] Found: {} ({:.0}%) (no DB)",
+                r.verse_ref,
+                r.confidence * 100.0
+            );
         }
         let _ = app.emit("verse_detections", &results);
         return has_high_confidence;
@@ -784,7 +839,11 @@ fn run_direct_detection(app: &AppHandle, transcript: &str) -> bool {
         .collect();
 
     for r in &results {
-        log::info!("[DET-DIRECT] Found: {} ({:.0}%)", r.verse_ref, r.confidence * 100.0);
+        log::info!(
+            "[DET-DIRECT] Found: {} ({:.0}%)",
+            r.verse_ref,
+            r.confidence * 100.0
+        );
     }
     drop(app_state);
     let _ = app.emit("verse_detections", &results);
@@ -823,9 +882,10 @@ fn run_semantic_detection(app: &AppHandle, transcript: &str) {
             log::error!("Failed to lock AppState for FTS5");
             return;
         };
-        app_state.bible_db.as_ref().and_then(|db| {
-            db.search_verses_bm25(transcript, 10).ok()
-        })
+        app_state
+            .bible_db
+            .as_ref()
+            .and_then(|db| db.search_verses_bm25(transcript, 10).ok())
     };
 
     let Some(fts) = fts_results else {
@@ -856,14 +916,18 @@ fn run_semantic_detection(app: &AppHandle, transcript: &str) {
             }
 
             // Resolve verse text from active translation
-            let verse_text = app_state.bible_db.as_ref()
+            let verse_text = app_state
+                .bible_db
+                .as_ref()
                 .and_then(|db| {
                     db.get_verse(
                         app_state.active_translation_id,
                         hit.book_number,
                         hit.chapter,
                         hit.verse,
-                    ).ok().flatten()
+                    )
+                    .ok()
+                    .flatten()
                 })
                 .map(|v| v.text)
                 .unwrap_or_default();
@@ -892,7 +956,10 @@ fn run_semantic_detection(app: &AppHandle, transcript: &str) {
     for r in &results {
         log::info!(
             "[DET-SEMANTIC] Found: {} ({:.0}% {}) auto_q={}",
-            r.verse_ref, r.confidence * 100.0, r.source, r.auto_queued
+            r.verse_ref,
+            r.confidence * 100.0,
+            r.source,
+            r.auto_queued
         );
     }
     drop(app_state);
@@ -903,7 +970,10 @@ fn run_semantic_detection(app: &AppHandle, transcript: &str) {
 /// Check reading mode: if active, test transcript against expected verse.
 /// If direct detection just found a new verse, start/restart reading mode.
 /// Returns `true` when reading mode handled the transcript (suppresses semantic).
-#[expect(clippy::too_many_lines, reason = "sequential state-machine logic is clearer in one flow")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "sequential state-machine logic is clearer in one flow"
+)]
 fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> bool {
     use rhema_detection::ReadingMode;
 
@@ -914,7 +984,9 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
     if direct_found {
         let verse_info = {
             let detector_state: State<'_, Mutex<rhema_detection::DirectDetector>> = app.state();
-            let Ok(detector) = detector_state.lock() else { return false };
+            let Ok(detector) = detector_state.lock() else {
+                return false;
+            };
             detector.recent_detections().front().cloned()
         };
 
@@ -922,7 +994,9 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
             // Get the confidence of the detection to distinguish explicit refs from false positives
             let detection_confidence = {
                 let detector_state: State<'_, Mutex<rhema_detection::DirectDetector>> = app.state();
-                detector_state.lock().ok()
+                detector_state
+                    .lock()
+                    .ok()
                     .and_then(|d| d.recent_detections().front().map(|_| 0.95)) // Direct detections are always high confidence
                     .unwrap_or(0.0)
             };
@@ -937,10 +1011,12 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
                             // Paused — restart on any new explicit reference
                             true
                         } else if rm.current_book() == recent.book_number
-                            && rm.current_chapter() == recent.chapter {
+                            && rm.current_chapter() == recent.chapter
+                        {
                             false // Same book+chapter — already tracking this
                         } else if rm.current_book() != recent.book_number
-                            && detection_confidence >= 0.90 {
+                            && detection_confidence >= 0.90
+                        {
                             // Different book with high confidence — explicit new reference
                             // (e.g., "John 1:1" after reading Exodus). Restart.
                             true
@@ -966,7 +1042,13 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
                         return false;
                     };
                     let result = match &app_state.bible_db {
-                        Some(db) => db.get_chapter(app_state.active_translation_id, recent.book_number, recent.chapter).ok(),
+                        Some(db) => db
+                            .get_chapter(
+                                app_state.active_translation_id,
+                                recent.book_number,
+                                recent.chapter,
+                            )
+                            .ok(),
                         None => None,
                     };
                     log::info!("[READING] get_chapter took {:?}", t_db.elapsed());
@@ -992,7 +1074,10 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
                         // Check if transcript contains "chapter" keyword - if so, expect chapter number next
                         // This handles "Genesis chapter" → pause → "5" → go to chapter 5
                         let lower = transcript.to_lowercase();
-                        if lower.contains("chapter") && !lower.contains("next") && !lower.contains("previous") {
+                        if lower.contains("chapter")
+                            && !lower.contains("next")
+                            && !lower.contains("previous")
+                        {
                             rm.set_expecting_chapter();
                         }
                     }
@@ -1006,7 +1091,9 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
     // Check for chapter navigation commands (e.g., "let's go to chapter seven").
     {
         let chapter_change = {
-            let Ok(mut rm) = rm_managed.lock() else { return false };
+            let Ok(mut rm) = rm_managed.lock() else {
+                return false;
+            };
             if !rm.is_active() && !rm.has_verses() {
                 None
             } else {
@@ -1027,11 +1114,13 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
                     return false;
                 };
                 let result = match &app_state.bible_db {
-                    Some(db) => db.get_chapter(
-                        app_state.active_translation_id,
-                        change.book_number,
-                        change.new_chapter,
-                    ).ok(),
+                    Some(db) => db
+                        .get_chapter(
+                            app_state.active_translation_id,
+                            change.book_number,
+                            change.new_chapter,
+                        )
+                        .ok(),
                     None => None,
                 };
                 log::info!("[READING] get_chapter (nav) took {:?}", t_db.elapsed());
@@ -1064,7 +1153,10 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
                     }
 
                     // Emit the starting verse of the new chapter
-                    let reference = format!("{} {}:{}", change.book_name, change.new_chapter, start_verse);
+                    let reference = format!(
+                        "{} {}:{}",
+                        change.book_name, change.new_chapter, start_verse
+                    );
                     let advance = rhema_detection::ReadingAdvance {
                         book_number: change.book_number,
                         book_name: change.book_name.clone(),
@@ -1086,7 +1178,9 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
     // Allow check even when paused (has_verses but !active) so "verse N"
     // commands can re-activate reading mode after timeout.
     let advance = {
-        let Ok(mut rm) = rm_managed.lock() else { return false };
+        let Ok(mut rm) = rm_managed.lock() else {
+            return false;
+        };
         if !rm.is_active() && !rm.has_verses() {
             return false;
         }
@@ -1104,14 +1198,18 @@ fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> 
 /// Check for voice commands like "stop transcribing" and "start transcribing".
 fn check_stt_voice_command(app: &AppHandle, transcript: &str) -> bool {
     let detector_state: State<'_, Mutex<rhema_detection::DirectDetector>> = app.state();
-    let Ok(detector) = detector_state.lock() else { return false };
+    let Ok(detector) = detector_state.lock() else {
+        return false;
+    };
     let command = detector.detect_stt_voice_command(transcript);
     drop(detector);
 
     match command {
         Some(rhema_detection::direct::detector::SttVoiceCommand::Stop) => {
             let managed: State<'_, Mutex<AppState>> = app.state();
-            let Ok(app_state) = managed.lock() else { return true };
+            let Ok(app_state) = managed.lock() else {
+                return true;
+            };
             if app_state.stt_active.load(Ordering::Relaxed) {
                 app_state.stt_active.store(false, Ordering::SeqCst);
                 app_state.audio_active.store(false, Ordering::SeqCst);
@@ -1141,14 +1239,18 @@ fn check_translation_command(app: &AppHandle, transcript: &str) {
     }
 
     let detector_state: State<'_, Mutex<rhema_detection::DirectDetector>> = app.state();
-    let Ok(detector) = detector_state.lock() else { return };
+    let Ok(detector) = detector_state.lock() else {
+        return;
+    };
 
     if let Some(abbrev) = detector.detect_translation_command(transcript) {
         drop(detector);
 
         // Find the translation ID for this abbreviation
         let managed: State<'_, Mutex<AppState>> = app.state();
-        let Ok(mut app_state) = managed.try_lock() else { return };
+        let Ok(mut app_state) = managed.try_lock() else {
+            return;
+        };
 
         if let Some(ref db) = app_state.bible_db {
             if let Ok(translations) = db.list_translations() {
@@ -1157,10 +1259,13 @@ fn check_translation_command(app: &AppHandle, transcript: &str) {
                     log::info!("[STT] Voice command: switched to {abbrev} (id={})", t.id);
                     drop(app_state);
 
-                    let _ = app.emit("translation_command", TranslationSwitch {
-                        abbreviation: abbrev,
-                        translation_id: t.id,
-                    });
+                    let _ = app.emit(
+                        "translation_command",
+                        TranslationSwitch {
+                            abbreviation: abbrev,
+                            translation_id: t.id,
+                        },
+                    );
                 }
             }
         }
@@ -1169,9 +1274,7 @@ fn check_translation_command(app: &AppHandle, transcript: &str) {
 
 /// Stop the transcription pipeline (audio capture + STT provider).
 #[tauri::command]
-pub fn stop_transcription(
-    state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+pub fn stop_transcription(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
 
     if !app_state.stt_active.load(Ordering::Relaxed) {
@@ -1185,4 +1288,3 @@ pub fn stop_transcription(
     log::info!("Transcription stop requested");
     Ok(())
 }
-

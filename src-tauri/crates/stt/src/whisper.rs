@@ -5,8 +5,8 @@
 //! [`TranscriptEvent`] types as the Deepgram provider.
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::Receiver;

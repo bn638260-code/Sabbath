@@ -49,7 +49,9 @@ fn enforce_json_limits(value: &serde_json::Value) -> Result<(), String> {
 }
 
 fn validate_theme_shape(value: &serde_json::Value) -> Result<(), String> {
-    let obj = value.as_object().ok_or_else(|| "Theme JSON must be an object".to_string())?;
+    let obj = value
+        .as_object()
+        .ok_or_else(|| "Theme JSON must be an object".to_string())?;
 
     for key in ["id", "name", "background", "layout", "resolution"] {
         if !obj.contains_key(key) {
@@ -86,8 +88,8 @@ pub fn export_theme_to_path(path: String, theme: serde_json::Value) -> Result<()
     enforce_json_limits(&theme)?;
     validate_theme_shape(&theme)?;
 
-    let json =
-        serde_json::to_string_pretty(&theme).map_err(|e| format!("Could not serialize theme: {e}"))?;
+    let json = serde_json::to_string_pretty(&theme)
+        .map_err(|e| format!("Could not serialize theme: {e}"))?;
     if json.len() as u64 > MAX_THEME_BYTES {
         return Err("Theme JSON is too large to export".into());
     }
@@ -162,9 +164,8 @@ mod tests {
     #[test]
     fn enforces_json_nodes_limit() {
         // Create a JSON structure that exceeds MAX_JSON_NODES
-        let large_array: Vec<serde_json::Value> = (0..=MAX_JSON_NODES)
-            .map(|i| serde_json::json!(i))
-            .collect();
+        let large_array: Vec<serde_json::Value> =
+            (0..=MAX_JSON_NODES).map(|i| serde_json::json!(i)).collect();
         let value = serde_json::Value::Array(large_array);
 
         let result = enforce_json_limits(&value);
@@ -213,4 +214,3 @@ mod tests {
         assert!(result.unwrap_err().contains("missing required field"));
     }
 }
-

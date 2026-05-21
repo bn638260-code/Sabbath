@@ -1,12 +1,15 @@
-#![expect(clippy::needless_pass_by_value, reason = "Tauri command extractors require pass-by-value")]
+#![expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri command extractors require pass-by-value"
+)]
 
 use std::sync::Mutex;
 
 use base64::Engine;
+use rhema_broadcast::ndi::{NdiRuntime, NdiSessionInfo, NdiStartRequest};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-use rhema_broadcast::ndi::{NdiRuntime, NdiSessionInfo, NdiStartRequest};
 
 /// Map `output_id` ("main" | "alt") to Tauri window label.
 fn window_label(output_id: &str) -> &'static str {
@@ -68,18 +71,18 @@ pub fn ensure_broadcast_window(app: tauri::AppHandle, output_id: String) -> Resu
     if app.get_webview_window(label).is_some() {
         return Ok(());
     }
-    WebviewWindowBuilder::new(
-        &app,
-        label,
-        WebviewUrl::App(window_url(&output_id).into()),
-    )
-    .title(if output_id == "alt" { "SabbathCue NDI Alt" } else { "SabbathCue NDI" })
-    .inner_size(1920.0, 1080.0)
-    .visible(false)
-    .skip_taskbar(true)
-    .focused(false)
-    .build()
-    .map_err(|e| e.to_string())?;
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::App(window_url(&output_id).into()))
+        .title(if output_id == "alt" {
+            "SabbathCue NDI Alt"
+        } else {
+            "SabbathCue NDI"
+        })
+        .inner_size(1920.0, 1080.0)
+        .visible(false)
+        .skip_taskbar(true)
+        .focused(false)
+        .build()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -138,21 +141,17 @@ pub fn open_broadcast_window(
         return Ok(());
     }
 
-    WebviewWindowBuilder::new(
-        &app,
-        label,
-        WebviewUrl::App(window_url(&output_id).into()),
-    )
-    .title(projector_window_title(&output_id))
-    .position(f64::from(pos.x), f64::from(pos.y))
-    .inner_size(f64::from(size.width), f64::from(size.height))
-    .decorations(!fullscreen_enabled)
-    .fullscreen(fullscreen_enabled)
-    .always_on_top(false)
-    .skip_taskbar(false)
-    .focused(true)
-    .build()
-    .map_err(|e| e.to_string())?;
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::App(window_url(&output_id).into()))
+        .title(projector_window_title(&output_id))
+        .position(f64::from(pos.x), f64::from(pos.y))
+        .inner_size(f64::from(size.width), f64::from(size.height))
+        .decorations(!fullscreen_enabled)
+        .fullscreen(fullscreen_enabled)
+        .always_on_top(false)
+        .skip_taskbar(false)
+        .focused(true)
+        .build()
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -185,9 +184,7 @@ pub fn start_ndi(
     request: NdiStartRequest,
 ) -> Result<NdiSessionInfo, String> {
     let mut runtime = runtime.lock().map_err(|e| e.to_string())?;
-    runtime
-        .start(output_id, request)
-        .map_err(|e| e.to_string())
+    runtime.start(output_id, request).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -232,6 +229,11 @@ pub fn push_ndi_frame(
         .map_err(|e| format!("base64 decode error: {e}"))?;
     let mut runtime = runtime.lock().map_err(|e| e.to_string())?;
     runtime
-        .send_frame_rgba(&request.output_id, request.width, request.height, &rgba_data)
+        .send_frame_rgba(
+            &request.output_id,
+            request.width,
+            request.height,
+            &rgba_data,
+        )
         .map_err(|e| e.to_string())
 }

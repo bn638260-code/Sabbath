@@ -60,6 +60,21 @@ pub fn whisper_model_path(app: &AppHandle) -> PathBuf {
     })
 }
 
+pub fn faster_whisper_worker_path(app: &AppHandle) -> PathBuf {
+    first_existing(
+        [
+            app.path()
+                .resource_dir()
+                .ok()
+                .map(|p| p.join("scripts").join("faster_whisper_worker.py")),
+            Some(dev_root().join("scripts").join("faster_whisper_worker.py")),
+        ]
+        .into_iter()
+        .flatten(),
+    )
+    .unwrap_or_else(|| dev_root().join("scripts").join("faster_whisper_worker.py"))
+}
+
 pub fn onnx_model_path(app: &AppHandle) -> PathBuf {
     first_existing(
         [
@@ -118,16 +133,13 @@ pub fn onnx_model_path(app: &AppHandle) -> PathBuf {
 pub fn tokenizer_path(app: &AppHandle) -> PathBuf {
     first_existing(
         [
-            app_data_dir(app).ok().map(|p| {
-                p.join("models")
-                    .join("minilm-l6-v2")
-                    .join("tokenizer.json")
-            }),
-            app.path().resource_dir().ok().map(|p| {
-                p.join("models")
-                    .join("minilm-l6-v2")
-                    .join("tokenizer.json")
-            }),
+            app_data_dir(app)
+                .ok()
+                .map(|p| p.join("models").join("minilm-l6-v2").join("tokenizer.json")),
+            app.path()
+                .resource_dir()
+                .ok()
+                .map(|p| p.join("models").join("minilm-l6-v2").join("tokenizer.json")),
             Some(
                 dev_root()
                     .join("models")
@@ -180,7 +192,11 @@ pub fn embedding_ids_path(app: &AppHandle) -> PathBuf {
                 .resource_dir()
                 .ok()
                 .map(|p| p.join("embeddings").join("kjv-minilm-l6-v2-ids.bin")),
-            Some(dev_root().join("embeddings").join("kjv-minilm-l6-v2-ids.bin")),
+            Some(
+                dev_root()
+                    .join("embeddings")
+                    .join("kjv-minilm-l6-v2-ids.bin"),
+            ),
         ]
         .into_iter()
         .flatten(),

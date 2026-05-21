@@ -69,7 +69,8 @@ impl TranscriptRouter {
             self.last_partial = Some(normalized);
             return TranscriptRoute {
                 emit_transcript: true,
-                preview_candidate: looks_like_complete_reference(cleaned).then(|| cleaned.to_string()),
+                preview_candidate: looks_like_complete_reference(cleaned)
+                    .then(|| cleaned.to_string()),
                 authoritative_detection: None,
                 suppress_reason: None,
             };

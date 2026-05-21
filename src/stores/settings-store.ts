@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { load, type Store } from "@tauri-apps/plugin-store"
 
-type SttProvider = "deepgram" | "whisper"
+type SttProvider = "deepgram" | "whisper" | "faster-whisper"
 type WhisperProfile = "fast" | "balanced"
 
 interface SettingsState {
