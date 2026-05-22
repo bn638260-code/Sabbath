@@ -16,6 +16,7 @@ export type {
   ServiceContextItem,
   ServicePlanStatus,
   ServiceMode,
+  ServiceAttachment,
 } from "./service-plan"
 export type {
   VerificationSession,
