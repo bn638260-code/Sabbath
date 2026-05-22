@@ -31,10 +31,9 @@ describe("service plan shell integration", () => {
     expect(types).toContain("ServicePlanReport")
   })
 
-  it("wires Live Control to ServiceContext via ServiceLiveContextPanel", () => {
+  it("keeps service context panel on dedicated service screens, not the normal live output", () => {
     const liveOutput = readSource("src/components/panels/live-output-panel.tsx")
-    expect(liveOutput).toContain("ServiceLiveContextPanel")
-    expect(liveOutput).not.toContain("activePlan")
+    expect(liveOutput).not.toContain("ServiceLiveContextPanel")
 
     const panel = readSource("src/components/service-plan/ServiceLiveContextPanel.tsx")
     expect(panel).toContain("serviceContext")

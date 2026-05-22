@@ -427,7 +427,7 @@ export function HymnalPanel() {
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">
                   {activeScreen
-                    ? `${activeScreen.sectionLabel} ${activeScreen.screenIndex + 1}/${activeScreen.totalScreens}`
+                    ? `${activeScreen.sectionLabel} ${activeScreen.screenIndex + 1} of ${activeScreen.totalScreens}`
                     : "No screen"}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">Preview or queue hymn screens.</p>

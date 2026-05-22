@@ -4,7 +4,6 @@ import type { ServiceContext, ServiceItem } from "@/types/service-plan"
 import { ChecklistEditor } from "./ChecklistEditor"
 import { HymnRefsEditor } from "./HymnRefsEditor"
 import { MediaAttachmentsEditor } from "./MediaAttachmentsEditor"
-import { SermonSlidesEditor } from "./SermonSlidesEditor"
 import { ScriptureRefsEditor } from "./ScriptureRefsEditor"
 import { ServiceItemBasicFields } from "./ServiceItemBasicFields"
 
@@ -57,27 +56,8 @@ export function ServiceItemDetailsPanel({
       />
 
       <MediaAttachmentsEditor
-        attachments={item.attachments.filter((attachment) => attachment.kind !== "slide")}
-        onChange={(attachments) =>
-          onPatchItem({
-            attachments: [
-              ...item.attachments.filter((attachment) => attachment.kind === "slide"),
-              ...attachments,
-            ],
-          })
-        }
-      />
-
-      <SermonSlidesEditor
-        attachments={item.attachments.filter((attachment) => attachment.kind === "slide")}
-        onChange={(slides) =>
-          onPatchItem({
-            attachments: [
-              ...slides,
-              ...item.attachments.filter((attachment) => attachment.kind !== "slide"),
-            ],
-          })
-        }
+        attachments={item.attachments}
+        onChange={(attachments) => onPatchItem({ attachments })}
       />
 
       <ChecklistEditor

@@ -19,7 +19,7 @@ function makeSlide(index: number): HymnPresentationItemData {
     screenId: `screen-${index}`,
     slideIndex: index,
     slideCount: 3,
-    reference: `Joyful - Slide ${index + 1}/3`,
+    reference: `Joyful - Slide ${index + 1} of 3`,
     segments: [{ text: `Line ${index + 1}` }],
   }
 }

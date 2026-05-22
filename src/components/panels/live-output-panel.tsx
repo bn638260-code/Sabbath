@@ -12,7 +12,6 @@ import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, RadioIcon, SendIcon, Maximize2Icon, Minimize2Icon } from "lucide-react"
 import { toast } from "sonner"
-import { ServiceLiveContextPanel } from "@/components/service-plan/ServiceLiveContextPanel"
 
 export function LiveOutputPanel() {
   const isLive = useBroadcastStore((s) => s.isLive)
@@ -119,8 +118,6 @@ export function LiveOutputPanel() {
         </PanelHeader>
       )}
 
-      <ServiceLiveContextPanel />
-
       <div className={cn("flex min-h-10 items-center justify-between gap-2 border-b border-border px-3 py-1.5", isFullscreen && "hidden")}>
         <div className="flex items-center gap-2">
           <Button
@@ -148,9 +145,9 @@ export function LiveOutputPanel() {
               >
                 <ChevronLeftIcon className="size-3" />
               </Button>
-              <span className="min-w-12 text-center text-[0.625rem] tabular-nums text-muted-foreground">
-                {(liveItem.hymnSlide?.slideIndex ?? 0) + 1}/{liveItem.hymnSlide?.slideCount ?? 1}
-              </span>
+              <Badge variant="outline" className="min-w-12 justify-center tabular-nums" aria-label={`Slide ${(liveItem.hymnSlide?.slideIndex ?? 0) + 1} of ${liveItem.hymnSlide?.slideCount ?? 1}`}>
+                {(liveItem.hymnSlide?.slideIndex ?? 0) + 1} of {liveItem.hymnSlide?.slideCount ?? 1}
+              </Badge>
               <Button
                 size="icon-xs"
                 variant="outline"

@@ -48,6 +48,10 @@ describe("dashboard layout helpers", () => {
       transcriptWidth: 240,
       queueWidth: 520,
       detectionsWidth: 360,
+      servicePlanLibraryWidth: 320,
+      liveServiceContextWidth: 320,
+      liveHymnLyricsWidth: 360,
+      sermonSlidesEditorWidth: 380,
     })
   })
 
@@ -75,6 +79,10 @@ describe("dashboard layout helpers", () => {
       transcriptWidth: 360,
       queueWidth: 280,
       detectionsWidth: 420,
+      servicePlanLibraryWidth: 320,
+      liveServiceContextWidth: 320,
+      liveHymnLyricsWidth: 360,
+      sermonSlidesEditorWidth: 380,
     })
   })
 })

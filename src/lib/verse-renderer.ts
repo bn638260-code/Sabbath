@@ -423,7 +423,7 @@ function drawHymnSlideCounter(
   const slide = data.hymnSlide
   if (!["hymn", "slideDeck"].includes(data.kind ?? "") || !slide || slide.slideCount <= 0) return
 
-  const text = `${slide.slideIndex + 1}/${slide.slideCount}`
+  const text = `${slide.slideIndex + 1} of ${slide.slideCount}`
   const fontSize = Math.max(14, Math.round(theme.resolution.width * 0.018))
   const paddingX = Math.round(fontSize * 0.75)
   const paddingY = Math.round(fontSize * 0.35)

@@ -1,9 +1,12 @@
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { ServiceItem } from "@/types/service-plan"
 import {
   CheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   CopyIcon,
   GripVerticalIcon,
   PlayIcon,
@@ -34,6 +37,11 @@ export function ServiceTimeline({
   onReorder,
 }: ServiceTimelineProps) {
   const ordered = [...items].sort((a, b) => a.order - b.order)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const toggleExpand = (id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id))
+  }
 
   return (
     <div className="flex flex-col gap-1 overflow-y-auto pr-1" data-slot="service-timeline">
@@ -44,97 +52,124 @@ export function ServiceTimeline({
       ) : (
         ordered.map((item, index) => {
           const isActive = item.id === activeItemId
+          const expanded = expandedId === item.id
           return (
             <div
               key={item.id}
               className={cn(
-                "flex items-start gap-2 rounded-md border border-border/60 bg-card/60 px-2 py-2",
+                "rounded-md border border-border/60 bg-card/60",
                 isActive && "border-primary/50 bg-primary/5",
               )}
             >
-              <button
-                type="button"
-                className="mt-1 cursor-grab text-muted-foreground"
-                title="Reorder"
-                draggable={!performanceMode}
-                onDragStart={() => {
-                  if (performanceMode) return
-                  ;(window as unknown as { __serviceDragIndex?: number }).__serviceDragIndex = index
-                }}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={() => {
-                  const from = (window as unknown as { __serviceDragIndex?: number }).__serviceDragIndex
-                  if (typeof from === "number" && from !== index) onReorder(from, index)
-                }}
-              >
-                <GripVerticalIcon className="size-3.5" />
-              </button>
+              <div className="flex items-center gap-1.5 px-2 py-1.5">
+                <button
+                  type="button"
+                  className="cursor-pointer text-muted-foreground"
+                  title="Reorder"
+                  draggable={!performanceMode}
+                  onDragStart={() => {
+                    if (performanceMode) return
+                    ;(window as unknown as { __serviceDragIndex?: number }).__serviceDragIndex = index
+                  }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => {
+                    const from = (window as unknown as { __serviceDragIndex?: number }).__serviceDragIndex
+                    if (typeof from === "number" && from !== index) onReorder(from, index)
+                  }}
+                >
+                  <GripVerticalIcon className="size-3" />
+                </button>
 
-              <button
-                type="button"
-                className="min-w-0 flex-1 text-left"
-                onClick={() => onSelect(item.id)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">{item.title}</span>
+                <button
+                  type="button"
+                  className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                  onClick={() => onSelect(item.id)}
+                >
+                  <span className="truncate text-xs font-medium">{item.title}</span>
                   <Badge variant="outline" className="shrink-0 text-[0.5rem] uppercase">
                     {item.kind}
                   </Badge>
-                </div>
-                <div className="mt-1 flex items-center gap-2 text-[0.625rem] text-muted-foreground">
-                  <span className="capitalize">{item.status}</span>
-                  {item.durationMinutes ? <span>{item.durationMinutes} min</span> : null}
-                </div>
-              </button>
+                  <span className="shrink-0 text-[0.625rem] capitalize text-muted-foreground">
+                    {item.status}
+                  </span>
+                </button>
 
-              <div className="flex shrink-0 flex-col gap-1">
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  title="Set active"
-                  onClick={() => onSelect(item.id)}
-                >
-                  <PlayIcon className="size-3.5" />
-                </Button>
-                {!performanceMode && (
-                  <>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      title="Mark ready"
-                      onClick={() => onMarkReady(item.id)}
-                    >
-                      <CheckIcon className="size-3.5" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      title="Duplicate"
-                      onClick={() => onDuplicate(item.id)}
-                    >
-                      <CopyIcon className="size-3.5" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      title="Delete"
-                      onClick={() => onDelete(item.id)}
-                    >
-                      <Trash2Icon className="size-3.5" />
-                    </Button>
-                  </>
-                )}
                 {isActive && (
                   <Button
-                    size="icon-sm"
+                    size="icon-xs"
                     variant="ghost"
                     title="Complete"
                     onClick={() => onComplete(item.id)}
                   >
-                    <CheckIcon className="size-3.5 text-emerald-500" />
+                    <CheckIcon className="size-3 text-emerald-500" />
                   </Button>
                 )}
+
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  title={expanded ? "Collapse" : "Expand"}
+                  onClick={() => toggleExpand(item.id)}
+                >
+                  {expanded ? (
+                    <ChevronDownIcon className="size-3" />
+                  ) : (
+                    <ChevronRightIcon className="size-3" />
+                  )}
+                </Button>
               </div>
+
+              {expanded && (
+                <div className="border-t border-border/40 px-2 py-1.5">
+                  {item.durationMinutes ? (
+                    <div className="mb-1 text-[0.625rem] text-muted-foreground">
+                      Duration: {item.durationMinutes} min
+                    </div>
+                  ) : null}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      title="Set active"
+                      onClick={() => onSelect(item.id)}
+                    >
+                      <PlayIcon className="size-3" />
+                      <span className="ml-1 text-[0.625rem]">Active</span>
+                    </Button>
+                    {!performanceMode && (
+                      <>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          title="Mark ready"
+                          onClick={() => onMarkReady(item.id)}
+                        >
+                          <CheckIcon className="size-3" />
+                          <span className="ml-1 text-[0.625rem]">Ready</span>
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          title="Duplicate"
+                          onClick={() => onDuplicate(item.id)}
+                        >
+                          <CopyIcon className="size-3" />
+                          <span className="ml-1 text-[0.625rem]">Dup</span>
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          title="Delete"
+                          onClick={() => onDelete(item.id)}
+                        >
+                          <Trash2Icon className="size-3" />
+                          <span className="ml-1 text-[0.625rem]">Del</span>
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )
         })

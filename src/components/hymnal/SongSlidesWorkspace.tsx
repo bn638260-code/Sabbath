@@ -57,7 +57,7 @@ function createSongSlideItem(
     screenId: `custom-song-${index + 1}-${total}`,
     slideIndex: index,
     slideCount: total,
-    reference: `${trimmedTitle} - Slide ${index + 1}/${total}`,
+    reference: `${trimmedTitle} - Slide ${index + 1} of ${total}`,
     segments: lines.map((text) => ({ text })),
   }
 }
@@ -189,7 +189,7 @@ export function SongSlidesWorkspace() {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{title || "Custom Song"}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {activeSlide ? `Slide ${activeSlide.slideIndex + 1}/${activeSlide.slideCount}` : "No slides"}
+                {activeSlide ? `Slide ${activeSlide.slideIndex + 1} of ${activeSlide.slideCount}` : "No slides"}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -213,7 +213,7 @@ export function SongSlidesWorkspace() {
               <div className="flex min-h-full flex-col gap-3">
                 <div className="relative flex aspect-video items-center justify-center rounded-md border border-border bg-black p-8 text-center">
                   <span className="absolute right-3 top-3 rounded bg-white/10 px-2 py-0.5 text-[0.625rem] font-semibold text-white/80">
-                    {activeSlide.slideIndex + 1}/{activeSlide.slideCount}
+                    {activeSlide.slideIndex + 1} of {activeSlide.slideCount}
                   </span>
                   <div className="max-w-[80%] space-y-3 text-balance text-2xl font-semibold leading-snug text-white">
                     {activeSlide.segments.map((segment) => (

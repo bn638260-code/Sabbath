@@ -6,6 +6,7 @@ import {
 } from "@/services/hymnal/hymn-presentation"
 import { generateHymnScreens } from "@/services/hymnal/generate-hymn-screens"
 import { getHymnByNumber } from "@/services/hymnal/hymnal-repository"
+import { buildSermonSlideDeck } from "@/services/slides/sermon-slide-deck"
 import { useBibleStore } from "@/stores/bible-store"
 import { useQueueStore } from "@/stores/queue-store"
 import type { QueueItem } from "@/types/queue"
@@ -43,23 +44,22 @@ function createPlaceholderScripturePresentation(
 
 function createMediaPresentation(
   input: Pick<ServiceAttachment, "id" | "kind" | "label"> | MediaRef,
-  kind: "media" | "slide" | "document" | "deck",
+  kind: "media" | "document",
 ): PresentationItem {
   const title = input.label
+  const kindLabel = kind === "document" ? "Document" : "Media"
   return {
     kind: "media",
     mediaId: "id" in input ? input.id : input.attachmentId,
     mediaKind: kind,
     title,
-    reference: planReference(`${kind === "deck" ? "Deck" : kind === "slide" ? "Slide" : "Media"} - ${title}`),
+    reference: planReference(`${kindLabel} - ${title}`),
     segments: [
       {
         text:
-          kind === "deck"
-            ? "Prepared slide deck. Open from the Service Plan to preview the selected deck."
-            : kind === "slide"
-              ? "Prepared slide attachment. Open from the Service Plan to preview the selected file."
-              : "Prepared media attachment. Open from the Service Plan to preview the selected file.",
+          kind === "document"
+            ? "Prepared document attachment. Open from the Service Plan to preview."
+            : "Prepared media attachment. Open from the Service Plan to preview the selected file.",
       },
     ],
   }
@@ -158,10 +158,18 @@ export async function enqueuePreparedResourcesForItem(item: ServiceItem): Promis
     queued += 1
   }
 
+  const slideDeck = buildSermonSlideDeck(item)
   for (const attachment of item.attachments) {
-    if (attachment.kind !== "media" && attachment.kind !== "slide" && attachment.kind !== "deck") continue
-    queuePreparedItem(createMediaPresentation(attachment, attachment.kind))
-    queued += 1
+    if (attachment.kind === "slide") {
+      const slide = slideDeck.find((s) => s.slideId === attachment.id)
+      if (slide) {
+        queuePreparedItem(slide)
+        queued += 1
+      }
+    } else if (attachment.kind === "deck" || attachment.kind === "document") {
+      queuePreparedItem(createMediaPresentation(attachment, "document"))
+      queued += 1
+    }
   }
 
   return queued

@@ -14,7 +14,7 @@ const MAX_SLIDE_SIZE_BYTES: u64 = 100 * 1024 * 1024;
 const MAX_MEDIA_SIZE_BYTES: u64 = 750 * 1024 * 1024;
 
 const SUPPORTED_ATTACHMENT_EXTENSIONS: &[&str] = &[
-    "png", "jpg", "jpeg", "webp", "gif", "mp4", "mov", "webm", "pdf",
+    "png", "jpg", "jpeg", "webp", "gif", "pdf",
 ];
 
 /// Response DTO for `validate_service_attachment_path`.
@@ -90,8 +90,6 @@ fn attachment_kind_from_extension(extension: &str) -> &'static str {
         "deck"
     } else if matches!(extension, "png" | "jpg" | "jpeg" | "webp" | "gif") {
         "slide"
-    } else if matches!(extension, "mp4" | "mov" | "webm") {
-        "media"
     } else {
         "document"
     }
@@ -264,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn accepts_valid_local_file() {
+    fn accepts_valid_image() {
         let dir = std::env::temp_dir().join(format!("sabbathcue-attach-{}", std::process::id()));
         fs::create_dir_all(&dir).expect("temp dir");
         let file_path = dir.join("sample.png");
@@ -275,6 +273,33 @@ mod tests {
         assert_eq!(validated.label, "sample.png");
         assert_eq!(validated.kind, "slide");
         assert!(validated.size_bytes > 0);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn accepts_valid_pdf() {
+        let dir = std::env::temp_dir().join(format!("sabbathcue-attach-pdf-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("temp dir");
+        let file_path = dir.join("sample.pdf");
+        let mut file = fs::File::create(&file_path).expect("create file");
+        file.write_all(b"pdf").expect("write bytes");
+        let validated = validate_service_attachment_path_inner(file_path.to_str().unwrap())
+            .expect("valid attachment");
+        assert_eq!(validated.label, "sample.pdf");
+        assert_eq!(validated.kind, "deck");
+        assert!(validated.size_bytes > 0);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rejects_video_extension() {
+        let dir = std::env::temp_dir().join(format!("sabbathcue-attach-video-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("temp dir");
+        let file_path = dir.join("sample.mp4");
+        let mut file = fs::File::create(&file_path).expect("create file");
+        file.write_all(b"video").expect("write bytes");
+        let err = validate_service_attachment_path_inner(file_path.to_str().unwrap()).unwrap_err();
+        assert_eq!(err, "Unsupported attachment extension");
         let _ = fs::remove_dir_all(dir);
     }
 }

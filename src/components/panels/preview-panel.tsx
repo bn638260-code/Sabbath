@@ -100,9 +100,9 @@ export function PreviewPanel() {
               >
                 <ChevronLeftIcon className="size-3" />
               </Button>
-              <span className="min-w-12 text-center text-[0.625rem] tabular-nums text-muted-foreground">
-                {(previewItem.hymnSlide?.slideIndex ?? 0) + 1}/{previewItem.hymnSlide?.slideCount ?? 1}
-              </span>
+              <Badge variant="outline" className="min-w-12 justify-center tabular-nums" aria-label={`Slide ${(previewItem.hymnSlide?.slideIndex ?? 0) + 1} of ${previewItem.hymnSlide?.slideCount ?? 1}`}>
+                {(previewItem.hymnSlide?.slideIndex ?? 0) + 1} of {previewItem.hymnSlide?.slideCount ?? 1}
+              </Badge>
               <Button
                 size="icon-xs"
                 variant="outline"

@@ -1,8 +1,14 @@
-import { lazy, Suspense, useEffect, useMemo } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PanelHeader } from "@/components/ui/panel-header"
+import { ResizeHandle } from "@/components/layout/dashboard"
+import {
+  clampNumber,
+  loadDashboardLayoutState,
+  saveDashboardLayoutState,
+} from "@/lib/dashboard-layout"
 import { LiveOutputPanel } from "@/components/panels/live-output-panel"
 import { PreviewPanel } from "@/components/panels/preview-panel"
 import { QueuePanel } from "@/components/panels/queue-panel"
@@ -21,6 +27,7 @@ import {
 } from "lucide-react"
 import { ServiceTimeline } from "./ServiceTimeline"
 import { ServiceItemDetailsPanel } from "./ServiceItemDetailsPanel"
+import { SermonSlidesEditor } from "./SermonSlidesEditor"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { CanvasPresentation } from "@/components/ui/canvas-verse"
 import { selectPreviewItem } from "@/lib/presentation-workflow"
@@ -29,6 +36,7 @@ import { loadActiveSermonSlideDeck, presentSermonSlideAt } from "@/services/slid
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { getPresentationRenderData } from "@/types"
+import type { ServiceAttachment } from "@/types/service-plan"
 
 export { ServiceLiveContextPanel } from "./ServiceLiveContextPanel"
 
@@ -260,11 +268,8 @@ export function ServicePlanSummaryWidget() {
 }
 
 export function ServicePlanLibraryPanel() {
-  const summaries = useServicePlanStore((s) => s.summaries)
   const createFromTemplate = useServicePlanStore((s) => s.createFromTemplate)
-  const loadPlan = useServicePlanStore((s) => s.loadPlan)
   const hydrate = useServicePlanStore((s) => s.hydrate)
-  const isHydrated = useServicePlanStore((s) => s.isHydrated)
 
   useEffect(() => {
     void hydrate()
@@ -299,25 +304,6 @@ export function ServicePlanLibraryPanel() {
             </Button>
           ))}
         </div>
-        {isHydrated && summaries.length > 0 && (
-          <div className="space-y-1">
-            <div className="text-[0.625rem] font-medium text-muted-foreground uppercase">
-              Recent plans
-            </div>
-            {summaries.map((summary) => (
-              <Button
-                key={summary.id}
-                variant="ghost"
-                size="sm"
-                className="w-full justify-between"
-                onClick={() => void loadPlan(summary.id)}
-              >
-                <span>{summary.title}</span>
-                <Badge variant="outline">{summary.status}</Badge>
-              </Button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )
@@ -325,13 +311,50 @@ export function ServicePlanLibraryPanel() {
 
 export function ServicePlanWorkspace() {
   const activePlan = useServicePlanStore((s) => s.activePlan)
+  const [libraryWidth, setLibraryWidth] = useState(
+    () => loadDashboardLayoutState().servicePlanLibraryWidth,
+  )
+
+  useEffect(() => {
+    const layout = loadDashboardLayoutState()
+    if (layout.servicePlanLibraryWidth !== libraryWidth) {
+      layout.servicePlanLibraryWidth = libraryWidth
+      saveDashboardLayoutState(layout)
+    }
+  }, [libraryWidth])
+
+  const startLibraryResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const startX = event.clientX
+      const startWidth = libraryWidth
+      const onMove = (moveEvent: PointerEvent) => {
+        setLibraryWidth(clampNumber(startWidth + moveEvent.clientX - startX, 240, 480))
+      }
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove)
+        window.removeEventListener("pointerup", onUp)
+      }
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", onUp)
+    },
+    [libraryWidth],
+  )
 
   return (
     <div
-      className="grid h-full min-h-0 gap-2 p-3 lg:grid-cols-[320px_minmax(0,1fr)]"
+      className="grid h-full min-h-0 gap-2 p-3"
+      style={{
+        gridTemplateColumns: `${libraryWidth}px 6px minmax(0, 1fr)`,
+      }}
       data-slot="service-plan-workspace"
     >
       <ServicePlanLibraryPanel />
+      <ResizeHandle
+        axis="x"
+        label="Resize service plan library"
+        onPointerDown={startLibraryResize}
+      />
       <div className="min-h-0 overflow-hidden rounded-lg border border-border bg-card">
         {activePlan ? (
           <Suspense
@@ -345,7 +368,7 @@ export function ServicePlanWorkspace() {
           </Suspense>
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-            Choose a recent plan or create one from a template to begin.
+            Create a plan from a template to begin.
           </div>
         )}
       </div>
@@ -379,12 +402,46 @@ export function LiveServicePlanPage() {
     () => [...(activePlan?.items ?? [])].sort((a, b) => a.order - b.order),
     [activePlan?.items]
   )
+  const [contextWidth, setContextWidth] = useState(
+    () => loadDashboardLayoutState().liveServiceContextWidth,
+  )
+
+  useEffect(() => {
+    const layout = loadDashboardLayoutState()
+    if (layout.liveServiceContextWidth !== contextWidth) {
+      layout.liveServiceContextWidth = contextWidth
+      saveDashboardLayoutState(layout)
+    }
+  }, [contextWidth])
+
+  const startContextResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const startX = event.clientX
+      const startWidth = contextWidth
+      const onMove = (moveEvent: PointerEvent) => {
+        setContextWidth(clampNumber(startWidth - (moveEvent.clientX - startX), 240, 480))
+      }
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove)
+        window.removeEventListener("pointerup", onUp)
+      }
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", onUp)
+    },
+    [contextWidth],
+  )
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden p-3">
       <LiveProductionGrid />
 
-      <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+      <div
+        className="grid min-h-0 flex-1 gap-2"
+        style={{
+          gridTemplateColumns: `minmax(0, 1fr) 6px ${contextWidth}px`,
+        }}
+      >
         <section className="min-h-0 overflow-hidden rounded-lg border border-border bg-card">
           <PanelHeader
             title="Live Service Plan"
@@ -452,6 +509,11 @@ export function LiveServicePlanPage() {
             </div>
           </div>
         </section>
+        <ResizeHandle
+          axis="x"
+          label="Resize live service context panel"
+          onPointerDown={startContextResize}
+        />
         <section className="min-h-0 overflow-hidden rounded-lg border border-border bg-card">
           <PanelHeader
             title="Live Context"
@@ -497,20 +559,54 @@ export function LiveHymnPage() {
   const deck = useHymnSlideStore((s) => s.deck)
   const activeIndex = useHymnSlideStore((s) => s.activeIndex)
   const activeSlide = deck[activeIndex] ?? null
+  const [lyricsWidth, setLyricsWidth] = useState(
+    () => loadDashboardLayoutState().liveHymnLyricsWidth,
+  )
+
+  useEffect(() => {
+    const layout = loadDashboardLayoutState()
+    if (layout.liveHymnLyricsWidth !== lyricsWidth) {
+      layout.liveHymnLyricsWidth = lyricsWidth
+      saveDashboardLayoutState(layout)
+    }
+  }, [lyricsWidth])
+
+  const startLyricsResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const startX = event.clientX
+      const startWidth = lyricsWidth
+      const onMove = (moveEvent: PointerEvent) => {
+        setLyricsWidth(clampNumber(startWidth - (moveEvent.clientX - startX), 280, 520))
+      }
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove)
+        window.removeEventListener("pointerup", onUp)
+      }
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", onUp)
+    },
+    [lyricsWidth],
+  )
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden p-3">
       <LiveProductionGrid />
 
-      <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div
+        className="grid min-h-0 flex-1 gap-2"
+        style={{
+          gridTemplateColumns: `minmax(0, 1fr) 6px ${lyricsWidth}px`,
+        }}
+      >
         <section className="min-h-0 overflow-hidden rounded-lg border border-border bg-card">
           <PanelHeader
             title="Live Hymns"
             icon={<ListMusicIcon className="size-4" />}
           >
-            <Badge variant="outline">
+            <Badge variant="outline" className="tabular-nums">
               {deck.length > 0
-                ? `${activeIndex + 1}/${deck.length}`
+                ? `${activeIndex + 1} of ${deck.length}`
                 : "No deck"}
             </Badge>
           </PanelHeader>
@@ -578,6 +674,11 @@ export function LiveHymnPage() {
             </div>
           </div>
         </section>
+        <ResizeHandle
+          axis="x"
+          label="Resize lyrics panel"
+          onPointerDown={startLyricsResize}
+        />
         <section className="min-h-0 overflow-hidden rounded-lg border border-border bg-card">
           <PanelHeader
             title="Current Lyrics"
@@ -598,11 +699,16 @@ export function LiveHymnPage() {
 
 export function SermonSlidesPage() {
   const activePlan = useServicePlanStore((s) => s.activePlan)
+  const updateItem = useServicePlanStore((s) => s.updateItem)
   const activeItem = useMemo(
     () =>
       activePlan?.items.find((item) => item.id === activePlan.activeItemId) ??
       null,
     [activePlan],
+  )
+  const slideAttachments = useMemo(
+    () => activeItem?.attachments.filter((a) => a.kind === "slide") ?? [],
+    [activeItem?.attachments],
   )
   const storedDeck = useSermonSlideStore((s) => s.deck)
   const storedIndex = useSermonSlideStore((s) => s.activeIndex)
@@ -635,15 +741,56 @@ export function SermonSlidesPage() {
     presentSermonSlideAt(index)
   }
 
+  const handleSlidesChange = (slides: ServiceAttachment[]) => {
+    if (!activeItem) return
+    const others = activeItem.attachments.filter((a) => a.kind !== "slide")
+    updateItem(activeItem.id, { attachments: [...slides, ...others] })
+  }
+
+  const [editorWidth, setEditorWidth] = useState(
+    () => loadDashboardLayoutState().sermonSlidesEditorWidth,
+  )
+
+  useEffect(() => {
+    const layout = loadDashboardLayoutState()
+    if (layout.sermonSlidesEditorWidth !== editorWidth) {
+      layout.sermonSlidesEditorWidth = editorWidth
+      saveDashboardLayoutState(layout)
+    }
+  }, [editorWidth])
+
+  const startEditorResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const startX = event.clientX
+      const startWidth = editorWidth
+      const onMove = (moveEvent: PointerEvent) => {
+        setEditorWidth(clampNumber(startWidth - (moveEvent.clientX - startX), 280, 520))
+      }
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove)
+        window.removeEventListener("pointerup", onUp)
+      }
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", onUp)
+    },
+    [editorWidth],
+  )
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden p-3">
       <LiveProductionGrid />
 
-      <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div
+        className="grid min-h-0 flex-1 gap-2"
+        style={{
+          gridTemplateColumns: `minmax(0, 1fr) 6px ${editorWidth}px`,
+        }}
+      >
         <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
           <PanelHeader title="Sermon Slides" icon={<ImagesIcon className="size-4" />}>
-            <Badge variant="outline">
-              {deck.length > 0 ? `${activeIndex + 1}/${deck.length}` : "No slides"}
+            <Badge variant="outline" className="tabular-nums">
+              {deck.length > 0 ? `${activeIndex + 1} of ${deck.length}` : "No slides"}
             </Badge>
           </PanelHeader>
 
@@ -702,40 +849,24 @@ export function SermonSlidesPage() {
           </div>
         </section>
 
+        <ResizeHandle
+          axis="x"
+          label="Resize slide editor panel"
+          onPointerDown={startEditorResize}
+        />
+
         <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
           <PanelHeader title="Slide List" icon={<FileTextIcon className="size-4" />} />
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {deck.length === 0 ? (
+            {!activeItem ? (
               <div className="rounded-md border border-dashed border-border p-4 text-xs text-muted-foreground">
-                No sermon slides are attached to the active item.
+                No active service item. Select an item in the Service Plan to edit slides.
               </div>
             ) : (
-              <div className="space-y-1.5">
-                {deck.map((slide, index) => (
-                  <button
-                    key={slide.slideId}
-                    type="button"
-                    onClick={() => previewSlide(index)}
-                    onDoubleClick={() => presentSlide(index)}
-                    className={`grid w-full grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-2 rounded-md border p-2 text-left transition-colors ${
-                      index === activeIndex
-                        ? "border-emerald-500/50 bg-emerald-500/10"
-                        : "border-border hover:bg-muted/50"
-                    }`}
-                  >
-                    <img src={slide.slidePath} alt="" className="aspect-video rounded bg-muted object-cover" />
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-medium">{slide.sectionLabel}</span>
-                      <span className="block truncate text-[0.625rem] text-muted-foreground">
-                        {slide.reference}
-                      </span>
-                    </span>
-                    <Badge variant={index === activeIndex ? "default" : "outline"}>
-                      {index + 1}
-                    </Badge>
-                  </button>
-                ))}
-              </div>
+              <SermonSlidesEditor
+                attachments={slideAttachments}
+                onChange={handleSlidesChange}
+              />
             )}
           </div>
         </section>

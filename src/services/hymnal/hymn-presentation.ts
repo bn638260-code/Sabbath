@@ -4,7 +4,7 @@ import type { HymnPresentationItemData } from "@/types"
 export function createHymnPresentationItem(screen: HymnScreen): HymnPresentationItemData {
   const label =
     screen.sectionScreenCount > 1
-      ? `${screen.sectionLabel} ${screen.sectionScreenIndex + 1}/${screen.sectionScreenCount}`
+      ? `${screen.sectionLabel} ${screen.sectionScreenIndex + 1} of ${screen.sectionScreenCount}`
       : screen.sectionLabel
 
   return {

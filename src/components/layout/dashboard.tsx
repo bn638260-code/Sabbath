@@ -57,7 +57,7 @@ const LazySermonSlidesPage = lazy(() =>
   }))
 )
 
-function ResizeHandle({
+export function ResizeHandle({
   axis,
   label,
   onPointerDown,

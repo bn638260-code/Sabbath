@@ -9,9 +9,20 @@ export interface DashboardLayoutPreset {
 
 export interface DashboardLayoutState extends DashboardLayoutPreset {
   viewMode: DashboardViewMode
+  servicePlanLibraryWidth: number
+  liveServiceContextWidth: number
+  liveHymnLyricsWidth: number
+  sermonSlidesEditorWidth: number
 }
 
-export const DASHBOARD_LAYOUT_STORAGE_KEY = "sabbathcue.dashboardLayout.v1"
+export const DASHBOARD_LAYOUT_STORAGE_KEY = "sabbathcue.dashboardLayout.v2"
+
+const WORKSPACE_PANEL_DEFAULTS = {
+  servicePlanLibraryWidth: 320,
+  liveServiceContextWidth: 320,
+  liveHymnLyricsWidth: 360,
+  sermonSlidesEditorWidth: 380,
+} as const
 
 export const DASHBOARD_LAYOUT_PRESETS: Record<DashboardViewMode, DashboardLayoutPreset> = {
   balanced: {
@@ -42,6 +53,7 @@ export function layoutStateFromPreset(mode: DashboardViewMode): DashboardLayoutS
   return {
     viewMode: mode,
     ...DASHBOARD_LAYOUT_PRESETS[mode],
+    ...WORKSPACE_PANEL_DEFAULTS,
   }
 }
 
@@ -71,6 +83,26 @@ export function normalizeDashboardLayoutState(
       value?.detectionsWidth ?? preset.detectionsWidth,
       360,
       760
+    ),
+    servicePlanLibraryWidth: clampNumber(
+      value?.servicePlanLibraryWidth ?? WORKSPACE_PANEL_DEFAULTS.servicePlanLibraryWidth,
+      240,
+      480
+    ),
+    liveServiceContextWidth: clampNumber(
+      value?.liveServiceContextWidth ?? WORKSPACE_PANEL_DEFAULTS.liveServiceContextWidth,
+      240,
+      480
+    ),
+    liveHymnLyricsWidth: clampNumber(
+      value?.liveHymnLyricsWidth ?? WORKSPACE_PANEL_DEFAULTS.liveHymnLyricsWidth,
+      280,
+      520
+    ),
+    sermonSlidesEditorWidth: clampNumber(
+      value?.sermonSlidesEditorWidth ?? WORKSPACE_PANEL_DEFAULTS.sermonSlidesEditorWidth,
+      280,
+      520
     ),
   }
 }
