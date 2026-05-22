@@ -20,7 +20,7 @@ pub(crate) const FTS5_RANK0_CONFIDENCE: f64 = 0.75;
 pub(crate) const FTS5_CONFIDENCE_DECAY: f64 = 0.04;
 
 /// FTS5 results below this confidence are not included.
-pub(crate) const FTS5_MIN_CONFIDENCE: f64 = 0.50;
+pub(crate) const FTS5_MIN_CONFIDENCE: f64 = 0.42;
 
 /// Serializable detection result for the frontend
 #[derive(Clone, Serialize)]

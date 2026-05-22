@@ -12,12 +12,12 @@ const SYNONYM_WEIGHT: f64 = 0.2;
 const CONCEPT_WEIGHT: f64 = 0.1;
 
 /// Minimum similarity for a result to be included from each strategy.
-const ORIGINAL_CUTOFF: f64 = 0.50;
-const SYNONYM_CUTOFF: f64 = 0.50;
-const CONCEPT_CUTOFF: f64 = 0.45;
+const ORIGINAL_CUTOFF: f64 = 0.42;
+const SYNONYM_CUTOFF: f64 = 0.42;
+const CONCEPT_CUTOFF: f64 = 0.40;
 
 /// Minimum combined ensemble score to include in final results.
-const ENSEMBLE_THRESHOLD: f64 = 0.50;
+const ENSEMBLE_THRESHOLD: f64 = 0.42;
 
 /// Result from the ensemble search with combined scoring.
 #[derive(Debug, Clone)]

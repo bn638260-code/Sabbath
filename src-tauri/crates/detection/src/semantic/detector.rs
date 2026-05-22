@@ -13,7 +13,9 @@ use crate::types::{Detection, DetectionSource, VerseRef};
 const DEFAULT_CACHE_CAPACITY: usize = 256;
 
 /// Default cosine-similarity threshold below which results are discarded.
-const DEFAULT_CONFIDENCE_THRESHOLD: f64 = 0.50;
+const DEFAULT_CONFIDENCE_THRESHOLD: f64 = 0.42;
+const SEMANTIC_SEARCH_K: usize = 12;
+const MAX_SEMANTIC_DETECTIONS: usize = 8;
 
 /// Orchestrator that combines text chunking, embedding, vector search,
 /// and caching to detect Bible verses from transcript text using
@@ -43,7 +45,7 @@ impl SemanticDetector {
             confidence_threshold: DEFAULT_CONFIDENCE_THRESHOLD,
             synonym_expander: SynonymExpander::new(),
             ensemble: EnsembleSearcher::new(),
-            use_synonyms: false, // Off by default — enable via toggle_paraphrase_detection
+            use_synonyms: true,
         }
     }
 
@@ -90,10 +92,12 @@ impl SemanticDetector {
         if self.use_synonyms {
             // Ensemble search: 3 strategies (original + synonym + concept)
             // More expensive (~3 embed calls) but much better accuracy for paraphrases.
-            match self
-                .ensemble
-                .search(text, self.embedder.as_ref(), self.index.as_ref(), 5)
-            {
+            match self.ensemble.search(
+                text,
+                self.embedder.as_ref(),
+                self.index.as_ref(),
+                SEMANTIC_SEARCH_K,
+            ) {
                 Ok(results) => {
                     let now = Self::timestamp_ms();
                     for result in results {
@@ -128,7 +132,7 @@ impl SemanticDetector {
                     let Ok(embedding) = self.embedder.embed(&chunk) else {
                         continue;
                     };
-                    let Ok(results) = self.index.search(&embedding, 5) else {
+                    let Ok(results) = self.index.search(&embedding, SEMANTIC_SEARCH_K) else {
                         continue;
                     };
 
@@ -158,7 +162,7 @@ impl SemanticDetector {
                 .partial_cmp(&a.confidence)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        detections.truncate(5);
+        detections.truncate(MAX_SEMANTIC_DETECTIONS);
 
         detections
     }

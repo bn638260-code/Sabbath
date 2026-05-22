@@ -360,6 +360,8 @@ pub(crate) fn append_deepgram_base_query(
     q.append_pair("punctuate", "true");
     q.append_pair("smart_format", "true");
     q.append_pair("numerals", "true");
+    q.append_pair("dictation", "true");
+    q.append_pair("filler_words", "true");
 
     if let Some(ref lang) = config.language {
         q.append_pair("language", lang);
@@ -381,6 +383,16 @@ pub(crate) fn deepgram_keyterms() -> Vec<String> {
         "God".to_string(),
         "Lord".to_string(),
         "Holy Spirit".to_string(),
+        "Sabbath".to_string(),
+        "sanctuary".to_string(),
+        "commandments".to_string(),
+        "second coming".to_string(),
+        "three angels messages".to_string(),
+        "spirit of prophecy".to_string(),
+        "Adventist".to_string(),
+        "hymn number".to_string(),
+        "scripture reading".to_string(),
+        "responsive reading".to_string(),
     ];
     let bible_terms = bible_keyterms();
 
@@ -623,6 +635,8 @@ mod tests {
         assert!(pairs.contains(&("sample_rate".into(), "16000".into())));
         assert!(pairs.contains(&("channels".into(), "1".into())));
         assert!(pairs.contains(&("numerals".into(), "true".into())));
+        assert!(pairs.contains(&("dictation".into(), "true".into())));
+        assert!(pairs.contains(&("filler_words".into(), "true".into())));
         assert!(pairs.contains(&("interim_results".into(), "true".into())));
         assert!(pairs.contains(&("endpointing".into(), DEEPGRAM_ENDPOINTING_MS.into())));
         assert!(pairs.contains(&("utterance_end_ms".into(), DEEPGRAM_UTTERANCE_END_MS.into())));

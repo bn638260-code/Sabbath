@@ -34,9 +34,9 @@ fn is_detection_paused(app: &AppHandle) -> bool {
 /// inside `spawn_blocking`, so high contention here means workers are stalling.
 static DIRECT_LOCK_OK: AtomicU64 = AtomicU64::new(0);
 static DIRECT_LOCK_CONTENDED: AtomicU64 = AtomicU64::new(0);
-const SEMANTIC_WINDOW_SEGMENTS: usize = 4;
-const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(750);
-const PARTIAL_SEMANTIC_MIN_WORDS: usize = 6;
+const SEMANTIC_WINDOW_SEGMENTS: usize = 8;
+const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(400);
+const PARTIAL_SEMANTIC_MIN_WORDS: usize = 4;
 
 fn transcript_logging_enabled() -> bool {
     matches!(

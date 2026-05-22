@@ -3,6 +3,12 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 pub const VOSK_MODEL_DIRNAME: &str = "vosk-model-small-en-us";
+const VOSK_MODEL_DIRNAMES: &[&str] = &[
+    "vosk-model-en-us-0.22",
+    "vosk-model-en-us-0.42-gigaspeech",
+    "vosk-model-en-us-daanzu-20200905",
+    "vosk-model-small-en-us",
+];
 
 fn dev_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -31,23 +37,33 @@ pub fn bible_db_path(app: &AppHandle) -> PathBuf {
 }
 
 pub fn vosk_model_path(app: &AppHandle) -> PathBuf {
-    let candidates = [
+    let mut candidates = Vec::new();
+    if let Ok(path) = std::env::var("SABBATHCUE_VOSK_MODEL_DIR") {
+        if !path.trim().is_empty() {
+            candidates.push(PathBuf::from(path));
+        }
+    }
+
+    let roots = [
         app_data_dir(app)
             .ok()
-            .map(|p| p.join("models").join("vosk").join(VOSK_MODEL_DIRNAME)),
+            .map(|p| p.join("models").join("vosk")),
         app.path()
             .resource_dir()
             .ok()
-            .map(|p| p.join("models").join("vosk").join(VOSK_MODEL_DIRNAME)),
-        Some(
-            dev_root()
-                .join("models")
-                .join("vosk")
-                .join(VOSK_MODEL_DIRNAME),
-        ),
+            .map(|p| p.join("models").join("vosk")),
+        Some(dev_root().join("models").join("vosk")),
     ]
     .into_iter()
-    .flatten();
+    .flatten()
+    .collect::<Vec<_>>();
+
+    for root in roots {
+        candidates.push(root.join(VOSK_MODEL_DIRNAME));
+        for dirname in VOSK_MODEL_DIRNAMES {
+            candidates.push(root.join(dirname));
+        }
+    }
 
     first_existing(candidates).unwrap_or_else(|| {
         app_data_dir(app)

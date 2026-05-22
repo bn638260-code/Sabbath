@@ -14,10 +14,10 @@ const FTS5_RANK0_CONFIDENCE: f64 = 0.75;
 const FTS5_CONFIDENCE_DECAY: f64 = 0.04;
 
 /// FTS5 results below this confidence are not included.
-const FTS5_MIN_CONFIDENCE: f64 = 0.50;
+const FTS5_MIN_CONFIDENCE: f64 = 0.42;
 
 /// Minimum word count for vector embedding search (short text lacks semantic signal).
-const MIN_WORDS_FOR_VECTOR: usize = 5;
+const MIN_WORDS_FOR_VECTOR: usize = 4;
 
 /// The main detection pipeline that runs on each transcript segment.
 ///
