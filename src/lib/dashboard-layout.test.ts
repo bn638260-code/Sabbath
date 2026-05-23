@@ -70,6 +70,10 @@ describe("dashboard layout helpers", () => {
       transcriptWidth: 360,
       queueWidth: 280,
       detectionsWidth: 420,
+      servicePlanLibraryWidth: 320,
+      liveServiceContextWidth: 320,
+      liveHymnLyricsWidth: 360,
+      sermonSlidesEditorWidth: 380,
     })
 
     expect(storage.has(DASHBOARD_LAYOUT_STORAGE_KEY)).toBe(true)
