@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { emitTo, listen } from "@tauri-apps/api/event"
-import { getAllWindows } from '@tauri-apps/api/window'
+import { getAllWindows } from "@tauri-apps/api/window"
 import {
   Dialog,
   DialogContent,
@@ -269,13 +269,25 @@ export function BroadcastSettings({
     if (!open || !isPreviewOpen) return
 
     const intervalId = setInterval(() => {
-      void reconcilePreviewState()
+      void reconcilePreviewState("main").then(setIsPreviewOpen)
     }, 750)
 
     return () => {
       clearInterval(intervalId)
     }
   }, [open, isPreviewOpen, reconcilePreviewState])
+
+  useEffect(() => {
+    if (!open || !altIsPreviewOpen) return
+
+    const intervalId = setInterval(() => {
+      void reconcilePreviewState("alt").then(setAltIsPreviewOpen)
+    }, 750)
+
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [open, altIsPreviewOpen, reconcilePreviewState])
 
   const handleMainThemeChange = (id: string) => {
     setMainThemeId(id)

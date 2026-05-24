@@ -83,8 +83,12 @@ export const transcriptionActions = {
   },
 }
 
-export function handleTranscriptFinalPayload(payload: TranscriptPartialPayload): void {
-  useTranscriptStore.getState().addSegment({
+export function handleTranscriptFinalPayload(
+  payload: TranscriptPartialPayload
+): void {
+  const transcriptStore = useTranscriptStore.getState()
+  transcriptStore.setPartial("")
+  transcriptStore.addSegment({
     id: crypto.randomUUID(),
     text: payload.text,
     is_final: true,
@@ -146,7 +150,10 @@ export function useTranscription(options?: UseTranscriptionOptions) {
     useTranscriptStore.getState().setPartial(payload.text)
   })
 
-  useTauriEvent<TranscriptPartialPayload>("transcript_final", handleTranscriptFinalPayload)
+  useTauriEvent<TranscriptPartialPayload>(
+    "transcript_final",
+    handleTranscriptFinalPayload
+  )
 
   const onMissingApiKey = options?.onMissingApiKey
 

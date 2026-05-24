@@ -20,7 +20,8 @@ vi.mock("@/hooks/use-tauri-event", () => ({
 }))
 
 vi.mock("@/services/hymnal/hymn-voice-control", () => ({
-  handleHymnVoiceControl: (...args: unknown[]) => handleHymnVoiceControlMock(...args),
+  handleHymnVoiceControl: (...args: unknown[]) =>
+    handleHymnVoiceControlMock(...args),
 }))
 
 async function loadModules() {
@@ -265,7 +266,9 @@ describe("use-transcription", () => {
 
   describe("handleTranscriptFinalPayload", () => {
     it("stores final transcript segments and invokes hymn voice control", async () => {
-      const { useTranscriptStore, handleTranscriptFinalPayload } = await loadModules()
+      const { useTranscriptStore, handleTranscriptFinalPayload } =
+        await loadModules()
+      useTranscriptStore.getState().setPartial("hymn")
 
       handleTranscriptFinalPayload({
         text: "hymn 12",
@@ -281,6 +284,7 @@ describe("use-transcription", () => {
         is_final: true,
         confidence: 0.95,
       })
+      expect(state.currentPartial).toBe("")
       expect(handleHymnVoiceControlMock).toHaveBeenCalledWith("hymn 12")
     })
   })

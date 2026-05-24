@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { buildOpenBroadcastWindowArgs, clampMonitorIndex } from "./broadcast-settings-wiring"
+import {
+  buildOpenBroadcastWindowArgs,
+  clampMonitorIndex,
+} from "./broadcast-settings-wiring"
 
 describe("broadcast settings wiring", () => {
   it("builds main projector command args from the selected monitor and fullscreen state", () => {
@@ -22,6 +25,15 @@ describe("broadcast settings wiring", () => {
     expect(clampMonitorIndex(3, 2)).toBe(1)
     expect(clampMonitorIndex(1, 2)).toBe(1)
     expect(clampMonitorIndex(0, 0)).toBe(0)
+    expect(clampMonitorIndex(-1, 2)).toBe(0)
+    expect(clampMonitorIndex(Number.NaN, 2)).toBe(0)
+  })
+
+  it("falls back to the primary monitor for invalid persisted selections", () => {
+    expect(buildOpenBroadcastWindowArgs("main", "missing", true)).toEqual({
+      outputId: "main",
+      monitorIndex: 0,
+      fullscreen: true,
+    })
   })
 })
-

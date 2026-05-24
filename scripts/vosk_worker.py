@@ -43,8 +43,12 @@ def main() -> int:
         recognizer.SetPartialWords(True)
         emit({"type": "ready"})
 
+        # 50 ms of 16 kHz 16-bit mono PCM. This keeps partial captions
+        # responsive without flooding stdout on slower machines.
+        chunk_bytes = 1600
+
         while True:
-            chunk = sys.stdin.buffer.read(1600)
+            chunk = sys.stdin.buffer.read(chunk_bytes)
             if not chunk:
                 break
             if recognizer.AcceptWaveform(chunk):

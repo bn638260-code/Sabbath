@@ -728,7 +728,7 @@ export function SermonSlidesPage() {
       return
     }
     void loadActiveSermonSlideDeck(activeIndex)
-  }, [activeItem?.id])
+  }, [activeItem, activeIndex])
 
   const previewSlide = (index: number) => {
     const slide = deck[index]
