@@ -1,9 +1,10 @@
+use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rhema_bible::Bm25Result;
 
 use crate::direct::detector::DirectDetector;
-use crate::merger::{DetectionMerger, MergedDetection};
+use crate::merger::{AutoQueueCooldown, DetectionMerger, MergedDetection};
 use crate::semantic::detector::SemanticDetector;
 use crate::types::{Detection, DetectionSource, VerseRef};
 
@@ -19,6 +20,10 @@ const FTS5_MIN_CONFIDENCE: f64 = 0.42;
 /// Minimum word count for vector embedding search (short text lacks semantic signal).
 const MIN_WORDS_FOR_VECTOR: usize = 4;
 
+const OVERLAP_CONFIDENCE_BOOST: f64 = 0.10;
+
+const LIVE_SEMANTIC_CAP: usize = 3;
+
 /// The main detection pipeline that runs on each transcript segment.
 ///
 /// Orchestrates direct reference detection, semantic search, and merging
@@ -32,10 +37,14 @@ pub struct DetectionPipeline {
 
 impl DetectionPipeline {
     pub fn new() -> Self {
+        Self::with_cooldown(AutoQueueCooldown::default())
+    }
+
+    pub fn with_cooldown(cooldown: AutoQueueCooldown) -> Self {
         Self {
             direct: DirectDetector::new(),
             semantic: SemanticDetector::stub(),
-            merger: DetectionMerger::new(),
+            merger: DetectionMerger::with_cooldown(cooldown),
         }
     }
 
@@ -102,9 +111,8 @@ impl DetectionPipeline {
     /// Run hybrid semantic detection combining vector search with pre-fetched
     /// FTS5 BM25 results. Used by the real-time STT pipeline.
     ///
-    /// FTS5-only results are added with rank-derived confidence. Any
-    /// overlap dedupe/boosting that requires resolved verse identity is
-    /// applied later in the Tauri STT layer after DB lookup.
+    /// FTS5-only results are added with rank-derived confidence. Vector and
+    /// FTS5 overlap is collapsed into one boosted candidate.
     #[expect(clippy::cast_precision_loss, reason = "rank index is small")]
     pub fn process_hybrid_with_fts(
         &mut self,
@@ -120,7 +128,9 @@ impl DetectionPipeline {
         };
 
         if fts_results.is_empty() {
-            return self.merger.merge(vec![], semantic_detections);
+            let mut merged = self.merger.merge(vec![], semantic_detections);
+            merged.truncate(LIVE_SEMANTIC_CAP);
+            return merged;
         }
 
         #[expect(
@@ -133,11 +143,28 @@ impl DetectionPipeline {
             .as_millis() as u64;
 
         let snippet = text.to_string();
+        let mut vector_keys: HashSet<(i32, i32, i32)> = semantic_detections
+            .iter()
+            .map(detection_verse_key)
+            .collect();
 
         for (rank, fts) in fts_results.iter().enumerate() {
             let confidence = FTS5_RANK0_CONFIDENCE - (rank as f64 * FTS5_CONFIDENCE_DECAY);
             if confidence < FTS5_MIN_CONFIDENCE {
                 break;
+            }
+            let key = (fts.book_number, fts.chapter, fts.verse);
+            if vector_keys.contains(&key) {
+                if let Some(existing) = semantic_detections
+                    .iter_mut()
+                    .find(|detection| detection_verse_key(detection) == key)
+                {
+                    existing.confidence = (existing.confidence + OVERLAP_CONFIDENCE_BOOST).min(1.0);
+                    if let DetectionSource::Semantic { similarity } = &mut existing.source {
+                        *similarity = existing.confidence;
+                    }
+                }
+                continue;
             }
             log::debug!(
                 "[HYBRID] FTS5 hit: {} {}:{} rank={} conf={:.0}%",
@@ -164,15 +191,26 @@ impl DetectionPipeline {
                 detected_at: now,
                 is_chapter_only: false,
             });
+            vector_keys.insert(key);
         }
 
-        self.merger.merge(vec![], semantic_detections)
+        let mut merged = self.merger.merge(vec![], semantic_detections);
+        merged.truncate(LIVE_SEMANTIC_CAP);
+        merged
     }
 
     /// Run a standalone semantic search query (for the search UI).
     pub fn semantic_search(&mut self, query: &str, k: usize) -> Vec<(i64, f64)> {
         self.semantic.search_query(query, k)
     }
+}
+
+fn detection_verse_key(detection: &Detection) -> (i32, i32, i32) {
+    (
+        detection.verse_ref.book_number,
+        detection.verse_ref.chapter,
+        detection.verse_ref.verse_start,
+    )
 }
 
 impl Default for DetectionPipeline {
@@ -313,27 +351,43 @@ mod tests {
     }
 
     #[test]
-    fn test_pipeline_hybrid_with_fts_keeps_all_candidates_for_later_resolution() {
+    fn test_pipeline_hybrid_with_fts_caps_at_three() {
         let mut pipeline = DetectionPipeline::new();
         let fts_results = vec![
             Bm25Result {
-                book_number: 43, book_name: "John".to_string(), chapter: 3, verse: 16, rank: 0.0,
+                book_number: 43,
+                book_name: "John".to_string(),
+                chapter: 3,
+                verse: 16,
+                rank: 0.0,
             },
             Bm25Result {
-                book_number: 45, book_name: "Romans".to_string(), chapter: 8, verse: 28, rank: 1.0,
+                book_number: 45,
+                book_name: "Romans".to_string(),
+                chapter: 8,
+                verse: 28,
+                rank: 1.0,
             },
             Bm25Result {
-                book_number: 1, book_name: "Genesis".to_string(), chapter: 1, verse: 1, rank: 2.0,
+                book_number: 1,
+                book_name: "Genesis".to_string(),
+                chapter: 1,
+                verse: 1,
+                rank: 2.0,
             },
             Bm25Result {
-                book_number: 19, book_name: "Psalms".to_string(), chapter: 23, verse: 1, rank: 3.0,
+                book_number: 19,
+                book_name: "Psalms".to_string(),
+                chapter: 23,
+                verse: 1,
+                rank: 3.0,
             },
         ];
 
-        let results = pipeline.process_hybrid_with_fts("test text with many references", &fts_results);
+        let results =
+            pipeline.process_hybrid_with_fts("test text with many references", &fts_results);
 
-        // The Tauri STT layer caps after verse resolution/dedupe.
-        assert_eq!(results.len(), 4);
+        assert_eq!(results.len(), LIVE_SEMANTIC_CAP);
     }
 
     #[test]
@@ -341,11 +395,13 @@ mod tests {
         // When FTS5 and vector search find the same verse, only one
         // candidate is emitted (not duplicates).
         let mut pipeline = DetectionPipeline::new();
-        let fts_results = vec![
-            Bm25Result {
-                book_number: 43, book_name: "John".to_string(), chapter: 3, verse: 16, rank: 0.0,
-            },
-        ];
+        let fts_results = vec![Bm25Result {
+            book_number: 43,
+            book_name: "John".to_string(),
+            chapter: 3,
+            verse: 16,
+            rank: 0.0,
+        }];
 
         let results = pipeline.process_hybrid_with_fts("John three sixteen", &fts_results);
 

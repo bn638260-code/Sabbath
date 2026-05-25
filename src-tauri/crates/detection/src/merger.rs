@@ -1,3 +1,4 @@
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use crate::types::{Detection, DetectionSource};
@@ -18,6 +19,11 @@ pub struct MergedDetection {
     pub auto_queued: bool,
 }
 
+#[derive(Clone, Default)]
+pub struct AutoQueueCooldown {
+    last_auto_display: Arc<Mutex<Option<Instant>>>,
+}
+
 /// Merges results from direct reference detection and semantic search
 /// into a single ranked list.
 ///
@@ -34,16 +40,20 @@ pub struct DetectionMerger {
     confidence_threshold: f64,
     auto_queue_threshold: f64,
     cooldown_ms: u64,
-    last_auto_display: Option<Instant>,
+    cooldown: AutoQueueCooldown,
 }
 
 impl DetectionMerger {
     pub fn new() -> Self {
+        Self::with_cooldown(AutoQueueCooldown::default())
+    }
+
+    pub fn with_cooldown(cooldown: AutoQueueCooldown) -> Self {
         Self {
             confidence_threshold: DEFAULT_CONFIDENCE_THRESHOLD,
             auto_queue_threshold: DEFAULT_AUTO_QUEUE_THRESHOLD,
             cooldown_ms: DEFAULT_COOLDOWN_MS,
-            last_auto_display: None,
+            cooldown,
         }
     }
 
@@ -65,51 +75,61 @@ impl DetectionMerger {
         // 1. Combine
         let mut all: Vec<Detection> = Vec::with_capacity(direct.len() + semantic.len());
         all.extend(direct);
+        all.extend(semantic);
 
-        // 2. Dedup: only add semantic detections whose verse is not already
-        //    present from the direct pass.
-        for s in semantic {
-            let dominated = all.iter().any(|d| {
-                matches!(d.source, DetectionSource::DirectReference)
-                    && d.verse_ref.book_number == s.verse_ref.book_number
-                    && d.verse_ref.chapter == s.verse_ref.chapter
-                    && d.verse_ref.verse_start == s.verse_ref.verse_start
-            });
-            if !dominated {
-                all.push(s);
+        // 2. Dedup same-verse detections. Direct references dominate semantic
+        //    detections; same-source duplicates keep the higher confidence.
+        let mut deduped: Vec<Detection> = Vec::with_capacity(all.len());
+        for detection in all {
+            if let Some(existing) = deduped
+                .iter_mut()
+                .find(|existing| same_verse(existing, &detection))
+            {
+                if should_replace(existing, &detection) {
+                    *existing = detection;
+                }
+            } else {
+                deduped.push(detection);
             }
         }
 
         // 3. Sort by confidence descending
-        all.sort_by(|a, b| {
+        deduped.sort_by(|a, b| {
             b.confidence
                 .partial_cmp(&a.confidence)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         // 4. Drop below threshold
-        all.retain(|d| d.confidence >= self.confidence_threshold);
+        deduped.retain(|d| d.confidence >= self.confidence_threshold);
 
         // 5 & 6. Build merged list with auto-queue decisions.
         // Only the highest-ranked eligible detection per merge pass can auto-queue.
         let now = Instant::now();
-        let cooldown_ok = match self.last_auto_display {
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "cooldown millis won't exceed u64"
-            )]
+        let mut last_auto_display = match self.cooldown.last_auto_display.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                log::error!("[DET] Auto-queue cooldown lock poisoned; recovering");
+                poisoned.into_inner()
+            }
+        };
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "cooldown millis won't exceed u64"
+        )]
+        let cooldown_ok = match *last_auto_display {
             Some(last) => now.duration_since(last).as_millis() as u64 >= self.cooldown_ms,
             None => true,
         };
 
         let mut auto_queue_used = false;
-        let mut results = Vec::with_capacity(all.len());
-        for detection in all {
+        let mut results = Vec::with_capacity(deduped.len());
+        for detection in deduped {
             let eligible = detection.confidence >= self.auto_queue_threshold && cooldown_ok;
             let auto_queued = eligible && !auto_queue_used;
             if auto_queued {
                 auto_queue_used = true;
-                self.last_auto_display = Some(now);
+                *last_auto_display = Some(now);
             }
             results.push(MergedDetection {
                 detection,
@@ -147,6 +167,23 @@ impl DetectionMerger {
 impl Default for DetectionMerger {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+fn same_verse(a: &Detection, b: &Detection) -> bool {
+    a.verse_ref.book_number == b.verse_ref.book_number
+        && a.verse_ref.chapter == b.verse_ref.chapter
+        && a.verse_ref.verse_start == b.verse_ref.verse_start
+}
+
+fn should_replace(existing: &Detection, incoming: &Detection) -> bool {
+    let existing_direct = matches!(existing.source, DetectionSource::DirectReference);
+    let incoming_direct = matches!(incoming.source, DetectionSource::DirectReference);
+
+    match (existing_direct, incoming_direct) {
+        (false, true) => true,
+        (true, false) => false,
+        _ => incoming.confidence > existing.confidence,
     }
 }
 
@@ -208,6 +245,64 @@ mod tests {
             DetectionSource::DirectReference
         ));
         assert!((results[0].detection.confidence - 0.96).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_merger_dedups_semantic_same_verse_keeps_higher_confidence() {
+        let mut merger = DetectionMerger::new();
+
+        let semantic = vec![
+            make_detection(
+                43,
+                "John",
+                3,
+                16,
+                0.62,
+                DetectionSource::Semantic { similarity: 0.62 },
+            ),
+            make_detection(
+                43,
+                "John",
+                3,
+                16,
+                0.78,
+                DetectionSource::Semantic { similarity: 0.78 },
+            ),
+        ];
+
+        let results = merger.merge(vec![], semantic);
+        assert_eq!(results.len(), 1);
+        assert!((results[0].detection.confidence - 0.78).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_merger_direct_dominates_semantic_even_if_semantic_confidence_is_higher() {
+        let mut merger = DetectionMerger::new();
+
+        let direct = vec![make_detection(
+            43,
+            "John",
+            3,
+            16,
+            0.90,
+            DetectionSource::DirectReference,
+        )];
+        let semantic = vec![make_detection(
+            43,
+            "John",
+            3,
+            16,
+            0.99,
+            DetectionSource::Semantic { similarity: 0.99 },
+        )];
+
+        let results = merger.merge(direct, semantic);
+        assert_eq!(results.len(), 1);
+        assert!(matches!(
+            results[0].detection.source,
+            DetectionSource::DirectReference
+        ));
+        assert!((results[0].detection.confidence - 0.90).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -356,22 +451,8 @@ mod tests {
         let mut merger = DetectionMerger::new();
 
         let direct = vec![
-            make_detection(
-                43,
-                "John",
-                3,
-                16,
-                0.96,
-                DetectionSource::DirectReference,
-            ),
-            make_detection(
-                45,
-                "Romans",
-                8,
-                28,
-                0.92,
-                DetectionSource::DirectReference,
-            ),
+            make_detection(43, "John", 3, 16, 0.96, DetectionSource::DirectReference),
+            make_detection(45, "Romans", 8, 28, 0.92, DetectionSource::DirectReference),
         ];
         let semantic = vec![make_detection(
             1,
@@ -390,5 +471,35 @@ mod tests {
         assert!(results[0].auto_queued);
         assert!(!results[1].auto_queued);
         assert!(!results[2].auto_queued);
+    }
+
+    #[test]
+    fn test_merger_shared_cooldown_blocks_second_merger_auto_queue() {
+        let cooldown = AutoQueueCooldown::default();
+        let mut direct_merger = DetectionMerger::with_cooldown(cooldown.clone());
+        let mut semantic_merger = DetectionMerger::with_cooldown(cooldown);
+
+        let direct = vec![make_detection(
+            43,
+            "John",
+            3,
+            16,
+            0.96,
+            DetectionSource::DirectReference,
+        )];
+        let semantic = vec![make_detection(
+            45,
+            "Romans",
+            8,
+            28,
+            0.95,
+            DetectionSource::Semantic { similarity: 0.95 },
+        )];
+
+        let direct_results = direct_merger.merge(direct, vec![]);
+        let semantic_results = semantic_merger.merge(vec![], semantic);
+
+        assert!(direct_results[0].auto_queued);
+        assert!(!semantic_results[0].auto_queued);
     }
 }

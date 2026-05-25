@@ -26,7 +26,7 @@ pub mod types;
 
 pub use direct::detector::DirectDetector;
 pub use error::*;
-pub use merger::{DetectionMerger, MergedDetection};
+pub use merger::{AutoQueueCooldown, DetectionMerger, MergedDetection};
 pub use pipeline::DetectionPipeline;
 pub use reading_mode::{ChapterChange, ReadingAdvance, ReadingMode};
 pub use semantic::detector::SemanticDetector;

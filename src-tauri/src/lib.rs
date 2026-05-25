@@ -12,6 +12,7 @@ pub fn run() {
     // Load .env file — try src-tauri/.env first, then project root ../.env
     dotenvy::dotenv().ok();
     dotenvy::from_filename("../.env").ok();
+    let detection_cooldown = rhema_detection::AutoQueueCooldown::default();
     tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -22,10 +23,14 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(state::AppState::new()))
-        .manage(Mutex::new(rhema_detection::DetectionPipeline::new()))
+        .manage(Mutex::new(rhema_detection::DetectionPipeline::with_cooldown(
+            detection_cooldown.clone(),
+        )))
         .manage(Mutex::new(rhema_broadcast::ndi::NdiRuntime::default()))
         .manage(Mutex::new(rhema_detection::DirectDetector::new()))
-        .manage(Mutex::new(rhema_detection::DetectionMerger::new()))
+        .manage(Mutex::new(rhema_detection::DetectionMerger::with_cooldown(
+            detection_cooldown,
+        )))
         .manage(Mutex::new(rhema_detection::ReadingMode::new()))
         .manage(Mutex::new(commands::remote::OscRuntime::new()))
         .manage(Mutex::new(commands::remote::HttpRuntime::new()))
