@@ -6,7 +6,7 @@
 //! `vosk` Python package and model are installed.
 
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -68,7 +68,7 @@ impl VoskProvider {
         }
     }
 
-    fn spawn_worker(&self) -> Result<Child, SttError> {
+    fn spawn_worker(&self, grammar_file: &GrammarTempFile) -> Result<Child, SttError> {
         if !self.model_path.exists() {
             return Err(SttError::ConnectionFailed(format!(
                 "Vosk model not found: {}",
@@ -82,22 +82,63 @@ impl VoskProvider {
             )));
         }
 
-        let grammar_json = vosk_grammar_json()?;
-
-        Command::new(python_executable())
+        let mut command = Command::new(python_executable());
+        command
             .arg(&self.worker_path)
             .arg("--model")
             .arg(&self.model_path)
             .arg("--sample-rate")
-            .arg("16000")
-            .arg("--grammar-json")
-            .arg(&grammar_json)
+            .arg("16000");
+        push_grammar_file_args(&mut command, grammar_file.path());
+        command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| SttError::ConnectionFailed(format!("failed to start Vosk worker: {e}")))
     }
+}
+
+/// Keeps a grammar JSON temp file on disk until dropped.
+struct GrammarTempFile {
+    path: PathBuf,
+}
+
+impl GrammarTempFile {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for GrammarTempFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+fn push_grammar_file_args(command: &mut Command, grammar_file: &Path) {
+    command.arg("--grammar-json-file").arg(grammar_file);
+}
+
+fn write_grammar_temp_file(json: &str) -> Result<GrammarTempFile, SttError> {
+    let mut file = tempfile::Builder::new()
+        .prefix("sabbathcue-vosk-grammar-")
+        .suffix(".json")
+        .tempfile()
+        .map_err(|e| {
+            SttError::ConnectionFailed(format!("failed to create Vosk grammar temp file: {e}"))
+        })?;
+    file.write_all(json.as_bytes()).map_err(|e| {
+        SttError::ConnectionFailed(format!("failed to write Vosk grammar temp file: {e}"))
+    })?;
+    file.flush().map_err(|e| {
+        SttError::ConnectionFailed(format!("failed to flush Vosk grammar temp file: {e}"))
+    })?;
+
+    let (_file, path) = file.keep().map_err(|e| {
+        SttError::ConnectionFailed(format!("failed to persist Vosk grammar temp file: {e}"))
+    })?;
+    Ok(GrammarTempFile { path })
 }
 
 fn python_executable() -> String {
@@ -155,7 +196,9 @@ impl SttProvider for VoskProvider {
         audio_rx: Receiver<Vec<i16>>,
         event_tx: mpsc::Sender<TranscriptEvent>,
     ) -> Result<(), SttError> {
-        let mut child = self.spawn_worker()?;
+        let grammar_json = vosk_grammar_json()?;
+        let grammar_file = write_grammar_temp_file(&grammar_json)?;
+        let mut child = self.spawn_worker(&grammar_file)?;
         let mut stdin = child
             .stdin
             .take()
@@ -376,25 +419,44 @@ mod tests {
     }
 
     #[test]
-    fn spawn_passes_grammar_json() {
-        let source = include_str!("vosk.rs");
-        let mut in_spawn = false;
-        let mut spawn_lines: Vec<&str> = Vec::new();
-        for line in source.lines() {
-            if line.contains("fn spawn_worker") {
-                in_spawn = true;
-                spawn_lines.push(line);
-            } else if in_spawn {
-                if line.trim_start().starts_with("fn ") {
-                    break;
-                }
-                spawn_lines.push(line);
-            }
-        }
-        let body = spawn_lines.join("\n");
+    fn write_grammar_temp_file_writes_valid_json_array() {
+        let json = vosk_grammar_json().expect("grammar JSON should be valid");
+        let temp = write_grammar_temp_file(&json).expect("temp grammar file should be created");
+        let contents =
+            std::fs::read_to_string(temp.path()).expect("grammar temp file should exist");
+        let parsed: Vec<String> =
+            serde_json::from_str(&contents).expect("grammar temp file must contain JSON array");
+        let expected: Vec<String> =
+            serde_json::from_str(&json).expect("grammar JSON must parse as string array");
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn spawn_uses_grammar_file_not_inline_json() {
+        let json = vosk_grammar_json().expect("grammar JSON should be valid");
+        let temp = write_grammar_temp_file(&json).expect("temp grammar file should be created");
+
+        let mut command = Command::new("python");
+        push_grammar_file_args(&mut command, temp.path());
+
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
         assert!(
-            body.contains("--grammar-json"),
-            "spawn_worker must pass --grammar-json to the Vosk worker"
+            args.windows(2).any(|window| {
+                window[0] == "--grammar-json-file" && window[1] == temp.path().to_string_lossy()
+            }),
+            "worker args must include --grammar-json-file with the temp path"
+        );
+        assert!(
+            !args.iter().any(|arg| arg == &json),
+            "worker args must not include the full inline grammar JSON payload"
+        );
+        assert!(
+            !args.iter().any(|arg| arg == "--grammar-json"),
+            "worker args must not use --grammar-json"
         );
     }
 }

@@ -25,7 +25,47 @@ def main() -> int:
         default=None,
         help="Optional JSON array of domain phrases. Include [unk] to keep open dictation.",
     )
+    parser.add_argument(
+        "--grammar-json-file",
+        default=None,
+        help="Path to a UTF-8 file containing the grammar JSON array.",
+    )
     args = parser.parse_args()
+
+    if args.grammar_json and args.grammar_json_file:
+        emit(
+            {
+                "type": "error",
+                "message": "Use only one of --grammar-json or --grammar-json-file",
+            }
+        )
+        return 1
+
+    grammar_json = args.grammar_json
+    if args.grammar_json_file:
+        try:
+            with open(args.grammar_json_file, encoding="utf-8") as grammar_file:
+                grammar_json = grammar_file.read()
+        except OSError as exc:
+            emit(
+                {
+                    "type": "error",
+                    "message": f"Could not read grammar file {args.grammar_json_file}: {exc}",
+                }
+            )
+            return 1
+
+        if grammar_json.strip():
+            try:
+                json.loads(grammar_json)
+            except json.JSONDecodeError as exc:
+                emit(
+                    {
+                        "type": "error",
+                        "message": f"Grammar file contains invalid JSON: {exc}",
+                    }
+                )
+                return 1
 
     try:
         from vosk import KaldiRecognizer, Model
@@ -35,8 +75,8 @@ def main() -> int:
 
     try:
         model = Model(args.model)
-        if args.grammar_json:
-            recognizer = KaldiRecognizer(model, args.sample_rate, args.grammar_json)
+        if grammar_json:
+            recognizer = KaldiRecognizer(model, args.sample_rate, grammar_json)
         else:
             recognizer = KaldiRecognizer(model, args.sample_rate)
         recognizer.SetWords(True)
