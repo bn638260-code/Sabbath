@@ -32,12 +32,22 @@ async function main() {
 
   const db = new Database(DB_PATH, { readonly: true })
 
-  // Get all KJV verses (translation_id = 1)
+  // Resolve the KJV translation id by abbreviation (do not assume id = 1).
+  const kjvRow = db
+    .query("SELECT id FROM translations WHERE abbreviation = 'KJV'")
+    .get() as { id: number } | null
+
+  if (!kjvRow) {
+    throw new Error(
+      "KJV translation not found in rhema.db — run build:bible (or build:bible:public) first"
+    )
+  }
+
   const verses = db
     .query(
-      "SELECT id, book_name, chapter, verse, text FROM verses WHERE translation_id = 1 ORDER BY id"
+      "SELECT id, book_name, chapter, verse, text FROM verses WHERE translation_id = ? ORDER BY id"
     )
-    .all() as Array<{
+    .all(kjvRow.id) as Array<{
     id: number
     book_name: string
     chapter: number

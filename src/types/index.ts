@@ -5,6 +5,7 @@ export type {
   TranscriptEventPayload,
 } from "./transcript"
 export type { Translation, Book, Verse, CrossReference } from "./bible"
+export type { EgwBook, EgwChapterInfo, EgwParagraph } from "./egw"
 export type { Hymn, HymnScreen, HymnSearchResult, HymnSection, HymnSectionKind } from "./hymnal"
 export type { QueueItem } from "./queue"
 export type {
@@ -31,6 +32,7 @@ export type {
   PresentationSegment,
   PresentationRenderData,
   ScripturePresentationItemData,
+  EgwPresentationItemData,
   HymnPresentationItemData,
   MediaPresentationItemData,
   SlideDeck,

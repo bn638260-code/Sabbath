@@ -304,14 +304,9 @@ fn try_chapter_verse_spoken(tokens: &[Token], book_match: &BookMatch) -> Option<
                     });
                 }
                 // "chapter" keyword found but no number follows
-                // e.g., "Genesis chapter" (incomplete) → chapter-only
-                return Some(VerseRef {
-                    book_number: book_match.book_number,
-                    book_name: book_match.book_name.clone(),
-                    chapter: 1,
-                    verse_start: 0,
-                    verse_end: None,
-                });
+                // (e.g., "Romans chapter verse 8"). Do NOT return here — keep
+                // scanning so a later "chapter N" / "verse N" can still match.
+                continue;
             }
         }
     }
@@ -359,19 +354,35 @@ fn try_verse_only_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<Ve
     for i in 0..tokens.len() {
         if let Token::Word(w) = &tokens[i] {
             if w == "verse" || w == "verses" {
-                // Check if this is NOT preceded by a chapter number or "chapter" keyword
+                // Check if this is NOT preceded by a resolved chapter number.
                 // Need to check for:
                 // 1. Direct number before verse: "3 verse 1" or "Romans 8 and verse 28"
                 // 2. Spoken number before verse: "thirty two verse one"
-                // 3. "chapter" keyword anywhere before
+                // 3. "chapter N" where N is present (bare "chapter" alone does not count)
+                // A bare "chapter" without a following number does NOT block verse-only
+                // parsing (e.g. "Romans chapter verse 8" → Romans 1:8).
                 let has_chapter_before = if i > 0 {
-                    // Check for ANY number token OR spoken number word OR "chapter" keyword
-                    // in the tokens before the "verse" keyword
-                    tokens[0..i].iter().any(|t| match t {
-                        Token::Number(_) => true,
-                        Token::Word(w) => w == "chapter" || parse_spoken_number(w).is_some(),
-                        _ => false,
-                    })
+                    let mut found = false;
+                    for j in 0..i {
+                        match &tokens[j] {
+                            Token::Number(_) => {
+                                found = true;
+                                break;
+                            }
+                            Token::Word(w) if parse_spoken_number(w).is_some() => {
+                                found = true;
+                                break;
+                            }
+                            Token::Word(w) if w == "chapter" => {
+                                if consume_number(tokens, j + 1).is_some() {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    found
                 } else {
                     false
                 };
@@ -1028,12 +1039,21 @@ mod tests {
 
     #[test]
     fn test_incomplete_chapter_keyword() {
-        // Pattern: "Genesis chapter" (incomplete, no number) → chapter-only
+        // Pattern: "Genesis chapter" (incomplete, no number) → no reference yet.
+        // Must NOT return a false chapter-only hit; wait for more tokens.
         let bm = make_book_match("Genesis", 1, 7);
         let text = "Genesis chapter";
+        assert!(parse_reference(text, &bm).is_none());
+    }
+
+    #[test]
+    fn test_chapter_keyword_then_verse_number() {
+        // Pattern: "Romans chapter verse 8" → Romans 1:8 (not Romans 1:0).
+        let bm = make_book_match("Romans", 45, 6);
+        let text = "Romans chapter verse 8";
         let result = parse_reference(text, &bm).unwrap();
         assert_eq!(result.chapter, 1);
-        assert_eq!(result.verse_start, 0); // chapter-only
+        assert_eq!(result.verse_start, 8);
         assert_eq!(result.verse_end, None);
     }
 

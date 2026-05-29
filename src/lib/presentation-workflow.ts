@@ -9,6 +9,8 @@ import type {
   PresentationItem,
   PresentationRenderData,
   ScripturePresentationItemData,
+  EgwParagraph,
+  EgwPresentationItemData,
 } from "@/types"
 import {
   getPresentationRenderData,
@@ -163,4 +165,35 @@ export function previewVerseAndMaybeAutoLive(
 
   selectPreviewVerse(verse, { navigate: options?.navigate })
   console.info("[pipeline] preview", { reference: `${verse.book_name} ${verse.chapter}:${verse.verse}` })
+}
+
+export function egwReference(p: EgwParagraph): string {
+  return `${p.book_title} ${p.chapter}:${p.paragraph}`
+}
+
+export function createEgwPresentationItem(p: EgwParagraph): EgwPresentationItemData {
+  return {
+    kind: "egw",
+    paragraph: p,
+    reference: egwReference(p),
+    segments: [{ text: p.text }],
+  }
+}
+
+export function createEgwQueueItem(p: EgwParagraph): QueueItem {
+  return {
+    id: crypto.randomUUID(),
+    presentation: createEgwPresentationItem(p),
+    confidence: 1,
+    source: "manual",
+    added_at: Date.now(),
+  }
+}
+
+export function previewEgwParagraph(p: EgwParagraph) {
+  selectPreviewItem(createEgwPresentationItem(p))
+}
+
+export function presentEgwParagraph(p: EgwParagraph) {
+  presentItem(createEgwPresentationItem(p))
 }

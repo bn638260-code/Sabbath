@@ -41,8 +41,9 @@ import {
   createScriptureQueueItem,
   selectPreviewVerse,
 } from "@/lib/presentation-workflow"
+import { EgwBrowser } from "@/components/panels/egw-browser"
 
-type SearchTab = "book" | "context" 
+type SearchTab = "book" | "context" | "egw"
 
 /** Highlights words from the query that appear in the text. */
 function HighlightedText({ text, query }: { text: string; query: string }) {
@@ -313,7 +314,9 @@ export function SearchPanel() {
   useEffect(() => {
     const result = autocompleteResult
 
-    if (result.matchedBook && result.chapter && result.verse) {
+    // Only auto-navigate on a COMPLETE reference. Stage "book" supplies a
+    // default 1:1 while the user is still typing the book name.
+    if (result.stage === "complete" && result.matchedBook && result.chapter && result.verse) {
       useBibleStore.getState().setPendingNavigation({
         bookNumber: result.matchedBook.book_number,
         chapter: result.chapter,
@@ -424,6 +427,18 @@ export function SearchPanel() {
             <SparklesIcon className={cn("size-3.5", activeTab === "context" ? "text-lime-400" : "text-muted-foreground")} />
             Context search
           </button>
+          <button
+            onClick={() => setActiveTab("egw")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+              activeTab === "egw"
+                ? "border-lime-500/50 bg-lime-500/15"
+                : "border-border text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <BookOpenIcon className={cn("size-3.5", activeTab === "egw" ? "text-lime-400" : "text-muted-foreground")} />
+            EGW
+          </button>
         </div>
 
         {activeTab === "book" ? (
@@ -502,7 +517,7 @@ export function SearchPanel() {
               </SelectContent>
             </Select>
           </div>
-        ) : (
+        ) : activeTab === "context" ? (
           <div className="flex flex-1 items-center gap-2 pr-3">
             <Input
               placeholder="Search verse text..."
@@ -532,7 +547,7 @@ export function SearchPanel() {
                 </SelectContent>
               </Select>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Quick nav tab */}
@@ -774,6 +789,9 @@ export function SearchPanel() {
           </div>
         </div>
       )}
+
+      {/* EGW tab — Ellen G. White browse + search */}
+      {activeTab === "egw" && <EgwBrowser />}
     </div>
   )
 }

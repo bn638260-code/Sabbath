@@ -1,0 +1,15 @@
+{
+  "title": "Patriarchs and Prophets",
+  "abbreviation": "PP",
+  "book_number": 1,
+  "chapters": [
+    {
+      "chapter": 1,
+      "title": "Why Was Sin Permitted?",
+      "paragraphs": [
+        { "paragraph": 1, "text": "God is love." },
+        { "paragraph": 2, "text": "The history of the great conflict." }
+      ]
+    }
+  ]
+}

@@ -217,7 +217,10 @@ pub fn semantic_search(
 
     // FTS5 BM25 across all English translations — resolve to active translation
     if let Some(ref db) = app_state.bible_db {
-        let fts_results = db.search_verses_bm25(&query, k).unwrap_or_default();
+        let fts_results = db.search_verses_bm25(&query, k).unwrap_or_else(|e| {
+            log::warn!("[semantic_search] FTS5/BM25 query failed: {e}");
+            Vec::new()
+        });
         let seen: HashSet<(i32, i32, i32)> = results
             .iter()
             .map(|r| (r.book_number, r.chapter, r.verse))

@@ -186,14 +186,7 @@ pub const BOOKS: &[BookInfo] = &[
         number: 22,
         name: "Song of Solomon",
         abbreviation: "Song",
-        aliases: &[
-            "Song",
-            "Song of Solomon",
-            "Song of Songs",
-            "SOS",
-            "So",
-            "Cant",
-        ],
+        aliases: &["Song", "Song of Solomon", "Song of Songs", "SOS", "Cant"],
     },
     BookInfo {
         number: 23,
@@ -241,7 +234,7 @@ pub const BOOKS: &[BookInfo] = &[
         number: 30,
         name: "Amos",
         abbreviation: "Amos",
-        aliases: &["Amos", "Am"],
+        aliases: &["Amos"],
     },
     BookInfo {
         number: 31,

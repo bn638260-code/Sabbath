@@ -1,6 +1,7 @@
 import type { Verse } from "./bible"
+import type { EgwParagraph } from "./egw"
 
-export type PresentationItemKind = "scripture" | "hymn" | "media" | "slideDeck"
+export type PresentationItemKind = "scripture" | "hymn" | "media" | "slideDeck" | "egw"
 
 export interface PresentationSegment {
   verseNumber?: number
@@ -23,6 +24,13 @@ export interface ScripturePresentationItemData {
   kind: "scripture"
   verse: Verse
   reference: string
+}
+
+export interface EgwPresentationItemData {
+  kind: "egw"
+  paragraph: EgwParagraph
+  reference: string
+  segments: PresentationSegment[]
 }
 
 export interface HymnPresentationItemData {
@@ -96,6 +104,7 @@ export type PresentationItem =
   | HymnPresentationItemData
   | MediaPresentationItemData
   | SlideDeckPresentationItemData
+  | EgwPresentationItemData
 
 export function getPresentationReference(item: PresentationItem): string {
   return item.reference
@@ -134,6 +143,14 @@ export function getPresentationRenderData(item: PresentationItem): PresentationR
         slideIndex: item.slideIndex,
         slideCount: item.slideCount,
       },
+    }
+  }
+
+  if (item.kind === "egw") {
+    return {
+      kind: "egw",
+      reference: item.reference,
+      segments: item.segments,
     }
   }
 

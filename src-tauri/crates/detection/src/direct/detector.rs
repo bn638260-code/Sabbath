@@ -507,7 +507,7 @@ impl DirectDetector {
                 "sparv" | "spanish" => Some("SpaRV"),
                 "frejnd" | "french" => Some("FreJND"),
                 "porblivre" | "portuguese" => Some("PorBLivre"),
-                "msg" | "message" => Some("MSG"),
+                "msg" => Some("MSG"),
                 "csb" => Some("CSB"),
                 "hcsb" => Some("HCSB"),
                 "rsv" => Some("RSV"),

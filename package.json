@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "download:bible-data": "bun run data/download-sources.ts",
     "build:bible": "bun run data/build-bible-db.ts",
+    "build:egw": "bun run data/build-egw.ts",
     "build:bible:public": "cross-env SABBATHCUE_PUBLIC_RELEASE=1 bun run data/build-bible-db.ts",
     "verify:bible:public": "bun run scripts/verify-public-db.ts",
     "download:model": "bun run data/download-model.ts",

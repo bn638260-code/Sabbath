@@ -1,3 +1,4 @@
+// NOTE: unused hook — start_capture/stop_capture/set_gain are NOT registered in the Tauri invoke_handler. Audio is started inside start_transcription. Do not wire this up without registering those commands.
 import { useCallback } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { useAudioStore } from "@/stores/audio-store"

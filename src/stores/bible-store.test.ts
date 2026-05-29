@@ -85,8 +85,29 @@ describe("bible store persistence", () => {
       await hydrateBibleStore()
 
       expect(warnSpy).toHaveBeenCalledWith(
-        "[bible] Failed to hydrate bible store, using defaults"
+        "[bible] Failed to hydrate bible store; re-syncing to backend"
       )
+      warnSpy.mockRestore()
+    })
+
+    it("falls back to the backend default when re-sync cannot load translations", async () => {
+      mockLoad.mockRejectedValue(new Error("store not available"))
+      mockInvoke.mockImplementation((command: string) => {
+        if (command === "get_active_translation") {
+          return Promise.reject(new Error("backend unavailable"))
+        }
+        if (command === "list_translations") {
+          return Promise.resolve(undefined)
+        }
+        return Promise.resolve(undefined)
+      })
+
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+      const { hydrateBibleStore, useBibleStore } = await import("./bible-store")
+
+      await hydrateBibleStore()
+
+      expect(useBibleStore.getState().activeTranslationId).toBe(1)
       warnSpy.mockRestore()
     })
   })

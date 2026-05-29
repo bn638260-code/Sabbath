@@ -12,6 +12,7 @@
 
 pub mod crossref;
 pub mod db;
+pub mod egw;
 pub mod error;
 pub mod lookup;
 pub mod models;

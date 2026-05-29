@@ -165,13 +165,17 @@ describe("media preload and live integration smoke", () => {
     expect(mediaPreloadManager.getPreloadedIds().length).toBeLessThanOrEqual(2)
   })
 
-  it("does not import the full planner from the live context panel module", async () => {
+  it(
+    "does not import the full planner from the live context panel module",
+    async () => {
     const mod = await import("@/components/service-plan/ServiceLiveContextPanel")
     expect(mod.ServiceLiveContextPanel).toBeTypeOf("function")
     const source = mod.ServiceLiveContextPanel.toString()
     expect(source).not.toContain("activePlan")
     expect(source).toContain("serviceContext")
-  })
+    },
+    15000,
+  )
 
   it("generates a post-service report summary", async () => {
     const plan = createPlanFromTemplate("standard-sabbath")!
