@@ -35,7 +35,9 @@ describe("detection store", () => {
   })
 
   afterEach(() => {
+    useDetectionStore.getState().clearDetections()
     vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it("higher-confidence detection stays above a newer weaker detection", () => {
@@ -261,5 +263,25 @@ describe("detection store", () => {
     expect(detections).toHaveLength(8)
     expect(detections[0].verse_ref).toBe("Ref 8")
     expect(detections.some((d) => d.verse_ref === "Ref 0")).toBe(false)
+  })
+
+  it("auto-removes recent detections after 5 seconds and refreshes duplicate expiry", () => {
+    vi.restoreAllMocks()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-05-19T00:00:00Z"))
+    useDetectionStore.getState().clearDetections()
+
+    const store = useDetectionStore.getState()
+    store.addDetections([makeDetection({ verse_ref: "John 3:16", confidence: 0.85 })])
+
+    vi.advanceTimersByTime(4_000)
+    expect(useDetectionStore.getState().detections).toHaveLength(1)
+
+    store.addDetections([makeDetection({ verse_ref: "John 3:16", confidence: 0.96 })])
+    vi.advanceTimersByTime(4_999)
+    expect(useDetectionStore.getState().detections).toHaveLength(1)
+
+    vi.advanceTimersByTime(1)
+    expect(useDetectionStore.getState().detections).toHaveLength(0)
   })
 })

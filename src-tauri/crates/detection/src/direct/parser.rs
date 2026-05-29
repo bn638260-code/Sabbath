@@ -69,6 +69,19 @@ pub fn parse_reference(text: &str, book_match: &BookMatch) -> Option<VerseRef> {
         return Some(result);
     }
 
+    // Pattern: dangling chapter keyword after a book name.
+    // e.g., "Daniel chapter" should hold Daniel as incomplete so the next
+    // segment "1 verse 5" can complete it as Daniel 1:5.
+    if is_dangling_chapter_keyword(&tokens) {
+        return Some(VerseRef {
+            book_number: book_match.book_number,
+            book_name: book_match.book_name.clone(),
+            chapter: 1,
+            verse_start: 0,
+            verse_end: None,
+        });
+    }
+
     // Try pattern: two consecutive numbers "3 16" → chapter 3 verse 16
     // This handles "John 3 16" where Deepgram transcribes without colon or keywords
     if let Some(result) = try_two_numbers(&tokens, book_match) {
@@ -88,6 +101,12 @@ pub fn parse_reference(text: &str, book_match: &BookMatch) -> Option<VerseRef> {
     }
 
     None
+}
+
+fn is_dangling_chapter_keyword(tokens: &[Token]) -> bool {
+    tokens
+        .last()
+        .is_some_and(|token| matches!(token, Token::Word(word) if word == "chapter"))
 }
 
 /// A token from the text after the book name.
@@ -1039,11 +1058,13 @@ mod tests {
 
     #[test]
     fn test_incomplete_chapter_keyword() {
-        // Pattern: "Genesis chapter" (incomplete, no number) → no reference yet.
-        // Must NOT return a false chapter-only hit; wait for more tokens.
+        // Pattern: "Genesis chapter" (incomplete, no number) → hold Genesis
+        // so a later segment like "1 verse 5" can complete the reference.
         let bm = make_book_match("Genesis", 1, 7);
         let text = "Genesis chapter";
-        assert!(parse_reference(text, &bm).is_none());
+        let result = parse_reference(text, &bm).unwrap();
+        assert_eq!(result.chapter, 1);
+        assert_eq!(result.verse_start, 0);
     }
 
     #[test]

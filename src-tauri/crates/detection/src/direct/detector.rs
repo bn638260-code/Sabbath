@@ -1696,6 +1696,27 @@ mod tests {
     }
 
     #[test]
+    fn test_cross_segment_dangling_chapter_keyword_then_number_verse() {
+        // Regression from live Vosk transcript:
+        // "daniel chapter" → "1 verse 5" must stay on Daniel, not fall to Genesis.
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("daniel chapter");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_chapter_only);
+        assert_eq!(results[0].verse_ref.book_name, "Daniel");
+        assert_eq!(results[0].verse_ref.chapter, 1);
+        assert!(detector.incomplete.is_some());
+
+        let results = detector.detect("1 verse 5");
+        assert_eq!(results.len(), 1);
+        assert!(!results[0].is_chapter_only);
+        assert_eq!(results[0].verse_ref.book_name, "Daniel");
+        assert_eq!(results[0].verse_ref.chapter, 1);
+        assert_eq!(results[0].verse_ref.verse_start, 5);
+    }
+
+    #[test]
     fn test_bare_number_as_chapter_after_book_only() {
         // "Acts" → "3" → "22"
         let mut detector = DirectDetector::new();
