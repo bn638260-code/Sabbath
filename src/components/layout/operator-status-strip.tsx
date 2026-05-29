@@ -42,7 +42,7 @@ export function OperatorStatusStrip() {
   useEffect(() => {
     detectionActions.getDetectionControlStatus().then(
       (status) => setDetectionPaused(status.detection_paused)
-    ).catch(() => {})
+    ).catch((e) => console.error("[operator-strip] detection control status failed", e))
   }, [])
 
   const clearLiveOutput = () => {
@@ -57,14 +57,14 @@ export function OperatorStatusStrip() {
 
   const pauseAutoLive = () => {
     useBroadcastStore.getState().setReadingModeAutoLive(false)
-    invoke("stop_reading_mode").catch(() => {})
+    invoke("stop_reading_mode").catch((e) => console.error("[operator-strip] stop reading mode failed", e))
   }
 
   const toggleDetectionPaused = () => {
     const next = !detectionPaused
     detectionActions.setDetectionPaused(next).then(() => {
       setDetectionPaused(next)
-    }).catch(() => {})
+    }).catch((e) => console.error("[operator-strip] toggle detection paused failed", e))
   }
 
   return (

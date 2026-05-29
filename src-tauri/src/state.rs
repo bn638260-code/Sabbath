@@ -9,8 +9,6 @@ pub struct AppState {
     pub audio_active: Arc<AtomicBool>,
     pub stt_active: Arc<AtomicBool>,
     pub detection_paused: Arc<AtomicBool>,
-    #[expect(dead_code, reason = "reserved for future Deepgram key injection")]
-    pub deepgram_api_key: Option<String>,
 }
 
 impl AppState {
@@ -21,7 +19,6 @@ impl AppState {
             audio_active: Arc::new(AtomicBool::new(false)),
             stt_active: Arc::new(AtomicBool::new(false)),
             detection_paused: Arc::new(AtomicBool::new(false)),
-            deepgram_api_key: None,
         }
     }
 }

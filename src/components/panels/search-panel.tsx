@@ -262,7 +262,10 @@ export function SearchPanel() {
     // Primary: hybrid search backend (combines vector + FTS5 BM25)
     const hybridResults = await invoke<SemanticSearchResult[]>(
       "semantic_search", { query, limit: 15 }
-    ).catch(() => null)
+    ).catch((e) => {
+      console.error("[context-search] hybrid semantic_search failed", e)
+      return null
+    })
 
     if (isStale()) return
 

@@ -205,12 +205,26 @@ async fn health_handler() -> impl IntoResponse {
     })
 }
 
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
 fn bearer_authorized(headers: &HeaderMap, expected: &str) -> bool {
-    headers
+    match headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
-        == Some(expected)
+    {
+        Some(token) => constant_time_eq(token.as_bytes(), expected.as_bytes()),
+        None => false,
+    }
 }
 
 async fn status_handler<S: CommandSink + 'static>(
@@ -600,5 +614,17 @@ mod tests {
 
         let mut handle = result.handle;
         handle.stop();
+    }
+}
+
+#[cfg(test)]
+mod auth_tests {
+    use super::constant_time_eq;
+
+    #[test]
+    fn constant_time_eq_matches_string_eq() {
+        assert!(constant_time_eq(b"abc123", b"abc123"));
+        assert!(!constant_time_eq(b"abc123", b"abc124"));
+        assert!(!constant_time_eq(b"abc", b"abcd"));
     }
 }

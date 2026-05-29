@@ -204,4 +204,27 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].paragraph, 2);
     }
+
+    #[test]
+    fn lists_chapters_with_counts() {
+        let db = test_db();
+        let chapters = db.list_egw_chapters(1).unwrap();
+        assert_eq!(chapters.len(), 1);
+        assert_eq!(chapters[0].chapter, 1);
+        assert_eq!(chapters[0].paragraph_count, 2);
+    }
+
+    #[test]
+    fn gets_single_paragraph_or_none() {
+        let db = test_db();
+        let p = db.get_egw_paragraph(1, 1, 2).unwrap();
+        assert_eq!(p.unwrap().text, "The history of the great conflict.");
+        assert!(db.get_egw_paragraph(1, 1, 99).unwrap().is_none());
+    }
+
+    #[test]
+    fn empty_query_returns_no_results() {
+        let db = test_db();
+        assert!(db.search_egw("   ", 10).unwrap().is_empty());
+    }
 }

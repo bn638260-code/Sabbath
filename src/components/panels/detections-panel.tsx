@@ -110,7 +110,7 @@ export function DetectionsPanel() {
           })
         }
       })
-      .catch(() => {})
+      .catch((e) => console.error("[detections] status fetch failed", e))
     return () => {
       cancelled = true
     }

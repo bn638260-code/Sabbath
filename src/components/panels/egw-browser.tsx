@@ -58,7 +58,6 @@ export function EgwBrowser() {
   useEffect(() => {
     if (selectedBookNumber == null) return
     egwActions.loadChapters(selectedBookNumber).catch(console.error)
-    useEgwStore.getState().setSelectedChapter(1)
   }, [selectedBookNumber])
 
   useEffect(() => {
@@ -202,7 +201,7 @@ export function EgwBrowser() {
               <Button
                 variant="ghost"
                 size="icon-xs"
-                disabled={chapterCount > 0 && selectedChapter >= chapterCount}
+                disabled={chapterCount === 0 || selectedChapter >= chapterCount}
                 onClick={() =>
                   useEgwStore.getState().setSelectedChapter(selectedChapter + 1)
                 }

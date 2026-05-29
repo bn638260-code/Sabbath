@@ -29,7 +29,14 @@ export const useEgwStore = create<EgwState>((set) => ({
   selectedParagraphId: null,
 
   setBooks: (books) => set({ books }),
-  setSelectedBookNumber: (selectedBookNumber) => set({ selectedBookNumber }),
+  setSelectedBookNumber: (selectedBookNumber) =>
+    set({
+      selectedBookNumber,
+      selectedChapter: 1,
+      chapters: [],
+      currentParagraphs: [],
+      selectedParagraphId: null,
+    }),
   setChapters: (chapters) => set({ chapters }),
   setSelectedChapter: (selectedChapter) => set({ selectedChapter }),
   setCurrentParagraphs: (currentParagraphs) => set({ currentParagraphs }),

@@ -170,6 +170,10 @@ impl BibleDb {
             .conn
             .lock()
             .map_err(|e| BibleError::Internal(e.to_string()))?;
+        let sanitized = build_and_query(query);
+        if sanitized.is_empty() {
+            return Ok(vec![]);
+        }
         let mut stmt = conn.prepare(
             "SELECT v.id, v.translation_id, v.book_number, v.book_name, v.book_abbreviation, v.chapter, v.verse, v.text \
              FROM verses_fts fts \
@@ -183,7 +187,7 @@ impl BibleDb {
         )]
         let limit_i64 = limit as i64;
         let rows = stmt.query_map(
-            rusqlite::params![query, translation_id, limit_i64],
+            rusqlite::params![sanitized, translation_id, limit_i64],
             |row: &rusqlite::Row| {
                 Ok(Verse {
                     id: row.get(0)?,

@@ -32,7 +32,7 @@ export function PreviewPanel() {
         .then((v) => {
           if (v) selectPreviewVerse(v)
         })
-        .catch(() => {})
+        .catch((e) => console.error("[preview] verse refetch on translation change failed", e))
     }
   }, [activeTranslationId])
 
