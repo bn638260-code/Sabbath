@@ -79,7 +79,7 @@ export function TranscriptPanel() {
   // Listen for detection results from the backend (batch replaces previous detections)
   useTauriEvent<DetectionResult[]>("verse_detections", (detections) => {
     profileDetectionEvent("verse_detections", detections.length, () => {
-      handleVerseDetections(detections)
+      void handleVerseDetections(detections)
     })
   })
 

@@ -112,6 +112,11 @@ pub fn run() {
 
                 let managed_state = app.state::<Mutex<state::AppState>>();
                 let mut state = managed_state.lock().unwrap();
+                if let Ok(translations) = bible_db.list_translations() {
+                    if let Some(translation_id) = state::initial_translation_id(&translations) {
+                        state.active_translation_id = translation_id;
+                    }
+                }
                 state.bible_db = Some(bible_db);
                 drop(state);
                 log::info!("Bible database loaded from {}", db_path.display());

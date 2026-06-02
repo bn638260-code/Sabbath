@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client"
-import { useRef } from "react"
+import { useState } from "react"
 import { useBroadcastOutputRuntime } from "@/hooks/use-broadcast-output-runtime"
 
 /** Read output ID from URL query param (?output=main or ?output=alt). Defaults to "main". */
@@ -7,12 +7,12 @@ const outputId =
   new URLSearchParams(window.location.search).get("output") ?? "main"
 
 function BroadcastCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  useBroadcastOutputRuntime({ canvasRef, outputId })
+  const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
+  useBroadcastOutputRuntime({ canvas, outputId })
 
   return (
     <canvas
-      ref={canvasRef}
+      ref={setCanvas}
       style={{
         position: "fixed",
         inset: 0,

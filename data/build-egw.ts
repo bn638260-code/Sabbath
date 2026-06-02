@@ -7,6 +7,10 @@
  *
  * IMPORTANT: build:bible deletes and recreates rhema.db on every run, so this
  * script MUST be re-run after every build:bible.
+ *
+ * Required build order for packaged releases:
+ *   1. bun run build:bible
+ *   2. bun run build:egw
  */
 
 import { Database } from "bun:sqlite"

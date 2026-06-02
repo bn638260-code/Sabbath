@@ -3,6 +3,7 @@ import { load } from "@tauri-apps/plugin-store"
 import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
 import type { Translation, Book, Verse, CrossReference } from "@/types"
 import type { SemanticSearchResult } from "@/types/detection"
+import { clearContextSearchCache } from "@/lib/context-search"
 
 /** Backend's own default active translation (see src-tauri/src/state.rs). Used only as a last resort to keep frontend and backend aligned. */
 const DEFAULT_TRANSLATION_ID = 1
@@ -47,7 +48,12 @@ export const useBibleStore = create<BibleState>((set) => ({
   pendingNavigation: null,
 
   setTranslations: (translations) => set({ translations }),
-  setActiveTranslation: (activeTranslationId) => set({ activeTranslationId }),
+  setActiveTranslation: (activeTranslationId) =>
+    set((state) => {
+      if (state.activeTranslationId === activeTranslationId) return state
+      clearContextSearchCache()
+      return { activeTranslationId }
+    }),
   setBooks: (books) => set({ books }),
   setSearchResults: (searchResults) => set({ searchResults }),
   setSemanticResults: (semanticResults) => set({ semanticResults }),
@@ -116,12 +122,9 @@ export async function initBiblePersistence(): Promise<void> {
   try {
     const store = await load("bible.json", { autoSave: false, defaults: {} })
     let timer: ReturnType<typeof setTimeout> | null = null
-    let prev = useBibleStore.getState().activeTranslationId
-
-    useBibleStore.subscribe((state) => {
+    useBibleStore.subscribe((state, prevState) => {
       const id = state.activeTranslationId
-      if (id === prev) return
-      prev = id
+      if (id === prevState.activeTranslationId) return
       if (timer) clearTimeout(timer)
       timer = setTimeout(async () => {
         await store.set("activeTranslationId", id)

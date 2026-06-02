@@ -7,9 +7,19 @@ import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import type { HymnPresentationItemData } from "@/types"
 import type { SlideDeckPresentationItemData } from "@/types"
+import { useApiKeyPromptStore } from "@/lib/api-key-prompt"
+import { useTranscriptStore } from "@/stores/transcript-store"
+
+const { invokeMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+}))
 
 vi.mock("@tauri-apps/api/event", () => ({
   emitTo: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: invokeMock,
 }))
 
 function makeSlide(index: number): HymnPresentationItemData {
@@ -118,6 +128,9 @@ describe("handleDashboardKeyboardEvent", () => {
       isLive: true,
       liveItem: deck[0],
     })
+    useTranscriptStore.setState({ isTranscribing: false })
+    useApiKeyPromptStore.setState({ isOpen: false })
+    invokeMock.mockReset()
 
     handleDashboardKeyboardEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }))
 
@@ -137,5 +150,17 @@ describe("handleDashboardKeyboardEvent", () => {
 
     expect(useHymnSlideStore.getState().activeIndex).toBe(0)
     expect(useBroadcastStore.getState().previewItem?.hymnSlide?.screenId).toBe("screen-0")
+  })
+
+  it("opens the API-key prompt when Ctrl+M cannot start Deepgram", async () => {
+    invokeMock.mockRejectedValueOnce(new Error("No Deepgram API key configured"))
+
+    handleDashboardKeyboardEvent(
+      new KeyboardEvent("keydown", { key: "m", ctrlKey: true }),
+    )
+
+    await vi.waitFor(() => {
+      expect(useApiKeyPromptStore.getState().isOpen).toBe(true)
+    })
   })
 })

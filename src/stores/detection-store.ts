@@ -67,8 +67,11 @@ function mergeDetection(
     ...preferred,
     confidence: Math.max(existing.confidence, incoming.confidence),
     source: existing.source === "direct" || incoming.source === "direct" ? "direct" : "semantic",
-    verse_text: incoming.verse_text || existing.verse_text,
-    transcript_snippet: incoming.transcript_snippet || existing.transcript_snippet,
+    verse_text: incoming.verse_text.length > 0 ? incoming.verse_text : existing.verse_text,
+    transcript_snippet:
+      incoming.transcript_snippet.length > 0
+        ? incoming.transcript_snippet
+        : existing.transcript_snippet,
     auto_queued: existing.auto_queued || incoming.auto_queued,
     is_chapter_only: existing.is_chapter_only && incoming.is_chapter_only,
     book_name: preferred.book_name || fallback.book_name,

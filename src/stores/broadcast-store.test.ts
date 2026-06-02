@@ -155,4 +155,42 @@ describe("broadcast store sync", () => {
     expect(useBroadcastStore.getState().altProjectorFullscreen).toBe(true)
     expect(emitToMock).not.toHaveBeenCalled()
   })
+
+  it("falls back to a builtin theme when deleting active custom themes", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const builtin = useBroadcastStore.getState().themes[0]
+    const custom = {
+      ...builtin,
+      id: "custom-theme",
+      name: "Custom",
+      builtin: false,
+    }
+    useBroadcastStore.setState({
+      themes: [builtin, custom],
+      activeThemeId: custom.id,
+      altActiveThemeId: custom.id,
+    })
+
+    useBroadcastStore.getState().deleteTheme(custom.id)
+
+    expect(useBroadcastStore.getState()).toMatchObject({
+      themes: [builtin],
+      activeThemeId: builtin.id,
+      altActiveThemeId: builtin.id,
+    })
+  })
+
+  it("clamps opacity and syncs the projector output", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().setOpacity(2)
+
+    expect(useBroadcastStore.getState().opacity).toBe(1)
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:verse-update",
+      expect.objectContaining({ opacity: 1 }),
+    )
+  })
 })

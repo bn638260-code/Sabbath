@@ -17,7 +17,7 @@ import type { Verse } from "@/types"
 const PLAN_PREFIX = "[Plan]"
 
 function planReference(label: string): string {
-  return `${PLAN_PREFIX} ${label}`
+  return label.startsWith(`${PLAN_PREFIX} `) ? label : `${PLAN_PREFIX} ${label}`
 }
 
 function createPlaceholderScripturePresentation(

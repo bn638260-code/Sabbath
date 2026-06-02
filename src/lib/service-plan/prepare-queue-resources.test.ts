@@ -63,6 +63,21 @@ function itemWithHymn(): ServiceItem {
   }
 }
 
+function itemWithMedia(): ServiceItem {
+  return {
+    id: "item-2",
+    order: 0,
+    title: "Welcome video",
+    kind: "media",
+    status: "active",
+    scriptureRefs: [],
+    hymnRefs: [],
+    mediaRefs: [{ attachmentId: "media-1", label: "Welcome" }],
+    attachments: [],
+    checklist: [],
+  }
+}
+
 describe("enqueuePreparedResourcesForItem", () => {
   beforeEach(() => {
     useQueueStore.setState({ items: [], activeIndex: null })
@@ -78,5 +93,13 @@ describe("enqueuePreparedResourcesForItem", () => {
     expect(items[0].hymnGroup?.groupId).toBe(items[1].hymnGroup?.groupId)
     expect(items[0].hymnGroup?.itemCount).toBe(2)
     expect(items[0].source).toBe("service-plan")
+  })
+
+  it("adds the plan prefix exactly once for prepared media", async () => {
+    await enqueuePreparedResourcesForItem(itemWithMedia())
+
+    expect(useQueueStore.getState().items[0].presentation.reference).toBe(
+      "[Plan] Media - Welcome",
+    )
   })
 })

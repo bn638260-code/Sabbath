@@ -110,12 +110,10 @@ export function commitVerseToLive(verse: Verse, options?: { makeLive?: boolean }
   const broadcast = useBroadcastStore.getState()
 
   console.info("[pipeline] commit_live", { reference: renderData.reference })
-  useBroadcastStore.setState({ liveItem: renderData })
+  broadcast.setLiveItem(renderData)
 
   if (options?.makeLive ?? true) {
     broadcast.setLive(true)
-  } else {
-    broadcast.syncBroadcastOutput()
   }
 }
 

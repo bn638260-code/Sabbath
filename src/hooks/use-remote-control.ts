@@ -81,10 +81,7 @@ export function useRemoteControl() {
         const payload = parsePayload(event.payload)
         const value = payload?.value as number | undefined
         if (value === undefined) return
-        // Opacity is stored on the live verse rendering; for now broadcast
-        // store doesn't have a dedicated opacity field — this is a placeholder
-        // that can be wired when the broadcast store adds opacity support.
-        void value
+        useBroadcastStore.getState().setOpacity(value)
       })
       unlisteners.push(u4)
 

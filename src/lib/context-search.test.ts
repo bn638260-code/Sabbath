@@ -5,6 +5,7 @@ import {
   searchContextWithFuse,
 } from "./context-search"
 import { invoke } from "@tauri-apps/api/core"
+import { useBibleStore } from "@/stores/bible-store"
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -66,6 +67,25 @@ describe("searchContextWithFuse", () => {
     await searchContextWithFuse("begotten son", 1)
 
     expect(mockInvoke).toHaveBeenCalledTimes(1)
+  })
+
+  it("rebuilds cached indexes after the active translation changes", async () => {
+    mockInvoke.mockResolvedValue([
+      {
+        book_number: 43,
+        book_name: "John",
+        chapter: 3,
+        verse: 16,
+        text: "For God so loved the world that he gave his only begotten Son.",
+      },
+    ])
+    useBibleStore.setState({ activeTranslationId: 1 })
+
+    await searchContextWithFuse("loved world", 1)
+    useBibleStore.getState().setActiveTranslation(2)
+    await searchContextWithFuse("loved world", 1)
+
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
   })
 })
 

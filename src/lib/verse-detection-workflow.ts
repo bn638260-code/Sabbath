@@ -3,6 +3,7 @@ import {
   selectPreviewVerse,
   createScriptureQueueItem,
 } from "@/lib/presentation-workflow"
+import { bibleActions } from "@/hooks/use-bible"
 import { useBibleStore } from "@/stores/bible-store"
 import { useDetectionStore } from "@/stores/detection-store"
 import { useQueueStore } from "@/stores/queue-store"
@@ -49,7 +50,53 @@ function selectDetectedVerse(args: {
   })
 }
 
-export function handleVerseDetections(detections: DetectionResult[]) {
+async function resolveDetectionVerse(detection: DetectionResult): Promise<Verse> {
+  if (detection.book_number > 0 && detection.chapter > 0 && detection.verse > 0) {
+    try {
+      const verse = await bibleActions.fetchVerse(
+        detection.book_number,
+        detection.chapter,
+        detection.verse,
+      )
+      if (verse) return verse
+    } catch {
+      // Queueing should still work when a translation lookup is unavailable.
+    }
+  }
+  return detectionLikeToVerse(detection)
+}
+
+async function queueDetectedVerse(detection: DetectionResult): Promise<void> {
+  const verse = await resolveDetectionVerse(detection)
+  if (
+    !detection.is_chapter_only &&
+    detection.source === "direct" &&
+    useQueueStore
+      .getState()
+      .updateEarlyRef(
+        verse.book_number,
+        verse.chapter,
+        verse.verse,
+        detection.verse_ref,
+        verse.text,
+      )
+  ) {
+    return
+  }
+
+  if (!detection.auto_queued) return
+
+  useQueueStore.getState().addOrFlashDetectionItem(
+    createScriptureQueueItem(verse, {
+      reference: detection.verse_ref,
+      confidence: detection.confidence,
+      source: detection.source === "direct" ? "ai-direct" : "ai-semantic",
+      is_chapter_only: detection.is_chapter_only,
+    }),
+  )
+}
+
+export async function handleVerseDetections(detections: DetectionResult[]) {
   useDetectionStore.getState().addDetections(detections)
 
   // Preview from the incoming event's newest direct non-chapter-only detection
@@ -65,47 +112,7 @@ export function handleVerseDetections(detections: DetectionResult[]) {
     }
   }
 
-  for (const d of detections) {
-    if (
-      !d.is_chapter_only &&
-      d.source === "direct" &&
-      useQueueStore
-        .getState()
-        .updateEarlyRef(
-          d.book_number,
-          d.chapter,
-          d.verse,
-          d.verse_ref,
-          d.verse_text
-        )
-    ) {
-      continue
-    }
-
-    if (d.auto_queued) {
-      const queue = useQueueStore.getState()
-      queue.addOrFlashDetectionItem(
-        createScriptureQueueItem(
-          {
-            id: 0,
-            translation_id: useBibleStore.getState().activeTranslationId,
-            book_number: d.book_number,
-            book_name: d.book_name,
-            book_abbreviation: "",
-            chapter: d.chapter,
-            verse: d.verse,
-            text: d.verse_text,
-          },
-          {
-            reference: d.verse_ref,
-            confidence: d.confidence,
-            source: d.source === "direct" ? "ai-direct" : "ai-semantic",
-            is_chapter_only: d.is_chapter_only,
-          },
-        ),
-      )
-    }
-  }
+  await Promise.all(detections.map(queueDetectedVerse))
 }
 
 export function handleReadingAdvance(advance: ReadingAdvance) {

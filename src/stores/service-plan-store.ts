@@ -99,13 +99,22 @@ function setActivePlan(next: ServicePlan | null): void {
 
 function patchActivePlan(
   updater: (plan: ServicePlan) => ServicePlan,
-  options?: { immediate?: boolean }
+  options?: {
+    immediate?: boolean
+    statePatch?: Partial<
+      Pick<ServicePlanState, "pendingReport" | "lastReport">
+    >
+  }
 ): void {
   const current = useServicePlanStore.getState().activePlan
   if (!current) return
 
   const next = updater({ ...current, updatedAt: Date.now() })
-  setActivePlan(next)
+  useServicePlanStore.setState({
+    activePlan: next,
+    serviceContext: syncServiceContext(next),
+    ...options?.statePatch,
+  })
   void autosave.save(next, options)
 }
 
@@ -247,8 +256,10 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
   },
 
   completeService: async () => {
-    patchActivePlan(completeServicePlan, { immediate: true })
-    set({ pendingReport: true })
+    patchActivePlan(completeServicePlan, {
+      immediate: true,
+      statePatch: { pendingReport: true },
+    })
     releaseAllServiceMedia()
   },
 
@@ -276,9 +287,11 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
     const report = generateServicePlanReport(plan)
     patchActivePlan(
       (current) => ({ ...current, reportGeneratedAt: report.generatedAt }),
-      { immediate: true }
+      {
+        immediate: true,
+        statePatch: { pendingReport: false, lastReport: report },
+      }
     )
-    set({ pendingReport: false, lastReport: report })
   },
 }))
 

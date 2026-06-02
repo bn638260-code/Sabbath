@@ -6,8 +6,9 @@ import { useDetectionStore } from "@/stores/detection-store"
 import { useQueueStore } from "@/stores/queue-store"
 import type { DetectionResult, QueueItem, ReadingAdvance } from "@/types"
 
-const { emitToMock } = vi.hoisted(() => ({
+const { emitToMock, invokeMock } = vi.hoisted(() => ({
   emitToMock: vi.fn(),
+  invokeMock: vi.fn(),
 }))
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -15,7 +16,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 }))
 
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
+  invoke: invokeMock,
 }))
 
 vi.mock("@tauri-apps/plugin-store", () => ({
@@ -90,6 +91,8 @@ describe("verse detection workflow", () => {
     })
     emitToMock.mockReset()
     emitToMock.mockResolvedValue(undefined)
+    invokeMock.mockReset()
+    invokeMock.mockResolvedValue(null)
 
     useBibleStore.setState({
       translations: [],
@@ -124,8 +127,8 @@ describe("verse detection workflow", () => {
     vi.useRealTimers()
   })
 
-  it("selects a direct verse hit for preview and pending navigation", () => {
-    handleVerseDetections([makeDetection({ auto_queued: false })])
+  it("selects a direct verse hit for preview and pending navigation", async () => {
+    await handleVerseDetections([makeDetection({ auto_queued: false })])
 
     expect(useDetectionStore.getState().detections).toHaveLength(1)
     expect(useQueueStore.getState().items).toHaveLength(0)
@@ -144,8 +147,8 @@ describe("verse detection workflow", () => {
     })
   })
 
-  it("queues an auto-queued direct detection with the active translation", () => {
-    handleVerseDetections([makeDetection()])
+  it("queues an auto-queued direct detection with the active translation", async () => {
+    await handleVerseDetections([makeDetection()])
 
     expect(useQueueStore.getState().items).toEqual([
       expect.objectContaining({
@@ -168,14 +171,14 @@ describe("verse detection workflow", () => {
     ])
   })
 
-  it("refines a chapter-only queue item instead of adding a duplicate verse", () => {
+  it("refines a chapter-only queue item instead of adding a duplicate verse", async () => {
     useQueueStore.setState({
       items: [makeQueueItem()],
       activeIndex: null,
       highlightedId: null,
     })
 
-    handleVerseDetections([makeDetection()])
+    await handleVerseDetections([makeDetection()])
 
     expect(useQueueStore.getState().items).toHaveLength(1)
     expect(useQueueStore.getState().items[0]).toMatchObject({
@@ -216,7 +219,7 @@ describe("verse detection workflow", () => {
     expect(useQueueStore.getState().items).toHaveLength(0)
   })
 
-  it("does not auto-live normal direct detections", () => {
+  it("does not auto-live normal direct detections", async () => {
     const detection = {
       verse_ref: "John 3:16",
       verse_text: "For God so loved the world.",
@@ -239,7 +242,7 @@ describe("verse detection workflow", () => {
       },
     })
 
-    handleVerseDetections([detection])
+    await handleVerseDetections([detection])
 
     expect(useBibleStore.getState().selectedVerse).toMatchObject({
       book_name: "John",
@@ -335,9 +338,9 @@ describe("verse detection workflow", () => {
     expect(useBroadcastStore.getState().liveItem).toBeNull()
   })
 
-  it("previews from incoming direct detection event", () => {
+  it("previews from incoming direct detection event", async () => {
     const detection = makeDetection({ verse_ref: "Romans 5:8", book_number: 45, chapter: 5, verse: 8 })
-    handleVerseDetections([detection])
+    await handleVerseDetections([detection])
 
     expect(useBibleStore.getState().selectedVerse).toMatchObject({
       book_number: 45,
@@ -346,10 +349,10 @@ describe("verse detection workflow", () => {
     })
   })
 
-  it("previews first direct detection from incoming event batch", () => {
+  it("previews first direct detection from incoming event batch", async () => {
     const detection1 = makeDetection({ verse_ref: "Romans 5:8", book_number: 45, chapter: 5, verse: 8 })
     const detection2 = makeDetection({ verse_ref: "Romans 8:1", book_number: 45, chapter: 8, verse: 1 })
-    handleVerseDetections([detection1, detection2])
+    await handleVerseDetections([detection1, detection2])
 
     // Should preview the first (newest in batch)
     expect(useBibleStore.getState().selectedVerse).toMatchObject({
@@ -357,5 +360,28 @@ describe("verse detection workflow", () => {
       chapter: 5,
       verse: 8,
     })
+  })
+
+  it("queues text fetched from the current translation", async () => {
+    invokeMock.mockResolvedValueOnce({
+      id: 25,
+      translation_id: 7,
+      book_number: 43,
+      book_name: "John",
+      book_abbreviation: "John",
+      chapter: 3,
+      verse: 16,
+      text: "Current translation text",
+    })
+
+    await handleVerseDetections([
+      makeDetection({ verse_text: "Text from the earlier translation" }),
+    ])
+
+    expect(
+      useQueueStore.getState().items[0].presentation.kind === "scripture"
+        ? useQueueStore.getState().items[0].presentation.verse.text
+        : null,
+    ).toBe("Current translation text")
   })
 })

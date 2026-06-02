@@ -191,11 +191,28 @@ Each phase can also be run independently:
 bun run download:bible-data          # Source translations + cross-refs for local data builds
 bun run build:bible:public           # Build redistributable public-release DB only
 bun run build:bible                  # Build SQLite database
+bun run build:egw                    # Import EGW JSON into data/rhema.db (run after build:bible)
 bun run download:model               # Download & export ONNX model
 bun run export:verses                # Export verses to JSON
 bun run precompute:embeddings        # Rust ONNX (recommended); see also -onnx and -py variants
 bun run download:whisper             # Whisper STT model
 ```
+
+### EGW import workflow
+
+The Ellen G. White SQLite import is built from committed JSON sources in
+`data/sources/egw`. When rebuilding local or packaged data, use this order:
+
+```bash
+bun run convert:egw:pp:pdf <pdf>
+bun run convert:egw:sc:pdf <pdf>
+bun run convert:egw:da:pdf <pdf>
+bun run validate:egw
+bun run build:bible
+bun run build:egw
+```
+
+`build:bible` recreates `data/rhema.db`, so `build:egw` must always run after it.
 
 ### Run in development
 

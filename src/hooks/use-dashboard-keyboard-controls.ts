@@ -20,6 +20,7 @@ import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
 import { transcriptionActions } from "./use-transcription"
+import { openApiKeyPrompt } from "@/lib/api-key-prompt"
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -213,7 +214,7 @@ export function handleDashboardKeyboardEvent(event: KeyboardEvent): void {
     if (useTranscriptStore.getState().isTranscribing) {
       void transcriptionActions.stop()
     } else {
-      void transcriptionActions.start()
+      void transcriptionActions.start(openApiKeyPrompt)
     }
     return
   }

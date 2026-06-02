@@ -15,6 +15,7 @@ interface BroadcastState {
   previewItem: PresentationRenderData | null
   liveItem: PresentationRenderData | null
   readingModeAutoLive: boolean
+  opacity: number
 
   // Projector display settings
   mainDisplayMonitorIndex: number
@@ -43,6 +44,7 @@ interface BroadcastState {
   setPreviewItem: (item: PresentationRenderData | null) => void
   setLiveItem: (item: PresentationRenderData | null) => void
   setReadingModeAutoLive: (enabled: boolean) => void
+  setOpacity: (opacity: number) => void
   syncBroadcastOutput: () => void
   syncBroadcastOutputFor: (outputId: string) => void
 
@@ -101,12 +103,14 @@ function emitDraftToBroadcast(state: BroadcastState): void {
     void emitTo("broadcast", "broadcast:verse-update", {
       theme: state.draftTheme,
       item: state.isLive ? state.liveItem : null,
+      opacity: state.opacity,
     }).catch(() => {})
   }
   if (id === state.altActiveThemeId) {
     void emitTo("broadcast-alt", "broadcast:verse-update", {
       theme: state.draftTheme,
       item: state.isLive ? state.liveItem : null,
+      opacity: state.opacity,
     }).catch(() => {})
   }
 }
@@ -119,6 +123,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   previewItem: null,
   liveItem: null,
   readingModeAutoLive: true,
+  opacity: 1,
   mainDisplayMonitorIndex: 0,
   altDisplayMonitorIndex: 0,
   mainProjectorFullscreen: false,
@@ -138,8 +143,21 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
         ? s.themes.map((t) => (t.id === theme.id ? theme : t))
         : [...s.themes, theme],
     })),
-  deleteTheme: (id) =>
-    set((s) => ({ themes: s.themes.filter((t) => t.id !== id || t.builtin) })),
+  deleteTheme: (id) => {
+    const { activeThemeId, altActiveThemeId } = get()
+    set((s) => {
+      const themes = s.themes.filter((t) => t.id !== id || t.builtin)
+      const fallbackId = themes[0]?.id ?? BUILTIN_THEMES[0].id
+      return {
+        themes,
+        activeThemeId: s.activeThemeId === id ? fallbackId : s.activeThemeId,
+        altActiveThemeId: s.altActiveThemeId === id ? fallbackId : s.altActiveThemeId,
+      }
+    })
+    if (activeThemeId === id || altActiveThemeId === id) {
+      get().syncBroadcastOutput()
+    }
+  },
   duplicateTheme: (id) => {
     const s = get()
     const source = s.themes.find((t) => t.id === id)
@@ -199,6 +217,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     void emitTo(label, "broadcast:verse-update", {
       theme,
       item: s.isLive ? s.liveItem : null,
+      opacity: s.opacity,
     }).catch(() => {})
   },
   syncBroadcastOutput: () => {
@@ -226,6 +245,13 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   },
   setReadingModeAutoLive: (readingModeAutoLive) => {
     set({ readingModeAutoLive })
+  },
+  setOpacity: (opacity) => {
+    const nextOpacity = Number.isFinite(opacity)
+      ? Math.max(0, Math.min(1, opacity))
+      : 1
+    set({ opacity: nextOpacity })
+    get().syncBroadcastOutput()
   },
   setMainDisplayMonitorIndex: (mainDisplayMonitorIndex) => {
     set({ mainDisplayMonitorIndex })

@@ -175,7 +175,7 @@ curl -X POST http://localhost:8080/api/v1/command \
   -d '{"command":"opacity","value":0.75}'
 ```
 
-**Note:** This command is currently a placeholder and will be fully wired when the broadcast store adds opacity support.
+The value is clamped to the supported `0.0` to `1.0` range.
 
 ### 8. **confidence** — Set Detection Confidence Threshold
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import { getBroadcastRenderKey } from "@/lib/broadcast-render-key"
@@ -9,6 +9,7 @@ import type { NdiConfigEventPayload, NdiFrameRequest } from "@/types"
 export interface BroadcastPayload {
   theme: BroadcastTheme
   item: PresentationRenderData | null
+  opacity?: number
 }
 
 declare global {
@@ -48,21 +49,30 @@ function fillBlack(canvas: HTMLCanvasElement): void {
 }
 
 interface UseBroadcastOutputRuntimeOptions {
-  canvasRef: RefObject<HTMLCanvasElement | null>
+  canvas: HTMLCanvasElement | null
   outputId: string
 }
 
 export function useBroadcastOutputRuntime({
-  canvasRef,
+  canvas,
   outputId,
 }: UseBroadcastOutputRuntimeOptions): void {
   const latestData = useRef<BroadcastPayload | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const ndiConfigRef = useRef<NdiConfigEventPayload>(DEFAULT_NDI_CONFIG)
   const ndiCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const lastPushRef = useRef(0)
   const pushingRef = useRef(false)
   const lastRenderKeyRef = useRef<string | null>(null)
+  const ndiBurstTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  useEffect(() => {
+    canvasRef.current = canvas
+    return () => {
+      if (canvasRef.current === canvas) canvasRef.current = null
+    }
+  }, [canvas])
 
   const logDebug = useCallback((message: string, meta?: unknown) => {
     if (!import.meta.env.DEV) return
@@ -90,6 +100,7 @@ export function useBroadcastOutputRuntime({
     canvas.height = theme.resolution.height
     const result = renderPresentation(ctx, theme, item, {
       scale: 1,
+      opacity: data.opacity,
       imageCache: imageCacheRef.current,
     })
 
@@ -97,7 +108,7 @@ export function useBroadcastOutputRuntime({
       fillBlack(canvas)
       logDebug("renderPresentation returned null; drew fallback frame")
     }
-  }, [canvasRef, logDebug])
+  }, [logDebug])
 
   const preloadBackgroundImage = useCallback((theme: BroadcastTheme) => {
     const bg = theme.background
@@ -165,13 +176,20 @@ export function useBroadcastOutputRuntime({
     } finally {
       pushingRef.current = false
     }
-  }, [canvasRef, outputId])
+  }, [outputId])
 
   const pushNdiBurst = useCallback(() => {
     if (!ndiConfigRef.current.active) return
     void pushNdiFrame()
-    setTimeout(() => void pushNdiFrame(), 150)
-    setTimeout(() => void pushNdiFrame(), 300)
+    for (const delay of [150, 300]) {
+      const timer = setTimeout(() => {
+        ndiBurstTimersRef.current = ndiBurstTimersRef.current.filter(
+          (pending) => pending !== timer,
+        )
+        void pushNdiFrame()
+      }, delay)
+      ndiBurstTimersRef.current.push(timer)
+    }
   }, [pushNdiFrame])
 
   useEffect(() => {
@@ -183,7 +201,7 @@ export function useBroadcastOutputRuntime({
     }
 
     const applyPayload = (payload: BroadcastPayload) => {
-      const renderKey = getBroadcastRenderKey(payload.theme, payload.item)
+      const renderKey = `${getBroadcastRenderKey(payload.theme, payload.item)}:${payload.opacity ?? 1}`
 
       if (lastRenderKeyRef.current === renderKey) {
         logDebug("Skipped duplicate broadcast payload", {
@@ -263,10 +281,12 @@ export function useBroadcastOutputRuntime({
 
     return () => {
       delete window.__SABBATHCUE_BROADCAST_TEST__
+      ndiBurstTimersRef.current.forEach(clearTimeout)
+      ndiBurstTimersRef.current = []
       unlisten?.then((fn) => fn())
       unlistenNdiConfig?.then((fn) => fn())
     }
-  }, [canvasRef, draw, logDebug, outputId, preloadBackgroundImage, pushNdiBurst])
+  }, [canvas, draw, logDebug, outputId, preloadBackgroundImage, pushNdiBurst])
 
   useEffect(() => {
     const timer = setInterval(() => {
