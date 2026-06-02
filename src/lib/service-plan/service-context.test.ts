@@ -126,6 +126,25 @@ describe("service plan store behavior", () => {
     expect(items.map((item) => item.title)).toEqual(["B", "A"])
     expect(items.map((item) => item.order)).toEqual([0, 1])
   })
+
+  it("auto-selects the first item when practice mode starts", async () => {
+    const plan = createPlanFromTemplate("prayer-meeting")!
+    plan.activeItemId = null
+    const { useServicePlanStore } = await import("@/stores/service-plan-store")
+    const { buildServiceContext } = await import("./service-context")
+    useServicePlanStore.setState({
+      activePlan: plan,
+      serviceContext: buildServiceContext(plan),
+    })
+
+    await useServicePlanStore.getState().startPractice()
+
+    const state = useServicePlanStore.getState()
+    expect(state.activePlan?.status).toBe("practice")
+    expect(state.activePlan?.mode).toBe("practice")
+    expect(state.activePlan?.activeItemId).toBe(plan.items[0]?.id)
+  })
+
 })
 
 describe("media preload and live integration smoke", () => {

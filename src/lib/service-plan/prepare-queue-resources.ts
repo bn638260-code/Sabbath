@@ -1,7 +1,7 @@
 import { bibleActions } from "@/hooks/use-bible"
 import { createScriptureQueueItem } from "@/lib/presentation-workflow"
 import {
-  createHymnQueueItem,
+  createGroupedHymnQueueItems,
   defaultSelectedSectionIds,
 } from "@/services/hymnal/hymn-presentation"
 import { generateHymnScreens } from "@/services/hymnal/generate-hymn-screens"
@@ -87,13 +87,20 @@ async function resolveScriptureRef(ref: ScriptureRef): Promise<Verse | null> {
   return bibleActions.fetchVerse(book.book_number, ref.chapter, verseNumber)
 }
 
-function queuePreparedItem(presentation: PresentationItem): void {
+function queuePreparedItem(
+  presentation: PresentationItem,
+  hymnGroup?: QueueItem["hymnGroup"],
+): void {
   const item: QueueItem = {
     id: crypto.randomUUID(),
-    presentation,
+    presentation: {
+      ...presentation,
+      reference: planReference(presentation.reference),
+    },
     confidence: 1,
     source: "service-plan",
     added_at: Date.now(),
+    hymnGroup,
   }
   useQueueStore.getState().addItem(item)
 }
@@ -111,14 +118,11 @@ export async function enqueuePreparedResourcesForItem(item: ServiceItem): Promis
         selectedSectionIds: defaultSelectedSectionIds(hymn),
         maxLinesPerScreen: 4,
       })
-      const first = screens[0]
-      if (!first) continue
-      const queueItem = createHymnQueueItem(first)
-      queuePreparedItem({
-        ...queueItem.presentation,
-        reference: planReference(queueItem.presentation.reference),
-      })
-      queued += 1
+      const groupItems = createGroupedHymnQueueItems(screens)
+      for (const queueItem of groupItems) {
+        queuePreparedItem(queueItem.presentation, queueItem.hymnGroup)
+        queued += 1
+      }
     } catch {
       // Failed hymn loads must not block other resources.
     }
@@ -129,13 +133,12 @@ export async function enqueuePreparedResourcesForItem(item: ServiceItem): Promis
       const verse = await resolveScriptureRef(scriptureRef)
       if (verse) {
         const queueItem = createScriptureQueueItem(verse, {
-          reference: planReference(
+          reference:
             scriptureRef.reference ??
-              `${verse.book_name} ${verse.chapter}:${verse.verse}`,
-          ),
+            `${verse.book_name} ${verse.chapter}:${verse.verse}`,
           source: "service-plan",
         })
-        useQueueStore.getState().addItem(queueItem)
+        queuePreparedItem(queueItem.presentation)
         queued += 1
         continue
       }

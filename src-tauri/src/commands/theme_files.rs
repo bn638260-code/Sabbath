@@ -3,10 +3,12 @@
     reason = "Tauri command extractors require pass-by-value"
 )]
 
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use base64::Engine as _;
 use tauri::command;
+
+use crate::commands::path_guard::{is_blocked_system_path, reject_unsafe_path_surface};
 
 const MAX_THEME_BYTES: u64 = 1_000_000; // 1 MB
 const MAX_IMAGE_BYTES: u64 = 10_000_000; // 10 MB
@@ -17,64 +19,6 @@ fn file_size(path: &Path) -> Result<u64, String> {
     Ok(std::fs::metadata(path)
         .map_err(|e| format!("Could not read file metadata: {e}"))?
         .len())
-}
-
-fn reject_unsafe_path_surface(path: &str) -> Result<(), String> {
-    let trimmed = path.trim();
-    if trimmed.is_empty() {
-        return Err("Path is empty".into());
-    }
-    if trimmed.starts_with("\\\\") || trimmed.starts_with("//") {
-        return Err("Network paths are not allowed".into());
-    }
-    if Path::new(trimmed)
-        .components()
-        .any(|c| matches!(c, Component::ParentDir))
-    {
-        return Err("Parent directory traversal is not allowed".into());
-    }
-    // URL scheme (allow Windows drive letters like C:\ or C:/)
-    if let Some(idx) = trimmed.find(':') {
-        let scheme = &trimmed[..idx];
-        let rest = &trimmed[idx + 1..];
-        let is_drive = scheme.len() == 1
-            && scheme.chars().all(|c| c.is_ascii_alphabetic())
-            && rest.starts_with(['\\', '/']);
-        if !is_drive
-            && !scheme.is_empty()
-            && scheme
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
-        {
-            return Err("URL paths are not allowed".into());
-        }
-    }
-    Ok(())
-}
-
-fn is_blocked_system_path(path: &str) -> bool {
-    let normalized = path.replace('\\', "/").to_ascii_lowercase();
-    if normalized.starts_with("/etc/")
-        || normalized.starts_with("/bin/")
-        || normalized.starts_with("/sbin/")
-        || normalized.starts_with("/usr/")
-        || normalized.starts_with("/var/")
-        || normalized.starts_with("/system/")
-        || normalized.starts_with("/library/")
-    {
-        return true;
-    }
-
-    let Some((drive, rest)) = normalized.split_once(":/") else {
-        return false;
-    };
-    if drive.len() != 1 || !drive.chars().all(|ch| ch.is_ascii_alphabetic()) {
-        return false;
-    }
-    rest.starts_with("windows/")
-        || rest.starts_with("program files/")
-        || rest.starts_with("program files (x86)/")
-        || rest.starts_with("programdata/")
 }
 
 /// Validate a path we will READ. Rejects unsafe surfaces and symlinks.
@@ -248,7 +192,10 @@ mod tests {
     use std::io::Write;
 
     fn test_temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("sabbathcue-theme-files-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "sabbathcue-theme-files-{name}-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("create temp dir");
         dir
@@ -431,7 +378,8 @@ mod tests {
         let mut file = fs::File::create(&path).expect("create image");
         file.write_all(b"png").expect("write image");
 
-        let data_url = read_image_as_data_url(path.to_string_lossy().into_owned()).expect("read image");
+        let data_url =
+            read_image_as_data_url(path.to_string_lossy().into_owned()).expect("read image");
         assert!(data_url.starts_with("data:image/png;base64,"));
         let _ = fs::remove_dir_all(dir);
     }

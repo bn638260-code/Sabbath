@@ -39,6 +39,12 @@ const LazyServicePlanWorkspace = lazy(() =>
   }))
 )
 
+const LazyRunServicePage = lazy(() =>
+  import("@/components/service-plan/ServicePlanPage").then((mod) => ({
+    default: mod.RunServicePage,
+  }))
+)
+
 const LazyLiveServicePlanPage = lazy(() =>
   import("@/components/service-plan/ServicePlanPage").then((mod) => ({
     default: mod.LiveServicePlanPage,
@@ -230,7 +236,7 @@ export function Dashboard() {
       <TransportBar />
       <OperatorStatusStrip />
 
-      <div className="flex items-center gap-1 border-b border-border bg-card/60 px-3 py-1.5">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card/70 px-4 py-2">
         <Button
           size="xs"
           variant={workspace === "live" ? "default" : "outline"}
@@ -241,6 +247,17 @@ export function Dashboard() {
           }}
         >
           Live
+        </Button>
+        <Button
+          size="xs"
+          variant={workspace === "run-service" ? "default" : "outline"}
+          aria-pressed={workspace === "run-service"}
+          onClick={() => {
+            closePlanner()
+            setWorkspace("run-service")
+          }}
+        >
+          Run Service
         </Button>
         <Button
           size="xs"
@@ -300,7 +317,7 @@ export function Dashboard() {
 
         {workspace === "live" && (
           <>
-            <div className="mx-2 h-4 w-px bg-border" />
+            <div className="mx-1 h-5 w-px bg-border" />
             {(["balanced", "broadcast", "study"] as const).map((mode) => (
               <Button
                 key={mode}
@@ -312,7 +329,7 @@ export function Dashboard() {
                 {mode}
               </Button>
             ))}
-            <span className="ml-2 text-xs text-muted-foreground">
+            <span className="ml-1 text-xs text-muted-foreground">
               Drag labeled dividers to resize panels
             </span>
             <Button
@@ -345,6 +362,16 @@ export function Dashboard() {
             }
           >
             <LazyHymnWorkspace />
+          </Suspense>
+        </div>
+      ) : workspace === "run-service" ? (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <Suspense
+            fallback={
+              <div className="h-full rounded-lg border border-border bg-card" />
+            }
+          >
+            <LazyRunServicePage />
           </Suspense>
         </div>
       ) : workspace === "live-service" ? (
@@ -380,10 +407,10 @@ export function Dashboard() {
       ) : (
         <div
           ref={contentRef}
-          className="flex min-h-0 flex-1 flex-col gap-1.5 p-3"
+          className="flex min-h-0 flex-1 flex-col gap-3 p-4"
         >
           <div
-            className="grid min-h-0 gap-1.5 *:min-h-0"
+            className="grid min-h-0 gap-3 *:min-h-0"
             style={{
               height: `${topHeightPercent}%`,
               gridTemplateColumns: isCompact
@@ -425,7 +452,7 @@ export function Dashboard() {
           />
 
           <div
-            className="grid min-h-0 flex-1 gap-1.5"
+            className="grid min-h-0 flex-1 gap-3"
             style={{
               gridTemplateColumns: isCompact
                 ? "minmax(0, 1fr)"

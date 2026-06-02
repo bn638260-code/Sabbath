@@ -4,6 +4,7 @@ pub mod bible;
 pub mod broadcast;
 pub mod detection;
 pub mod egw;
+pub mod path_guard;
 pub mod remote;
 pub mod secrets;
 pub mod stt;

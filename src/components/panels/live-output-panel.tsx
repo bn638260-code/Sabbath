@@ -10,7 +10,10 @@ import { commitPreviewToLive, presentItem } from "@/lib/presentation-workflow"
 import { cn } from "@/lib/utils"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
-import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, RadioIcon, SendIcon, Maximize2Icon, Minimize2Icon } from "lucide-react"
+import { useSermonSlideStore } from "@/stores/sermon-slide-store"
+import { PresentationDeckControls } from "@/components/panels/presentation-deck-controls"
+import { presentationDeckKind } from "@/lib/presentation-deck-navigation"
+import { EyeIcon, EyeOffIcon, RadioIcon, SendIcon, Maximize2Icon, Minimize2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 export function LiveOutputPanel() {
@@ -33,22 +36,19 @@ export function LiveOutputPanel() {
     [isLive, liveItem],
   )
   const canCommitPreview = Boolean(previewItem)
-  const liveDeckIndex = liveItem?.kind === "hymn"
-    ? useHymnSlideStore
-        .getState()
-        .deck.findIndex((item) => item.screenId === liveItem.hymnSlide?.screenId)
-    : -1
-  const canNavigateLiveHymn = isLive && liveDeckIndex >= 0
-
-  const navigateLiveHymn = (delta: number) => {
-    const hymnSlides = useHymnSlideStore.getState()
-    const currentIndex =
-      hymnSlides.deck.findIndex((item) => item.screenId === liveItem?.hymnSlide?.screenId)
-    if (currentIndex < 0) return
-    const nextIndex = Math.max(0, Math.min(hymnSlides.deck.length - 1, currentIndex + delta))
-    const next = hymnSlides.deck[nextIndex]
-    if (!next || nextIndex === currentIndex) return
-    hymnSlides.setDeck(hymnSlides.deck, nextIndex)
+  const navigateLiveDeck = (kind: "hymn" | "slideDeck", index: number) => {
+    if (kind === "hymn") {
+      const hymnSlides = useHymnSlideStore.getState()
+      const next = hymnSlides.deck[index]
+      if (!next) return
+      hymnSlides.setDeck(hymnSlides.deck, index)
+      presentItem(next)
+      return
+    }
+    const sermonSlides = useSermonSlideStore.getState()
+    const next = sermonSlides.deck[index]
+    if (!next) return
+    sermonSlides.setDeck(sermonSlides.deck, index, sermonSlides.activeItemId)
     presentItem(next)
   }
 
@@ -118,12 +118,12 @@ export function LiveOutputPanel() {
         </PanelHeader>
       )}
 
-      <div className={cn("flex min-h-10 items-center justify-between gap-2 border-b border-border px-3 py-1.5", isFullscreen && "hidden")}>
-        <div className="flex items-center gap-2">
+      <div className={cn("flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2", isFullscreen && "hidden")}>
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
             disabled={!canCommitPreview}
-            className="gap-1.5"
+            className="gap-2"
             onClick={() => commitPreviewToLive()}
             title={
               canCommitPreview
@@ -134,34 +134,15 @@ export function LiveOutputPanel() {
             <SendIcon className="size-3.5" />
             Send Preview Live
           </Button>
-          {liveItem?.kind === "hymn" && (
-            <div className="flex items-center gap-1">
-              <Button
-                size="icon-xs"
-                variant="outline"
-                disabled={!canNavigateLiveHymn || liveDeckIndex <= 0}
-                onClick={() => navigateLiveHymn(-1)}
-                title="Previous hymn or song slide"
-              >
-                <ChevronLeftIcon className="size-3" />
-              </Button>
-              <Badge variant="outline" className="min-w-12 justify-center tabular-nums" aria-label={`Slide ${(liveItem.hymnSlide?.slideIndex ?? 0) + 1} of ${liveItem.hymnSlide?.slideCount ?? 1}`}>
-                {(liveItem.hymnSlide?.slideIndex ?? 0) + 1} of {liveItem.hymnSlide?.slideCount ?? 1}
-              </Badge>
-              <Button
-                size="icon-xs"
-                variant="outline"
-                disabled={!canNavigateLiveHymn || liveDeckIndex >= useHymnSlideStore.getState().deck.length - 1}
-                onClick={() => navigateLiveHymn(1)}
-                title="Next hymn or song slide"
-              >
-                <ChevronRightIcon className="size-3" />
-              </Button>
-            </div>
-          )}
+          {isLive && presentationDeckKind(liveItem) ? (
+            <PresentationDeckControls
+              item={liveItem}
+              onNavigate={navigateLiveDeck}
+            />
+          ) : null}
         </div>
 
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-2.5">
           {isLive ? (
             <EyeIcon className="size-3.5 text-emerald-500" />
           ) : (
@@ -180,7 +161,7 @@ export function LiveOutputPanel() {
         </label>
       </div>
 
-      <div className={cn("flex min-h-9 items-center justify-between gap-2 border-b border-border px-3 py-1.5", isFullscreen && "hidden")}>
+      <div className={cn("flex min-h-10 items-center justify-between gap-3 border-b border-border px-4 py-2", isFullscreen && "hidden")}>
         <span className="truncate text-xs text-muted-foreground">
           Auto-live reading mode
         </span>
@@ -195,7 +176,7 @@ export function LiveOutputPanel() {
 
       <div
         className={cn(
-          "flex min-h-0 flex-1 items-center justify-center p-3 transition-opacity",
+          "flex min-h-0 flex-1 items-center justify-center p-4 transition-opacity",
           isFullscreen && "bg-black p-0",
           !isLive && "opacity-45",
         )}
@@ -215,7 +196,7 @@ export function LiveOutputPanel() {
         )}
       </div>
 
-      <div className={cn("truncate border-t border-border px-3 py-1.5 text-xs text-muted-foreground", isFullscreen && "hidden")}>
+      <div className={cn("truncate border-t border-border px-4 py-2 text-xs text-muted-foreground", isFullscreen && "hidden")}>
         {liveItem
           ? liveItem.reference
           : "Nothing has been sent to the live output yet."}

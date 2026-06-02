@@ -11,6 +11,7 @@ export default defineConfig([
     'dist',
     'node_modules',
     'src-tauri/target',
+    'test-results',
     'web',
   ]),
   {

@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test"
 
+const previewBaseUrl = "http://127.0.0.1:3000"
+const broadcastEntryUrl = `${previewBaseUrl}/broadcast-output.html?output=main&e2e=1`
+
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 60_000,
@@ -7,15 +10,15 @@ export default defineConfig({
     timeout: 5_000,
   },
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: previewBaseUrl,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npx vite --host 127.0.0.1 --port 3000",
-    url: "http://127.0.0.1:3000",
+    command: "npm run build && npx vite preview --host 127.0.0.1 --port 3000",
+    url: broadcastEntryUrl,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 300_000,
   },
   projects: [
     {

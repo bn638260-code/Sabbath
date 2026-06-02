@@ -7,7 +7,16 @@ import {
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useQueueStore } from "@/stores/queue-store"
 import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
+import {
+  clampDeckIndex,
+  findDeckIndex,
+  hymnDeckSlides,
+  presentationDeckKind,
+  presentationDeckSlideId,
+  sermonDeckSlides,
+} from "@/lib/presentation-deck-navigation"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
+import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
 import { transcriptionActions } from "./use-transcription"
@@ -55,18 +64,25 @@ function presentActiveQueueItem(): void {
   presentItem(item.presentation)
 }
 
-function advanceLiveHymnSlide(delta: number): boolean {
+function advancePresentationDeck(delta: number): boolean {
   const broadcast = useBroadcastStore.getState()
   const previewItem = broadcast.previewItem
-  const isLiveHymn = broadcast.isLive && broadcast.liveItem?.kind === "hymn"
-  const isPreviewHymn = previewItem?.kind === "hymn"
-  if (!isLiveHymn && !isPreviewHymn) return false
+  const liveItem = broadcast.liveItem
+  const targetItem = broadcast.isLive ? liveItem : previewItem
+  const deckKind = presentationDeckKind(targetItem)
+  if (!deckKind) return false
+  const isLive = broadcast.isLive
 
   const queue = useQueueStore.getState()
   const activeQueueItem =
     queue.activeIndex === null ? null : queue.items[queue.activeIndex] ?? null
 
-  if (isLiveHymn && activeQueueItem?.presentation.kind === "hymn" && activeQueueItem.hymnGroup) {
+  if (
+    isLive &&
+    deckKind === "hymn" &&
+    activeQueueItem?.presentation.kind === "hymn" &&
+    activeQueueItem.hymnGroup
+  ) {
     const activeGroup = activeQueueItem.hymnGroup
     const targetItemIndex = activeGroup.itemIndex + delta
     const targetQueueIndex = queue.items.findIndex(
@@ -87,26 +103,38 @@ function advanceLiveHymnSlide(delta: number): boolean {
     }
   }
 
-  const hymnSlides = useHymnSlideStore.getState()
-  if (hymnSlides.deck.length === 0) return false
-
-  const currentScreenId = isLiveHymn
-    ? broadcast.liveItem?.hymnSlide?.screenId
-    : previewItem?.hymnSlide?.screenId
-  const currentDeckIndex = hymnSlides.deck.findIndex(
-    (item) => item.screenId === currentScreenId,
-  )
-  const currentIndex = currentDeckIndex === -1 ? hymnSlides.activeIndex : currentDeckIndex
-  const nextIndex = Math.max(0, Math.min(hymnSlides.deck.length - 1, currentIndex + delta))
-  const next = hymnSlides.deck[nextIndex]
-  if (!next || nextIndex === currentIndex) return true
-
-  hymnSlides.setDeck(hymnSlides.deck, nextIndex)
-  if (isLiveHymn) {
-    presentItem(next)
-  } else {
-    selectPreviewItem(next)
+  if (deckKind === "hymn") {
+    const hymnSlides = useHymnSlideStore.getState()
+    if (hymnSlides.deck.length === 0) return false
+    const deck = hymnDeckSlides(hymnSlides.deck)
+    const currentIndex = findDeckIndex(
+      deck,
+      presentationDeckSlideId(targetItem),
+      hymnSlides.activeIndex,
+    )
+    const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
+    const next = hymnSlides.deck[nextIndex]
+    if (!next || nextIndex === currentIndex) return true
+    hymnSlides.setDeck(hymnSlides.deck, nextIndex)
+    if (isLive) presentItem(next)
+    else selectPreviewItem(next)
+    return true
   }
+
+  const sermonSlides = useSermonSlideStore.getState()
+  if (sermonSlides.deck.length === 0) return false
+  const deck = sermonDeckSlides(sermonSlides.deck)
+  const currentIndex = findDeckIndex(
+    deck,
+    presentationDeckSlideId(targetItem),
+    sermonSlides.activeIndex,
+  )
+  const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
+  const next = sermonSlides.deck[nextIndex]
+  if (!next || nextIndex === currentIndex) return true
+  sermonSlides.setDeck(sermonSlides.deck, nextIndex, sermonSlides.activeItemId)
+  if (isLive) presentItem(next)
+  else selectPreviewItem(next)
   return true
 }
 
@@ -124,12 +152,12 @@ export function handleDashboardKeyboardEvent(event: KeyboardEvent): void {
   const mod = event.ctrlKey || event.metaKey
 
   if (!mod && !event.altKey && !event.shiftKey && event.key === "ArrowRight") {
-    if (advanceLiveHymnSlide(1)) event.preventDefault()
+    if (advancePresentationDeck(1)) event.preventDefault()
     return
   }
 
   if (!mod && !event.altKey && !event.shiftKey && event.key === "ArrowLeft") {
-    if (advanceLiveHymnSlide(-1)) event.preventDefault()
+    if (advancePresentationDeck(-1)) event.preventDefault()
     return
   }
 
@@ -148,6 +176,13 @@ export function handleDashboardKeyboardEvent(event: KeyboardEvent): void {
   }
 
   if (event.altKey && key === "3") {
+    event.preventDefault()
+    useDashboardWorkspaceStore.getState().setWorkspace("run-service")
+    useServicePlanStore.getState().closePlanner()
+    return
+  }
+
+  if (event.altKey && key === "4") {
     event.preventDefault()
     useDashboardWorkspaceStore.getState().setWorkspace("hymns")
     useServicePlanStore.getState().closePlanner()

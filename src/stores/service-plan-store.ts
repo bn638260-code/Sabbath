@@ -15,9 +15,10 @@ import {
 } from "@/lib/service-plan/service-plan-actions"
 import { createServicePlanAutosave } from "@/lib/service-plan/service-plan-autosave"
 import {
-  previewFirstHymnForItem,
+  previewFirstContentForItem,
   releaseAllServiceMedia,
   releaseCompletedItemMedia,
+  syncActiveServiceItemPresentations,
   syncServiceContext,
 } from "@/lib/service-plan/service-plan-live-effects"
 import { servicePlanRepository } from "@/lib/service-plan/service-plan-repository"
@@ -26,6 +27,7 @@ import {
   findNextServiceItem,
   normalizeItemOrder,
 } from "@/lib/service-plan/service-plan-validation"
+import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
 import type {
   ServiceContext,
   ServiceItem,
@@ -179,6 +181,13 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
     patchActivePlan((plan) => setActiveServiceItem(plan, itemId), {
       immediate: true,
     })
+    const plan = get().activePlan
+    const active = itemId
+      ? (plan?.items.find((item) => item.id === itemId) ?? null)
+      : null
+    if (plan && plan.mode !== "planning" && active) {
+      await syncActiveServiceItemPresentations(active)
+    }
   },
 
   markItemReady: (itemId) => {
@@ -227,6 +236,9 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
   startLiveService: async () => {
     patchActivePlan(startLiveServiceMode, { immediate: true })
 
+    useDashboardWorkspaceStore.getState().setWorkspace("run-service")
+    get().closePlanner()
+
     const plan = get().activePlan
     if (plan && !plan.activeItemId) {
       const first = findNextServiceItem(plan.items, null)
@@ -253,7 +265,7 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
     const plan = get().activePlan
     if (!plan || plan.mode !== "practice") return
     const active = plan.items.find((item) => item.id === plan.activeItemId)
-    if (active) await previewFirstHymnForItem(active)
+    if (active) await previewFirstContentForItem(active)
   },
 
   generatePostServiceReport: async () => {

@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { handleDashboardKeyboardEvent } from "./use-dashboard-keyboard-controls"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
+import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import type { HymnPresentationItemData } from "@/types"
+import type { SlideDeckPresentationItemData } from "@/types"
 
 vi.mock("@tauri-apps/api/event", () => ({
   emitTo: vi.fn().mockResolvedValue(undefined),
@@ -21,6 +23,20 @@ function makeSlide(index: number): HymnPresentationItemData {
     slideCount: 3,
     reference: `Joyful - Slide ${index + 1} of 3`,
     segments: [{ text: `Line ${index + 1}` }],
+  }
+}
+
+function makeSermonSlide(index: number): SlideDeckPresentationItemData {
+  return {
+    kind: "slideDeck",
+    deckId: "deck-12",
+    deckTitle: "Series",
+    slideId: `slide-${index}`,
+    slideIndex: index,
+    slideCount: 3,
+    slidePath: `/slides/${index}.png`,
+    reference: `Series - Slide ${index + 1} of 3`,
+    segments: [{ text: `Caption ${index + 1}` }],
   }
 }
 
@@ -41,6 +57,11 @@ function previewFirstDeckSlide() {
 describe("handleDashboardKeyboardEvent", () => {
   beforeEach(() => {
     useHymnSlideStore.getState().setDeck([makeSlide(0), makeSlide(1), makeSlide(2)], 0)
+    useSermonSlideStore.getState().setDeck(
+      [makeSermonSlide(0), makeSermonSlide(1), makeSermonSlide(2)],
+      0,
+      "item-1",
+    )
     useBroadcastStore.setState({
       isLive: false,
       previewItem: null,
@@ -77,6 +98,33 @@ describe("handleDashboardKeyboardEvent", () => {
 
     expect(useHymnSlideStore.getState().activeIndex).toBe(1)
     expect(useBroadcastStore.getState().liveItem?.hymnSlide?.screenId).toBe("screen-1")
+  })
+
+  it("advances a staged sermon slide preview with arrow keys", () => {
+    const deck = useSermonSlideStore.getState().deck
+    useBroadcastStore.getState().setPreviewItem(deck[0])
+
+    handleDashboardKeyboardEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }))
+
+    expect(useSermonSlideStore.getState().activeIndex).toBe(1)
+    expect(useBroadcastStore.getState().previewItem?.reference).toBe(
+      "Series - Slide 2 of 3",
+    )
+  })
+
+  it("advances a live sermon slide with arrow keys", () => {
+    const deck = useSermonSlideStore.getState().deck
+    useBroadcastStore.setState({
+      isLive: true,
+      liveItem: deck[0],
+    })
+
+    handleDashboardKeyboardEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }))
+
+    expect(useSermonSlideStore.getState().activeIndex).toBe(1)
+    expect(useBroadcastStore.getState().liveItem?.reference).toBe(
+      "Series - Slide 2 of 3",
+    )
   })
 
   it("ignores arrow keys from editable controls", () => {

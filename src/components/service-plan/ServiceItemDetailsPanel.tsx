@@ -8,6 +8,23 @@ import { SermonSlidesEditor } from "./SermonSlidesEditor"
 import { ScriptureRefsEditor } from "./ScriptureRefsEditor"
 import { ServiceItemBasicFields } from "./ServiceItemBasicFields"
 
+function EditorSection({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-3 rounded-lg border border-border/80 bg-card/40 p-4">
+      <div className="text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">
+        {title}
+      </div>
+      {children}
+    </section>
+  )
+}
+
 interface ServiceItemDetailsPanelProps {
   item: ServiceItem | null
   serviceContext: ServiceContext
@@ -33,70 +50,77 @@ export function ServiceItemDetailsPanel({
 
   return (
     <div
-      className="flex h-full flex-col gap-3 overflow-y-auto p-3"
+      className="flex h-full flex-col gap-4 overflow-y-auto p-4"
       data-slot="service-item-details"
     >
       <ServiceItemBasicFields item={item} onPatchItem={onPatchItem} />
 
-      <div className="space-y-2">
-        <label className="text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">
-          Operator notes
-        </label>
+      <EditorSection title="Operator notes">
         <Textarea
           value={item.notes ?? ""}
           onChange={(event) => onPatchItem({ notes: event.target.value })}
           rows={4}
         />
-      </div>
+      </EditorSection>
 
-      <ScriptureRefsEditor
-        refs={item.scriptureRefs}
-        onChange={(scriptureRefs) => onPatchItem({ scriptureRefs })}
-      />
+      <EditorSection title="Scripture references">
+        <ScriptureRefsEditor
+          refs={item.scriptureRefs}
+          onChange={(scriptureRefs) => onPatchItem({ scriptureRefs })}
+        />
+      </EditorSection>
 
-      <HymnRefsEditor
-        refs={item.hymnRefs}
-        onChange={(hymnRefs) => onPatchItem({ hymnRefs })}
-      />
+      <EditorSection title="Hymn references">
+        <HymnRefsEditor
+          refs={item.hymnRefs}
+          onChange={(hymnRefs) => onPatchItem({ hymnRefs })}
+        />
+      </EditorSection>
 
-      <SermonSlidesEditor
-        attachments={item.attachments.filter(
-          (attachment) => attachment.kind === "slide"
-        )}
-        onChange={(slides) =>
-          onPatchItem({
-            attachments: [
-              ...slides,
-              ...item.attachments.filter(
-                (attachment) => attachment.kind !== "slide"
-              ),
-            ],
-          })
-        }
-      />
+      <EditorSection title="Sermon slides">
+        <SermonSlidesEditor
+          attachments={item.attachments.filter(
+            (attachment) => attachment.kind === "slide"
+          )}
+          onChange={(slides) =>
+            onPatchItem({
+              attachments: [
+                ...slides,
+                ...item.attachments.filter(
+                  (attachment) => attachment.kind !== "slide"
+                ),
+              ],
+            })
+          }
+        />
+      </EditorSection>
 
-      <MediaAttachmentsEditor
-        attachments={item.attachments.filter(
-          (attachment) => attachment.kind !== "slide"
-        )}
-        onChange={(documents) =>
-          onPatchItem({
-            attachments: [
-              ...item.attachments.filter(
-                (attachment) => attachment.kind === "slide"
-              ),
-              ...documents,
-            ],
-          })
-        }
-      />
+      <EditorSection title="Attachments and documents">
+        <MediaAttachmentsEditor
+          attachments={item.attachments.filter(
+            (attachment) => attachment.kind !== "slide"
+          )}
+          onChange={(documents) =>
+            onPatchItem({
+              attachments: [
+                ...item.attachments.filter(
+                  (attachment) => attachment.kind === "slide"
+                ),
+                ...documents,
+              ],
+            })
+          }
+        />
+      </EditorSection>
 
-      <ChecklistEditor
-        items={item.checklist}
-        onChange={(checklist) => onPatchItem({ checklist })}
-      />
+      <EditorSection title="Checklist">
+        <ChecklistEditor
+          items={item.checklist}
+          onChange={(checklist) => onPatchItem({ checklist })}
+        />
+      </EditorSection>
 
-      <div className="mt-auto flex flex-wrap gap-2 border-t border-border pt-3">
+      <div className="mt-auto flex flex-wrap gap-3 border-t border-border pt-4">
         <Button size="sm" variant="outline" onClick={onEnqueuePrepared}>
           Queue prepared resources
         </Button>

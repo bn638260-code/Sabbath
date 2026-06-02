@@ -17,8 +17,8 @@ interface ServiceItemBasicFieldsProps {
 
 export function ServiceItemBasicFields({ item, onPatchItem }: ServiceItemBasicFieldsProps) {
   return (
-    <>
-      <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-4 rounded-lg border border-border/80 bg-card/40 p-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground">
             Title
@@ -58,6 +58,6 @@ export function ServiceItemBasicFields({ item, onPatchItem }: ServiceItemBasicFi
           }
         />
       </div>
-    </>
+    </div>
   )
 }

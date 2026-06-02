@@ -204,7 +204,12 @@ export function useBroadcastOutputRuntime({
       pushNdiBurst()
     }
 
-    if (import.meta.env.DEV || import.meta.env.MODE === "test") {
+    const e2eHarnessEnabled =
+      import.meta.env.DEV ||
+      import.meta.env.MODE === "test" ||
+      new URLSearchParams(window.location.search).has("e2e")
+
+    if (e2eHarnessEnabled) {
       window.__SABBATHCUE_BROADCAST_TEST__ = {
         render: applyPayload,
       }

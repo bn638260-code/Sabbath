@@ -1,10 +1,16 @@
 import { open } from "@tauri-apps/plugin-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  attachmentSizeLimitError,
+  FALLBACK_ATTACHMENT_LIMITS,
+  formatAttachmentLimit,
+  loadServiceAttachmentLimits,
+} from "@/lib/attachment-limits"
 import { invokeTauri } from "@/lib/tauri-runtime"
 import type { ServiceAttachment } from "@/types/service-plan"
 import { ChevronDownIcon, ChevronUpIcon, UploadIcon, XIcon } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 const SERMON_SLIDE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif"]
 
@@ -67,6 +73,15 @@ export function SermonSlidesEditor({
 }: SermonSlidesEditorProps) {
   const slides = orderedSlides(attachments)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [slideLimitLabel, setSlideLimitLabel] = useState(() =>
+    formatAttachmentLimit("slide", FALLBACK_ATTACHMENT_LIMITS),
+  )
+
+  useEffect(() => {
+    void loadServiceAttachmentLimits().then((limits) => {
+      setSlideLimitLabel(formatAttachmentLimit("slide", limits))
+    })
+  }, [])
 
   const uploadSlides = async () => {
     setErrorMessage(null)
@@ -109,8 +124,9 @@ export function SermonSlidesEditor({
 
     if (uploaded.length > 0) onChange([...attachments, ...uploaded])
     if (failedCount > 0) {
+      const limits = await loadServiceAttachmentLimits()
       setErrorMessage(
-        `${failedCount} image${failedCount === 1 ? "" : "s"} could not be added. Use local image files smaller than 10 MB.`
+        attachmentSizeLimitError("slide", limits, failedCount, "image"),
       )
     }
   }
@@ -174,8 +190,9 @@ export function SermonSlidesEditor({
 
       {slides.length === 0 ? (
         <p className="rounded-md border border-dashed border-border px-3 py-4 text-xs text-muted-foreground">
-          Add PNG, JPEG, WebP, or GIF slides for this service item. Voice
-          commands control only these slides while this item is active.
+          Add PNG, JPEG, WebP, or GIF slides for this service item. Each image
+          may be up to {slideLimitLabel}. Voice commands control only these
+          slides while this item is active.
         </p>
       ) : (
         <div className="space-y-1.5">

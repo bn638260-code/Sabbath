@@ -34,11 +34,14 @@ import {
   ListMusicIcon,
 } from "lucide-react"
 import { ServiceTimeline } from "./ServiceTimeline"
+import { ServiceLiveContextPanel } from "./ServiceLiveContextPanel"
 import { ServiceItemDetailsPanel } from "./ServiceItemDetailsPanel"
 import { SermonSlidesEditor } from "./SermonSlidesEditor"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { CanvasPresentation } from "@/components/ui/canvas-verse"
-import { selectPreviewItem } from "@/lib/presentation-workflow"
+import { selectPreviewItem, presentItem } from "@/lib/presentation-workflow"
+import { presentationDeckKind } from "@/lib/presentation-deck-navigation"
+import { PresentationDeckControls } from "@/components/panels/presentation-deck-controls"
 import { buildSermonSlideDeck } from "@/services/slides/sermon-slide-deck"
 import {
   loadActiveSermonSlideDeck,
@@ -48,9 +51,26 @@ import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
 import { getPresentationRenderData } from "@/types"
-import type { ServiceAttachment } from "@/types/service-plan"
+import type {
+  ServiceAttachment,
+  ServiceContextItem,
+  ServiceItem,
+} from "@/types/service-plan"
 
 export { ServiceLiveContextPanel } from "./ServiceLiveContextPanel"
+
+function activeItemContentLabel(
+  item: ServiceItem | ServiceContextItem | null | undefined,
+): string {
+  if (!item) return "No active item"
+  if ("attachments" in item && item.attachments.some((a) => a.kind === "slide")) {
+    return "Sermon slides"
+  }
+  if ("hymnRefs" in item && item.hymnRefs.length > 0) return "Hymn"
+  if ("scriptureRefs" in item && item.scriptureRefs.length > 0) return "Scripture"
+  if ("mediaRefs" in item && item.mediaRefs.length > 0) return "Media"
+  return item.kind
+}
 
 const LazyServicePlanEditor = lazy(async () => ({
   default: ServicePlanEditor,
@@ -123,7 +143,7 @@ function ServicePlanEditor() {
         </Badge>
       </PanelHeader>
 
-      <div className="border-b border-border px-3 py-2">
+      <div className="border-b border-border px-4 py-3">
         <Input
           value={activePlan.title}
           onChange={(event) => updatePlanTitle(event.target.value)}
@@ -133,7 +153,7 @@ function ServicePlanEditor() {
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div className="flex min-h-0 flex-col border-r border-border">
-          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <span className="text-xs font-medium text-muted-foreground">
               Timeline
             </span>
@@ -157,7 +177,7 @@ function ServicePlanEditor() {
               Add item
             </Button>
           </div>
-          <div className="min-h-0 flex-1 p-2">
+          <div className="min-h-0 flex-1 p-3">
             <ServiceTimeline
               items={activePlan.items}
               activeItemId={activePlan.activeItemId}
@@ -185,7 +205,7 @@ function ServicePlanEditor() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
+      <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
         <Button
           size="sm"
           variant="outline"
@@ -235,7 +255,7 @@ function ServicePlanEditor() {
         )}
       </div>
       {lastReport && (
-        <div className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
+        <div className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
           <div className="font-medium text-foreground">Post-service report</div>
           <div>
             {lastReport.completedItems}/{lastReport.totalItems} items completed
@@ -301,13 +321,13 @@ export function ServicePlanLibraryPanel() {
       className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
       data-slot="service-plan-page"
     >
-      <div className="space-y-3 overflow-y-auto p-3">
+      <div className="space-y-4 overflow-y-auto p-4">
         <PanelHeader
           title="Service Plan"
           icon={<ClipboardListIcon className="size-4" />}
         />
         <ServicePlanSummaryWidget />
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           {SERVICE_PLAN_TEMPLATES.map((template) => (
             <Button
               key={template.id}
@@ -366,7 +386,7 @@ export function ServicePlanWorkspace() {
 
   return (
     <div
-      className="grid h-full min-h-0 gap-2 p-3"
+      className="grid h-full min-h-0 gap-3 p-4"
       style={{
         gridTemplateColumns: `${libraryWidth}px 6px minmax(0, 1fr)`,
       }}
@@ -409,11 +429,259 @@ export function ServicePlanPage() {
 
 function LiveProductionGrid() {
   return (
-    <div className="grid min-h-[360px] grid-cols-1 gap-1.5 xl:grid-cols-[280px_minmax(300px,1fr)_minmax(300px,1fr)_300px]">
+    <div className="grid min-h-[360px] grid-cols-1 gap-3 xl:grid-cols-[300px_minmax(320px,1fr)_minmax(320px,1fr)_320px]">
       <TranscriptPanel />
       <PreviewPanel />
       <LiveOutputPanel />
       <QueuePanel />
+    </div>
+  )
+}
+
+export function RunServicePage() {
+  const activePlan = useServicePlanStore((s) => s.activePlan)
+  const serviceContext = useServicePlanStore((s) => s.serviceContext)
+  const setActiveItem = useServicePlanStore((s) => s.setActiveItem)
+  const deck = useHymnSlideStore((s) => s.deck)
+  const hymnActiveIndex = useHymnSlideStore((s) => s.activeIndex)
+  const sermonActiveIndex = useSermonSlideStore((s) => s.activeIndex)
+  const previewItem = useBroadcastStore((s) => s.previewItem)
+  const liveItem = useBroadcastStore((s) => s.isLive ? s.liveItem : null)
+  const orderedItems = useMemo(
+    () => [...(activePlan?.items ?? [])].sort((a, b) => a.order - b.order),
+    [activePlan?.items],
+  )
+  const activeItem = useMemo(
+    () =>
+      activePlan?.items.find((item) => item.id === activePlan.activeItemId) ??
+      null,
+    [activePlan],
+  )
+  const slideDeck = useMemo(() => buildSermonSlideDeck(activeItem), [activeItem])
+  const [timelineWidth, setTimelineWidth] = useState(
+    () => loadDashboardLayoutState().liveServiceContextWidth,
+  )
+
+  useEffect(() => {
+    const layout = loadDashboardLayoutState()
+    if (layout.liveServiceContextWidth !== timelineWidth) {
+      layout.liveServiceContextWidth = timelineWidth
+      saveDashboardLayoutState(layout)
+    }
+  }, [timelineWidth])
+
+  const startTimelineResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const startX = event.clientX
+      const startWidth = timelineWidth
+      const onMove = (moveEvent: PointerEvent) => {
+        setTimelineWidth(
+          clampNumber(startWidth - (moveEvent.clientX - startX), 280, 520),
+        )
+      }
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove)
+        window.removeEventListener("pointerup", onUp)
+      }
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", onUp)
+    },
+    [timelineWidth],
+  )
+
+  const previewSlide = (index: number) => {
+    const slide = slideDeck[index]
+    if (!activeItem || !slide) return
+    useSermonSlideStore.getState().setDeck(slideDeck, index, activeItem.id)
+    selectPreviewItem(slide)
+  }
+
+  const presentSlide = (index: number) => {
+    presentSermonSlideAt(index)
+  }
+
+  const previewHymn = (index: number) => {
+    const slide = deck[index]
+    if (!slide) return
+    useHymnSlideStore.getState().setDeck(deck, index)
+    selectPreviewItem(slide)
+  }
+
+  const presentHymn = (index: number) => {
+    const slide = deck[index]
+    if (!slide) return
+    useHymnSlideStore.getState().setDeck(deck, index)
+    presentItem(slide)
+  }
+
+  if (!activePlan) {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+        Load a service plan and start the service to use Run Service.
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4"
+      data-slot="run-service-page"
+    >
+      <ServiceLiveContextPanel />
+      <LiveProductionGrid />
+
+      <div
+        className="grid min-h-0 flex-1 gap-3"
+        style={{
+          gridTemplateColumns: `minmax(0, 1fr) 6px ${timelineWidth}px`,
+        }}
+      >
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+          <PanelHeader title="Run Service" icon={<RadioIcon className="size-4" />}>
+            <Badge variant="outline" className="text-[0.5625rem] uppercase">
+              {activeItemContentLabel(activeItem)}
+            </Badge>
+            <Badge
+              variant={serviceContext.performanceMode ? "default" : "outline"}
+              className="text-[0.5625rem] uppercase"
+            >
+              {serviceContext.mode}
+            </Badge>
+          </PanelHeader>
+
+          <div className="grid gap-4 border-b border-border p-4 md:grid-cols-2">
+            <div className="rounded-md border border-border p-3">
+              <div className="text-[0.625rem] font-medium text-muted-foreground uppercase">
+                Current item
+              </div>
+              <div className="mt-1 text-lg font-semibold">
+                {serviceContext.activeItem?.title ?? "Nothing active"}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {activeItemContentLabel(activeItem ?? serviceContext.activeItem)}
+              </p>
+            </div>
+            <div className="rounded-md border border-border p-3">
+              <div className="text-[0.625rem] font-medium text-muted-foreground uppercase">
+                Up next
+              </div>
+              <div className="mt-1 text-lg font-semibold">
+                {serviceContext.nextItem?.title ?? "No next item"}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {activeItemContentLabel(serviceContext.nextItem)}
+              </p>
+            </div>
+          </div>
+
+          {slideDeck.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+              <span className="text-xs font-medium text-muted-foreground">
+                Sermon slides
+              </span>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={sermonActiveIndex <= 0}
+                onClick={() => previewSlide(Math.max(0, sermonActiveIndex - 1))}
+              >
+                Preview prev
+              </Button>
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => previewSlide(sermonActiveIndex)}
+              >
+                Preview
+              </Button>
+              <Button size="xs" onClick={() => presentSlide(sermonActiveIndex)}>
+                Go live
+              </Button>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={sermonActiveIndex >= slideDeck.length - 1}
+                onClick={() => previewSlide(sermonActiveIndex + 1)}
+              >
+                Preview next
+              </Button>
+            </div>
+          )}
+
+          {deck.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+              <span className="text-xs font-medium text-muted-foreground">
+                Hymn deck
+              </span>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={hymnActiveIndex <= 0}
+                onClick={() => previewHymn(Math.max(0, hymnActiveIndex - 1))}
+              >
+                Preview prev
+              </Button>
+              <Button size="xs" variant="outline" onClick={() => previewHymn(hymnActiveIndex)}>
+                Preview
+              </Button>
+              <Button size="xs" onClick={() => presentHymn(hymnActiveIndex)}>
+                Go live
+              </Button>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={hymnActiveIndex >= deck.length - 1}
+                onClick={() => previewHymn(hymnActiveIndex + 1)}
+              >
+                Preview next
+              </Button>
+            </div>
+          )}
+
+          {(presentationDeckKind(previewItem) || presentationDeckKind(liveItem)) && (
+            <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+              <span className="text-xs text-muted-foreground">Deck navigation</span>
+              {previewItem && presentationDeckKind(previewItem) ? (
+                <PresentationDeckControls
+                  item={previewItem}
+                  onNavigate={(kind, index) => {
+                    if (kind === "hymn") previewHymn(index)
+                    else previewSlide(index)
+                  }}
+                />
+              ) : null}
+            </div>
+          )}
+        </section>
+
+        <ResizeHandle
+          axis="x"
+          label="Resize run service timeline"
+          onPointerDown={startTimelineResize}
+        />
+
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+          <PanelHeader
+            title="Service timeline"
+            icon={<ClipboardListIcon className="size-4" />}
+          />
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <ServiceTimeline
+              items={orderedItems}
+              activeItemId={activePlan.activeItemId}
+              performanceMode={serviceContext.performanceMode}
+              onSelect={() => {}}
+              onActivate={(itemId) => void setActiveItem(itemId)}
+              onDuplicate={() => {}}
+              onDelete={() => {}}
+              onMarkReady={() => {}}
+              onComplete={() => {}}
+              onReorder={() => {}}
+            />
+          </div>
+        </section>
+      </div>
     </div>
   )
 }
@@ -458,11 +726,11 @@ export function LiveServicePlanPage() {
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden p-3">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
       <LiveProductionGrid />
 
       <div
-        className="grid min-h-0 flex-1 gap-2"
+        className="grid min-h-0 flex-1 gap-3"
         style={{
           gridTemplateColumns: `minmax(0, 1fr) 6px ${contextWidth}px`,
         }}
@@ -617,11 +885,11 @@ export function LiveHymnPage() {
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden p-3">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
       <LiveProductionGrid />
 
       <div
-        className="grid min-h-0 flex-1 gap-2"
+        className="grid min-h-0 flex-1 gap-3"
         style={{
           gridTemplateColumns: `minmax(0, 1fr) 6px ${lyricsWidth}px`,
         }}
@@ -837,7 +1105,7 @@ export function SermonSlidesPage() {
             </Badge>
           </PanelHeader>
 
-          <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+          <div className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
                 {activeItem?.title ?? "No active service item"}
@@ -881,7 +1149,7 @@ export function SermonSlidesPage() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 items-center justify-center bg-black/80 p-3">
+          <div className="flex min-h-0 flex-1 items-center justify-center bg-black/80 p-4">
             {activeSlide ? (
               <CanvasPresentation
                 theme={activeTheme}
@@ -906,8 +1174,8 @@ export function SermonSlidesPage() {
             title="Slide List"
             icon={<FileTextIcon className="size-4" />}
           />
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            <div className="mb-3 space-y-1.5 rounded-md border border-border p-2">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <div className="mb-4 space-y-2 rounded-md border border-border p-3">
               <label
                 htmlFor="sermon-slide-service-item"
                 className="text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase"

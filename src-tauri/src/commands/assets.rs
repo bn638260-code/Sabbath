@@ -3,18 +3,30 @@
     reason = "Tauri command extractors require pass-by-value"
 )]
 
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use tauri::AppHandle;
 
 use crate::asset_paths;
+use crate::commands::path_guard::{
+    has_url_scheme, is_blocked_system_path, is_network_path, path_contains_parent_traversal,
+};
 
 const MAX_SLIDE_SIZE_BYTES: u64 = 10_000_000;
 const MAX_DOCUMENT_SIZE_BYTES: u64 = 100 * 1024 * 1024;
 const MAX_MEDIA_SIZE_BYTES: u64 = 750 * 1024 * 1024;
 
 const SUPPORTED_ATTACHMENT_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "pdf"];
+
+/// Byte caps exposed to the UI (must match validation in this module).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceAttachmentLimits {
+    pub slide: u64,
+    pub document: u64,
+    pub media: u64,
+}
 
 /// Response DTO for `validate_service_attachment_path`.
 #[derive(Debug, Serialize)]
@@ -94,68 +106,8 @@ fn attachment_kind_from_extension(extension: &str) -> &'static str {
     }
 }
 
-fn has_url_scheme(path: &str) -> bool {
-    let Some(colon_idx) = path.find(':') else {
-        return false;
-    };
-    if colon_idx == 0 {
-        return false;
-    }
-    let scheme = &path[..colon_idx];
-    let rest = &path[colon_idx + 1..];
-    // Windows drive letter (e.g. C:\ or C:/) is not a URL scheme.
-    if scheme.len() == 1
-        && scheme.chars().all(|ch| ch.is_ascii_alphabetic())
-        && rest.starts_with(['\\', '/'])
-    {
-        return false;
-    }
-    let first = scheme.chars().next().unwrap_or_default();
-    if !first.is_ascii_alphabetic() {
-        return false;
-    }
-    scheme
-        .chars()
-        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'))
-}
-
-fn is_network_path(path: &str) -> bool {
-    path.starts_with("\\\\") || path.starts_with("//")
-}
-
-fn is_blocked_system_path(path: &str) -> bool {
-    let normalized = path.replace('\\', "/").to_ascii_lowercase();
-    if normalized.starts_with("/etc/")
-        || normalized.starts_with("/bin/")
-        || normalized.starts_with("/sbin/")
-        || normalized.starts_with("/usr/")
-        || normalized.starts_with("/var/")
-        || normalized.starts_with("/system/")
-        || normalized.starts_with("/library/")
-    {
-        return true;
-    }
-
-    let Some((drive, rest)) = normalized.split_once(":/") else {
-        return false;
-    };
-    if drive.len() != 1 || !drive.chars().all(|ch| ch.is_ascii_alphabetic()) {
-        return false;
-    }
-    rest.starts_with("windows/")
-        || rest.starts_with("program files/")
-        || rest.starts_with("program files (x86)/")
-        || rest.starts_with("programdata/")
-}
-
 fn is_supported_extension(extension: &str) -> bool {
     SUPPORTED_ATTACHMENT_EXTENSIONS.contains(&extension)
-}
-
-fn path_contains_parent_traversal(path: &str) -> bool {
-    Path::new(path)
-        .components()
-        .any(|component| matches!(component, Component::ParentDir))
 }
 
 fn max_size_for_kind(kind: &str) -> u64 {
@@ -214,6 +166,16 @@ fn validate_service_attachment_path_inner(
     })
 }
 
+/// Returns attachment size limits (bytes) keyed by validation kind.
+#[tauri::command]
+pub fn get_service_attachment_limits() -> ServiceAttachmentLimits {
+    ServiceAttachmentLimits {
+        slide: MAX_SLIDE_SIZE_BYTES,
+        document: MAX_DOCUMENT_SIZE_BYTES,
+        media: MAX_MEDIA_SIZE_BYTES,
+    }
+}
+
 /// Validates a local service-plan attachment path and returns display metadata.
 #[tauri::command]
 pub fn validate_service_attachment_path(
@@ -227,6 +189,14 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io::Write;
+
+    #[test]
+    fn exposes_attachment_limits_matching_validation_constants() {
+        let limits = super::get_service_attachment_limits();
+        assert_eq!(limits.slide, MAX_SLIDE_SIZE_BYTES);
+        assert_eq!(limits.document, MAX_DOCUMENT_SIZE_BYTES);
+        assert_eq!(limits.media, MAX_MEDIA_SIZE_BYTES);
+    }
 
     #[test]
     fn rejects_empty_path() {

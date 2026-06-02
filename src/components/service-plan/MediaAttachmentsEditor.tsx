@@ -1,8 +1,14 @@
 import { open } from "@tauri-apps/plugin-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  attachmentSizeLimitError,
+  FALLBACK_ATTACHMENT_LIMITS,
+  formatAttachmentLimit,
+  loadServiceAttachmentLimits,
+} from "@/lib/attachment-limits"
 import { invokeTauri } from "@/lib/tauri-runtime"
 import type { ServiceAttachment } from "@/types/service-plan"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 const SUPPORTED_ATTACHMENT_EXTENSIONS = ["pdf"]
 
@@ -39,6 +45,15 @@ export function MediaAttachmentsEditor({
   onChange,
 }: MediaAttachmentsEditorProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [documentLimitLabel, setDocumentLimitLabel] = useState(() =>
+    formatAttachmentLimit("document", FALLBACK_ATTACHMENT_LIMITS),
+  )
+
+  useEffect(() => {
+    void loadServiceAttachmentLimits().then((limits) => {
+      setDocumentLimitLabel(formatAttachmentLimit("document", limits))
+    })
+  }, [])
 
   const attachFiles = async () => {
     setErrorMessage(null)
@@ -81,8 +96,9 @@ export function MediaAttachmentsEditor({
       onChange([...attachments, ...selectedAttachments])
     }
     if (failedCount > 0) {
+      const limits = await loadServiceAttachmentLimits()
       setErrorMessage(
-        `${failedCount} PDF${failedCount === 1 ? "" : "s"} could not be attached. Use local files smaller than 100 MB.`
+        attachmentSizeLimitError("document", limits, failedCount, "PDF"),
       )
     }
   }
@@ -109,7 +125,7 @@ export function MediaAttachmentsEditor({
       ) : null}
       {attachments.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No PDF documents attached.
+          No PDF documents attached. Each file may be up to {documentLimitLabel}.
         </p>
       ) : (
         <div className="space-y-1 text-xs">

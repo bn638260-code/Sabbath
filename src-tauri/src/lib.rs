@@ -59,6 +59,7 @@ pub fn run() {
             commands::detection::set_detection_paused,
             commands::detection::detection_control_status,
             commands::assets::asset_status,
+            commands::assets::get_service_attachment_limits,
             commands::assets::validate_service_attachment_path,
             commands::audio::get_audio_devices,
             commands::stt::start_transcription,

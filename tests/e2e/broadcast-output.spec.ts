@@ -80,7 +80,9 @@ const verse = {
 }
 
 test("broadcast output paints the same payload committed from preview", async ({ page }) => {
-  await page.goto("/broadcast-output.html?output=main", { waitUntil: "domcontentloaded" })
+  await page.goto("/broadcast-output.html?output=main&e2e=1", {
+    waitUntil: "domcontentloaded",
+  })
 
   const canvas = page.locator("canvas")
   await expect(canvas).toBeVisible()

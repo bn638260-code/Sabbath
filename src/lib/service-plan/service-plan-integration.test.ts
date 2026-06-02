@@ -40,6 +40,10 @@ describe("service plan shell integration", () => {
     )
     expect(panel).toContain("serviceContext")
     expect(panel).not.toContain("activePlan")
+
+    const runService = readSource("src/components/service-plan/ServicePlanPage.tsx")
+    expect(runService).toContain("ServiceLiveContextPanel")
+    expect(runService).toContain("RunServicePage")
   })
 
   it("opens the planner from the transport bar", () => {
@@ -67,6 +71,8 @@ describe("service plan shell integration", () => {
     )
 
     expect(details).toContain("<SermonSlidesEditor")
+    expect(details).toContain("Sermon slides")
+    expect(details).toContain("Attachments and documents")
     expect(slides).toContain('"png"')
     expect(slides).toContain("Upload PNG / images")
   })
@@ -77,6 +83,20 @@ describe("service plan shell integration", () => {
     expect(assets).toContain("ServiceAttachmentValidation")
     expect(assets).toContain("MAX_SLIDE_SIZE_BYTES")
     expect(assets).toContain("MAX_MEDIA_SIZE_BYTES")
+    expect(assets).toContain("get_service_attachment_limits")
+  })
+
+  it("mounts the run service workspace from the dashboard shell", () => {
+    const dashboard = readSource("src/components/layout/dashboard.tsx")
+    expect(dashboard).toContain("LazyRunServicePage")
+    expect(dashboard).toContain("Run Service")
+  })
+
+  it("uses backend-derived attachment limit copy in sermon slide uploads", () => {
+    const slides = readSource("src/components/service-plan/SermonSlidesEditor.tsx")
+    expect(slides).toContain("loadServiceAttachmentLimits")
+    expect(slides).toContain("attachmentSizeLimitError")
+    expect(slides).not.toContain("smaller than 10 MB")
   })
 })
 
@@ -89,5 +109,6 @@ describe("prepare queue resources", () => {
     expect(source).toContain("createMediaPresentation")
     expect(source).toContain('kind: "media"')
     expect(source).toContain("getHymnByNumber")
+    expect(source).toContain("createGroupedHymnQueueItems")
   })
 })

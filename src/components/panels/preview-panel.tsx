@@ -13,7 +13,10 @@ import {
 import { useBibleStore } from "@/stores/bible-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
-import { ChevronLeftIcon, ChevronRightIcon, MonitorIcon, SendIcon, XIcon } from "lucide-react"
+import { useSermonSlideStore } from "@/stores/sermon-slide-store"
+import { PresentationDeckControls } from "@/components/panels/presentation-deck-controls"
+import { presentationDeckKind } from "@/lib/presentation-deck-navigation"
+import { MonitorIcon, SendIcon, XIcon } from "lucide-react"
 
 export function PreviewPanel() {
   const activeTranslationId = useBibleStore((s) => s.activeTranslationId)
@@ -49,21 +52,19 @@ export function PreviewPanel() {
     useBibleStore.getState().selectVerse(null)
   }
 
-  const previewDeckIndex = previewItem?.kind === "hymn"
-    ? useHymnSlideStore
-        .getState()
-        .deck.findIndex((item) => item.screenId === previewItem.hymnSlide?.screenId)
-    : -1
-  const canNavigateHymn = previewDeckIndex >= 0
-  const navigateHymnPreview = (delta: number) => {
-    const hymnSlides = useHymnSlideStore.getState()
-    const currentIndex =
-      hymnSlides.deck.findIndex((item) => item.screenId === previewItem?.hymnSlide?.screenId)
-    if (currentIndex < 0) return
-    const nextIndex = Math.max(0, Math.min(hymnSlides.deck.length - 1, currentIndex + delta))
-    const next = hymnSlides.deck[nextIndex]
-    if (!next || nextIndex === currentIndex) return
-    hymnSlides.setDeck(hymnSlides.deck, nextIndex)
+  const navigatePreviewDeck = (kind: "hymn" | "slideDeck", index: number) => {
+    if (kind === "hymn") {
+      const hymnSlides = useHymnSlideStore.getState()
+      const next = hymnSlides.deck[index]
+      if (!next) return
+      hymnSlides.setDeck(hymnSlides.deck, index)
+      selectPreviewItem(next)
+      return
+    }
+    const sermonSlides = useSermonSlideStore.getState()
+    const next = sermonSlides.deck[index]
+    if (!next) return
+    sermonSlides.setDeck(sermonSlides.deck, index, sermonSlides.activeItemId)
     selectPreviewItem(next)
   }
 
@@ -78,7 +79,7 @@ export function PreviewPanel() {
         </Badge>
       </PanelHeader>
 
-      <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+      <div className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">
             {previewItem?.reference ?? "No item selected"}
@@ -88,37 +89,18 @@ export function PreviewPanel() {
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {previewItem?.kind === "hymn" && (
-            <div className="flex items-center gap-1">
-              <Button
-                size="icon-xs"
-                variant="outline"
-                disabled={!canNavigateHymn || previewDeckIndex <= 0}
-                onClick={() => navigateHymnPreview(-1)}
-                title="Previous hymn or song slide"
-              >
-                <ChevronLeftIcon className="size-3" />
-              </Button>
-              <Badge variant="outline" className="min-w-12 justify-center tabular-nums" aria-label={`Slide ${(previewItem.hymnSlide?.slideIndex ?? 0) + 1} of ${previewItem.hymnSlide?.slideCount ?? 1}`}>
-                {(previewItem.hymnSlide?.slideIndex ?? 0) + 1} of {previewItem.hymnSlide?.slideCount ?? 1}
-              </Badge>
-              <Button
-                size="icon-xs"
-                variant="outline"
-                disabled={!canNavigateHymn || previewDeckIndex >= useHymnSlideStore.getState().deck.length - 1}
-                onClick={() => navigateHymnPreview(1)}
-                title="Next hymn or song slide"
-              >
-                <ChevronRightIcon className="size-3" />
-              </Button>
-            </div>
-          )}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {presentationDeckKind(previewItem) ? (
+            <PresentationDeckControls
+              item={previewItem}
+              onNavigate={navigatePreviewDeck}
+            />
+          ) : null}
           <Button
             size="sm"
             variant="outline"
             disabled={!previewItem || clearPreviewBlocked}
-            className="gap-1.5"
+            className="gap-2"
             onClick={clearPreview}
             title={
               clearPreviewBlocked
@@ -132,7 +114,7 @@ export function PreviewPanel() {
           <Button
             size="sm"
             disabled={!previewItem}
-            className="gap-1.5"
+            className="gap-2"
             onClick={() => commitPreviewToLive()}
           >
             <SendIcon className="size-3.5" />
@@ -141,7 +123,7 @@ export function PreviewPanel() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center p-3">
+      <div className="flex min-h-0 flex-1 items-center justify-center p-4">
         {previewItem ? (
           <CanvasPresentation theme={activeTheme} item={previewItem} />
         ) : (
