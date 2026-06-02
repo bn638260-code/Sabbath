@@ -6,6 +6,7 @@ import type {
   ServicePlanSummary,
 } from "@/types/service-plan"
 import { isValidServicePlan } from "./service-plan-validation"
+import { cloneServiceItem } from "./service-plan-actions"
 
 interface PersistedServicePlans {
   summaries: ServicePlanSummary[]
@@ -16,7 +17,11 @@ const STORE_FILE = "service-plans.json"
 const EMPTY_STATE: PersistedServicePlans = { summaries: [], plans: {} }
 
 let tauriStore: Store | null = null
-let memoryState: PersistedServicePlans = { ...EMPTY_STATE, plans: {}, summaries: [] }
+let memoryState: PersistedServicePlans = {
+  ...EMPTY_STATE,
+  plans: {},
+  summaries: [],
+}
 
 async function getStore(): Promise<Store> {
   if (!tauriStore) {
@@ -38,9 +43,9 @@ async function readState(): Promise<PersistedServicePlans> {
     return { summaries: [], plans: {} }
   }
   const plans = Object.fromEntries(
-    Object.entries(stored.plans).filter((entry): entry is [string, ServicePlan] =>
-      isValidServicePlan(entry[1]),
-    ),
+    Object.entries(stored.plans).filter(
+      (entry): entry is [string, ServicePlan] => isValidServicePlan(entry[1])
+    )
   )
   const summaries = stored.summaries.filter((summary) => plans[summary.id])
   return { summaries, plans }
@@ -57,7 +62,7 @@ async function writeState(state: PersistedServicePlans): Promise<void> {
 
 function toSummary(plan: ServicePlan): ServicePlanSummary {
   const completedCount = plan.items.filter(
-    (item) => item.status === "completed" || item.status === "skipped",
+    (item) => item.status === "completed" || item.status === "skipped"
   ).length
 
   return {
@@ -72,7 +77,10 @@ function toSummary(plan: ServicePlan): ServicePlanSummary {
   }
 }
 
-function upsertSummary(summaries: ServicePlanSummary[], plan: ServicePlan): ServicePlanSummary[] {
+function upsertSummary(
+  summaries: ServicePlanSummary[],
+  plan: ServicePlan
+): ServicePlanSummary[] {
   const summary = toSummary(plan)
   const without = summaries.filter((entry) => entry.id !== plan.id)
   return [summary, ...without].sort((a, b) => b.updatedAt - a.updatedAt)
@@ -116,11 +124,7 @@ class LocalServicePlanRepository implements ServicePlanRepository {
       updatedAt: now,
       activeItemId: null,
       reportGeneratedAt: undefined,
-      items: existing.items.map((item) => ({
-        ...item,
-        id: crypto.randomUUID(),
-        status: "pending",
-      })),
+      items: existing.items.map((item) => cloneServiceItem(item)),
       eventLog: [],
     }
 
@@ -142,7 +146,8 @@ class LocalServicePlanRepository implements ServicePlanRepository {
   }
 }
 
-export const servicePlanRepository: ServicePlanRepository = new LocalServicePlanRepository()
+export const servicePlanRepository: ServicePlanRepository =
+  new LocalServicePlanRepository()
 
 export function resetServicePlanRepositoryForTests(): void {
   memoryState = { summaries: [], plans: {} }

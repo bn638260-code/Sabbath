@@ -22,7 +22,10 @@ import {
 } from "@/lib/service-plan/service-plan-live-effects"
 import { servicePlanRepository } from "@/lib/service-plan/service-plan-repository"
 import { createPlanFromTemplate } from "@/lib/service-plan/service-plan-templates"
-import { findNextServiceItem, normalizeItemOrder } from "@/lib/service-plan/service-plan-validation"
+import {
+  findNextServiceItem,
+  normalizeItemOrder,
+} from "@/lib/service-plan/service-plan-validation"
 import type {
   ServiceContext,
   ServiceItem,
@@ -82,7 +85,7 @@ async function persistPlan(plan: ServicePlan): Promise<void> {
 
 const autosave = createServicePlanAutosave(
   persistPlan,
-  () => useServicePlanStore.getState().activePlan,
+  () => useServicePlanStore.getState().activePlan
 )
 
 function setActivePlan(next: ServicePlan | null): void {
@@ -94,7 +97,7 @@ function setActivePlan(next: ServicePlan | null): void {
 
 function patchActivePlan(
   updater: (plan: ServicePlan) => ServicePlan,
-  options?: { immediate?: boolean },
+  options?: { immediate?: boolean }
 ): void {
   const current = useServicePlanStore.getState().activePlan
   if (!current) return
@@ -173,7 +176,9 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
   },
 
   setActiveItem: async (itemId) => {
-    patchActivePlan((plan) => setActiveServiceItem(plan, itemId), { immediate: true })
+    patchActivePlan((plan) => setActiveServiceItem(plan, itemId), {
+      immediate: true,
+    })
   },
 
   markItemReady: (itemId) => {
@@ -181,8 +186,12 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
   },
 
   completeActiveItem: async () => {
-    const completed = get().activePlan?.items.find((item) => item.id === get().activePlan?.activeItemId)
-    patchActivePlan((plan) => completeCurrentServiceItem(plan), { immediate: true })
+    const completed = get().activePlan?.items.find(
+      (item) => item.id === get().activePlan?.activeItemId
+    )
+    patchActivePlan((plan) => completeCurrentServiceItem(plan), {
+      immediate: true,
+    })
     releaseCompletedItemMedia(completed)
   },
 
@@ -207,6 +216,12 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
 
   startPractice: async () => {
     patchActivePlan(startPracticeMode, { immediate: true })
+
+    const plan = get().activePlan
+    if (plan && !plan.activeItemId) {
+      const first = findNextServiceItem(plan.items, null)
+      if (first) await get().setActiveItem(first.id)
+    }
   },
 
   startLiveService: async () => {
@@ -229,9 +244,8 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
     const plan = get().activePlan
     const active = plan?.items.find((item) => item.id === plan.activeItemId)
     if (!active) return
-    const { enqueuePreparedResourcesForItem } = await import(
-      "@/lib/service-plan/prepare-queue-resources"
-    )
+    const { enqueuePreparedResourcesForItem } =
+      await import("@/lib/service-plan/prepare-queue-resources")
     await enqueuePreparedResourcesForItem(active)
   },
 
@@ -245,11 +259,12 @@ export const useServicePlanStore = create<ServicePlanState>((set, get) => ({
   generatePostServiceReport: async () => {
     const plan = get().activePlan
     if (!plan) return
-    const { generateServicePlanReport } = await import("@/lib/service-plan/service-plan-report")
+    const { generateServicePlanReport } =
+      await import("@/lib/service-plan/service-plan-report")
     const report = generateServicePlanReport(plan)
     patchActivePlan(
       (current) => ({ ...current, reportGeneratedAt: report.generatedAt }),
-      { immediate: true },
+      { immediate: true }
     )
     set({ pendingReport: false, lastReport: report })
   },

@@ -10,7 +10,8 @@ use tauri::AppHandle;
 
 use crate::asset_paths;
 
-const MAX_SLIDE_SIZE_BYTES: u64 = 100 * 1024 * 1024;
+const MAX_SLIDE_SIZE_BYTES: u64 = 10_000_000;
+const MAX_DOCUMENT_SIZE_BYTES: u64 = 100 * 1024 * 1024;
 const MAX_MEDIA_SIZE_BYTES: u64 = 750 * 1024 * 1024;
 
 const SUPPORTED_ATTACHMENT_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "pdf"];
@@ -158,10 +159,10 @@ fn path_contains_parent_traversal(path: &str) -> bool {
 }
 
 fn max_size_for_kind(kind: &str) -> u64 {
-    if kind == "media" {
-        MAX_MEDIA_SIZE_BYTES
-    } else {
-        MAX_SLIDE_SIZE_BYTES
+    match kind {
+        "media" => MAX_MEDIA_SIZE_BYTES,
+        "slide" => MAX_SLIDE_SIZE_BYTES,
+        _ => MAX_DOCUMENT_SIZE_BYTES,
     }
 }
 
@@ -287,6 +288,39 @@ mod tests {
         assert_eq!(validated.label, "sample.pdf");
         assert_eq!(validated.kind, "deck");
         assert!(validated.size_bytes > 0);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rejects_image_larger_than_data_url_reader_limit() {
+        let dir = std::env::temp_dir().join(format!(
+            "sabbathcue-attach-large-image-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).expect("temp dir");
+        let file_path = dir.join("sample.png");
+        let file = fs::File::create(&file_path).expect("create file");
+        file.set_len(MAX_SLIDE_SIZE_BYTES + 1)
+            .expect("set file size");
+        let err = validate_service_attachment_path_inner(file_path.to_str().unwrap()).unwrap_err();
+        assert_eq!(err, "Attachment exceeds size limit");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn accepts_pdf_larger_than_image_limit() {
+        let dir = std::env::temp_dir().join(format!(
+            "sabbathcue-attach-large-pdf-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).expect("temp dir");
+        let file_path = dir.join("sample.pdf");
+        let file = fs::File::create(&file_path).expect("create file");
+        file.set_len(MAX_SLIDE_SIZE_BYTES + 1)
+            .expect("set file size");
+        let validated = validate_service_attachment_path_inner(file_path.to_str().unwrap())
+            .expect("valid attachment");
+        assert_eq!(validated.kind, "deck");
         let _ = fs::remove_dir_all(dir);
     }
 

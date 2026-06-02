@@ -1,4 +1,12 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react"
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,9 +40,13 @@ import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { CanvasPresentation } from "@/components/ui/canvas-verse"
 import { selectPreviewItem } from "@/lib/presentation-workflow"
 import { buildSermonSlideDeck } from "@/services/slides/sermon-slide-deck"
-import { loadActiveSermonSlideDeck, presentSermonSlideAt } from "@/services/slides/sermon-slide-voice-control"
+import {
+  loadActiveSermonSlideDeck,
+  presentSermonSlideAt,
+} from "@/services/slides/sermon-slide-voice-control"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
+import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
 import { getPresentationRenderData } from "@/types"
 import type { ServiceAttachment } from "@/types/service-plan"
 
@@ -73,12 +85,20 @@ function ServicePlanEditor() {
   const addItem = useServicePlanStore((s) => s.addItem)
   const pendingReport = useServicePlanStore((s) => s.pendingReport)
   const lastReport = useServicePlanStore((s) => s.lastReport)
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(
+    () =>
+      activePlan?.activeItemId ??
+      [...(activePlan?.items ?? [])].sort((a, b) => a.order - b.order)[0]?.id ??
+      null
+  )
 
   const selectedItem = useMemo(
     () =>
+      activePlan?.items.find((item) => item.id === selectedItemId) ??
       activePlan?.items.find((item) => item.id === activePlan.activeItemId) ??
+      [...(activePlan?.items ?? [])].sort((a, b) => a.order - b.order)[0] ??
       null,
-    [activePlan]
+    [activePlan, selectedItemId]
   )
 
   if (!activePlan) {
@@ -142,7 +162,8 @@ function ServicePlanEditor() {
               items={activePlan.items}
               activeItemId={activePlan.activeItemId}
               performanceMode={serviceContext.performanceMode}
-              onSelect={(itemId) => void setActiveItem(itemId)}
+              onSelect={setSelectedItemId}
+              onActivate={(itemId) => void setActiveItem(itemId)}
               onDuplicate={duplicateItem}
               onDelete={deleteItem}
               onMarkReady={markItemReady}
@@ -312,7 +333,7 @@ export function ServicePlanLibraryPanel() {
 export function ServicePlanWorkspace() {
   const activePlan = useServicePlanStore((s) => s.activePlan)
   const [libraryWidth, setLibraryWidth] = useState(
-    () => loadDashboardLayoutState().servicePlanLibraryWidth,
+    () => loadDashboardLayoutState().servicePlanLibraryWidth
   )
 
   useEffect(() => {
@@ -329,7 +350,9 @@ export function ServicePlanWorkspace() {
       const startX = event.clientX
       const startWidth = libraryWidth
       const onMove = (moveEvent: PointerEvent) => {
-        setLibraryWidth(clampNumber(startWidth + moveEvent.clientX - startX, 240, 480))
+        setLibraryWidth(
+          clampNumber(startWidth + moveEvent.clientX - startX, 240, 480)
+        )
       }
       const onUp = () => {
         window.removeEventListener("pointermove", onMove)
@@ -338,7 +361,7 @@ export function ServicePlanWorkspace() {
       window.addEventListener("pointermove", onMove)
       window.addEventListener("pointerup", onUp)
     },
-    [libraryWidth],
+    [libraryWidth]
   )
 
   return (
@@ -364,7 +387,7 @@ export function ServicePlanWorkspace() {
               </div>
             }
           >
-            <LazyServicePlanEditor />
+            <LazyServicePlanEditor key={activePlan.id} />
           </Suspense>
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -403,7 +426,7 @@ export function LiveServicePlanPage() {
     [activePlan?.items]
   )
   const [contextWidth, setContextWidth] = useState(
-    () => loadDashboardLayoutState().liveServiceContextWidth,
+    () => loadDashboardLayoutState().liveServiceContextWidth
   )
 
   useEffect(() => {
@@ -420,7 +443,9 @@ export function LiveServicePlanPage() {
       const startX = event.clientX
       const startWidth = contextWidth
       const onMove = (moveEvent: PointerEvent) => {
-        setContextWidth(clampNumber(startWidth - (moveEvent.clientX - startX), 240, 480))
+        setContextWidth(
+          clampNumber(startWidth - (moveEvent.clientX - startX), 240, 480)
+        )
       }
       const onUp = () => {
         window.removeEventListener("pointermove", onMove)
@@ -429,7 +454,7 @@ export function LiveServicePlanPage() {
       window.addEventListener("pointermove", onMove)
       window.addEventListener("pointerup", onUp)
     },
-    [contextWidth],
+    [contextWidth]
   )
 
   return (
@@ -560,7 +585,7 @@ export function LiveHymnPage() {
   const activeIndex = useHymnSlideStore((s) => s.activeIndex)
   const activeSlide = deck[activeIndex] ?? null
   const [lyricsWidth, setLyricsWidth] = useState(
-    () => loadDashboardLayoutState().liveHymnLyricsWidth,
+    () => loadDashboardLayoutState().liveHymnLyricsWidth
   )
 
   useEffect(() => {
@@ -577,7 +602,9 @@ export function LiveHymnPage() {
       const startX = event.clientX
       const startWidth = lyricsWidth
       const onMove = (moveEvent: PointerEvent) => {
-        setLyricsWidth(clampNumber(startWidth - (moveEvent.clientX - startX), 280, 520))
+        setLyricsWidth(
+          clampNumber(startWidth - (moveEvent.clientX - startX), 280, 520)
+        )
       }
       const onUp = () => {
         window.removeEventListener("pointermove", onMove)
@@ -586,7 +613,7 @@ export function LiveHymnPage() {
       window.addEventListener("pointermove", onMove)
       window.addEventListener("pointerup", onUp)
     },
-    [lyricsWidth],
+    [lyricsWidth]
   )
 
   return (
@@ -700,24 +727,33 @@ export function LiveHymnPage() {
 export function SermonSlidesPage() {
   const activePlan = useServicePlanStore((s) => s.activePlan)
   const updateItem = useServicePlanStore((s) => s.updateItem)
+  const setActiveItem = useServicePlanStore((s) => s.setActiveItem)
+  const openPlanner = useServicePlanStore((s) => s.openPlanner)
+  const setWorkspace = useDashboardWorkspaceStore((s) => s.setWorkspace)
+  const orderedItems = useMemo(
+    () => [...(activePlan?.items ?? [])].sort((a, b) => a.order - b.order),
+    [activePlan?.items]
+  )
   const activeItem = useMemo(
     () =>
       activePlan?.items.find((item) => item.id === activePlan.activeItemId) ??
       null,
-    [activePlan],
+    [activePlan]
   )
   const slideAttachments = useMemo(
     () => activeItem?.attachments.filter((a) => a.kind === "slide") ?? [],
-    [activeItem?.attachments],
+    [activeItem?.attachments]
   )
   const storedDeck = useSermonSlideStore((s) => s.deck)
   const storedIndex = useSermonSlideStore((s) => s.activeIndex)
   const themes = useBroadcastStore((s) => s.themes)
   const activeThemeId = useBroadcastStore((s) => s.activeThemeId)
-  const activeTheme = themes.find((theme) => theme.id === activeThemeId) ?? themes[0]
+  const activeTheme =
+    themes.find((theme) => theme.id === activeThemeId) ?? themes[0]
   const deck = useMemo(() => buildSermonSlideDeck(activeItem), [activeItem])
   const activeIndex =
-    storedDeck.length > 0 && useSermonSlideStore.getState().activeItemId === activeItem?.id
+    storedDeck.length > 0 &&
+    useSermonSlideStore.getState().activeItemId === activeItem?.id
       ? storedIndex
       : 0
   const activeSlide = deck[activeIndex] ?? deck[0] ?? null
@@ -748,7 +784,7 @@ export function SermonSlidesPage() {
   }
 
   const [editorWidth, setEditorWidth] = useState(
-    () => loadDashboardLayoutState().sermonSlidesEditorWidth,
+    () => loadDashboardLayoutState().sermonSlidesEditorWidth
   )
 
   useEffect(() => {
@@ -765,7 +801,9 @@ export function SermonSlidesPage() {
       const startX = event.clientX
       const startWidth = editorWidth
       const onMove = (moveEvent: PointerEvent) => {
-        setEditorWidth(clampNumber(startWidth - (moveEvent.clientX - startX), 280, 520))
+        setEditorWidth(
+          clampNumber(startWidth - (moveEvent.clientX - startX), 280, 520)
+        )
       }
       const onUp = () => {
         window.removeEventListener("pointermove", onMove)
@@ -774,7 +812,7 @@ export function SermonSlidesPage() {
       window.addEventListener("pointermove", onMove)
       window.addEventListener("pointerup", onUp)
     },
-    [editorWidth],
+    [editorWidth]
   )
 
   return (
@@ -788,9 +826,14 @@ export function SermonSlidesPage() {
         }}
       >
         <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
-          <PanelHeader title="Sermon Slides" icon={<ImagesIcon className="size-4" />}>
+          <PanelHeader
+            title="Sermon Slides"
+            icon={<ImagesIcon className="size-4" />}
+          >
             <Badge variant="outline" className="tabular-nums">
-              {deck.length > 0 ? `${activeIndex + 1} of ${deck.length}` : "No slides"}
+              {deck.length > 0
+                ? `${activeIndex + 1} of ${deck.length}`
+                : "No slides"}
             </Badge>
           </PanelHeader>
 
@@ -840,7 +883,10 @@ export function SermonSlidesPage() {
 
           <div className="flex min-h-0 flex-1 items-center justify-center bg-black/80 p-3">
             {activeSlide ? (
-              <CanvasPresentation theme={activeTheme} item={getPresentationRenderData(activeSlide)} />
+              <CanvasPresentation
+                theme={activeTheme}
+                item={getPresentationRenderData(activeSlide)}
+              />
             ) : (
               <div className="text-center text-sm text-muted-foreground">
                 Upload sermon slides on the active Service Plan item.
@@ -856,11 +902,54 @@ export function SermonSlidesPage() {
         />
 
         <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
-          <PanelHeader title="Slide List" icon={<FileTextIcon className="size-4" />} />
+          <PanelHeader
+            title="Slide List"
+            icon={<FileTextIcon className="size-4" />}
+          />
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            <div className="mb-3 space-y-1.5 rounded-md border border-border p-2">
+              <label
+                htmlFor="sermon-slide-service-item"
+                className="text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase"
+              >
+                Active service item
+              </label>
+              {orderedItems.length > 0 ? (
+                <select
+                  id="sermon-slide-service-item"
+                  value={activeItem?.id ?? ""}
+                  onChange={(event) =>
+                    void setActiveItem(event.target.value || null)
+                  }
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  <option value="">Select an item</option>
+                  {orderedItems.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.title}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Create a service-plan item before adding sermon slides.
+                </p>
+              )}
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => {
+                  openPlanner()
+                  setWorkspace("service-plans")
+                }}
+              >
+                Open Service Plans
+              </Button>
+            </div>
             {!activeItem ? (
               <div className="rounded-md border border-dashed border-border p-4 text-xs text-muted-foreground">
-                No active service item. Select an item in the Service Plan to edit slides.
+                No active service item. Select an item in the Service Plan to
+                edit slides.
               </div>
             ) : (
               <SermonSlidesEditor

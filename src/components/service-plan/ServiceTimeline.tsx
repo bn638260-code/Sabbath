@@ -18,6 +18,7 @@ interface ServiceTimelineProps {
   activeItemId: string | null
   performanceMode: boolean
   onSelect: (itemId: string) => void
+  onActivate: (itemId: string) => void
   onDuplicate: (itemId: string) => void
   onDelete: (itemId: string) => void
   onMarkReady: (itemId: string) => void
@@ -30,6 +31,7 @@ export function ServiceTimeline({
   activeItemId,
   performanceMode,
   onSelect,
+  onActivate,
   onDuplicate,
   onDelete,
   onMarkReady,
@@ -44,7 +46,10 @@ export function ServiceTimeline({
   }
 
   return (
-    <div className="flex flex-col gap-1 overflow-y-auto pr-1" data-slot="service-timeline">
+    <div
+      className="flex flex-col gap-1 overflow-y-auto pr-1"
+      data-slot="service-timeline"
+    >
       {ordered.length === 0 ? (
         <p className="px-2 py-6 text-center text-xs text-muted-foreground">
           No service items yet. Add items or start from a template.
@@ -58,7 +63,7 @@ export function ServiceTimeline({
               key={item.id}
               className={cn(
                 "rounded-md border border-border/60 bg-card/60",
-                isActive && "border-primary/50 bg-primary/5",
+                isActive && "border-primary/50 bg-primary/5"
               )}
             >
               <div className="flex items-center gap-1.5 px-2 py-1.5">
@@ -69,12 +74,17 @@ export function ServiceTimeline({
                   draggable={!performanceMode}
                   onDragStart={() => {
                     if (performanceMode) return
-                    ;(window as unknown as { __serviceDragIndex?: number }).__serviceDragIndex = index
+                    ;(
+                      window as unknown as { __serviceDragIndex?: number }
+                    ).__serviceDragIndex = index
                   }}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => {
-                    const from = (window as unknown as { __serviceDragIndex?: number }).__serviceDragIndex
-                    if (typeof from === "number" && from !== index) onReorder(from, index)
+                    const from = (
+                      window as unknown as { __serviceDragIndex?: number }
+                    ).__serviceDragIndex
+                    if (typeof from === "number" && from !== index)
+                      onReorder(from, index)
                   }}
                 >
                   <GripVerticalIcon className="size-3" />
@@ -82,14 +92,19 @@ export function ServiceTimeline({
 
                 <button
                   type="button"
-                  className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   onClick={() => onSelect(item.id)}
                 >
-                  <span className="truncate text-xs font-medium">{item.title}</span>
-                  <Badge variant="outline" className="shrink-0 text-[0.5rem] uppercase">
+                  <span className="truncate text-xs font-medium">
+                    {item.title}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 text-[0.5rem] uppercase"
+                  >
                     {item.kind}
                   </Badge>
-                  <span className="shrink-0 text-[0.625rem] capitalize text-muted-foreground">
+                  <span className="shrink-0 text-[0.625rem] text-muted-foreground capitalize">
                     {item.status}
                   </span>
                 </button>
@@ -131,7 +146,7 @@ export function ServiceTimeline({
                       size="xs"
                       variant="ghost"
                       title="Set active"
-                      onClick={() => onSelect(item.id)}
+                      onClick={() => onActivate(item.id)}
                     >
                       <PlayIcon className="size-3" />
                       <span className="ml-1 text-[0.625rem]">Active</span>

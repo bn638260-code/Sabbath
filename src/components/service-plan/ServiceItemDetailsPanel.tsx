@@ -4,6 +4,7 @@ import type { ServiceContext, ServiceItem } from "@/types/service-plan"
 import { ChecklistEditor } from "./ChecklistEditor"
 import { HymnRefsEditor } from "./HymnRefsEditor"
 import { MediaAttachmentsEditor } from "./MediaAttachmentsEditor"
+import { SermonSlidesEditor } from "./SermonSlidesEditor"
 import { ScriptureRefsEditor } from "./ScriptureRefsEditor"
 import { ServiceItemBasicFields } from "./ServiceItemBasicFields"
 
@@ -31,11 +32,14 @@ export function ServiceItemDetailsPanel({
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto p-3" data-slot="service-item-details">
+    <div
+      className="flex h-full flex-col gap-3 overflow-y-auto p-3"
+      data-slot="service-item-details"
+    >
       <ServiceItemBasicFields item={item} onPatchItem={onPatchItem} />
 
       <div className="space-y-2">
-        <label className="text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground">
+        <label className="text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">
           Operator notes
         </label>
         <Textarea
@@ -55,9 +59,36 @@ export function ServiceItemDetailsPanel({
         onChange={(hymnRefs) => onPatchItem({ hymnRefs })}
       />
 
+      <SermonSlidesEditor
+        attachments={item.attachments.filter(
+          (attachment) => attachment.kind === "slide"
+        )}
+        onChange={(slides) =>
+          onPatchItem({
+            attachments: [
+              ...slides,
+              ...item.attachments.filter(
+                (attachment) => attachment.kind !== "slide"
+              ),
+            ],
+          })
+        }
+      />
+
       <MediaAttachmentsEditor
-        attachments={item.attachments}
-        onChange={(attachments) => onPatchItem({ attachments })}
+        attachments={item.attachments.filter(
+          (attachment) => attachment.kind !== "slide"
+        )}
+        onChange={(documents) =>
+          onPatchItem({
+            attachments: [
+              ...item.attachments.filter(
+                (attachment) => attachment.kind === "slide"
+              ),
+              ...documents,
+            ],
+          })
+        }
       />
 
       <ChecklistEditor

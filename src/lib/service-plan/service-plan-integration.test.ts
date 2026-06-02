@@ -35,7 +35,9 @@ describe("service plan shell integration", () => {
     const liveOutput = readSource("src/components/panels/live-output-panel.tsx")
     expect(liveOutput).not.toContain("ServiceLiveContextPanel")
 
-    const panel = readSource("src/components/service-plan/ServiceLiveContextPanel.tsx")
+    const panel = readSource(
+      "src/components/service-plan/ServiceLiveContextPanel.tsx"
+    )
     expect(panel).toContain("serviceContext")
     expect(panel).not.toContain("activePlan")
   })
@@ -47,11 +49,26 @@ describe("service plan shell integration", () => {
   })
 
   it("validates service plan attachments through the backend command", () => {
-    const editor = readSource("src/components/service-plan/MediaAttachmentsEditor.tsx")
+    const editor = readSource(
+      "src/components/service-plan/MediaAttachmentsEditor.tsx"
+    )
     expect(editor).not.toContain("@tauri-apps/plugin-fs")
     expect(editor).toContain("validate_service_attachment_path")
     expect(editor).toContain("invokeTauri")
     expect(editor).toContain("sizeBytes")
+  })
+
+  it("offers PNG sermon slides directly from the service-plan item editor", () => {
+    const details = readSource(
+      "src/components/service-plan/ServiceItemDetailsPanel.tsx"
+    )
+    const slides = readSource(
+      "src/components/service-plan/SermonSlidesEditor.tsx"
+    )
+
+    expect(details).toContain("<SermonSlidesEditor")
+    expect(slides).toContain('"png"')
+    expect(slides).toContain("Upload PNG / images")
   })
 
   it("implements attachment validation in the Tauri assets command", () => {
