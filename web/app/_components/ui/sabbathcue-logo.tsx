@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { cn } from "../../_lib/utils";
 import { APP_DISPLAY_NAME } from "../../_lib/app-brand";
 
@@ -21,9 +23,11 @@ export function SabbathCueLogo({
 }) {
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      <img
+      <Image
         src="/sabbathcue-logo.png"
         alt={APP_DISPLAY_NAME}
+        width={1280}
+        height={1024}
         className={cn("w-auto object-contain", HEIGHT_CLASS[size])}
       />
       {showWordmark ? (
