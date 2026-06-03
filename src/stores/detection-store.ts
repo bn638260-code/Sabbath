@@ -16,7 +16,7 @@ const MAX_RECENCY_BONUS = 0.01
 const RECENCY_BONUS_WINDOW_MS = 30_000
 
 interface DetectionState {
-  detections: DetectionResult[]
+  detections: DetectionResultWithMeta[]
   autoMode: boolean
   confidenceThreshold: number
 
@@ -138,6 +138,19 @@ function findMapEntryKey(
   return undefined
 }
 
+function withReceivedAt(
+  detection: DetectionResult,
+  fallback = 0,
+): DetectionResultWithMeta {
+  return {
+    ...detection,
+    received_at:
+      "received_at" in detection && typeof detection.received_at === "number"
+        ? detection.received_at
+        : fallback,
+  }
+}
+
 export const useDetectionStore = create<DetectionState>((set) => ({
   detections: [],
   autoMode: false,
@@ -151,22 +164,22 @@ export const useDetectionStore = create<DetectionState>((set) => ({
       )
       
       if (existingIndex >= 0) {
-        const existing = state.detections[existingIndex] as DetectionResultWithMeta
+        const existing = withReceivedAt(state.detections[existingIndex])
         const updated: DetectionResultWithMeta = {
           ...mergeDetection(existing, detection),
           received_at: now,
         }
-        const newDetections = [...state.detections] as DetectionResultWithMeta[]
+        const newDetections = [...state.detections]
         newDetections[existingIndex] = updated
         newDetections.sort((a, b) => compareDetections(a, b, now))
-        return { detections: newDetections.slice(0, MAX_RECENT_DETECTIONS) as DetectionResult[] }
+        return { detections: newDetections.slice(0, MAX_RECENT_DETECTIONS) }
       }
       
       // New detection
       const withMeta: DetectionResultWithMeta = { ...detection, received_at: now }
-      const newDetections = [withMeta, ...state.detections] as DetectionResultWithMeta[]
+      const newDetections = [withMeta, ...state.detections]
       newDetections.sort((a, b) => compareDetections(a, b, now))
-      return { detections: newDetections.slice(0, MAX_RECENT_DETECTIONS) as DetectionResult[] }
+      return { detections: newDetections.slice(0, MAX_RECENT_DETECTIONS) }
     }),
   addDetections: (incoming) =>
     set((state) => {
@@ -191,9 +204,10 @@ export const useDetectionStore = create<DetectionState>((set) => ({
       for (const d of state.detections) {
         const key = findMapEntryKey(map, d) ?? detectionKey(d)
         const existing = map.get(key)
-        const dReceivedAt = (d as DetectionResultWithMeta).received_at ?? 0
+        const dWithMeta = withReceivedAt(d)
+        const dReceivedAt = dWithMeta.received_at ?? 0
         if (!existing) {
-          map.set(key, { detection: d, received_at: dReceivedAt })
+          map.set(key, { detection: dWithMeta, received_at: dReceivedAt })
         } else {
           if (d.confidence > existing.detection.confidence || d.source === "direct") {
             map.set(key, {
@@ -226,12 +240,15 @@ export const useDetectionStore = create<DetectionState>((set) => ({
             now,
           )
         )
-        .map((item) => ({ ...item.detection, received_at: item.received_at } as DetectionResultWithMeta))
-        .slice(0, MAX_RECENT_DETECTIONS) as DetectionResult[]
+        .map((item) => ({ ...item.detection, received_at: item.received_at }))
+        .slice(0, MAX_RECENT_DETECTIONS)
       
       return { detections: sorted }
     }),
-  setDetections: (detections) => set({ detections }),
+  setDetections: (detections) =>
+    set({
+      detections: detections.map((detection) => withReceivedAt(detection)),
+    }),
   removeDetection: (key) =>
     set((state) => {
       return {

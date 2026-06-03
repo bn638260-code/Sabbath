@@ -280,7 +280,18 @@ impl AudioProcessor {
             timestamp_ms,
         };
 
-        let _ = sender.try_send(frame);
+        if let Err(error) = sender.try_send(frame) {
+            match error {
+                crossbeam_channel::TrySendError::Full(_) => {
+                    log::warn!("[AUDIO] Dropped audio frame because capture channel is full");
+                }
+                crossbeam_channel::TrySendError::Disconnected(_) => {
+                    log::warn!(
+                        "[AUDIO] Dropped audio frame because capture channel is disconnected"
+                    );
+                }
+            }
+        }
     }
 }
 

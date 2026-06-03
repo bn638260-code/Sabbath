@@ -18,7 +18,7 @@ export function useTauriEvent<T>(
     let cancelled = false
     let unlisten: UnlistenFn | undefined
 
-    listen<T>(event, (e) => {
+    void listen<T>(event, (e) => {
       if (!cancelled) {
         handlerRef.current(e.payload)
       }
@@ -28,6 +28,10 @@ export function useTauriEvent<T>(
         fn()
       } else {
         unlisten = fn
+      }
+    }).catch((error) => {
+      if (!cancelled) {
+        console.warn(`[tauri-event] Failed to listen for "${event}"`, error)
       }
     })
 

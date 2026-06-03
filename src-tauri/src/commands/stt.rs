@@ -864,8 +864,8 @@ pub async fn start_transcription(
                             // Fire-and-forget: detection runs in background thread pool.
                             // Event consumer proceeds immediately to next transcript.
                             if let Some(detection_text) = route.authoritative_detection {
-                                latest_accepted_seq.store(seq, Ordering::Relaxed);
                                 if let Ok(()) = detect_tx.try_send((seq, detection_text.clone())) {
+                                    latest_accepted_seq.store(seq, Ordering::Relaxed);
                                     let n = detect_sent_evt.fetch_add(1, Ordering::Relaxed) + 1;
                                     if n % 25 == 0 {
                                         let depth = detect_tx.max_capacity() - detect_tx.capacity();

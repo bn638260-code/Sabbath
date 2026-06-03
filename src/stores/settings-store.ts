@@ -56,12 +56,27 @@ const PERSISTED_KEYS = [
 
 let tauriStore: Store | null = null
 let hydrationPromise: Promise<void> | null = null
+let settingsUnsubscribe: (() => void) | null = null
 
 async function getStore(): Promise<Store> {
   if (!tauriStore) {
     tauriStore = await load("settings.json", { autoSave: false, defaults: {} })
   }
   return tauriStore
+}
+
+function ensureSettingsPersistenceSubscription() {
+  if (settingsUnsubscribe) return
+
+  settingsUnsubscribe = useSettingsStore.subscribe((state, prevState) => {
+    const changed = PERSISTED_KEYS.some((k) => state[k] !== prevState[k])
+    if (!changed) return
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      saveTimer = null
+      pendingSave = pendingSave.then(() => persistAll(useSettingsStore.getState()))
+    }, SAVE_DEBOUNCE_MS)
+  })
 }
 
 /** Load all persisted settings into the Zustand store. Idempotent and
@@ -101,17 +116,7 @@ export function hydrateSettings(): Promise<void> {
 
       // Attach only after successful hydration so as not to overwrite disk with defaults.
       // Debounce writes, so a dragged slider (e.g. gain) coalesces into a single disk write.
-      useSettingsStore.subscribe((state, prevState) => {
-        const changed = PERSISTED_KEYS.some((k) => state[k] !== prevState[k])
-        if (!changed) return
-        if (saveTimer) clearTimeout(saveTimer)
-        saveTimer = setTimeout(() => {
-          saveTimer = null
-          pendingSave = pendingSave.then(() =>
-            persistAll(useSettingsStore.getState())
-          )
-        }, SAVE_DEBOUNCE_MS)
-      })
+      ensureSettingsPersistenceSubscription()
     } catch {
       console.warn("[settings] Failed to load persisted state, using defaults")
     }

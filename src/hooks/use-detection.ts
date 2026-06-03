@@ -8,11 +8,16 @@ export interface DetectionControlStatus {
 
 // Stable action functions (same pattern as use-bible.ts)
 async function detectVerses(text: string) {
-  const results = await invoke<DetectionResult[]>("detect_verses", { text })
-  if (results.length > 0) {
-    useDetectionStore.getState().addDetections(results)
+  try {
+    const results = await invoke<DetectionResult[]>("detect_verses", { text })
+    if (results.length > 0) {
+      useDetectionStore.getState().addDetections(results)
+    }
+    return results
+  } catch (error) {
+    console.warn("[detection] detect_verses failed", error)
+    return []
   }
-  return results
 }
 
 async function getDetectionStatus() {

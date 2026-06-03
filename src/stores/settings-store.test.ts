@@ -136,6 +136,19 @@ describe("settings store", () => {
     expect(mockSave).toHaveBeenCalledTimes(1)
   })
 
+  it("repeated hydrate calls after completion still attach only one subscription", async () => {
+    mockGet.mockResolvedValue(null)
+
+    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    await hydrateSettings()
+    await hydrateSettings()
+
+    useSettingsStore.getState().setGain(1.5)
+    await flushSave()
+
+    expect(mockSave).toHaveBeenCalledTimes(1)
+  })
+
   it("hydrate handles load rejection gracefully", async () => {
     mockLoad.mockRejectedValue(new Error("store not available"))
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})

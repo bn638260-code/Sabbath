@@ -405,25 +405,7 @@ fn clean_transcript(text: &str) -> String {
         result = replace_case_insensitive_phrase(&result, phrase, "");
     }
 
-    // Handle "look at" only when followed by a word starting with an uppercase letter
-    // (heuristic for a book name).
-    loop {
-        let lower = result.to_lowercase();
-        if let Some(pos) = lower.find("look at") {
-            let after_pos = pos + "look at".len();
-            let after = &result[after_pos..];
-            let trimmed = after.trim_start();
-            if let Some(ch) = trimmed.chars().next() {
-                if ch.is_ascii_uppercase() {
-                    // Remove "look at" (keep the rest including the book name)
-                    result = format!("{}{}", &result[..pos], &result[after_pos..]);
-                    continue;
-                }
-            }
-            break; // "look at" not followed by uppercase — leave it
-        }
-        break;
-    }
+    result = strip_case_insensitive_phrase_before_uppercase_word(&result, "look at");
 
     // Collapse multiple spaces and trim
     let mut prev_space = false;
@@ -477,6 +459,28 @@ fn replace_case_insensitive_phrase(text: &str, from: &str, to: &str) -> String {
 
     if cursor < text.len() {
         result.push_str(&text[cursor..]);
+    }
+
+    result
+}
+
+fn strip_case_insensitive_phrase_before_uppercase_word(text: &str, phrase: &str) -> String {
+    let phrase_lower = phrase.to_ascii_lowercase();
+    let mut result = text.to_string();
+
+    while let Some(pos) = result.to_ascii_lowercase().find(&phrase_lower) {
+        let after_pos = pos + phrase.len();
+        let after = &result[after_pos..];
+        let trimmed = after.trim_start();
+        let Some(ch) = trimmed.chars().next() else {
+            break;
+        };
+
+        if !ch.is_ascii_uppercase() {
+            break;
+        }
+
+        result = format!("{}{}", &result[..pos], &result[after_pos..]);
     }
 
     result
