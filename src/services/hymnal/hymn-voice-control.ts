@@ -141,7 +141,6 @@ export async function handleHymnVoiceControl(text: string): Promise<boolean> {
   const screens = generateHymnScreens({
     hymn,
     selectedSectionIds: defaultSelectedSectionIds(hymn),
-    maxLinesPerScreen: 4,
   })
   const firstScreen = screens[0]
   if (!firstScreen) return false

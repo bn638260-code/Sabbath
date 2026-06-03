@@ -40,6 +40,14 @@ import {
   StarIcon,
 } from "lucide-react"
 
+function hymnPreviewTextClass(lineCount: number): string {
+  if (lineCount <= 4) return "text-2xl leading-snug"
+  if (lineCount <= 6) return "text-xl leading-snug"
+  if (lineCount <= 8) return "text-lg leading-snug"
+  if (lineCount <= 10) return "text-base leading-snug"
+  return "text-sm leading-tight"
+}
+
 export function HymnalPanel() {
   const [query, setQuery] = useState("")
   const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(null)
@@ -87,7 +95,6 @@ export function HymnalPanel() {
         ? generateHymnScreens({
             hymn: selectedHymn,
             selectedSectionIds,
-            maxLinesPerScreen: 4,
           })
         : [],
     [selectedHymn, selectedSectionIds],
@@ -451,11 +458,14 @@ export function HymnalPanel() {
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
               {activeScreen ? (
                 <div className="flex min-h-full flex-col gap-3">
-                  <div className="flex aspect-video items-center justify-center rounded-md border border-border bg-black p-8 text-center">
-                    <div className="max-w-[80%] space-y-3 text-balance text-2xl font-semibold leading-snug text-white">
-                      {activeScreen.lines.map((line) => (
-                        <p key={line}>{line}</p>
-                      ))}
+                  <div className="flex aspect-video items-center justify-center rounded-md border border-border bg-black p-6 text-center">
+                    <div
+                      className={cn(
+                        "max-h-full max-w-[90%] overflow-hidden text-balance font-semibold whitespace-pre-wrap text-white",
+                        hymnPreviewTextClass(activeScreen.lines.length),
+                      )}
+                    >
+                      {activeScreen.lines.join("\n")}
                     </div>
                   </div>
 

@@ -25,24 +25,33 @@ export function wrapText(
   text: string,
   maxWidth: number
 ): string[] {
-  const words = text.split(" ")
+  const paragraphs = text.split("\n")
   const lines: string[] = []
-  let currentLine = ""
 
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word
-    const metrics = ctx.measureText(testLine)
-
-    if (metrics.width > maxWidth && currentLine) {
-      lines.push(currentLine)
-      currentLine = word
-    } else {
-      currentLine = testLine
+  for (const [paragraphIndex, paragraph] of paragraphs.entries()) {
+    if (paragraphIndex > 0) {
+      lines.push("")
     }
-  }
 
-  if (currentLine) {
-    lines.push(currentLine)
+    const words = paragraph.split(/\s+/).filter(Boolean)
+    if (words.length === 0) continue
+
+    let currentLine = ""
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word
+      const metrics = ctx.measureText(testLine)
+
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine)
+        currentLine = word
+      } else {
+        currentLine = testLine
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine)
+    }
   }
 
   return lines

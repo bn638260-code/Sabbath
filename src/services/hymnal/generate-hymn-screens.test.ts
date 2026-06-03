@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest"
 import { generateHymnScreens } from "./generate-hymn-screens"
 import { getHymnByNumber, searchHymns } from "./hymnal-repository"
+import type { Hymn } from "@/types"
+
+function makeHymn(sections: Hymn["sections"]): Hymn {
+  return {
+    id: "test-hymn",
+    number: 99,
+    title: "Test Hymn",
+    sections,
+  }
+}
 
 describe("hymnal services", () => {
   it("loads the generated SDA hymnal data", async () => {
@@ -18,7 +28,7 @@ describe("hymnal services", () => {
     expect(searchHymns("Praise to the Lord", 1)[0]).toMatchObject({ number: 1 })
   })
 
-  it("generates multi-screen hymn presentation chunks", async () => {
+  it("generates one screen per hymn section for long stanzas", async () => {
     const hymn = await getHymnByNumber(1)
     expect(hymn).not.toBeNull()
 
@@ -26,16 +36,70 @@ describe("hymnal services", () => {
     const screens = generateHymnScreens({
       hymn: hymn!,
       selectedSectionIds: [firstSectionId],
-      maxLinesPerScreen: 2,
     })
 
-    expect(screens.length).toBeGreaterThan(1)
+    expect(screens).toHaveLength(1)
     expect(screens[0]).toMatchObject({
       hymnNumber: 1,
       sectionLabel: "Verse 1",
-      totalScreens: screens.length,
-      lines: expect.arrayContaining(["Praise to the Lord, the Almighty, the King of creation!"]),
+      sectionScreenIndex: 0,
+      sectionScreenCount: 1,
+      totalScreens: 1,
+      lines: hymn!.sections[0].lines,
     })
+    expect(screens[0].lines.length).toBeGreaterThan(2)
+  })
+
+  it("preserves verse and refrain order from selected sections", () => {
+    const hymn = makeHymn([
+      {
+        id: "v1",
+        kind: "verse",
+        label: "Verse 1",
+        number: 1,
+        lines: ["Stanza one line"],
+      },
+      {
+        id: "r1",
+        kind: "refrain",
+        label: "Refrain",
+        afterVerseNumber: 1,
+        lines: ["Refrain line"],
+      },
+      {
+        id: "v2",
+        kind: "verse",
+        label: "Verse 2",
+        number: 2,
+        lines: ["Stanza two line"],
+      },
+      {
+        id: "r2",
+        kind: "refrain",
+        label: "Refrain",
+        afterVerseNumber: 2,
+        lines: ["Refrain line"],
+      },
+    ])
+
+    const screens = generateHymnScreens({
+      hymn,
+      selectedSectionIds: ["v1", "r1", "v2", "r2"],
+    })
+
+    expect(screens).toHaveLength(4)
+    expect(screens.map((screen) => screen.sectionKind)).toEqual([
+      "verse",
+      "refrain",
+      "verse",
+      "refrain",
+    ])
+    expect(screens.map((screen) => screen.sectionLabel)).toEqual([
+      "Verse 1",
+      "Refrain",
+      "Verse 2",
+      "Refrain",
+    ])
   })
 
   it("preserves repeated hymn sections as separate screens", async () => {
@@ -46,7 +110,6 @@ describe("hymnal services", () => {
     const screens = generateHymnScreens({
       hymn: hymn!,
       selectedSectionIds: [sectionId, sectionId],
-      maxLinesPerScreen: 10,
     })
 
     expect(screens).toHaveLength(2)
@@ -54,5 +117,6 @@ describe("hymnal services", () => {
       `${sectionId}-repeat-1-screen-1`,
       `${sectionId}-repeat-2-screen-1`,
     ])
+    expect(screens.every((screen) => screen.sectionScreenCount === 1)).toBe(true)
   })
 })

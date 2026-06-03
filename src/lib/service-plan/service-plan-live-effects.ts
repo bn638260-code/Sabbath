@@ -46,7 +46,6 @@ export async function loadHymnDeckForItem(item: ServiceItem): Promise<boolean> {
       const screens = generateHymnScreens({
         hymn,
         selectedSectionIds: defaultSelectedSectionIds(hymn),
-        maxLinesPerScreen: 4,
       })
       if (screens.length === 0) continue
       const deck = screens.map((screen) => createHymnPresentationItem(screen))
@@ -99,7 +98,6 @@ export async function previewFirstContentForItem(item: ServiceItem): Promise<voi
       const screens = generateHymnScreens({
         hymn,
         selectedSectionIds: defaultSelectedSectionIds(hymn),
-        maxLinesPerScreen: 4,
       })
       const first = screens[0]
       if (!first) continue

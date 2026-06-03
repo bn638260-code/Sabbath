@@ -159,45 +159,51 @@ export function SearchPanel() {
 
   // Auto-navigate when a detection or "Present" click sets pendingNavigation
   useEffect(() => {
-    let lastHandledKey: string | null = null
+    let navigationEpoch = 0
 
     const unsubscribe = useBibleStore.subscribe((state) => {
       const pendingNavigation = state.pendingNavigation
-      if (!pendingNavigation) {
-        lastHandledKey = null
-        return
-      }
+      if (!pendingNavigation) return
 
       const { bookNumber, chapter: navChapter, verse: navVerse } = pendingNavigation
-      const pendingKey = `${bookNumber}:${navChapter}:${navVerse}`
-      if (pendingKey === lastHandledKey) return
+      const targetKey = `${bookNumber}:${navChapter}:${navVerse}`
 
       const book = state.books.find((b) => b.book_number === bookNumber)
       if (!book) return
 
-      lastHandledKey = pendingKey
+      const epoch = ++navigationEpoch
       applyNavigationSelection(book, navChapter)
 
-      // Load chapter explicitly, then select + scroll to the verse.
-      bibleActions.loadChapter(bookNumber, navChapter).then((verses) => {
-        const target = verses.find((v) => v.verse === navVerse)
-        if (target) {
-          setSelectedVerseId(target.id)
-          selectPreviewVerse(target)
-          document
-            .getElementById(`verse-${target.id}`)
-            ?.scrollIntoView({ behavior: "smooth", block: "center" })
-        }
-        panelRef.current?.focus()
-      }).catch(console.error).finally(() => {
+      const isCurrentNavigation = () => {
+        if (epoch !== navigationEpoch) return false
         const current = useBibleStore.getState().pendingNavigation
-        const currentKey = current
-          ? `${current.bookNumber}:${current.chapter}:${current.verse}`
-          : null
-        if (currentKey === pendingKey) {
+        if (!current) return false
+        return (
+          `${current.bookNumber}:${current.chapter}:${current.verse}` === targetKey
+        )
+      }
+
+      // Load chapter explicitly, then select + scroll to the verse.
+      void bibleActions
+        .loadChapter(bookNumber, navChapter)
+        .then((verses) => {
+          if (!isCurrentNavigation()) return
+
+          const target = verses.find((v) => v.verse === navVerse)
+          if (target) {
+            setSelectedVerseId(target.id)
+            selectPreviewVerse(target)
+            document
+              .getElementById(`verse-${target.id}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "center" })
+          }
+          panelRef.current?.focus()
+        })
+        .catch(console.error)
+        .finally(() => {
+          if (!isCurrentNavigation()) return
           useBibleStore.getState().setPendingNavigation(null)
-        }
-      })
+        })
     })
 
     return unsubscribe

@@ -116,7 +116,6 @@ export async function enqueuePreparedResourcesForItem(item: ServiceItem): Promis
       const screens = generateHymnScreens({
         hymn,
         selectedSectionIds: defaultSelectedSectionIds(hymn),
-        maxLinesPerScreen: 4,
       })
       const groupItems = createGroupedHymnQueueItems(screens)
       for (const queueItem of groupItems) {
