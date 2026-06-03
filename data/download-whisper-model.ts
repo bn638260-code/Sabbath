@@ -7,7 +7,7 @@
  * Run: bun run download:whisper
  */
 
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import {
   createWriteStream,
   existsSync,
@@ -15,8 +15,10 @@ import {
   renameSync,
   rmSync,
 } from "node:fs"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
-const PROJECT_ROOT = join(import.meta.dir, "..")
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
+const PROJECT_ROOT = join(MODULE_DIR, "..")
 const MODELS_DIR = join(PROJECT_ROOT, "models", "whisper")
 const MODEL_FILE = "ggml-tiny.en.bin"
 const MODEL_PATH = join(MODELS_DIR, MODEL_FILE)
@@ -28,6 +30,12 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+type FetchWithRetryOptions = {
+  headers?: Record<string, string>
+  maxAttempts?: number
+  sleep?: (ms: number) => Promise<unknown>
+}
+
 function getHeaders() {
   const token = process.env.HF_TOKEN ?? process.env.HUGGINGFACE_TOKEN
   if (!token) return undefined
@@ -37,10 +45,19 @@ function getHeaders() {
   }
 }
 
-async function fetchWithRetry(url: string) {
-  const headers = getHeaders()
+export async function fetchWithRetry(
+  url: string,
+  options: FetchWithRetryOptions = {},
+) {
+  const headers = options.headers ?? getHeaders()
+  const maxAttempts = options.maxAttempts ?? MAX_ATTEMPTS
+  const sleepFn = options.sleep ?? sleep
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+  if (maxAttempts < 1) {
+    throw new Error("maxAttempts must be at least 1")
+  }
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const response = await fetch(url, {
       headers,
       redirect: "follow",
@@ -54,7 +71,7 @@ async function fetchWithRetry(url: string) {
       throw new Error(`Download failed: ${response.status} ${response.statusText}`)
     }
 
-    if (attempt === MAX_ATTEMPTS) {
+    if (attempt === maxAttempts) {
       throw new Error(`Download failed: ${response.status} ${response.statusText}`)
     }
 
@@ -67,13 +84,13 @@ async function fetchWithRetry(url: string) {
     console.warn(
       `Download attempt ${attempt} failed with ${response.status}. Retrying in ${Math.round(backoffMs / 1_000)}s...`
     )
-    await sleep(backoffMs)
+    await sleepFn(backoffMs)
   }
 
   throw new Error("Download failed after retries")
 }
 
-async function main() {
+export async function main() {
   if (existsSync(MODEL_PATH)) {
     console.log(`Whisper model already exists: ${MODEL_PATH}`)
     return
@@ -127,7 +144,13 @@ async function main() {
   console.log(`\nWhisper model downloaded: ${MODEL_PATH}`)
 }
 
-main().catch((e) => {
-  console.error("Failed to download Whisper model:", e)
-  process.exit(1)
-})
+const isMainModule =
+  process.argv[1] != null &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isMainModule) {
+  main().catch((e) => {
+    console.error("Failed to download Whisper model:", e)
+    process.exit(1)
+  })
+}
