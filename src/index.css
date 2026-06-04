@@ -359,7 +359,6 @@
 .nav-item:hover:not(.active):not([aria-current="page"]) {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
-  transform: translateX(4px);
 }
 
 .btn-action {

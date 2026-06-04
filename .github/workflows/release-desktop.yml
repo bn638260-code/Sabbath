@@ -29,6 +29,9 @@ jobs:
       - name: Build public Bible DB
         run: bun run build:bible:public
 
+      - name: Import EGW books
+        run: bun run build:egw
+
       - name: Verify public Bible DB
         run: bun run verify:bible:public
 

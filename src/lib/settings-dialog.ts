@@ -6,6 +6,8 @@ export type SettingsSection =
   | "speech"
   | "bible"
   | "display"
+  | "broadcast"
+  | "themes"
   | "api-keys"
   | "remote"
   | "help"

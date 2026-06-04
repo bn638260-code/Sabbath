@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { isPanelFullscreen, togglePanelFullscreen } from "@/components/panels/live-output-panel-fullscreen"
 import { commitPreviewToLive, presentItem } from "@/lib/presentation-workflow"
 import { cn } from "@/lib/utils"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { selectActiveTheme, useBroadcastStore } from "@/stores/broadcast-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { PresentationDeckControls } from "@/components/panels/presentation-deck-controls"
@@ -20,16 +20,10 @@ export function LiveOutputPanel({ className }: { className?: string }) {
   const isLive = useBroadcastStore((s) => s.isLive)
   const liveItem = useBroadcastStore((s) => s.liveItem)
   const readingModeAutoLive = useBroadcastStore((s) => s.readingModeAutoLive)
-  const themes = useBroadcastStore((s) => s.themes)
-  const activeThemeId = useBroadcastStore((s) => s.activeThemeId)
+  const activeTheme = useBroadcastStore(selectActiveTheme)
   const previewItem = useBroadcastStore((s) => s.previewItem)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
-
-  const activeTheme = useMemo(
-    () => themes.find((t) => t.id === activeThemeId) ?? themes[0],
-    [themes, activeThemeId],
-  )
 
   const visibleItem = useMemo(
     () => (isLive ? liveItem : null),
@@ -184,10 +178,11 @@ export function LiveOutputPanel({ className }: { className?: string }) {
         <div
           className={cn(
             "flex h-full w-full items-center justify-center rounded-xl border border-white/5 p-6 text-center",
-            isLive && "live-glowing-active border-yellow-500/20",
+            isLive && !isFullscreen && "live-glowing-active",
+            isFullscreen && "rounded-none border-0 p-0",
           )}
         >
-          {visibleItem ? (
+          {visibleItem && activeTheme ? (
             <CanvasPresentation
               theme={activeTheme}
               item={visibleItem}

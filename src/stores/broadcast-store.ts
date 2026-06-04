@@ -66,6 +66,10 @@ interface BroadcastState {
   setRenamingTheme: (id: string | null) => void
 }
 
+function findThemeById(themes: BroadcastTheme[], id: string): BroadcastTheme | null {
+  return themes.find((theme) => theme.id === id) ?? themes[0] ?? null
+}
+
 function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): Record<string, unknown> {
   const keys = path.split(".")
   const isIndex = (key: string) => /^\d+$/.test(key)
@@ -113,6 +117,24 @@ function emitDraftToBroadcast(state: BroadcastState): void {
       opacity: state.opacity,
     }).catch(() => {})
   }
+}
+
+let draftBroadcastFrame: number | null = null
+
+function scheduleDraftBroadcast(getState: () => BroadcastState): void {
+  if (draftBroadcastFrame !== null) return
+
+  const flush = () => {
+    draftBroadcastFrame = null
+    emitDraftToBroadcast(getState())
+  }
+
+  if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+    flush()
+    return
+  }
+
+  draftBroadcastFrame = window.requestAnimationFrame(flush)
 }
 
 export const useBroadcastStore = create<BroadcastState>((set, get) => ({
@@ -211,7 +233,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     const s = get()
     const themeId = outputId === "alt" ? s.altActiveThemeId : s.activeThemeId
     const label = outputId === "alt" ? "broadcast-alt" : "broadcast"
-    const theme = s.themes.find((t) => t.id === themeId) ?? s.themes[0]
+    const theme = findThemeById(s.themes, themeId)
     if (!theme) return
 
     void emitTo(label, "broadcast:verse-update", {
@@ -294,7 +316,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     set((s) => ({
       draftTheme: s.draftTheme ? { ...s.draftTheme, ...updates, updatedAt: Date.now() } : null,
     }))
-    emitDraftToBroadcast(get())
+    scheduleDraftBroadcast(get)
   },
   updateDraftNested: (path, value) => {
     set((s) => ({
@@ -302,7 +324,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
         ? (setNestedValue(s.draftTheme as unknown as Record<string, unknown>, path, value) as unknown as BroadcastTheme)
         : null,
     }))
-    emitDraftToBroadcast(get())
+    scheduleDraftBroadcast(get)
   },
   saveDraft: () => {
     const { draftTheme } = get()
@@ -421,6 +443,14 @@ export function hydrateBroadcastThemes(): Promise<void> {
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let pendingSave: Promise<void> = Promise.resolve()
 const SAVE_DEBOUNCE_MS = 500
+
+export function selectActiveTheme(state: BroadcastState): BroadcastTheme | null {
+  return findThemeById(state.themes, state.activeThemeId)
+}
+
+export function selectAltActiveTheme(state: BroadcastState): BroadcastTheme | null {
+  return findThemeById(state.themes, state.altActiveThemeId)
+}
 
 async function persistBroadcastThemes(state: BroadcastState): Promise<void> {
   try {

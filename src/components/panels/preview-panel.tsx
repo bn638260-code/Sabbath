@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react"
+import { useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CanvasPresentation } from "@/components/ui/canvas-verse"
@@ -11,7 +11,7 @@ import {
   selectPreviewVerse,
 } from "@/lib/presentation-workflow"
 import { useBibleStore } from "@/stores/bible-store"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { selectActiveTheme, useBroadcastStore } from "@/stores/broadcast-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { PresentationDeckControls } from "@/components/panels/presentation-deck-controls"
@@ -22,8 +22,7 @@ import { cn } from "@/lib/utils"
 export function PreviewPanel({ className }: { className?: string }) {
   const activeTranslationId = useBibleStore((s) => s.activeTranslationId)
   const previewItem = useBroadcastStore((s) => s.previewItem)
-  const themes = useBroadcastStore((s) => s.themes)
-  const activeThemeId = useBroadcastStore((s) => s.activeThemeId)
+  const activeTheme = useBroadcastStore(selectActiveTheme)
   const isLive = useBroadcastStore((s) => s.isLive)
   const readingModeAutoLive = useBroadcastStore((s) => s.readingModeAutoLive)
 
@@ -39,11 +38,6 @@ export function PreviewPanel({ className }: { className?: string }) {
         .catch((e) => console.error("[preview] verse refetch on translation change failed", e))
     }
   }, [activeTranslationId])
-
-  const activeTheme = useMemo(
-    () => themes.find((t) => t.id === activeThemeId) ?? themes[0],
-    [themes, activeThemeId],
-  )
 
   const clearPreviewBlocked = isLive && readingModeAutoLive
 
@@ -128,7 +122,7 @@ export function PreviewPanel({ className }: { className?: string }) {
       </div>
 
       <div className="flex min-h-0 flex-1 items-center justify-center p-4">
-        {previewItem ? (
+        {previewItem && activeTheme ? (
           <CanvasPresentation theme={activeTheme} item={previewItem} />
         ) : (
           <PanelEmptyState

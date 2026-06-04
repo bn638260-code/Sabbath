@@ -395,7 +395,7 @@ export function ServicePlanPage() {
 
 function LiveProductionGrid() {
   return (
-    <div className="grid min-h-[360px] grid-cols-1 gap-3 xl:grid-cols-[300px_minmax(320px,1fr)_minmax(320px,1fr)_320px]">
+    <div className="grid min-h-[300px] grid-cols-1 gap-3 xl:min-h-[320px] xl:grid-cols-[300px_minmax(320px,1fr)_minmax(320px,1fr)_320px] 2xl:min-h-[360px]">
       <TranscriptPanel />
       <PreviewPanel />
       <LiveOutputPanel />
@@ -460,7 +460,7 @@ export function RunServicePage() {
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4"
+      className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4"
       data-slot="run-service-page"
     >
       <ServiceLiveContextPanel />
@@ -622,7 +622,7 @@ export function LiveServicePlanPage() {
   )
 
   return (
-    <div className="view-pane flex h-full min-h-0 flex-col gap-5 overflow-hidden">
+    <div className="view-pane flex h-full min-h-0 flex-col gap-5 overflow-y-auto pr-1">
       <div className="glass-panel flex flex-wrap items-center justify-between gap-3 p-4">
         <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-400">
           Downstream broadcast
@@ -671,7 +671,7 @@ export function LiveServicePlanPage() {
       <LiveProductionGrid />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="glass-panel relative min-h-0 overflow-hidden">
+        <section className="glass-panel relative flex min-h-0 flex-col overflow-hidden">
           <PanelHeader
             title="Live Service Plan"
             icon={<ClipboardListIcon className="size-4" />}
@@ -707,8 +707,8 @@ export function LiveServicePlanPage() {
               </div>
             </div>
           </div>
-          <div className="min-h-0 px-3 pb-3">
-            <div className="max-h-[calc(100vh-560px)] min-h-[180px] overflow-y-auto rounded-md border border-white/5">
+          <div className="flex min-h-0 flex-1 px-3 pb-3">
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-white/5">
               {orderedItems.length === 0 ? (
                 <div className="p-6 text-center text-sm text-muted-foreground">
                   No service plan is loaded.
@@ -738,12 +738,12 @@ export function LiveServicePlanPage() {
             </div>
           </div>
         </section>
-        <section className="glass-panel relative min-h-0 overflow-hidden">
+        <section className="glass-panel relative flex min-h-0 flex-col overflow-hidden">
           <PanelHeader
             title="Live Context"
             icon={<FileTextIcon className="size-4" />}
           />
-          <div className="space-y-4 overflow-y-auto p-3 text-sm">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 text-sm">
             <div>
               <div className="text-[0.625rem] font-medium text-muted-foreground uppercase">
                 Expected references
@@ -785,11 +785,11 @@ export function LiveHymnPage() {
   const activeSlide = deck[activeIndex] ?? null
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
+    <div className="flex h-full min-h-0 flex-col gap-3 p-4">
       <LiveProductionGrid />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="glass-panel relative min-h-0 overflow-hidden">
+        <section className="glass-panel relative flex min-h-0 flex-col overflow-hidden">
           <PanelHeader
             title="Live Hymns"
             icon={<ListMusicIcon className="size-4" />}
@@ -833,8 +833,8 @@ export function LiveHymnPage() {
               </div>
             </div>
           </div>
-          <div className="min-h-0 px-3 pb-3">
-            <div className="max-h-[calc(100vh-560px)] min-h-[180px] overflow-y-auto rounded-md border border-white/5">
+          <div className="flex min-h-0 flex-1 px-3 pb-3">
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-white/5">
               {deck.length === 0 ? (
                 <div className="p-6 text-center text-sm text-muted-foreground">
                   No hymn slide deck is loaded.
@@ -864,12 +864,12 @@ export function LiveHymnPage() {
             </div>
           </div>
         </section>
-        <section className="glass-panel relative min-h-0 overflow-hidden">
+        <section className="glass-panel relative flex min-h-0 flex-col overflow-hidden">
           <PanelHeader
             title="Current Lyrics"
             icon={<FileTextIcon className="size-4" />}
           />
-          <div className="overflow-y-auto p-3">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
             <p className="text-lg leading-8 whitespace-pre-wrap">
               {activeSlide?.segments
                 .map((segment) => segment.text)
@@ -942,7 +942,7 @@ export function SermonSlidesPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden p-3">
+    <div className="flex h-full min-h-0 flex-col gap-2 p-3">
       <LiveProductionGrid />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">

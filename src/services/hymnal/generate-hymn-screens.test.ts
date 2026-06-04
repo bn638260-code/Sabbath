@@ -28,26 +28,38 @@ describe("hymnal services", () => {
     expect(searchHymns("Praise to the Lord", 1)[0]).toMatchObject({ number: 1 })
   })
 
-  it("generates one screen per hymn section for long stanzas", async () => {
-    const hymn = await getHymnByNumber(1)
-    expect(hymn).not.toBeNull()
+  it("splits long stanzas across multiple screens", () => {
+    const hymn = makeHymn([
+      {
+        id: "v1",
+        kind: "verse",
+        label: "Verse 1",
+        number: 1,
+        lines: [
+          "Line one",
+          "Line two",
+          "Line three",
+          "Line four",
+          "Line five",
+          "Line six",
+        ],
+      },
+    ])
 
-    const firstSectionId = hymn!.sections[0].id
     const screens = generateHymnScreens({
-      hymn: hymn!,
-      selectedSectionIds: [firstSectionId],
+      hymn,
+      selectedSectionIds: ["v1"],
     })
 
-    expect(screens).toHaveLength(1)
+    expect(screens.length).toBeGreaterThan(1)
     expect(screens[0]).toMatchObject({
-      hymnNumber: 1,
+      hymnNumber: 99,
       sectionLabel: "Verse 1",
       sectionScreenIndex: 0,
-      sectionScreenCount: 1,
-      totalScreens: 1,
-      lines: hymn!.sections[0].lines,
+      sectionScreenCount: screens.length,
     })
-    expect(screens[0].lines.length).toBeGreaterThan(2)
+    expect(screens.every((screen) => screen.lines.length <= 4)).toBe(true)
+    expect(screens.flatMap((screen) => screen.lines)).toEqual(hymn.sections[0].lines)
   })
 
   it("preserves verse and refrain order from selected sections", () => {

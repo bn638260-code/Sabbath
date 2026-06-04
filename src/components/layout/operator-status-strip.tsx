@@ -4,7 +4,7 @@ import { LevelMeter } from "@/components/ui/level-meter"
 import { cn } from "@/lib/utils"
 import { useAudioStore } from "@/stores/audio-store"
 import { useBibleStore } from "@/stores/bible-store"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { selectActiveTheme, useBroadcastStore } from "@/stores/broadcast-store"
 import { useQueueStore } from "@/stores/queue-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
@@ -25,9 +25,7 @@ export function OperatorStatusStrip({
   const previewItem = useBroadcastStore((s) => s.previewItem)
   const readingModeAutoLive = useBroadcastStore((s) => s.readingModeAutoLive)
   const queueLength = useQueueStore((s) => s.items.length)
-  const themes = useBroadcastStore((s) => s.themes)
-  const activeThemeId = useBroadcastStore((s) => s.activeThemeId)
-  const activeTheme = themes.find((t) => t.id === activeThemeId)
+  const activeTheme = useBroadcastStore(selectActiveTheme)
   const selectedVerse = useBibleStore((s) => s.selectedVerse)
   const activePlan = useServicePlanStore((s) => s.activePlan)
 

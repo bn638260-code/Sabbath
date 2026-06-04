@@ -87,6 +87,8 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
 
   const quickInputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const quickVerseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const quickVerseRequestIdRef = useRef(0)
 
   const {
     translations,
@@ -336,16 +338,30 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
     }
 
     if ((result.stage === "chapter" || result.stage === "verse") && result.matchedBook && result.chapter) {
-      invoke<Verse[]>("get_chapter", {
-        translationId: activeTranslationId,
-        bookNumber: result.matchedBook.book_number,
-        chapter: result.chapter
-      }).then(verses => {
-        setQuickVersesList(verses)
-        setShowQuickVerses(true)
-      }).catch(console.error)
+      const requestId = ++quickVerseRequestIdRef.current
+      if (quickVerseDebounceRef.current) clearTimeout(quickVerseDebounceRef.current)
+      quickVerseDebounceRef.current = setTimeout(() => {
+        invoke<Verse[]>("get_chapter", {
+          translationId: activeTranslationId,
+          bookNumber: result.matchedBook!.book_number,
+          chapter: result.chapter!
+        }).then((verses) => {
+          if (requestId !== quickVerseRequestIdRef.current) return
+          setQuickVersesList(verses)
+          setShowQuickVerses(true)
+        }).catch(console.error)
+      }, 90)
+    } else {
+      quickVerseRequestIdRef.current += 1
+      if (quickVerseDebounceRef.current) clearTimeout(quickVerseDebounceRef.current)
     }
   }, [autocompleteResult, activeTranslationId])
+
+  useEffect(() => {
+    return () => {
+      if (quickVerseDebounceRef.current) clearTimeout(quickVerseDebounceRef.current)
+    }
+  }, [])
 
   // Derive dropdown visibility: only show when autocomplete stage is chapter/verse
   const shouldShowVerseDropdown = showQuickVerses

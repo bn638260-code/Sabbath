@@ -1,4 +1,12 @@
-import { useState, useEffect, useCallback, useRef, type ComponentType } from "react"
+import {
+  lazy,
+  Suspense,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type ComponentType,
+} from "react"
 import { invoke } from "@tauri-apps/api/core"
 
 import { Button } from "@/components/ui/button"
@@ -23,12 +31,15 @@ import {
   HelpCircleIcon,
   GraduationCapIcon,
   BrainCircuitIcon,
+  CastIcon,
   DownloadIcon,
   HardDriveIcon,
+  PaletteIcon,
 } from "lucide-react"
 import { useBibleStore } from "@/stores/bible-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
+import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useAssets } from "@/hooks/use-assets"
 import { transcriptionActions } from "@/hooks/use-transcription"
 import { useTutorialStore } from "@/stores/tutorial-store"
@@ -39,6 +50,18 @@ import {
 import type { DeviceInfo } from "@/types/audio"
 import { APP_DISPLAY_NAME } from "@/lib/app-brand"
 import { cn } from "@/lib/utils"
+
+const LazyBroadcastSettings = lazy(() =>
+  import("@/components/broadcast/broadcast-settings").then((mod) => ({
+    default: mod.BroadcastSettings,
+  })),
+)
+
+const LazyThemeDesigner = lazy(() =>
+  import("@/components/broadcast/theme-designer").then((mod) => ({
+    default: mod.ThemeDesigner,
+  })),
+)
 
 /* -------------------------------------------------------------------------- */
 /*  Nav definition                                                            */
@@ -64,6 +87,16 @@ const navItems: { name: string; id: SettingsSection; icon: React.ReactNode }[] =
     name: "Display Mode",
     id: "display",
     icon: <TvIcon strokeWidth={2} />,
+  },
+  {
+    name: "Broadcast Settings",
+    id: "broadcast",
+    icon: <CastIcon strokeWidth={2} />,
+  },
+  {
+    name: "Theme Settings",
+    id: "themes",
+    icon: <PaletteIcon strokeWidth={2} />,
   },
   {
     name: "Remote Control",
@@ -556,6 +589,88 @@ function ApiKeysSection() {
   )
 }
 
+function BroadcastSection() {
+  const [broadcastOpen, setBroadcastOpen] = useState(false)
+  const [broadcastSettingsMounted, setBroadcastSettingsMounted] = useState(false)
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="rounded-lg border border-white/5 bg-white/5 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              Broadcast outputs
+            </p>
+            <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
+              Manage projector targets, fullscreen output, NDI routing, and the
+              active themes used on your audience displays.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => {
+              setBroadcastSettingsMounted(true)
+              setBroadcastOpen(true)
+            }}
+          >
+            <CastIcon className="size-3.5" />
+            Open broadcast settings
+          </Button>
+        </div>
+      </div>
+
+      {broadcastSettingsMounted ? (
+        <Suspense fallback={null}>
+          <LazyBroadcastSettings
+            open={broadcastOpen}
+            onOpenChange={setBroadcastOpen}
+          />
+        </Suspense>
+      ) : null}
+    </div>
+  )
+}
+
+function ThemeSection() {
+  const [themeDesignerMounted, setThemeDesignerMounted] = useState(false)
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="rounded-lg border border-white/5 bg-white/5 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              Theme designer
+            </p>
+            <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
+              Adjust lyric layouts, lower thirds, fonts, backgrounds, and text
+              positioning in the full-screen theme workspace.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => {
+              setThemeDesignerMounted(true)
+              useBroadcastStore.getState().setDesignerOpen(true)
+            }}
+          >
+            <PaletteIcon className="size-3.5" />
+            Open theme designer
+          </Button>
+        </div>
+      </div>
+
+      {themeDesignerMounted ? (
+        <Suspense fallback={null}>
+          <LazyThemeDesigner />
+        </Suspense>
+      ) : null}
+    </div>
+  )
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Section titles                                                            */
 /* -------------------------------------------------------------------------- */
@@ -565,6 +680,8 @@ const sectionTitles: Record<SettingsSection, string> = {
   speech: "Speech Recognition",
   bible: "Bible Translation",
   display: "Display Mode",
+  broadcast: "Broadcast Settings",
+  themes: "Theme Settings",
   remote: "Remote Control",
   "api-keys": "API Keys",
   help: "Help",
@@ -1074,6 +1191,8 @@ const sectionComponents: Record<SettingsSection, ComponentType> = {
   speech: SpeechSection,
   bible: BibleSection,
   display: DisplayModeSection,
+  broadcast: BroadcastSection,
+  themes: ThemeSection,
   remote: RemoteControlSection,
   "api-keys": ApiKeysSection,
   help: HelpSection,
