@@ -103,7 +103,6 @@ pub fn run() {
             commands::secrets::set_deepgram_api_key,
             commands::secrets::clear_deepgram_api_key,
             commands::secrets::has_remote_http_token,
-            commands::secrets::reveal_remote_http_token,
             commands::secrets::rotate_remote_http_token,
             commands::secrets::has_verification_token,
             commands::secrets::rotate_verification_token,

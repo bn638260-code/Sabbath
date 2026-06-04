@@ -27,15 +27,19 @@ export function PreviewPanel({ className }: { className?: string }) {
   const readingModeAutoLive = useBroadcastStore((s) => s.readingModeAutoLive)
 
   useEffect(() => {
+    let cancelled = false
     if (useBroadcastStore.getState().previewItem?.kind !== "scripture") return
     const verse = useBibleStore.getState().selectedVerse
     if (verse && verse.book_number > 0 && verse.chapter > 0 && verse.verse > 0) {
       bibleActions
         .fetchVerse(verse.book_number, verse.chapter, verse.verse)
         .then((v) => {
-          if (v) selectPreviewVerse(v)
+          if (!cancelled && v) selectPreviewVerse(v)
         })
         .catch((e) => console.error("[preview] verse refetch on translation change failed", e))
+    }
+    return () => {
+      cancelled = true
     }
   }, [activeTranslationId])
 

@@ -12,6 +12,9 @@ use tauri::State;
 use rhema_detection::{DetectionPipeline, MergedDetection, ReadingMode};
 
 use crate::state::AppState;
+use super::validation::{
+    bounded_optional_limit, bounded_text, MAX_QUERY_BYTES, MAX_TRANSCRIPT_BYTES,
+};
 
 /// Confidence assigned to the best FTS5 BM25 match (rank 0) in context search.
 pub(crate) const FTS5_RANK0_CONFIDENCE: f64 = 0.75;
@@ -119,6 +122,7 @@ pub fn detect_verses(
     pipeline_state: State<'_, Mutex<DetectionPipeline>>,
     text: String,
 ) -> Result<Vec<DetectionResult>, String> {
+    bounded_text(&text, "text", MAX_TRANSCRIPT_BYTES)?;
     let merged = {
         let mut pipeline = pipeline_state.lock().map_err(|e| e.to_string())?;
         pipeline.process(&text)
@@ -178,7 +182,8 @@ pub fn semantic_search(
     query: String,
     limit: Option<usize>,
 ) -> Result<Vec<SemanticSearchResult>, String> {
-    let k = limit.unwrap_or(10);
+    bounded_text(&query, "query", MAX_QUERY_BYTES)?;
+    let k = bounded_optional_limit(limit, 10)?;
 
     // Lock pipeline for vector search (may be slow if ONNX runs). If the
     // optional semantic assets are absent, continue with the FTS5 fallback
@@ -298,6 +303,9 @@ pub fn update_detection_settings(
     confidence_threshold: f64,
     cooldown_ms: u64,
 ) -> Result<(), String> {
+    if !confidence_threshold.is_finite() {
+        return Err("confidence_threshold must be finite".into());
+    }
     let threshold = confidence_threshold.clamp(0.0, 1.0);
     let auto_threshold = if auto_mode { threshold } else { 2.0 };
 

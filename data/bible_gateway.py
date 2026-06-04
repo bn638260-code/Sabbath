@@ -29,6 +29,15 @@ COUNT = 0
 TOTAL = 0
 
 
+def validate_translation(bible_translation):
+    translation = bible_translation.upper().strip()
+    if translation not in BIBLE_TRANSLATIONS:
+        raise ValueError(f"Unsupported Bible translation: {bible_translation}")
+    if not re.fullmatch(r"[A-Z0-9_]+", translation):
+        raise ValueError(f"Unsafe Bible translation identifier: {bible_translation}")
+    return translation
+
+
 # download all the books
 def download(book_name, folder, v):
     all_clear = True
@@ -83,6 +92,9 @@ def generate_progress_bar(progress, total, length=20):
 
 
 def generate_bible(bible_translation, show_progress=True):
+    bible_translation = validate_translation(bible_translation)
+    table_name = bible_translation.lower()
+
     # root
     if not os.path.exists(bible_translation):
         os.makedirs(bible_translation)
@@ -132,7 +144,7 @@ def generate_bible(bible_translation, show_progress=True):
     with open(out_name, 'w') as output_file:
         with open(in_name, 'r') as input_file:
             output_file.write(
-                "create table " + bible_translation.lower() + "(book_id int not null, book varchar(255) not null, "
+                "create table " + table_name + "(book_id int not null, book varchar(255) not null, "
                                                               "chapter "
                                                               "int not null, verse int not null, text varchar(1000) not "
                                                               "null, primary key (book_id, chapter, verse));\n\n")
@@ -142,7 +154,7 @@ def generate_bible(bible_translation, show_progress=True):
             for book, chapters in cd.items():
                 for chapter, verses in chapters.items():
                     output_file.write(
-                        "INSERT INTO " + bible_translation.lower() + "(book_id, book, chapter, verse, text) "
+                        "INSERT INTO " + table_name + "(book_id, book, chapter, verse, text) "
                                                                      "VALUES\n")
                     for verse_num, verse_content in verses.items():
                         book_id = books.index(book) + 1

@@ -8,6 +8,9 @@ use rhema_api::{
 };
 
 use crate::commands::secrets;
+use super::validation::{
+    bounded_text, valid_confidence_threshold, valid_port, MAX_QUEUE_LENGTH, MAX_STATUS_TEXT_BYTES,
+};
 
 /// Tauri-aware implementation of `CommandSink`.
 ///
@@ -86,7 +89,7 @@ pub async fn start_osc(
     }
 
     let config = OscConfig {
-        port: port.unwrap_or(8000),
+        port: valid_port(port, 8000)?,
         host: "127.0.0.1".into(),
     };
 
@@ -144,6 +147,7 @@ pub struct HttpRuntime {
     handle: Option<HttpHandle>,
     bound_port: Option<u16>,
     status: SharedStatus,
+    starting: bool,
 }
 
 impl HttpRuntime {
@@ -152,6 +156,7 @@ impl HttpRuntime {
             handle: None,
             bound_port: None,
             status: new_shared_status(),
+            starting: false,
         }
     }
 
@@ -173,28 +178,43 @@ pub async fn start_http(
     state: State<'_, Mutex<HttpRuntime>>,
     port: Option<u16>,
 ) -> Result<u16, String> {
-    let (status, already_running) = {
-        let runtime = state.lock().map_err(|e| e.to_string())?;
-        (runtime.shared_status(), runtime.handle.is_some())
+    let port = valid_port(port, 8080)?;
+    let status = {
+        let mut runtime = state.lock().map_err(|e| e.to_string())?;
+        if runtime.handle.is_some() || runtime.starting {
+            return Err("HTTP API server is already running".into());
+        }
+        runtime.starting = true;
+        runtime.shared_status()
     };
 
-    if already_running {
-        return Err("HTTP API server is already running".into());
-    }
-
-    let _created = secrets::ensure_remote_http_token_exists()?;
-    let token = secrets::get_remote_http_token()?;
+    let token = match (|| -> Result<String, String> {
+        let _created = secrets::ensure_remote_http_token_exists()?;
+        secrets::get_remote_http_token()
+    })() {
+        Ok(token) => token,
+        Err(error) => {
+            let mut runtime = state.lock().map_err(|e| e.to_string())?;
+            runtime.starting = false;
+            return Err(error);
+        }
+    };
 
     let config = HttpConfig {
-        port: port.unwrap_or(8080),
+        port,
         host: "127.0.0.1".into(),
         token,
     };
 
     let sink = Arc::new(TauriSink { app });
-    let result = start_http_server(config, sink, status)
-        .await
-        .map_err(|e| e.to_string())?;
+    let result = match start_http_server(config, sink, status).await {
+        Ok(result) => result,
+        Err(error) => {
+            let mut runtime = state.lock().map_err(|e| e.to_string())?;
+            runtime.starting = false;
+            return Err(error.to_string());
+        }
+    };
 
     let bound_port = result.bound_port;
 
@@ -202,6 +222,7 @@ pub async fn start_http(
         let mut runtime = state.lock().map_err(|e| e.to_string())?;
         runtime.handle = Some(result.handle);
         runtime.bound_port = Some(bound_port);
+        runtime.starting = false;
     }
 
     log::info!("HTTP API server started on port {bound_port}");
@@ -258,16 +279,21 @@ pub async fn update_remote_status(
         snapshot.on_air = v;
     }
     if let Some(v) = active_theme {
+        bounded_text(&v, "active_theme", MAX_STATUS_TEXT_BYTES)?;
         snapshot.active_theme = Some(v);
     }
     if let Some(v) = live_verse {
+        bounded_text(&v, "live_verse", MAX_STATUS_TEXT_BYTES)?;
         snapshot.live_verse = Some(v);
     }
     if let Some(v) = queue_length {
+        if v > MAX_QUEUE_LENGTH {
+            return Err(format!("queue_length must be <= {MAX_QUEUE_LENGTH}"));
+        }
         snapshot.queue_length = v;
     }
     if let Some(v) = confidence_threshold {
-        snapshot.confidence_threshold = v;
+        snapshot.confidence_threshold = valid_confidence_threshold(v)?;
     }
 
     Ok(())

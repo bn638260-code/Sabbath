@@ -73,6 +73,18 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   )
 }
 
+const BIBLE_CHAPTER_COUNTS = [
+  50, 40, 27, 36, 34, 24, 21, 4, 31, 24, 22, 25, 29, 36, 10, 13, 10, 42, 150,
+  31, 12, 8, 66, 52, 5, 48, 12, 14, 3, 9, 1, 4, 7, 3, 3, 3, 2, 14, 4, 28,
+  16, 24, 21, 28, 16, 16, 13, 6, 6, 4, 4, 5, 3, 6, 4, 3, 1, 13, 5, 5, 3, 5,
+  1, 1, 1, 22,
+]
+
+function chapterCountForBook(book: Book | null): number {
+  if (!book) return 1
+  return BIBLE_CHAPTER_COUNTS[book.book_number - 1] ?? 1
+}
+
 export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
   const [activeTab, setActiveTab] = useState<SearchTab>("book")
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
@@ -111,6 +123,7 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
   }, [queueItems])
 
   const selectedBookNumber = selectedBook?.book_number
+  const maxChapter = chapterCountForBook(selectedBook)
 
   // Load initial data and default to Genesis 1:1
   useEffect(() => {
@@ -209,13 +222,11 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowLeft") {
         e.preventDefault()
-        if (chapter > 1) {
-          setChapter((c) => c - 1)
-            setSelectedVerseId(null)
-        }
+        setChapter((c) => (c > 1 ? c - 1 : c))
+        setSelectedVerseId(null)
       } else if (e.key === "ArrowRight") {
         e.preventDefault()
-        setChapter((c) => c + 1)
+        setChapter((c) => (c < maxChapter ? c + 1 : c))
         setSelectedVerseId(null)
       } else if (e.key === "ArrowDown") {
         e.preventDefault()
@@ -249,7 +260,7 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
         }
       }
     },
-    [chapter, currentChapter, effectiveSelectedVerseId]
+    [currentChapter, effectiveSelectedVerseId, maxChapter]
   )
 
   // Context search — hybrid backend (vector + FTS5 BM25) as primary,
@@ -592,10 +603,8 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
                 variant="ghost"
                 size="icon-xs"
                 onClick={() => {
-                  if (chapter > 1) {
-                    setChapter((c) => c - 1)
-                                setSelectedVerseId(null)
-                  }
+                  setChapter((c) => (c > 1 ? c - 1 : c))
+                  setSelectedVerseId(null)
                 }}
                 disabled={chapter <= 1}
               >
@@ -605,9 +614,10 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
                 variant="ghost"
                 size="icon-xs"
                 onClick={() => {
-                  setChapter((c) => c + 1)
-                            setSelectedVerseId(null)
+                  setChapter((c) => (c < maxChapter ? c + 1 : c))
+                  setSelectedVerseId(null)
                 }}
+                disabled={chapter >= maxChapter}
               >
                 <ArrowRightIcon className="size-3" />
               </Button>

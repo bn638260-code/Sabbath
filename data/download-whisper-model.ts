@@ -8,7 +8,9 @@
  */
 
 import { dirname, join } from "node:path"
+import { createHash } from "node:crypto"
 import {
+  createReadStream,
   createWriteStream,
   existsSync,
   mkdirSync,
@@ -25,6 +27,8 @@ const MODEL_PATH = join(MODELS_DIR, MODEL_FILE)
 const MODEL_URL = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_FILE}`
 const TMP_MODEL_PATH = `${MODEL_PATH}.tmp`
 const MAX_ATTEMPTS = 5
+const EXPECTED_SHA256 =
+  "921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f"
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -43,6 +47,17 @@ function getHeaders() {
   return {
     Authorization: `Bearer ${token}`,
   }
+}
+
+async function sha256File(path: string): Promise<string> {
+  const hash = createHash("sha256")
+  await new Promise<void>((resolve, reject) => {
+    const stream = createReadStream(path)
+    stream.on("data", (chunk) => hash.update(chunk))
+    stream.on("end", resolve)
+    stream.on("error", reject)
+  })
+  return hash.digest("hex")
 }
 
 export async function fetchWithRetry(
@@ -137,6 +152,14 @@ export async function main() {
     writer.on("finish", resolve)
     writer.on("error", reject)
   })
+
+  const actualSha256 = await sha256File(TMP_MODEL_PATH)
+  if (actualSha256 !== EXPECTED_SHA256) {
+    rmSync(TMP_MODEL_PATH, { force: true })
+    throw new Error(
+      `Downloaded model checksum mismatch. Expected ${EXPECTED_SHA256}, got ${actualSha256}.`
+    )
+  }
 
   // Atomic rename
   renameSync(TMP_MODEL_PATH, MODEL_PATH)

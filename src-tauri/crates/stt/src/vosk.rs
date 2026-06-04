@@ -246,6 +246,13 @@ async fn stop_vosk_writer(writer: tokio::task::JoinHandle<Result<(), SttError>>)
 }
 
 fn stop_vosk_worker(mut child: Child, reader: std::thread::JoinHandle<()>) {
+    terminate_vosk_child(&mut child);
+    if reader.join().is_err() {
+        log::warn!("Vosk reader thread panicked");
+    }
+}
+
+fn terminate_vosk_child(child: &mut Child) {
     match child.try_wait() {
         Ok(Some(_status)) => {}
         Ok(None) => {
@@ -257,9 +264,6 @@ fn stop_vosk_worker(mut child: Child, reader: std::thread::JoinHandle<()>) {
     }
     if let Err(e) = child.wait() {
         log::warn!("Failed to reap Vosk worker process: {e}");
-    }
-    if reader.join().is_err() {
-        log::warn!("Vosk reader thread panicked");
     }
 }
 
@@ -273,17 +277,33 @@ impl SttProvider for VoskProvider {
         let grammar_json = vosk_grammar_json()?;
         let grammar_file = write_grammar_temp_file(&grammar_json)?;
         let mut child = self.spawn_worker(&grammar_file)?;
-        let mut stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| SttError::ConnectionFailed("failed to open Vosk stdin".to_string()))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| SttError::ConnectionFailed("failed to open Vosk stdout".to_string()))?;
+        let mut stdin = match child.stdin.take() {
+            Some(stdin) => stdin,
+            None => {
+                terminate_vosk_child(&mut child);
+                return Err(SttError::ConnectionFailed(
+                    "failed to open Vosk stdin".to_string(),
+                ));
+            }
+        };
+        let stdout = match child.stdout.take() {
+            Some(stdout) => stdout,
+            None => {
+                terminate_vosk_child(&mut child);
+                return Err(SttError::ConnectionFailed(
+                    "failed to open Vosk stdout".to_string(),
+                ));
+            }
+        };
 
         let cancelled = self.cancelled.clone();
-        let reader = spawn_vosk_reader(stdout, event_tx.clone())?;
+        let reader = match spawn_vosk_reader(stdout, event_tx.clone()) {
+            Ok(reader) => reader,
+            Err(error) => {
+                terminate_vosk_child(&mut child);
+                return Err(error);
+            }
+        };
 
         let writer_cancelled = cancelled.clone();
         let writer = tokio::task::spawn_blocking(move || {

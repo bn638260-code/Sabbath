@@ -72,35 +72,46 @@ function main() {
   let totalParagraphs = 0
 
   for (const file of files) {
-    const raw = readFileSync(join(EGW_SOURCES_DIR, file), "utf-8")
-    const src = JSON.parse(raw) as EgwSource
+    let src: EgwSource
+    try {
+      const raw = readFileSync(join(EGW_SOURCES_DIR, file), "utf-8")
+      src = JSON.parse(raw) as EgwSource
+    } catch (error) {
+      console.error(`Failed to read EGW source ${file}`)
+      throw error
+    }
 
     console.log(`\n📘 Importing "${src.title}" (book_number ${src.book_number})...`)
 
     db.exec("BEGIN TRANSACTION")
-    db.prepare("DELETE FROM egw_paragraphs WHERE book_number = ?").run(src.book_number)
+    try {
+      db.prepare("DELETE FROM egw_paragraphs WHERE book_number = ?").run(src.book_number)
 
-    insertBook.run(src.book_number, src.title, src.abbreviation, src.chapters.length)
-    const bookRow = db
-      .query("SELECT id FROM egw_books WHERE book_number = ?")
-      .get(src.book_number) as { id: number }
+      insertBook.run(src.book_number, src.title, src.abbreviation, src.chapters.length)
+      const bookRow = db
+        .query("SELECT id FROM egw_books WHERE book_number = ?")
+        .get(src.book_number) as { id: number }
 
-    for (const ch of src.chapters) {
-      for (const p of ch.paragraphs) {
-        insertPara.run(
-          bookRow.id,
-          src.book_number,
-          src.title,
-          ch.chapter,
-          ch.title,
-          p.paragraph,
-          p.text
-        )
-        totalParagraphs++
+      for (const ch of src.chapters) {
+        for (const p of ch.paragraphs) {
+          insertPara.run(
+            bookRow.id,
+            src.book_number,
+            src.title,
+            ch.chapter,
+            ch.title,
+            p.paragraph,
+            p.text
+          )
+          totalParagraphs++
+        }
       }
-    }
 
-    db.exec("COMMIT")
+      db.exec("COMMIT")
+    } catch (error) {
+      db.exec("ROLLBACK")
+      throw error
+    }
     console.log(`  ✓ ${src.chapters.length} chapters imported`)
   }
 

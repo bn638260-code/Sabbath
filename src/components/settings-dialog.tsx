@@ -926,13 +926,7 @@ function RemoteControlSection() {
   }
 
   const handleCopyHttpToken = async () => {
-    try {
-      setTokenError(null)
-      const token = await invoke<string>("reveal_remote_http_token")
-      await navigator.clipboard.writeText(token)
-    } catch (e) {
-      setTokenError(String(e))
-    }
+    setTokenError("Remote HTTP tokens cannot be revealed after creation. Rotate the token to issue a new one.")
   }
 
   const handleRotateHttpToken = async () => {

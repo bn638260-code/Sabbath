@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use tauri::State;
 
 use crate::state::AppState;
+use super::validation::{bounded_limit, bounded_text, MAX_QUERY_BYTES};
 use rhema_bible::{Book, CrossReference, Translation, Verse};
 
 #[tauri::command]
@@ -73,6 +74,8 @@ pub fn search_verses(
     translation_id: i64,
     limit: usize,
 ) -> Result<Vec<Verse>, String> {
+    bounded_text(&query, "query", MAX_QUERY_BYTES)?;
+    let limit = bounded_limit(limit)?;
     let app_state = state.lock().map_err(|e| e.to_string())?;
     let db = app_state
         .bible_db

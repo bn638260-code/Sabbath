@@ -32,22 +32,22 @@ impl BookMatcher {
 
         for book in BOOKS {
             // Add the canonical name
-            patterns.push(book.name.to_lowercase());
+            patterns.push(book.name.to_ascii_lowercase());
             pattern_map.push((book.number, book.name.to_string()));
 
             // Add the abbreviation (if different from name)
-            let abbr_lower = book.abbreviation.to_lowercase();
-            if abbr_lower != book.name.to_lowercase() {
+            let abbr_lower = book.abbreviation.to_ascii_lowercase();
+            if abbr_lower != book.name.to_ascii_lowercase() {
                 patterns.push(abbr_lower);
                 pattern_map.push((book.number, book.name.to_string()));
             }
 
             // Add all aliases
             for alias in book.aliases {
-                let alias_lower = alias.to_lowercase();
+                let alias_lower = alias.to_ascii_lowercase();
                 // Avoid duplicates with name and abbreviation
-                if alias_lower != book.name.to_lowercase()
-                    && alias_lower != book.abbreviation.to_lowercase()
+                if alias_lower != book.name.to_ascii_lowercase()
+                    && alias_lower != book.abbreviation.to_ascii_lowercase()
                 {
                     patterns.push(alias_lower);
                     pattern_map.push((book.number, book.name.to_string()));
@@ -81,7 +81,7 @@ impl BookMatcher {
         let Some(automaton) = &self.automaton else {
             return Vec::new();
         };
-        let text_lower = text.to_lowercase();
+        let text_lower = text.to_ascii_lowercase();
         let text_bytes = text_lower.as_bytes();
         let mut raw_matches: Vec<BookMatch> = Vec::new();
 

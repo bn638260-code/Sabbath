@@ -26,6 +26,7 @@ export interface ReadingAdvance {
 export interface DetectionStatus {
   has_direct: boolean
   has_semantic: boolean
+  paraphrase_enabled: boolean
 }
 
 export interface SemanticSearchResult {

@@ -7,6 +7,7 @@ use std::sync::Mutex;
 use tauri::State;
 
 use crate::state::AppState;
+use super::validation::{bounded_limit, bounded_text, MAX_QUERY_BYTES};
 use rhema_bible::{BibleDb, BibleError, EgwBook, EgwChapterInfo, EgwParagraph};
 
 fn with_db<T>(
@@ -61,5 +62,7 @@ pub fn egw_search(
     query: String,
     limit: usize,
 ) -> Result<Vec<EgwParagraph>, String> {
+    bounded_text(&query, "query", MAX_QUERY_BYTES)?;
+    let limit = bounded_limit(limit)?;
     with_db(&state, |db| db.search_egw(&query, limit))
 }

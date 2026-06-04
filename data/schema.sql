@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS cross_references (
 );
 
 CREATE INDEX IF NOT EXISTS idx_crossref_from ON cross_references(from_book, from_chapter, from_verse);
+CREATE INDEX IF NOT EXISTS idx_crossref_to ON cross_references(to_book, to_chapter, to_verse_start, to_verse_end);
 
 CREATE TABLE IF NOT EXISTS embedding_status (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

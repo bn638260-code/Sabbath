@@ -172,15 +172,6 @@ pub fn has_remote_http_token_with_store(store: &dyn KeychainStore) -> Result<boo
     }
 }
 
-/// Reveal the currently configured remote HTTP token (for copy/paste).
-/// This does not persist the value anywhere on the frontend; callers should copy it immediately.
-#[command]
-pub fn reveal_remote_http_token() -> Result<String, String> {
-    entry("remote_http_token")?
-        .get_password()
-        .map_err(|e| format!("Could not read remote HTTP token from OS keychain: {e}"))
-}
-
 /// Rotate the remote HTTP token (generates a new one and persists it).
 #[command]
 pub fn rotate_remote_http_token() -> Result<String, String> {

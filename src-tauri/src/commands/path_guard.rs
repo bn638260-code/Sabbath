@@ -36,6 +36,10 @@ pub fn is_blocked_system_path(path: &str) -> bool {
         || normalized.starts_with("/sbin/")
         || normalized.starts_with("/usr/")
         || normalized.starts_with("/var/")
+        || normalized.starts_with("/proc/")
+        || normalized.starts_with("/dev/")
+        || normalized.starts_with("/sys/")
+        || normalized.starts_with("/root/")
         || normalized.starts_with("/system/")
         || normalized.starts_with("/library/")
     {
@@ -98,6 +102,10 @@ mod tests {
     fn blocks_system_paths() {
         assert!(is_blocked_system_path("C:\\Windows\\system32\\config.json"));
         assert!(is_blocked_system_path("/etc/theme.json"));
+        assert!(is_blocked_system_path("/proc/self/environ"));
+        assert!(is_blocked_system_path("/dev/random"));
+        assert!(is_blocked_system_path("/sys/kernel"));
+        assert!(is_blocked_system_path("/root/.ssh/id_rsa"));
         assert!(!is_blocked_system_path("C:\\Users\\me\\theme.json"));
     }
 }

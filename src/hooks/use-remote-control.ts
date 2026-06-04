@@ -24,6 +24,13 @@ export function useRemoteControl() {
 
     let cancelled = false
     const unlisteners: UnlistenFn[] = []
+    const addUnlistener = (fn: UnlistenFn) => {
+      if (cancelled) {
+        fn()
+      } else {
+        unlisteners.push(fn)
+      }
+    }
 
     async function setup() {
       // remote:next — advance queue to next verse and present it
@@ -40,7 +47,7 @@ export function useRemoteControl() {
         useQueueStore.getState().setActive(nextIndex)
         presentQueueItem(nextIndex)
       })
-      unlisteners.push(u1)
+      addUnlistener(u1)
 
       // remote:prev — go to previous verse in queue and present it
       const u2 = await listen("remote:prev", () => {
@@ -56,7 +63,7 @@ export function useRemoteControl() {
         useQueueStore.getState().setActive(prevIndex)
         presentQueueItem(prevIndex)
       })
-      unlisteners.push(u2)
+      addUnlistener(u2)
 
       // remote:theme — switch active theme by name
       const u3 = await listen<string>("remote:theme", (event) => {
@@ -73,7 +80,7 @@ export function useRemoteControl() {
           useBroadcastStore.getState().setActiveTheme(theme.id)
         }
       })
-      unlisteners.push(u3)
+      addUnlistener(u3)
 
       // remote:opacity — set broadcast output opacity
       const u4 = await listen<string>("remote:opacity", (event) => {
@@ -83,7 +90,7 @@ export function useRemoteControl() {
         if (value === undefined) return
         useBroadcastStore.getState().setOpacity(value)
       })
-      unlisteners.push(u4)
+      addUnlistener(u4)
 
       // remote:on_air — toggle live broadcast state
       const u5 = await listen<string>("remote:on_air", (event) => {
@@ -93,21 +100,21 @@ export function useRemoteControl() {
         if (active === undefined) return
         useBroadcastStore.getState().setLive(active)
       })
-      unlisteners.push(u5)
+      addUnlistener(u5)
 
       // remote:show — show broadcast output
       const u6 = await listen("remote:show", () => {
         if (cancelled) return
         useBroadcastStore.getState().setLive(true)
       })
-      unlisteners.push(u6)
+      addUnlistener(u6)
 
       // remote:hide — hide broadcast output
       const u7 = await listen("remote:hide", () => {
         if (cancelled) return
         useBroadcastStore.getState().setLive(false)
       })
-      unlisteners.push(u7)
+      addUnlistener(u7)
 
       // remote:confidence — set detection confidence threshold
       const u8 = await listen<string>("remote:confidence", (event) => {
@@ -117,7 +124,7 @@ export function useRemoteControl() {
         if (value === undefined) return
         useSettingsStore.getState().setConfidenceThreshold(value)
       })
-      unlisteners.push(u8)
+      addUnlistener(u8)
     }
 
     setup()

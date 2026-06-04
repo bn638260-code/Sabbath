@@ -345,6 +345,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
         editingThemeId: customTheme.id,
         draftTheme: customTheme,
       }))
+      get().syncBroadcastOutputFor("main")
     } else {
       get().saveTheme(draftTheme)
     }
@@ -434,6 +435,7 @@ export function hydrateBroadcastThemes(): Promise<void> {
         }, SAVE_DEBOUNCE_MS)
       })
     } catch {
+      hydrationPromise = null
       console.warn("[broadcast] Failed to load persisted themes, using defaults")
     }
   })()

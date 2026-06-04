@@ -44,6 +44,12 @@ impl HnswVectorIndex {
         ids_path: &Path,
         dim: usize,
     ) -> Result<Self, DetectionError> {
+        if dim == 0 {
+            return Err(DetectionError::Internal(
+                "embedding dimension must be greater than 0".into(),
+            ));
+        }
+
         // --- Read embeddings ---
         let emb_bytes = std::fs::read(embeddings_path).map_err(|e| {
             DetectionError::Internal(format!(
@@ -58,7 +64,10 @@ impl HnswVectorIndex {
             ));
         }
 
-        let embeddings: Vec<f32> = bytemuck::cast_slice(&emb_bytes).to_vec();
+        let embeddings: Vec<f32> = emb_bytes
+            .chunks_exact(std::mem::size_of::<f32>())
+            .map(|chunk| f32::from_le_bytes(chunk.try_into().expect("chunk length is 4")))
+            .collect();
         let num_vectors = embeddings.len() / dim;
 
         if !embeddings.len().is_multiple_of(dim) {
@@ -80,7 +89,10 @@ impl HnswVectorIndex {
             ));
         }
 
-        let verse_ids: Vec<i64> = bytemuck::cast_slice(&ids_bytes).to_vec();
+        let verse_ids: Vec<i64> = ids_bytes
+            .chunks_exact(std::mem::size_of::<i64>())
+            .map(|chunk| i64::from_le_bytes(chunk.try_into().expect("chunk length is 8")))
+            .collect();
 
         if verse_ids.len() != num_vectors {
             return Err(DetectionError::Internal(format!(
@@ -111,6 +123,21 @@ impl HnswVectorIndex {
             return Err(DetectionError::Internal(
                 "embeddings and verse_ids length mismatch".into(),
             ));
+        }
+        if dim == 0 {
+            return Err(DetectionError::Internal(
+                "embedding dimension must be greater than 0".into(),
+            ));
+        }
+        if let Some((index, embedding)) = embeddings
+            .iter()
+            .enumerate()
+            .find(|(_, embedding)| embedding.len() != dim)
+        {
+            return Err(DetectionError::Internal(format!(
+                "embedding {index} dim {} != expected dim {dim}",
+                embedding.len()
+            )));
         }
 
         let flat: Vec<f32> = embeddings.into_iter().flatten().collect();

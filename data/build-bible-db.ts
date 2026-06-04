@@ -158,8 +158,8 @@ function main() {
     // Insert books and verses
     for (let bookIdx = 0; bookIdx < data.books.length; bookIdx++) {
       const book = data.books[bookIdx]
-      const bookNumber = bookIdx + 1
       const abbrev = BOOK_ABBREVS[book.name] || book.name.substring(0, 4)
+      const bookNumber = OSIS_TO_NUM[abbrev] ?? bookIdx + 1
       const testament = bookNumber <= 39 ? "OT" : "NT"
 
       insertBook.run(tId, bookNumber, book.name, abbrev, testament)
@@ -199,16 +199,38 @@ function main() {
       "INSERT INTO cross_references (from_book, from_chapter, from_verse, to_book, to_chapter, to_verse_start, to_verse_end, votes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
 
-    function parseOsis(ref: string): { book: number; chapter: number; verse: number } | null {
+    type ParsedOsis = { book: number; chapter: number; verse: number }
+    type ParsedOsisRange = {
+      start: ParsedOsis
+      end: ParsedOsis
+    }
+
+    function parseOsis(ref: string): ParsedOsis | null {
       // Format: "Gen.1.1" or "1John.3.16"
       const parts = ref.split(".")
-      if (parts.length < 3) return null
+      if (parts.length !== 3) return null
       const bookAbbrev = parts[0]
       const chapter = parseInt(parts[1])
       const verse = parseInt(parts[2])
       const book = OSIS_TO_NUM[bookAbbrev]
       if (!book || isNaN(chapter) || isNaN(verse)) return null
       return { book, chapter, verse }
+    }
+
+    function parseOsisRange(ref: string): ParsedOsisRange | null {
+      const [startRef, endRef] = ref.split("-", 2)
+      const start = parseOsis(startRef)
+      if (!start) return null
+
+      if (!endRef) {
+        return { start, end: start }
+      }
+
+      const end = parseOsis(endRef)
+      if (!end) return null
+      if (end.book !== start.book || end.chapter !== start.chapter) return null
+
+      return { start, end }
     }
 
     const lines = crossRefRaw.split("\n")
@@ -219,13 +241,13 @@ function main() {
       if (line.startsWith("From") || line.startsWith("#") || !line.trim()) continue
       const [fromStr, toStr, votesStr] = line.split("\t")
       const from = parseOsis(fromStr)
-      const to = parseOsis(toStr)
+      const to = parseOsisRange(toStr)
       if (!from || !to) continue
 
       const votes = parseInt(votesStr) || 0
       insertCrossRef.run(
         from.book, from.chapter, from.verse,
-        to.book, to.chapter, to.verse, to.verse,
+        to.start.book, to.start.chapter, to.start.verse, to.end.verse,
         votes
       )
       crossRefCount++

@@ -271,6 +271,69 @@ fn finalize_live_semantic_results(
     merged
 }
 
+fn build_stt_provider(
+    provider_name: &str,
+    app: &AppHandle,
+    device_id: &Option<String>,
+    gain: Option<f32>,
+) -> Result<Box<dyn SttProvider>, String> {
+    match provider_name {
+        "vosk" | "whisper" => {
+            let model_path = asset_paths::vosk_model_path(app);
+            if !model_path.exists() {
+                return Err(format!(
+                    "Vosk model not found at {}. Install the small English Vosk model at C:\\Users\\fanel\\Downloads\\vosk-model-small-en-us, set SABBATHCUE_VOSK_MODEL_DIR, or place it into models/vosk/vosk-model-small-en-us.",
+                    model_path.display()
+                ));
+            }
+            let worker_path = asset_paths::vosk_worker_path(app);
+            if !worker_path.exists() {
+                return Err(format!("Vosk worker not found at {}", worker_path.display()));
+            }
+
+            log::info!(
+                "Starting Vosk transcription: model={}, worker={}, device_id={device_id:?}",
+                model_path.display(),
+                worker_path.display()
+            );
+
+            Ok(Box::new(VoskProvider::new(model_path, worker_path)))
+        }
+        #[cfg(feature = "whisper")]
+        "legacy-whisper" => {
+            let model_path = asset_paths::vosk_model_path(app);
+            Err(format!(
+                "Legacy Whisper is no longer the local provider. Use Vosk; expected Vosk model at {}.",
+                model_path.display()
+            ))
+        }
+        "faster-whisper" => {
+            Err("faster-whisper has been removed. Choose Vosk or Deepgram.".into())
+        }
+        _ => {
+            let resolved_api_key = secrets::get_deepgram_api_key_or_empty()?;
+
+            if resolved_api_key.is_empty() {
+                return Err("No Deepgram API key configured. Set it in Settings.".into());
+            }
+
+            log::info!(
+                "Starting Deepgram transcription: api_key_configured=true, device_id={device_id:?}, gain={gain:?}"
+            );
+
+            let stt_config = SttConfig {
+                api_key: resolved_api_key,
+                model: "nova-3".to_string(),
+                sample_rate: 16_000,
+                encoding: "linear16".to_string(),
+                language: Some("en-US".to_string()),
+            };
+
+            Ok(Box::new(DeepgramClient::new(stt_config)))
+        }
+    }
+}
+
 /// Start the full audio-capture-to-transcription pipeline.
 ///
 /// 1. Opens the microphone via cpal (on a dedicated thread so the non-Send
@@ -295,76 +358,27 @@ pub async fn start_transcription(
     // ── 1. Guard: already running? ──────────────────────────────────────
     let (stt_active, audio_active) = {
         let app_state = state.lock().map_err(|e| e.to_string())?;
-        if app_state.stt_active.load(Ordering::Relaxed) {
-            return Err("Transcription is already running".into());
-        }
         (app_state.stt_active.clone(), app_state.audio_active.clone())
     };
+
+    if stt_active
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return Err("Transcription is already running".into());
+    }
 
     let provider_name = provider.as_deref().unwrap_or("vosk");
 
     // ── 2. Build the STT provider ───────────────────────────────────────
-    let stt_provider: Box<dyn SttProvider> = match provider_name {
-        "vosk" | "whisper" => {
-            let model_path = asset_paths::vosk_model_path(&app);
-            if !model_path.exists() {
-                return Err(format!(
-                    "Vosk model not found at {}. Install the small English Vosk model at C:\\Users\\fanel\\Downloads\\vosk-model-small-en-us, set SABBATHCUE_VOSK_MODEL_DIR, or place it into models/vosk/vosk-model-small-en-us.",
-                    model_path.display()
-                ));
-            }
-            let worker_path = asset_paths::vosk_worker_path(&app);
-            if !worker_path.exists() {
-                return Err(format!(
-                    "Vosk worker not found at {}",
-                    worker_path.display()
-                ));
-            }
-
-            log::info!(
-                "Starting Vosk transcription: model={}, worker={}, device_id={device_id:?}",
-                model_path.display(),
-                worker_path.display()
-            );
-
-            Box::new(VoskProvider::new(model_path, worker_path))
-        }
-        #[cfg(feature = "whisper")]
-        "legacy-whisper" => {
-            let model_path = asset_paths::vosk_model_path(&app);
-            return Err(format!(
-                "Legacy Whisper is no longer the local provider. Use Vosk; expected Vosk model at {}.",
-                model_path.display()
-            ));
-        }
-        "faster-whisper" => {
-            return Err("faster-whisper has been removed. Choose Vosk or Deepgram.".into());
-        }
-        _ => {
-            // Deepgram (default)
-            let resolved_api_key = secrets::get_deepgram_api_key_or_empty()?;
-
-            if resolved_api_key.is_empty() {
-                return Err("No Deepgram API key configured. Set it in Settings.".into());
-            }
-
-            log::info!(
-                "Starting Deepgram transcription: api_key_configured=true, device_id={device_id:?}, gain={gain:?}"
-            );
-
-            let stt_config = SttConfig {
-                api_key: resolved_api_key,
-                model: "nova-3".to_string(),
-                sample_rate: 16_000,
-                encoding: "linear16".to_string(),
-                language: Some("en-US".to_string()),
-            };
-
-            Box::new(DeepgramClient::new(stt_config))
+    let stt_provider = match build_stt_provider(provider_name, &app, &device_id, gain) {
+        Ok(provider) => provider,
+        Err(error) => {
+            stt_active.store(false, Ordering::SeqCst);
+            return Err(error);
         }
     };
 
-    stt_active.store(true, Ordering::SeqCst);
     audio_active.store(true, Ordering::SeqCst);
 
     // ── 3. Prepare channels ─────────────────────────────────────────────
@@ -603,7 +617,7 @@ pub async fn start_transcription(
             sem_final_notify.notified().await;
 
             while let Some((seq, text)) = take_semantic_job(&sem_final_job, "final") {
-                let check_seq = sem_final_latest_seq.load(Ordering::Relaxed);
+                let check_seq = sem_final_latest_seq.load(Ordering::Acquire);
 
                 if seq < check_seq {
                     log::debug!(
@@ -633,7 +647,7 @@ pub async fn start_transcription(
             sem_partial_notify.notified().await;
 
             while let Some((seq, text)) = take_semantic_job(&sem_partial_job, "partial") {
-                let check_seq = sem_partial_latest_seq.load(Ordering::Relaxed);
+                let check_seq = sem_partial_latest_seq.load(Ordering::Acquire);
                 if seq < check_seq {
                     log::debug!(
                         "[DET-SEMANTIC] Skipping stale partial job seq={seq} latest={check_seq}",
@@ -851,7 +865,7 @@ pub async fn start_transcription(
                             // Event consumer proceeds immediately to next transcript.
                             if let Some(detection_text) = route.authoritative_detection {
                                 if let Ok(()) = detect_tx.try_send((seq, detection_text.clone())) {
-                                    latest_accepted_seq.store(seq, Ordering::Relaxed);
+                                    latest_accepted_seq.store(seq, Ordering::Release);
                                     let n = detect_sent_evt.fetch_add(1, Ordering::Relaxed) + 1;
                                     if n % 25 == 0 {
                                         let depth = detect_tx.max_capacity() - detect_tx.capacity();
@@ -992,7 +1006,7 @@ fn run_partial_direct_preview_detection(
     latest_seq: Arc<AtomicU64>,
     transcript: &str,
 ) {
-    if seq != latest_seq.load(Ordering::Relaxed) {
+    if seq != latest_seq.load(Ordering::Acquire) {
         return;
     }
 
@@ -1005,7 +1019,7 @@ fn run_partial_direct_preview_detection(
         detector.detect(transcript)
     };
 
-    if direct_results.is_empty() || seq != latest_seq.load(Ordering::Relaxed) {
+    if direct_results.is_empty() || seq != latest_seq.load(Ordering::Acquire) {
         return;
     }
 
@@ -1043,7 +1057,7 @@ fn run_partial_direct_preview_detection(
     );
     drop(app_state);
 
-    if results.is_empty() || seq != latest_seq.load(Ordering::Relaxed) {
+    if results.is_empty() || seq != latest_seq.load(Ordering::Acquire) {
         return;
     }
 
@@ -1082,7 +1096,7 @@ fn run_direct_detection(
 ) -> bool {
     // Stale detection suppression: if this job's sequence is older than the
     // latest accepted transcript sequence, skip emission.
-    if seq < latest_seq.load(Ordering::Relaxed) {
+    if seq < latest_seq.load(Ordering::Acquire) {
         log::debug!("[DET-DIRECT] Skipping stale job seq={seq}");
         return false;
     }
@@ -1123,13 +1137,13 @@ fn run_direct_detection(
 
     // Resolve verse info from DB (needs AppState, but only briefly for DB lookup)
     let app_managed: State<'_, Mutex<AppState>> = app.state();
-    let Ok(app_state) = app_managed.try_lock() else {
+    let Ok(app_state) = app_managed.lock() else {
         let bad = DIRECT_LOCK_CONTENDED.fetch_add(1, Ordering::Relaxed) + 1;
         let good = DIRECT_LOCK_OK.load(Ordering::Relaxed);
         log::warn!("[DET-DIRECT] AppState try_lock FAILED (contention) ok={good} contended={bad}");
 
         // Check for stale sequence BEFORE emitting in fallback path
-        if seq < latest_seq.load(Ordering::Relaxed) {
+        if seq < latest_seq.load(Ordering::Acquire) {
             log::debug!("[DET-DIRECT] Skipping stale emission in fallback path seq={seq}");
             return has_high_confidence;
         }
@@ -1184,7 +1198,7 @@ fn run_direct_detection(
     drop(app_state);
 
     // Final stale check before emission
-    if seq < latest_seq.load(Ordering::Relaxed) {
+    if seq < latest_seq.load(Ordering::Acquire) {
         log::debug!("[DET-DIRECT] Skipping emission for stale seq={seq}");
         return has_high_confidence;
     }
@@ -1207,7 +1221,7 @@ fn run_direct_detection(
 fn run_semantic_detection(app: &AppHandle, seq: u64, latest_seq: Arc<AtomicU64>, transcript: &str) {
     // Stale detection suppression: if this job's sequence is older than the
     // latest accepted transcript sequence, skip emission.
-    if seq < latest_seq.load(Ordering::Relaxed) {
+    if seq < latest_seq.load(Ordering::Acquire) {
         log::debug!("[DET-SEMANTIC] Skipping stale job seq={seq}");
         return;
     }
@@ -1271,7 +1285,7 @@ fn run_semantic_detection(app: &AppHandle, seq: u64, latest_seq: Arc<AtomicU64>,
     drop(app_state);
 
     // Final stale check before emission
-    if seq < latest_seq.load(Ordering::Relaxed) {
+    if seq < latest_seq.load(Ordering::Acquire) {
         log::debug!("[DET-SEMANTIC] Skipping emission for stale seq={seq}");
         return;
     }

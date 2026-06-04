@@ -941,9 +941,11 @@ fn compute_confidence(_resolved: &VerseRef, original: &VerseRef) -> f64 {
 
 /// Extract a snippet of text around the reference for context.
 fn extract_snippet(text: &str, start: usize, end: usize) -> String {
-    let snippet_start = start.saturating_sub(30);
-    let snippet_end = if end + 30 < text.len() {
-        end + 30
+    let start = floor_char_boundary(text, start.min(text.len()));
+    let end = floor_char_boundary(text, end.min(text.len()));
+    let snippet_start = floor_char_boundary(text, start.saturating_sub(30));
+    let snippet_end = if end.saturating_add(30) < text.len() {
+        ceil_char_boundary(text, end + 30)
     } else {
         text.len()
     };
@@ -962,6 +964,21 @@ fn extract_snippet(text: &str, start: usize, end: usize) -> String {
     });
 
     text[snippet_start..snippet_end].to_string()
+}
+
+fn floor_char_boundary(text: &str, mut idx: usize) -> usize {
+    while idx > 0 && !text.is_char_boundary(idx) {
+        idx -= 1;
+    }
+    idx
+}
+
+fn ceil_char_boundary(text: &str, mut idx: usize) -> usize {
+    idx = idx.min(text.len());
+    while idx < text.len() && !text.is_char_boundary(idx) {
+        idx += 1;
+    }
+    idx
 }
 
 #[cfg(test)]
