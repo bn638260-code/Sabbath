@@ -114,21 +114,44 @@ describe("hymnal services", () => {
     ])
   })
 
-  it("preserves repeated hymn sections as separate screens", async () => {
-    const hymn = await getHymnByNumber(1)
-    expect(hymn).not.toBeNull()
+  it("preserves repeated hymn sections as separate screen groups", () => {
+    const sectionId = "v1"
+    const hymn = makeHymn([
+      {
+        id: sectionId,
+        kind: "verse",
+        label: "Verse 1",
+        number: 1,
+        lines: [
+          "Line one",
+          "Line two",
+          "Line three",
+          "Line four",
+          "Line five",
+          "Line six",
+        ],
+      },
+    ])
 
-    const sectionId = hymn!.sections[0].id
     const screens = generateHymnScreens({
-      hymn: hymn!,
+      hymn,
       selectedSectionIds: [sectionId, sectionId],
     })
 
-    expect(screens).toHaveLength(2)
+    expect(screens).toHaveLength(4)
     expect(screens.map((screen) => screen.id)).toEqual([
       `${sectionId}-repeat-1-screen-1`,
+      `${sectionId}-repeat-1-screen-2`,
       `${sectionId}-repeat-2-screen-1`,
+      `${sectionId}-repeat-2-screen-2`,
     ])
-    expect(screens.every((screen) => screen.sectionScreenCount === 1)).toBe(true)
+    expect(screens.map((screen) => screen.sectionScreenCount)).toEqual([2, 2, 2, 2])
+    expect(screens.map((screen) => screen.sectionScreenIndex)).toEqual([0, 1, 0, 1])
+    expect(screens.map((screen) => screen.lines)).toEqual([
+      ["Line one", "Line two", "Line three", "Line four"],
+      ["Line five", "Line six"],
+      ["Line one", "Line two", "Line three", "Line four"],
+      ["Line five", "Line six"],
+    ])
   })
 })
