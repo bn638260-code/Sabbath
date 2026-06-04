@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core"
+import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
 import { useDetectionStore } from "@/stores/detection-store"
 import type { DetectionResult } from "@/types"
 
@@ -8,8 +8,10 @@ export interface DetectionControlStatus {
 
 // Stable action functions (same pattern as use-bible.ts)
 async function detectVerses(text: string) {
+  if (!isTauriRuntime()) return []
+
   try {
-    const results = await invoke<DetectionResult[]>("detect_verses", { text })
+    const results = await invokeTauri<DetectionResult[]>("detect_verses", { text })
     if (results.length > 0) {
       useDetectionStore.getState().addDetections(results)
     }
@@ -21,7 +23,15 @@ async function detectVerses(text: string) {
 }
 
 async function getDetectionStatus() {
-  return invoke<{
+  if (!isTauriRuntime()) {
+    return {
+      has_direct: false,
+      has_semantic: false,
+      paraphrase_enabled: false,
+    }
+  }
+
+  return invokeTauri<{
     has_direct: boolean
     has_semantic: boolean
     paraphrase_enabled: boolean
@@ -31,11 +41,17 @@ async function getDetectionStatus() {
 }
 
 async function setDetectionPaused(paused: boolean) {
-  return invoke<boolean>("set_detection_paused", { paused })
+  if (!isTauriRuntime()) return paused
+
+  return invokeTauri<boolean>("set_detection_paused", { paused })
 }
 
 async function getDetectionControlStatus() {
-  return invoke<DetectionControlStatus>("detection_control_status")
+  if (!isTauriRuntime()) {
+    return { detection_paused: false }
+  }
+
+  return invokeTauri<DetectionControlStatus>("detection_control_status")
 }
 
 export const detectionActions = {
