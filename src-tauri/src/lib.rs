@@ -33,7 +33,7 @@ pub fn run() {
     dotenvy::from_filename("../.env").ok();
     install_panic_hook();
     let detection_cooldown = rhema_detection::AutoQueueCooldown::default();
-    tauri::Builder::default()
+    let run_result = tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(tauri_plugin_log::log::LevelFilter::Info)
@@ -120,28 +120,38 @@ pub fn run() {
             let db_path = asset_paths::bible_db_path(app.handle());
 
             if db_path.exists() {
-                let bible_db = if app.path().resource_dir().ok().is_some_and(|dir| {
-                    db_path.starts_with(dir)
-                }) {
+                let bible_db = if app
+                    .path()
+                    .resource_dir()
+                    .ok()
+                    .is_some_and(|dir| db_path.starts_with(dir))
+                {
                     rhema_bible::BibleDb::open_readonly(&db_path)
-                        .expect("Failed to open bundled Bible database")
                 } else {
                     rhema_bible::BibleDb::open(&db_path)
-                        .expect("Failed to open Bible database")
                 };
 
-                let managed_state = app.state::<Mutex<state::AppState>>();
-                let mut state = managed_state
-                    .lock()
-                    .map_err(|_| poisoned_lock_error("App state"))?;
-                if let Ok(translations) = bible_db.list_translations() {
-                    if let Some(translation_id) = state::initial_translation_id(&translations) {
-                        state.active_translation_id = translation_id;
+                match bible_db {
+                    Ok(bible_db) => {
+                        let managed_state = app.state::<Mutex<state::AppState>>();
+                        let mut state = managed_state
+                            .lock()
+                            .map_err(|_| poisoned_lock_error("App state"))?;
+                        if let Ok(translations) = bible_db.list_translations() {
+                            if let Some(translation_id) =
+                                state::initial_translation_id(&translations)
+                            {
+                                state.active_translation_id = translation_id;
+                            }
+                        }
+                        state.bible_db = Some(bible_db);
+                        drop(state);
+                        log::info!("Bible database loaded from {}", db_path.display());
+                    }
+                    Err(error) => {
+                        log::error!("Failed to open Bible database at {}: {error}", db_path.display());
                     }
                 }
-                state.bible_db = Some(bible_db);
-                drop(state);
-                log::info!("Bible database loaded from {}", db_path.display());
             } else {
                 log::warn!("Bible database not found at {}", db_path.display());
             }
@@ -198,6 +208,9 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .run(tauri::generate_context!());
+
+    if let Err(error) = run_result {
+        log::error!("Tauri application exited with error: {error}");
+    }
 }

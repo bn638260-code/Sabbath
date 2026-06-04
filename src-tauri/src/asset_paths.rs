@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tauri::{AppHandle, Manager};
 
@@ -20,7 +20,7 @@ fn first_existing(paths: impl IntoIterator<Item = PathBuf>) -> Option<PathBuf> {
     paths.into_iter().find(|p| p.exists())
 }
 
-fn is_vosk_model_dir(path: &PathBuf) -> bool {
+fn is_vosk_model_dir(path: &Path) -> bool {
     path.join("conf").exists() && path.join("am").exists()
 }
 

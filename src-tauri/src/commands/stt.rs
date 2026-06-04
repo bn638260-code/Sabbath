@@ -234,10 +234,12 @@ fn finalize_live_semantic_results(
                 existing.confidence = existing.confidence.max(result.confidence);
                 existing.auto_queued |= result.auto_queued;
                 if existing.verse_text.is_empty() && !result.verse_text.is_empty() {
-                    existing.verse_text = result.verse_text.clone();
+                    existing.verse_text.clone_from(&result.verse_text);
                 }
                 if existing.transcript_snippet.is_empty() && !result.transcript_snippet.is_empty() {
-                    existing.transcript_snippet = result.transcript_snippet.clone();
+                    existing
+                        .transcript_snippet
+                        .clone_from(&result.transcript_snippet);
                 }
                 if existing.book_number <= 0 && result.book_number > 0 {
                     *existing = result;
@@ -600,11 +602,7 @@ pub async fn start_transcription(
         loop {
             sem_final_notify.notified().await;
 
-            loop {
-                let Some((seq, text)) = take_semantic_job(&sem_final_job, "final") else {
-                    break;
-                };
-
+            while let Some((seq, text)) = take_semantic_job(&sem_final_job, "final") {
                 let check_seq = sem_final_latest_seq.load(Ordering::Relaxed);
 
                 if seq < check_seq {
@@ -634,13 +632,7 @@ pub async fn start_transcription(
         loop {
             sem_partial_notify.notified().await;
 
-            loop {
-                let next_job = take_semantic_job(&sem_partial_job, "partial");
-
-                let Some((seq, text)) = next_job else {
-                    break;
-                };
-
+            while let Some((seq, text)) = take_semantic_job(&sem_partial_job, "partial") {
                 let check_seq = sem_partial_latest_seq.load(Ordering::Relaxed);
                 if seq < check_seq {
                     log::debug!(

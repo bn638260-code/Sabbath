@@ -13,7 +13,7 @@ pub struct BookMatch {
 
 /// Aho-Corasick-based matcher for Bible book names, abbreviations, and aliases.
 pub struct BookMatcher {
-    automaton: AhoCorasick,
+    automaton: Option<AhoCorasick>,
     /// Maps each pattern index to its (`book_number`, `canonical_name`).
     pattern_map: Vec<(i32, String)>,
 }
@@ -55,11 +55,17 @@ impl BookMatcher {
             }
         }
 
-        let automaton = AhoCorasick::builder()
+        let automaton = match AhoCorasick::builder()
             .ascii_case_insensitive(true)
             .match_kind(MatchKind::Standard)
             .build(&patterns)
-            .expect("Failed to build Aho-Corasick automaton");
+        {
+            Ok(automaton) => Some(automaton),
+            Err(error) => {
+                log::error!("Failed to build Aho-Corasick book matcher: {error}");
+                None
+            }
+        };
 
         BookMatcher {
             automaton,
@@ -72,6 +78,9 @@ impl BookMatcher {
     /// Results are filtered so that only matches occurring at word boundaries
     /// are returned, and overlapping matches are resolved in favor of the longest.
     pub fn find_books(&self, text: &str) -> Vec<BookMatch> {
+        let Some(automaton) = &self.automaton else {
+            return Vec::new();
+        };
         let text_lower = text.to_lowercase();
         let text_bytes = text_lower.as_bytes();
         let mut raw_matches: Vec<BookMatch> = Vec::new();
@@ -80,7 +89,7 @@ impl BookMatcher {
         // including longer patterns that share a start position with shorter ones.
         let mut state = aho_corasick::automaton::OverlappingState::start();
         loop {
-            self.automaton.find_overlapping(&text_lower, &mut state);
+            automaton.find_overlapping(&text_lower, &mut state);
             let Some(mat) = state.get_match() else {
                 break;
             };

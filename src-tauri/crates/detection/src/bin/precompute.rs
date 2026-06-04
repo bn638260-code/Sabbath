@@ -10,6 +10,14 @@
 
 use std::path::PathBuf;
 
+#[derive(serde::Deserialize)]
+struct VerseEntry {
+    id: i64,
+    text: String,
+    #[allow(dead_code)]
+    r#ref: String,
+}
+
 fn main() {
     // Initialize logging
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -28,11 +36,11 @@ fn main() {
         .unwrap_or_else(|| "embeddings/kjv-minilm-l6-v2-ids.bin".to_string());
 
     log::info!("=== SabbathCue Verse Embedding Pre-computation ===");
-    log::info!("Model: {}", model_path);
-    log::info!("Tokenizer: {}", tokenizer_path);
-    log::info!("Verses: {}", verses_path);
-    log::info!("Output embeddings: {}", output_embeddings);
-    log::info!("Output IDs: {}", output_ids);
+    log::info!("Model: {model_path}");
+    log::info!("Tokenizer: {tokenizer_path}");
+    log::info!("Verses: {verses_path}");
+    log::info!("Output embeddings: {output_embeddings}");
+    log::info!("Output IDs: {output_ids}");
 
     // Create output directory
     if let Some(parent) = PathBuf::from(&output_embeddings).parent() {
@@ -41,7 +49,7 @@ fn main() {
 
     // Load the ONNX model with "passage: " prefix for document embedding
     log::info!("Loading ONNX model...");
-    let mut embedder = rhema_detection::OnnxEmbedder::load(
+    let embedder = rhema_detection::OnnxEmbedder::load(
         &PathBuf::from(&model_path),
         &PathBuf::from(&tokenizer_path),
     )
@@ -55,16 +63,8 @@ fn main() {
     );
 
     // Read verses JSON
-    log::info!("Reading verses from {}...", verses_path);
+    log::info!("Reading verses from {verses_path}...");
     let verses_json = std::fs::read_to_string(&verses_path).expect("Failed to read verses JSON");
-
-    #[derive(serde::Deserialize)]
-    struct VerseEntry {
-        id: i64,
-        text: String,
-        #[allow(dead_code)]
-        r#ref: String,
-    }
 
     let entries: Vec<VerseEntry> =
         serde_json::from_str(&verses_json).expect("Failed to parse verses JSON");

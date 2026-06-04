@@ -190,6 +190,79 @@ fn vosk_grammar_json() -> Result<String, SttError> {
         .map_err(|e| SttError::ConnectionFailed(format!("failed to build Vosk grammar: {e}")))
 }
 
+fn spawn_vosk_reader(
+    stdout: impl std::io::Read + Send + 'static,
+    reader_tx: mpsc::Sender<TranscriptEvent>,
+) -> Result<std::thread::JoinHandle<()>, SttError> {
+    std::thread::Builder::new()
+        .name("vosk-worker-reader".into())
+        .spawn(move || {
+            let lines = BufReader::new(stdout).lines();
+            for line in lines {
+                let Ok(line) = line else { break };
+                let Ok(event) = serde_json::from_str::<WorkerEvent>(&line) else {
+                    continue;
+                };
+                match event {
+                    WorkerEvent::Ready => {
+                        let _ = reader_tx.blocking_send(TranscriptEvent::Connected);
+                    }
+                    WorkerEvent::Partial { text, words } if !text.trim().is_empty() => {
+                        let _ = reader_tx.blocking_send(TranscriptEvent::Partial {
+                            transcript: text,
+                            words: to_words(words),
+                        });
+                    }
+                    WorkerEvent::Final { text, words } if !text.trim().is_empty() => {
+                        let words = to_words(words);
+                        let confidence = average_confidence(&words);
+                        let _ = reader_tx.blocking_send(TranscriptEvent::Final {
+                            transcript: text,
+                            words,
+                            confidence,
+                            speech_final: true,
+                        });
+                        let _ = reader_tx.blocking_send(TranscriptEvent::UtteranceEnd);
+                    }
+                    WorkerEvent::Error { message } => {
+                        let _ = reader_tx.blocking_send(TranscriptEvent::Error(message));
+                    }
+                    WorkerEvent::Partial { .. } | WorkerEvent::Final { .. } => {}
+                }
+            }
+        })
+        .map_err(|e| SttError::ConnectionFailed(format!("failed to spawn Vosk reader: {e}")))
+}
+
+async fn stop_vosk_writer(writer: tokio::task::JoinHandle<Result<(), SttError>>) {
+    match tokio::time::timeout(Duration::from_secs(2), writer).await {
+        Ok(Ok(Ok(()))) => {}
+        Ok(Ok(Err(e))) => log::warn!("Vosk writer exited with error: {e}"),
+        Ok(Err(e)) => log::warn!("Vosk writer task failed: {e}"),
+        Err(_) => {
+            log::warn!("Vosk writer did not stop promptly; terminating worker process");
+        }
+    }
+}
+
+fn stop_vosk_worker(mut child: Child, reader: std::thread::JoinHandle<()>) {
+    match child.try_wait() {
+        Ok(Some(_status)) => {}
+        Ok(None) => {
+            if let Err(e) = child.kill() {
+                log::warn!("Failed to terminate Vosk worker process: {e}");
+            }
+        }
+        Err(e) => log::warn!("Failed to inspect Vosk worker process: {e}"),
+    }
+    if let Err(e) = child.wait() {
+        log::warn!("Failed to reap Vosk worker process: {e}");
+    }
+    if reader.join().is_err() {
+        log::warn!("Vosk reader thread panicked");
+    }
+}
+
 #[async_trait::async_trait]
 impl SttProvider for VoskProvider {
     async fn start(
@@ -210,45 +283,7 @@ impl SttProvider for VoskProvider {
             .ok_or_else(|| SttError::ConnectionFailed("failed to open Vosk stdout".to_string()))?;
 
         let cancelled = self.cancelled.clone();
-        let reader_tx = event_tx.clone();
-        let reader = std::thread::Builder::new()
-            .name("vosk-worker-reader".into())
-            .spawn(move || {
-                let lines = BufReader::new(stdout).lines();
-                for line in lines {
-                    let Ok(line) = line else { break };
-                    let Ok(event) = serde_json::from_str::<WorkerEvent>(&line) else {
-                        continue;
-                    };
-                    match event {
-                        WorkerEvent::Ready => {
-                            let _ = reader_tx.blocking_send(TranscriptEvent::Connected);
-                        }
-                        WorkerEvent::Partial { text, words } if !text.trim().is_empty() => {
-                            let _ = reader_tx.blocking_send(TranscriptEvent::Partial {
-                                transcript: text,
-                                words: to_words(words),
-                            });
-                        }
-                        WorkerEvent::Final { text, words } if !text.trim().is_empty() => {
-                            let words = to_words(words);
-                            let confidence = average_confidence(&words);
-                            let _ = reader_tx.blocking_send(TranscriptEvent::Final {
-                                transcript: text,
-                                words,
-                                confidence,
-                                speech_final: true,
-                            });
-                            let _ = reader_tx.blocking_send(TranscriptEvent::UtteranceEnd);
-                        }
-                        WorkerEvent::Error { message } => {
-                            let _ = reader_tx.blocking_send(TranscriptEvent::Error(message));
-                        }
-                        WorkerEvent::Partial { .. } | WorkerEvent::Final { .. } => {}
-                    }
-                }
-            })
-            .map_err(|e| SttError::ConnectionFailed(format!("failed to spawn Vosk reader: {e}")))?;
+        let reader = spawn_vosk_reader(stdout, event_tx.clone())?;
 
         let writer_cancelled = cancelled.clone();
         let writer = tokio::task::spawn_blocking(move || {
@@ -280,30 +315,8 @@ impl SttProvider for VoskProvider {
             Ok::<(), SttError>(())
         });
 
-        match tokio::time::timeout(Duration::from_secs(2), writer).await {
-            Ok(Ok(Ok(()))) => {}
-            Ok(Ok(Err(e))) => log::warn!("Vosk writer exited with error: {e}"),
-            Ok(Err(e)) => log::warn!("Vosk writer task failed: {e}"),
-            Err(_) => {
-                log::warn!("Vosk writer did not stop promptly; terminating worker process");
-            }
-        }
-
-        match child.try_wait() {
-            Ok(Some(_status)) => {}
-            Ok(None) => {
-                if let Err(e) = child.kill() {
-                    log::warn!("Failed to terminate Vosk worker process: {e}");
-                }
-            }
-            Err(e) => log::warn!("Failed to inspect Vosk worker process: {e}"),
-        }
-        if let Err(e) = child.wait() {
-            log::warn!("Failed to reap Vosk worker process: {e}");
-        }
-        if reader.join().is_err() {
-            log::warn!("Vosk reader thread panicked");
-        }
+        stop_vosk_writer(writer).await;
+        stop_vosk_worker(child, reader);
         let _ = event_tx.send(TranscriptEvent::Disconnected).await;
         Ok(())
     }

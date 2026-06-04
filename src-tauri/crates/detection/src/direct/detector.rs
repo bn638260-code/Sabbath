@@ -432,10 +432,7 @@ fn replace_case_insensitive_phrase(text: &str, from: &str, to: &str) -> String {
     let mut result = String::with_capacity(text.len());
     let mut cursor = 0;
 
-    loop {
-        let Some(relative_pos) = lower[cursor..].find(from) else {
-            break;
-        };
+    while let Some(relative_pos) = lower[cursor..].find(from) {
         let pos = cursor + relative_pos;
         let end = pos + from.len();
 

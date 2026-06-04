@@ -325,7 +325,6 @@ fn try_chapter_verse_spoken(tokens: &[Token], book_match: &BookMatch) -> Option<
                 // "chapter" keyword found but no number follows
                 // (e.g., "Romans chapter verse 8"). Do NOT return here — keep
                 // scanning so a later "chapter N" / "verse N" can still match.
-                continue;
             }
         }
     }
@@ -392,11 +391,11 @@ fn try_verse_only_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<Ve
                                 found = true;
                                 break;
                             }
-                            Token::Word(w) if w == "chapter" => {
-                                if consume_number(tokens, j + 1).is_some() {
-                                    found = true;
-                                    break;
-                                }
+                            Token::Word(w)
+                                if w == "chapter" && consume_number(tokens, j + 1).is_some() =>
+                            {
+                                found = true;
+                                break;
                             }
                             _ => {}
                         }

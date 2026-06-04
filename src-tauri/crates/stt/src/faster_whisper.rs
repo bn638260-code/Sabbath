@@ -198,7 +198,7 @@ impl FasterWhisperWorker {
             .segments
             .unwrap_or_default()
             .into_iter()
-            .flat_map(segment_to_words)
+            .flat_map(|segment| segment_to_words(&segment))
             .collect();
         Ok((text, words, 0.9))
     }
@@ -206,11 +206,10 @@ impl FasterWhisperWorker {
     fn worker_exited_error(&mut self, status: std::process::ExitStatus) -> SttError {
         let mut response_line = String::new();
         let response_error = match self.stdout.read_line(&mut response_line) {
-            Ok(0) => None,
+            Ok(0) | Err(_) => None,
             Ok(_) => serde_json::from_str::<WorkerResponse>(&response_line)
                 .ok()
                 .and_then(|response| response.error),
-            Err(_) => None,
         };
 
         let message = response_error.map_or_else(
@@ -228,7 +227,7 @@ impl Drop for FasterWhisperWorker {
     }
 }
 
-fn segment_to_words(segment: WorkerSegment) -> Vec<Word> {
+fn segment_to_words(segment: &WorkerSegment) -> Vec<Word> {
     let tokens: Vec<&str> = segment.text.split_whitespace().collect();
     if tokens.is_empty() {
         return Vec::new();
