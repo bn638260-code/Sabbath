@@ -58,4 +58,28 @@ describe("getTutorialArrowColor", () => {
       )
     ).toBe("rebeccapurple")
   })
+
+  it("skips radial gradient size keywords before the first color", () => {
+    expect(
+      getTutorialArrowColor(
+        style("radial-gradient(closest-side, rebeccapurple, black)")
+      )
+    ).toBe("rebeccapurple")
+  })
+
+  it("skips radial gradient corner keywords without shape tokens", () => {
+    expect(
+      getTutorialArrowColor(
+        style("radial-gradient(farthest-corner, rebeccapurple, black)")
+      )
+    ).toBe("rebeccapurple")
+  })
+
+  it("skips conic interpolation keywords before the first color", () => {
+    expect(
+      getTutorialArrowColor(
+        style("conic-gradient(in hsl longer hue, rebeccapurple, black)")
+      )
+    ).toBe("rebeccapurple")
+  })
 })
