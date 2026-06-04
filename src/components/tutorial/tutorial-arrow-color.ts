@@ -28,15 +28,26 @@ function splitTopLevelCommas(value: string) {
   return parts
 }
 
+const NON_COLOR_GRADIENT_TOKENS =
+  /^(?:to\b|from\b|[-+]?\d*\.?\d+(?:deg|grad|rad|turn)\b|circle\b|ellipse\b|at\b)/i
+
+function isGradientColorStop(part: string) {
+  const value = part.trim()
+
+  if (NON_COLOR_GRADIENT_TOKENS.test(value)) {
+    return false
+  }
+
+  return /^(?:#|rgb|hsl|hwb|oklch|oklab|lab|lch|color\(|[a-z][a-z-]*)/i.test(value)
+}
+
 function extractFirstGradientColor(backgroundImage: string) {
   const gradientMatch = backgroundImage.match(
     /(?:repeating-)?(?:linear|radial|conic)-gradient\((.*)\)/i
   )
   if (!gradientMatch?.[1]) return undefined
 
-  return splitTopLevelCommas(gradientMatch[1]).find((part) =>
-    /^(?:#|rgb|hsl|oklch|oklab|lab|lch|color\()/i.test(part)
-  )
+  return splitTopLevelCommas(gradientMatch[1]).find(isGradientColorStop)
 }
 
 export function getTutorialArrowColor(style: TutorialArrowStyle) {

@@ -34,4 +34,28 @@ describe("getTutorialArrowColor", () => {
       "rgb(13, 20, 38)"
     )
   })
+
+  it("extracts hwb gradient colors", () => {
+    expect(
+      getTutorialArrowColor(
+        style("linear-gradient(145deg, hwb(210 10% 20%), black)")
+      )
+    ).toBe("hwb(210 10% 20%)")
+  })
+
+  it("extracts named gradient colors", () => {
+    expect(
+      getTutorialArrowColor(
+        style("linear-gradient(145deg, rebeccapurple, black)")
+      )
+    ).toBe("rebeccapurple")
+  })
+
+  it("skips conic gradient prelude tokens before the first color", () => {
+    expect(
+      getTutorialArrowColor(
+        style("conic-gradient(from 45deg at center, rebeccapurple, black)")
+      )
+    ).toBe("rebeccapurple")
+  })
 })
