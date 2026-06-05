@@ -114,6 +114,7 @@ describe("verse detection workflow", () => {
       items: [],
       activeIndex: null,
       highlightedId: null,
+      highlightedIds: [],
     })
     useBroadcastStore.setState({
       isLive: false,
@@ -382,5 +383,31 @@ describe("verse detection workflow", () => {
     expect(
       presentation.kind === "scripture" ? presentation.verse.text : null,
     ).toBe("Current translation text")
+  })
+
+  it("falls back to loaded current chapter text when verse fetch is unavailable", async () => {
+    useBibleStore.setState({
+      currentChapter: [
+        {
+          id: 25,
+          translation_id: 7,
+          book_number: 43,
+          book_name: "John",
+          book_abbreviation: "John",
+          chapter: 3,
+          verse: 16,
+          text: "Loaded current chapter text",
+        },
+      ],
+    })
+
+    await handleVerseDetections([
+      makeDetection({ verse_text: "Text from the earlier translation" }),
+    ])
+
+    const presentation = useQueueStore.getState().items[0].presentation
+    expect(
+      presentation.kind === "scripture" ? presentation.verse.text : null,
+    ).toBe("Loaded current chapter text")
   })
 })

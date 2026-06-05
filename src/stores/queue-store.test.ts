@@ -28,10 +28,12 @@ function makeItem(id: string, verse: number): QueueItem {
 describe("queue-store", () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    useQueueStore.getState().clearQueue()
     useQueueStore.setState({
       items: [],
       activeIndex: null,
       highlightedId: null,
+      highlightedIds: [],
     })
   })
 
@@ -40,6 +42,7 @@ describe("queue-store", () => {
       items: [makeItem("a", 16), makeItem("b", 17), makeItem("c", 18)],
       activeIndex: 1,
       highlightedId: null,
+      highlightedIds: [],
     })
 
     useQueueStore.getState().removeItem("a")
@@ -53,6 +56,7 @@ describe("queue-store", () => {
       items: [makeItem("a", 16), makeItem("b", 17), makeItem("c", 18)],
       activeIndex: 1,
       highlightedId: null,
+      highlightedIds: [],
     })
 
     useQueueStore.getState().reorderItems(1, 0)
@@ -66,6 +70,7 @@ describe("queue-store", () => {
       items: [makeItem("existing", 19)],
       activeIndex: 0,
       highlightedId: null,
+      highlightedIds: [],
     })
 
     useQueueStore.getState().addItems([
@@ -88,6 +93,7 @@ describe("queue-store", () => {
       items: [makeItem("a", 16), makeItem("b", 17), makeItem("c", 18)],
       activeIndex: 1,
       highlightedId: null,
+      highlightedIds: [],
     })
 
     useQueueStore.getState().reorderItems(2, 0)
@@ -101,6 +107,7 @@ describe("queue-store", () => {
       items: [makeItem("a", 16), makeItem("b", 17)],
       activeIndex: 0,
       highlightedId: null,
+      highlightedIds: [],
     })
 
     useQueueStore.getState().reorderItems(-1, 1)
@@ -115,6 +122,7 @@ describe("queue-store", () => {
       items: [makeItem("a", 16)],
       activeIndex: null,
       highlightedId: null,
+      highlightedIds: [],
     })
 
     const result = useQueueStore.getState().addOrFlashDetectionItem(makeItem("dup", 16))
@@ -122,5 +130,25 @@ describe("queue-store", () => {
     expect(result).toBe("duplicate")
     expect(useQueueStore.getState().items).toHaveLength(1)
     expect(useQueueStore.getState().highlightedId).toBe("a")
+    expect(useQueueStore.getState().highlightedIds).toEqual(["a"])
+  })
+
+  it("keeps multiple duplicate queue items highlighted independently", () => {
+    useQueueStore.setState({
+      items: [makeItem("a", 16), makeItem("b", 17)],
+      activeIndex: null,
+      highlightedId: null,
+      highlightedIds: [],
+    })
+
+    useQueueStore.getState().flashItem("a")
+    useQueueStore.getState().flashItem("b")
+
+    expect(useQueueStore.getState().highlightedIds).toEqual(["a", "b"])
+
+    vi.advanceTimersByTime(1500)
+
+    expect(useQueueStore.getState().highlightedIds).toEqual([])
+    expect(useQueueStore.getState().highlightedId).toBeNull()
   })
 })

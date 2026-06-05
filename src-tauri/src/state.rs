@@ -9,6 +9,7 @@ pub struct AppState {
     pub audio_active: Arc<AtomicBool>,
     pub stt_active: Arc<AtomicBool>,
     pub detection_paused: Arc<AtomicBool>,
+    stt_task_handles: Vec<tauri::async_runtime::JoinHandle<()>>,
 }
 
 impl AppState {
@@ -19,7 +20,25 @@ impl AppState {
             audio_active: Arc::new(AtomicBool::new(false)),
             stt_active: Arc::new(AtomicBool::new(false)),
             detection_paused: Arc::new(AtomicBool::new(false)),
+            stt_task_handles: Vec::new(),
         }
+    }
+
+    pub fn replace_stt_task_handles(
+        &mut self,
+        task_handles: Vec<tauri::async_runtime::JoinHandle<()>>,
+    ) -> Vec<tauri::async_runtime::JoinHandle<()>> {
+        let stale_handles = self.take_stt_task_handles();
+        self.stt_task_handles = task_handles;
+        stale_handles
+    }
+
+    pub fn take_stt_task_handles(&mut self) -> Vec<tauri::async_runtime::JoinHandle<()>> {
+        let mut task_handles = Vec::with_capacity(self.stt_task_handles.len());
+        while let Some(handle) = self.stt_task_handles.pop() {
+            task_handles.push(handle);
+        }
+        task_handles
     }
 }
 

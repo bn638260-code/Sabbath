@@ -157,6 +157,7 @@ export function QueuePanel({ className }: { className?: string }) {
   const items = useQueueStore((s) => s.items)
   const activeIndex = useQueueStore((s) => s.activeIndex)
   const highlightedId = useQueueStore((s) => s.highlightedId)
+  const highlightedIds = useQueueStore((s) => s.highlightedIds)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
 
@@ -219,7 +220,7 @@ export function QueuePanel({ className }: { className?: string }) {
                   item={item}
                   index={idx}
                   isActive={idx === activeIndex}
-                  isHighlighted={item.id === highlightedId}
+                  isHighlighted={highlightedIds.length > 0 ? highlightedIds.includes(item.id) : item.id === highlightedId}
                   isDragging={idx === draggedIndex}
                   isDropTarget={idx === dropTargetIndex && idx !== draggedIndex}
                   onDragStart={setDraggedIndex}

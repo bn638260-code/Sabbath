@@ -189,13 +189,22 @@ pub fn rotate_remote_http_token_with_store(store: &dyn KeychainStore) -> Result<
 
 /// Ensure a remote HTTP token exists. Returns `true` if it was created.
 pub fn ensure_remote_http_token_exists() -> Result<bool, String> {
-    let entry = entry("remote_http_token")?;
-    match entry.get_password() {
+    ensure_remote_http_token_exists_with_store(&DEFAULT_STORE)
+}
+
+pub fn ensure_remote_http_token_exists_with_store(
+    store: &dyn KeychainStore,
+) -> Result<bool, String> {
+    match store.get_password("remote_http_token") {
         Ok(pw) if !pw.trim().is_empty() => Ok(false),
-        Ok(_) | Err(keyring::Error::NoEntry) => {
+        Ok(_) => Err(
+            "Remote HTTP token is empty. Rotate the remote token before starting remote control."
+                .into(),
+        ),
+        Err(keyring::Error::NoEntry) => {
             let token = generate_token();
-            entry
-                .set_password(&token)
+            store
+                .set_password("remote_http_token", &token)
                 .map_err(|e| format!("Could not store remote HTTP token in OS keychain: {e}"))?;
             Ok(true)
         }
@@ -293,6 +302,31 @@ mod tests {
         store.set_password("remote_http_token", "   ").unwrap();
         let result = has_remote_http_token_with_store(&store);
         assert!(!result.unwrap());
+    }
+
+    #[test]
+    fn ensure_remote_http_token_creates_missing_token() {
+        let store = MockKeychainStore::new();
+
+        let created = ensure_remote_http_token_exists_with_store(&store).unwrap();
+
+        assert!(created);
+        assert!(!store
+            .get_password("remote_http_token")
+            .unwrap()
+            .trim()
+            .is_empty());
+    }
+
+    #[test]
+    fn ensure_remote_http_token_rejects_empty_token_without_overwriting() {
+        let store = MockKeychainStore::new();
+        store.set_password("remote_http_token", "   ").unwrap();
+
+        let result = ensure_remote_http_token_exists_with_store(&store);
+
+        assert!(result.is_err());
+        assert_eq!(store.get_password("remote_http_token").unwrap(), "   ");
     }
 
     #[test]

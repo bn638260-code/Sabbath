@@ -66,8 +66,54 @@ interface BroadcastState {
   setRenamingTheme: (id: string | null) => void
 }
 
+interface BroadcastHydrationPatchInput {
+  customThemes?: BroadcastTheme[] | unknown
+  activeId?: string
+  altActiveId?: string
+  readingModeAutoLive?: boolean
+  mainDisplayMonitorIndex?: number
+  altDisplayMonitorIndex?: number
+  mainProjectorFullscreen?: boolean
+  altProjectorFullscreen?: boolean
+}
+
 function findThemeById(themes: BroadcastTheme[], id: string): BroadcastTheme | null {
   return themes.find((theme) => theme.id === id) ?? themes[0] ?? null
+}
+
+export function buildBroadcastHydrationPatch({
+  customThemes,
+  activeId,
+  altActiveId,
+  readingModeAutoLive,
+  mainDisplayMonitorIndex,
+  altDisplayMonitorIndex,
+  mainProjectorFullscreen,
+  altProjectorFullscreen,
+}: BroadcastHydrationPatchInput): Partial<BroadcastState> {
+  const patch: Partial<BroadcastState> = {}
+  if (Array.isArray(customThemes)) {
+    patch.themes = [...BUILTIN_THEMES, ...customThemes]
+  }
+  if (activeId) patch.activeThemeId = activeId
+  if (altActiveId) patch.altActiveThemeId = altActiveId
+  if (typeof readingModeAutoLive === "boolean") {
+    patch.readingModeAutoLive = readingModeAutoLive
+  }
+  if (typeof mainDisplayMonitorIndex === "number") {
+    patch.mainDisplayMonitorIndex = mainDisplayMonitorIndex
+  }
+  if (typeof altDisplayMonitorIndex === "number") {
+    patch.altDisplayMonitorIndex = altDisplayMonitorIndex
+  }
+  if (typeof mainProjectorFullscreen === "boolean") {
+    patch.mainProjectorFullscreen = mainProjectorFullscreen
+  }
+  if (typeof altProjectorFullscreen === "boolean") {
+    patch.altProjectorFullscreen = altProjectorFullscreen
+  }
+
+  return patch
 }
 
 function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): Record<string, unknown> {
@@ -341,11 +387,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       }
       set((s) => ({
         themes: [...s.themes, customTheme],
-        activeThemeId: customTheme.id,
         editingThemeId: customTheme.id,
         draftTheme: customTheme,
       }))
-      get().syncBroadcastOutputFor("main")
     } else {
       get().saveTheme(draftTheme)
     }
@@ -388,27 +432,16 @@ export function hydrateBroadcastThemes(): Promise<void> {
       const mainProjectorFullscreen = (await store.get("mainProjectorFullscreen")) as boolean | undefined
       const altProjectorFullscreen = (await store.get("altProjectorFullscreen")) as boolean | undefined
 
-      const patch: Partial<BroadcastState> = {}
-      if (customThemes && Array.isArray(customThemes) && customThemes.length > 0) {
-        patch.themes = [...BUILTIN_THEMES, ...customThemes]
-      }
-      if (activeId) patch.activeThemeId = activeId
-      if (altActiveId) patch.altActiveThemeId = altActiveId
-      if (typeof readingModeAutoLive === "boolean") {
-        patch.readingModeAutoLive = readingModeAutoLive
-      }
-      if (typeof mainDisplayMonitorIndex === "number") {
-        patch.mainDisplayMonitorIndex = mainDisplayMonitorIndex
-      }
-      if (typeof altDisplayMonitorIndex === "number") {
-        patch.altDisplayMonitorIndex = altDisplayMonitorIndex
-      }
-      if (typeof mainProjectorFullscreen === "boolean") {
-        patch.mainProjectorFullscreen = mainProjectorFullscreen
-      }
-      if (typeof altProjectorFullscreen === "boolean") {
-        patch.altProjectorFullscreen = altProjectorFullscreen
-      }
+      const patch = buildBroadcastHydrationPatch({
+        customThemes,
+        activeId,
+        altActiveId,
+        readingModeAutoLive,
+        mainDisplayMonitorIndex,
+        altDisplayMonitorIndex,
+        mainProjectorFullscreen,
+        altProjectorFullscreen,
+      })
 
       if (Object.keys(patch).length > 0) {
         useBroadcastStore.setState(patch)

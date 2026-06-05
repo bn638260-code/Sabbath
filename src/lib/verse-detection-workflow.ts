@@ -50,6 +50,19 @@ function selectDetectedVerse(args: {
   })
 }
 
+function findCurrentChapterVerse(detection: DetectionResult): Verse | null {
+  const { activeTranslationId, currentChapter } = useBibleStore.getState()
+  return (
+    currentChapter.find(
+      (verse) =>
+        verse.translation_id === activeTranslationId &&
+        verse.book_number === detection.book_number &&
+        verse.chapter === detection.chapter &&
+        verse.verse === detection.verse,
+    ) ?? null
+  )
+}
+
 async function resolveDetectionVerse(detection: DetectionResult): Promise<Verse> {
   if (detection.book_number > 0 && detection.chapter > 0 && detection.verse > 0) {
     try {
@@ -62,6 +75,9 @@ async function resolveDetectionVerse(detection: DetectionResult): Promise<Verse>
     } catch {
       // Queueing should still work when a translation lookup is unavailable.
     }
+
+    const currentVerse = findCurrentChapterVerse(detection)
+    if (currentVerse) return currentVerse
   }
   return detectionLikeToVerse(detection)
 }

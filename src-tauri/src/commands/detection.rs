@@ -11,10 +11,10 @@ use tauri::State;
 
 use rhema_detection::{DetectionPipeline, MergedDetection, ReadingMode};
 
-use crate::state::AppState;
 use super::validation::{
     bounded_optional_limit, bounded_text, MAX_QUERY_BYTES, MAX_TRANSCRIPT_BYTES,
 };
+use crate::state::AppState;
 
 /// Confidence assigned to the best FTS5 BM25 match (rank 0) in context search.
 pub(crate) const FTS5_RANK0_CONFIDENCE: f64 = 0.75;
@@ -28,6 +28,8 @@ pub(crate) const FTS5_MIN_CONFIDENCE: f64 = 0.42;
 /// Detection results at or above this confidence are visible to operators.
 /// Auto-live/auto-queue uses the UI threshold separately.
 pub(crate) const OPERATOR_DETECTION_THRESHOLD: f64 = 0.42;
+
+const AUTO_QUEUE_DISABLED_THRESHOLD: f64 = f64::INFINITY;
 
 /// Serializable detection result for the frontend
 #[derive(Clone, Serialize)]
@@ -307,7 +309,7 @@ pub fn update_detection_settings(
         return Err("confidence_threshold must be finite".into());
     }
     let threshold = confidence_threshold.clamp(0.0, 1.0);
-    let auto_threshold = if auto_mode { threshold } else { 2.0 };
+    let auto_threshold = auto_mode.then_some(threshold);
 
     {
         let mut merger = merger_state.lock().map_err(|e| e.to_string())?;
@@ -320,7 +322,10 @@ pub fn update_detection_settings(
     }
 
     log::info!(
-        "[DET] Settings updated: auto_mode={auto_mode}, operator_threshold={OPERATOR_DETECTION_THRESHOLD:.2}, auto_threshold={auto_threshold:.2}, cooldown_ms={}",
+        "[DET] Settings updated: auto_mode={auto_mode}, operator_threshold={OPERATOR_DETECTION_THRESHOLD:.2}, auto_threshold={}, cooldown_ms={}",
+        auto_threshold
+            .map(|value| format!("{value:.2}"))
+            .unwrap_or_else(|| "disabled".to_string()),
         cooldown_ms.clamp(250, 60_000)
     );
 
@@ -329,11 +334,11 @@ pub fn update_detection_settings(
 
 fn apply_detection_settings_to_merger(
     merger: &mut rhema_detection::DetectionMerger,
-    auto_threshold: f64,
+    auto_threshold: Option<f64>,
     cooldown_ms: u64,
 ) {
     merger.set_confidence_threshold(OPERATOR_DETECTION_THRESHOLD);
-    merger.set_auto_queue_threshold(auto_threshold);
+    merger.set_auto_queue_threshold(auto_threshold.unwrap_or(AUTO_QUEUE_DISABLED_THRESHOLD));
     merger.set_cooldown_ms(cooldown_ms.clamp(250, 60_000));
 }
 
@@ -395,7 +400,7 @@ mod tests {
     fn detection_settings_keep_semantic_results_visible_below_auto_threshold() {
         let mut merger = DetectionMerger::new();
 
-        apply_detection_settings_to_merger(&mut merger, 0.80, 2500);
+        apply_detection_settings_to_merger(&mut merger, Some(0.80), 2500);
 
         let results = merger.merge(vec![], vec![semantic_detection(0.50)]);
 
@@ -411,11 +416,12 @@ mod tests {
     fn manual_mode_disables_auto_queue_without_hiding_semantic_results() {
         let mut merger = DetectionMerger::new();
 
-        apply_detection_settings_to_merger(&mut merger, 2.0, 2500);
+        apply_detection_settings_to_merger(&mut merger, None, 2500);
 
         let results = merger.merge(vec![], vec![semantic_detection(0.72)]);
 
         assert_eq!(results.len(), 1);
         assert!(!results[0].auto_queued);
+        assert!(merger.auto_queue_threshold().is_infinite());
     }
 }

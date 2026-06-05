@@ -437,6 +437,19 @@
   box-shadow: 0 0 25px var(--accent-glow);
 }
 
+[data-slot="live-output-panel"][data-fullscreen-layout="true"],
+[data-slot="live-output-panel"]:fullscreen {
+  background: #000 !important;
+  border-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-slot="live-output-panel"][data-fullscreen-layout="true"]::before,
+[data-slot="live-output-panel"]:fullscreen::before {
+  display: none;
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;

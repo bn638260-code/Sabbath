@@ -47,14 +47,20 @@ export const useBibleStore = create<BibleState>((set) => ({
   crossReferences: [],
   pendingNavigation: null,
 
-  setTranslations: (translations) => set({ translations }),
+  setTranslations: (translations) => {
+    clearContextSearchCache()
+    set({ translations })
+  },
   setActiveTranslation: (activeTranslationId) =>
     set((state) => {
       if (state.activeTranslationId === activeTranslationId) return state
       clearContextSearchCache()
       return { activeTranslationId }
     }),
-  setBooks: (books) => set({ books }),
+  setBooks: (books) => {
+    clearContextSearchCache()
+    set({ books })
+  },
   setSearchResults: (searchResults) => set({ searchResults }),
   setSemanticResults: (semanticResults) => set({ semanticResults }),
   selectVerse: (selectedVerse) => set({ selectedVerse }),

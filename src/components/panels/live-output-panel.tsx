@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from "react"
+import { flushSync } from "react-dom"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CanvasPresentation } from "@/components/ui/canvas-verse"
@@ -23,6 +24,7 @@ export function LiveOutputPanel({ className }: { className?: string }) {
   const activeTheme = useBroadcastStore(selectActiveTheme)
   const previewItem = useBroadcastStore((s) => s.previewItem)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isFullscreenLayout, setIsFullscreenLayout] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
   const visibleItem = useMemo(
@@ -50,13 +52,22 @@ export function LiveOutputPanel({ className }: { className?: string }) {
     const panel = panelRef.current
     if (!panel) return
 
+    const panelOwnsFullscreen = isPanelFullscreen(panel, document.fullscreenElement)
+
     try {
+      if (!panelOwnsFullscreen) {
+        flushSync(() => setIsFullscreenLayout(true))
+      }
+
       await togglePanelFullscreen(
         panel,
         document.fullscreenElement,
         () => document.exitFullscreen(),
       )
     } catch (error) {
+      if (!panelOwnsFullscreen) {
+        setIsFullscreenLayout(false)
+      }
       toast.error("Fullscreen failed", {
         description: String(error),
       })
@@ -65,7 +76,9 @@ export function LiveOutputPanel({ className }: { className?: string }) {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(isPanelFullscreen(panelRef.current, document.fullscreenElement))
+      const panelIsFullscreen = isPanelFullscreen(panelRef.current, document.fullscreenElement)
+      setIsFullscreen(panelIsFullscreen)
+      setIsFullscreenLayout(panelIsFullscreen)
     }
 
     document.addEventListener("fullscreenchange", handleFullscreenChange)
@@ -78,13 +91,14 @@ export function LiveOutputPanel({ className }: { className?: string }) {
     <div
       ref={panelRef}
       data-slot="live-output-panel"
+      data-fullscreen-layout={isFullscreenLayout ? "true" : undefined}
       className={cn(
         "glass-panel relative flex min-h-0 flex-col overflow-hidden",
-        isFullscreen && "!rounded-none !border-0 !h-screen !w-screen",
+        isFullscreenLayout && "!h-screen !w-screen !rounded-none !border-0",
         className,
       )}
     >
-      {!isFullscreen && (
+      {!isFullscreenLayout && (
         <PanelHeader title="Live output" icon={<RadioIcon className="size-3" />} step={3}>
           <div className="flex items-center gap-2">
             <Button
@@ -112,7 +126,7 @@ export function LiveOutputPanel({ className }: { className?: string }) {
         </PanelHeader>
       )}
 
-      <div className={cn("flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-white/5 px-4 py-2", isFullscreen && "hidden")}>
+      <div className={cn("flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-white/5 px-4 py-2", isFullscreenLayout && "hidden")}>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
@@ -155,7 +169,7 @@ export function LiveOutputPanel({ className }: { className?: string }) {
         </label>
       </div>
 
-      <div className={cn("flex min-h-10 items-center justify-between gap-3 border-b border-white/5 px-4 py-2", isFullscreen && "hidden")}>
+      <div className={cn("flex min-h-10 items-center justify-between gap-3 border-b border-white/5 px-4 py-2", isFullscreenLayout && "hidden")}>
         <span className="truncate text-xs text-muted-foreground">
           Auto-live reading mode
         </span>
@@ -171,22 +185,22 @@ export function LiveOutputPanel({ className }: { className?: string }) {
       <div
         className={cn(
           "flex min-h-0 flex-1 bg-slate-950/50 p-2 transition-opacity",
-          isFullscreen && "bg-black p-0",
+          isFullscreenLayout && "bg-black p-0",
           !isLive && "opacity-45",
         )}
       >
         <div
           className={cn(
             "flex h-full w-full items-center justify-center rounded-md border border-white/5 p-2 text-center",
-            isLive && !isFullscreen && "live-glowing-active",
-            isFullscreen && "rounded-none border-0 p-0",
+            isLive && !isFullscreenLayout && "live-glowing-active",
+            isFullscreenLayout && "rounded-none border-0 p-0",
           )}
         >
           {visibleItem && activeTheme ? (
             <CanvasPresentation
               theme={activeTheme}
               item={visibleItem}
-              className={isFullscreen ? "[&_canvas]:rounded-none" : undefined}
+              className={isFullscreenLayout ? "[&_canvas]:rounded-none" : undefined}
             />
           ) : (
             <PanelEmptyState
@@ -198,7 +212,7 @@ export function LiveOutputPanel({ className }: { className?: string }) {
         </div>
       </div>
 
-      <div className={cn("truncate border-t border-white/5 px-4 py-2 text-xs text-muted-foreground", isFullscreen && "hidden")}>
+      <div className={cn("truncate border-t border-white/5 px-4 py-2 text-xs text-muted-foreground", isFullscreenLayout && "hidden")}>
         {liveItem
           ? liveItem.reference
           : "Nothing has been sent to the live output yet."}

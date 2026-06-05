@@ -4,7 +4,11 @@ export interface ServicePlanTemplate {
   id: string
   label: string
   description: string
-  items: Array<Pick<ServiceItem, "title" | "kind" | "durationMinutes">>
+  items: Array<
+    Pick<ServiceItem, "title" | "kind" | "durationMinutes"> & {
+      path?: string
+    }
+  >
 }
 
 function createItem(
@@ -136,6 +140,6 @@ export function isLightweightTemplate(templateId: string): boolean {
   const template = SERVICE_PLAN_TEMPLATES.find((entry) => entry.id === templateId)
   if (!template) return false
   return template.items.every(
-    (item) => item.kind !== "media" || !("path" in item),
+    (item) => item.kind !== "media" || !item.path?.trim(),
   )
 }

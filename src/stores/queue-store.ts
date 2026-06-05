@@ -9,6 +9,7 @@ interface QueueState {
   activeIndex: number | null
   /** ID of the queue item currently being flash-highlighted (null = none). */
   highlightedId: string | null
+  highlightedIds: string[]
 
   addItem: (item: QueueItem) => void
   addItems: (items: QueueItem[]) => void
@@ -26,12 +27,24 @@ interface QueueState {
   updateEarlyRef: (bookNumber: number, chapter: number, verse: number, reference: string, verseText: string) => boolean
 }
 
-let flashTimer: ReturnType<typeof setTimeout> | null = null
+const flashTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function clearFlashTimer(id: string): void {
+  const existing = flashTimers.get(id)
+  if (existing) clearTimeout(existing)
+  flashTimers.delete(id)
+}
+
+function clearAllFlashTimers(): void {
+  flashTimers.forEach(clearTimeout)
+  flashTimers.clear()
+}
 
 export const useQueueStore = create<QueueState>((set, get) => ({
   items: [],
   activeIndex: null,
   highlightedId: null,
+  highlightedIds: [],
 
   addItem: (item) =>
     set((state) => {
@@ -160,11 +173,32 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       }
     }),
   setActive: (activeIndex) => set({ activeIndex }),
-  clearQueue: () => set({ items: [], activeIndex: null }),
+  clearQueue: () => {
+    clearAllFlashTimers()
+    set({ items: [], activeIndex: null, highlightedId: null, highlightedIds: [] })
+  },
   flashItem: (id) => {
-    if (flashTimer) clearTimeout(flashTimer)
-    set({ highlightedId: id })
-    flashTimer = setTimeout(() => set({ highlightedId: null }), 1500)
+    clearFlashTimer(id)
+    set((state) => ({
+      highlightedId: id,
+      highlightedIds: state.highlightedIds.includes(id)
+        ? state.highlightedIds
+        : [...state.highlightedIds, id],
+    }))
+    const timer = setTimeout(() => {
+      flashTimers.delete(id)
+      set((state) => {
+        const highlightedIds = state.highlightedIds.filter((itemId) => itemId !== id)
+        return {
+          highlightedIds,
+          highlightedId:
+            state.highlightedId === id
+              ? highlightedIds[highlightedIds.length - 1] ?? null
+              : state.highlightedId,
+        }
+      })
+    }, 1500)
+    flashTimers.set(id, timer)
   },
   findDuplicate: (bookNumber, chapter, verse) =>
     get().items.findIndex(

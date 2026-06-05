@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense, useRef } from "react"
+import { useEffect, lazy, Suspense, useLayoutEffect, useRef } from "react"
 import { AppControllerHeader } from "@/components/layout/app-controller-header"
 import { OperatorStatusStrip } from "@/components/layout/operator-status-strip"
 import { WorkspaceSidebar } from "@/components/layout/workspace-sidebar"
@@ -110,8 +110,22 @@ export function Dashboard() {
     }
   }, [plannerOpen, setWorkspace, workspace])
 
-  useEffect(() => {
-    workspaceScrollRef.current?.scrollTo({ top: 0, left: 0 })
+  useLayoutEffect(() => {
+    const scrollContainer = workspaceScrollRef.current
+    if (!scrollContainer) return
+
+    const resetScroll = () => {
+      scrollContainer.scrollTo({ top: 0, left: 0 })
+    }
+
+    resetScroll()
+    const frame = window.requestAnimationFrame(resetScroll)
+    const timer = window.setTimeout(resetScroll, 80)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
   }, [workspace])
 
   const workspaceContent =

@@ -87,6 +87,44 @@ describe("searchContextWithFuse", () => {
 
     expect(mockInvoke).toHaveBeenCalledTimes(2)
   })
+
+  it("rebuilds cached indexes after Bible metadata reloads", async () => {
+    mockInvoke
+      .mockResolvedValueOnce([
+        {
+          book_number: 43,
+          book_name: "John",
+          chapter: 3,
+          verse: 16,
+          text: "old index text about the world",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          book_number: 43,
+          book_name: "John",
+          chapter: 3,
+          verse: 16,
+          text: "fresh rebuilt index text about grace",
+        },
+      ])
+
+    await searchContextWithFuse("world", 1)
+    useBibleStore.getState().setBooks([
+      {
+        id: 43,
+        translation_id: 1,
+        book_number: 43,
+        name: "John",
+        abbreviation: "John",
+        testament: "NT",
+      },
+    ])
+    const results = await searchContextWithFuse("grace", 1)
+
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
+    expect(results[0].verse_text).toBe("fresh rebuilt index text about grace")
+  })
 })
 
 describe("mergeContextSearchResults", () => {

@@ -180,6 +180,33 @@ describe("broadcast store sync", () => {
     })
   })
 
+  it("hydrates an explicit empty custom theme list as builtin-only themes", async () => {
+    const { buildBroadcastHydrationPatch } = await import("./broadcast-store")
+
+    const patch = buildBroadcastHydrationPatch({ customThemes: [] })
+
+    expect(patch.themes).toBeDefined()
+    expect(patch.themes?.every((theme) => theme.builtin)).toBe(true)
+  })
+
+  it("does not switch the active theme when saving a builtin as a custom copy", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const builtin = useBroadcastStore.getState().themes[0]
+    useBroadcastStore.setState({
+      activeThemeId: builtin.id,
+      editingThemeId: builtin.id,
+      draftTheme: { ...builtin, name: "Edited Builtin" },
+    })
+
+    useBroadcastStore.getState().saveDraft()
+
+    const state = useBroadcastStore.getState()
+    expect(state.activeThemeId).toBe(builtin.id)
+    expect(state.editingThemeId).not.toBe(builtin.id)
+    expect(state.draftTheme?.builtin).toBe(false)
+    expect(state.themes.some((theme) => !theme.builtin && theme.name === "Edited Builtin (Custom)")).toBe(true)
+  })
+
   it("clamps opacity and syncs the projector output", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
 

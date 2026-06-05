@@ -125,16 +125,34 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
   const selectedBookNumber = selectedBook?.book_number
   const maxChapter = chapterCountForBook(selectedBook)
 
-  // Load initial data and default to Genesis 1:1
+  // Load initial data and show Genesis 1 without staging it as a preview item.
   useEffect(() => {
+    let cancelled = false
+
     bibleActions.loadTranslations().catch(console.error)
-    bibleActions.loadBooks().then(() => {
-      useBibleStore.getState().setPendingNavigation({
-        bookNumber: 1,
-        chapter: 1,
-        verse: 1,
+
+    bibleActions
+      .loadBooks()
+      .then((loadedBooks) => {
+        if (cancelled) return
+
+        const availableBooks =
+          loadedBooks.length > 0 ? loadedBooks : useBibleStore.getState().books
+        const defaultBook =
+          availableBooks.find((book) => book.book_number === 1) ??
+          availableBooks[0] ??
+          null
+
+        if (!defaultBook) return
+        setSelectedBook(defaultBook)
+        setChapter(1)
+        setSelectedVerseId(null)
       })
-    }).catch(console.error)
+      .catch(console.error)
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Load chapter when book + chapter are set

@@ -218,16 +218,18 @@ function syncStatusSnapshot() {
 /**
  * Safely parse a JSON string payload from a Tauri event.
  */
+function isRecordPayload(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
 function parsePayload(raw: unknown): Record<string, unknown> | null {
   if (typeof raw === "string") {
     try {
-      return JSON.parse(raw)
+      const parsed: unknown = JSON.parse(raw)
+      return isRecordPayload(parsed) ? parsed : null
     } catch {
       return null
     }
   }
-  if (typeof raw === "object" && raw !== null) {
-    return raw as Record<string, unknown>
-  }
-  return null
+  return isRecordPayload(raw) ? raw : null
 }

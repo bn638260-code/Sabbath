@@ -69,9 +69,17 @@ export async function syncActiveServiceItemPresentations(
 
   const slideDeck = buildSermonSlideDeck(item)
   if (slideDeck.length > 0) {
+    const sermonSlides = useSermonSlideStore.getState()
+    const shouldPreserveIndex = sermonSlides.activeItemId === item.id
+    const requestedIndex =
+      shouldPreserveIndex && Number.isFinite(sermonSlides.activeIndex)
+        ? sermonSlides.activeIndex
+        : 0
+    const activeIndex = Math.max(0, Math.min(slideDeck.length - 1, requestedIndex))
+
     useHymnSlideStore.getState().setDeck([], 0)
-    loadActiveSermonSlideDeck(0)
-    selectPreviewItem(slideDeck[0])
+    loadActiveSermonSlideDeck(activeIndex)
+    selectPreviewItem(slideDeck[activeIndex])
     return
   }
 

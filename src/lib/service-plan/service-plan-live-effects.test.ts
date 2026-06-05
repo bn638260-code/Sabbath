@@ -9,6 +9,8 @@ const buildSermonSlideDeck = vi.fn()
 const hymnSetDeck = vi.fn()
 const sermonSetDeck = vi.fn()
 const sermonClear = vi.fn()
+let sermonActiveIndex = 0
+let sermonActiveItemId: string | null = null
 
 vi.mock("@/lib/presentation-workflow", () => ({
   selectPreviewItem: (...args: unknown[]) => selectPreviewItem(...args),
@@ -49,6 +51,8 @@ vi.mock("@/stores/hymn-slide-store", () => ({
 vi.mock("@/stores/sermon-slide-store", () => ({
   useSermonSlideStore: {
     getState: () => ({
+      activeIndex: sermonActiveIndex,
+      activeItemId: sermonActiveItemId,
       setDeck: sermonSetDeck,
       clear: sermonClear,
     }),
@@ -66,6 +70,8 @@ vi.mock("@/services/media/media-preload-manager", () => ({
 describe("service plan live effects", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    sermonActiveIndex = 0
+    sermonActiveItemId = null
   })
 
   it("clears both hymn and sermon slide state when the active item is removed", async () => {
@@ -98,6 +104,33 @@ describe("service plan live effects", () => {
     expect(hymnSetDeck).toHaveBeenCalledWith([], 0)
     expect(loadActiveSermonSlideDeck).toHaveBeenCalledWith(0)
     expect(selectPreviewItem).toHaveBeenCalledWith(slide)
+  })
+
+  it("preserves the active sermon slide index when the same slide item resyncs", async () => {
+    const slides = [
+      { id: "slide-1", reference: "Slide 1" },
+      { id: "slide-2", reference: "Slide 2" },
+    ]
+    sermonActiveIndex = 1
+    sermonActiveItemId = "item-1"
+    buildSermonSlideDeck.mockReturnValue(slides)
+    const { syncActiveServiceItemPresentations } = await import("./service-plan-live-effects")
+
+    await syncActiveServiceItemPresentations({
+      id: "item-1",
+      order: 0,
+      title: "Slides",
+      kind: "slide",
+      status: "active",
+      scriptureRefs: [],
+      hymnRefs: [],
+      mediaRefs: [],
+      attachments: [],
+      checklist: [],
+    })
+
+    expect(loadActiveSermonSlideDeck).toHaveBeenCalledWith(1)
+    expect(selectPreviewItem).toHaveBeenCalledWith(slides[1])
   })
 
   it("stages the first sermon slide for practice preview before falling back to hymns", async () => {

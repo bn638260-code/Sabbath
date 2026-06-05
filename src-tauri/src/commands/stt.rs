@@ -4,10 +4,12 @@
 )]
 
 use std::collections::{HashMap, VecDeque};
+use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use futures_util::FutureExt;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Notify;
 
@@ -38,6 +40,19 @@ static DIRECT_LOCK_OK: AtomicU64 = AtomicU64::new(0);
 static DIRECT_LOCK_CONTENDED: AtomicU64 = AtomicU64::new(0);
 const SEMANTIC_WINDOW_SEGMENTS: usize = 8;
 const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(150);
+
+fn spawn_stt_task<F>(name: &'static str, future: F) -> tauri::async_runtime::JoinHandle<()>
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    tauri::async_runtime::spawn(async move {
+        if AssertUnwindSafe(future).catch_unwind().await.is_err() {
+            log::error!("[STT] Task {name} panicked");
+        } else {
+            log::debug!("[STT] Task {name} exited");
+        }
+    })
+}
 const PARTIAL_SEMANTIC_MIN_WORDS: usize = 4;
 const LIVE_SEMANTIC_CAP: usize = 3;
 const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
@@ -288,7 +303,10 @@ fn build_stt_provider(
             }
             let worker_path = asset_paths::vosk_worker_path(app);
             if !worker_path.exists() {
-                return Err(format!("Vosk worker not found at {}", worker_path.display()));
+                return Err(format!(
+                    "Vosk worker not found at {}",
+                    worker_path.display()
+                ));
             }
 
             log::info!(
@@ -307,9 +325,7 @@ fn build_stt_provider(
                 model_path.display()
             ))
         }
-        "faster-whisper" => {
-            Err("faster-whisper has been removed. Choose Vosk or Deepgram.".into())
-        }
+        "faster-whisper" => Err("faster-whisper has been removed. Choose Vosk or Deepgram.".into()),
         _ => {
             let resolved_api_key = secrets::get_deepgram_api_key_or_empty()?;
 
@@ -538,20 +554,21 @@ pub async fn start_transcription(
 
     // ── 5. Spawn the STT provider on the tokio runtime ──────────────────
     let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<TranscriptEvent>(64);
+    let mut task_handles = Vec::new();
 
     let conn_active = stt_active.clone();
     let provider_log_name = stt_provider.name().to_string();
     let provider_log_name_task_a = provider_log_name.clone();
 
     // Task A: run the STT provider (Deepgram WS+REST or Vosk local).
-    tauri::async_runtime::spawn(async move {
+    task_handles.push(spawn_stt_task("provider", async move {
         let result = stt_provider.start(audio_send_rx, event_tx).await;
         if let Err(e) = result {
             log::error!("[STT-{provider_log_name_task_a}] Provider failed: {e}");
         }
         conn_active.store(false, Ordering::SeqCst);
         log::info!("[STT-{provider_log_name_task_a}] Provider task exited");
-    });
+    }));
 
     // Task B: consume TranscriptEvents, emit to frontend, run detection
     let evt_active = stt_active.clone();
@@ -587,7 +604,7 @@ pub async fn start_transcription(
     // corrupt cross-segment state used for final confirmations.
     let partial_app = app.clone();
     let partial_latest_seq = transcript_seq.clone();
-    tauri::async_runtime::spawn(async move {
+    task_handles.push(spawn_stt_task("partial-preview", async move {
         let partial_detector = Arc::new(Mutex::new(rhema_detection::DirectDetector::new()));
         while let Some((seq, transcript)) = partial_preview_rx.recv().await {
             let app_clone = partial_app.clone();
@@ -603,7 +620,7 @@ pub async fn start_transcription(
                 );
             });
         }
-    });
+    }));
 
     // Spawn latest-wins final semantic detection worker. When multiple finals
     // arrive during one inference run, only the newest pending final is kept.
@@ -612,7 +629,7 @@ pub async fn start_transcription(
     let sem_final_job = final_semantic_job.clone();
     let sem_final_notify = final_semantic_notify.clone();
 
-    tauri::async_runtime::spawn(async move {
+    task_handles.push(spawn_stt_task("final-semantic", async move {
         loop {
             sem_final_notify.notified().await;
 
@@ -634,7 +651,7 @@ pub async fn start_transcription(
                 .await;
             }
         }
-    });
+    }));
 
     // Spawn latest-wins partial semantic worker. When multiple partials arrive
     // during one inference run, only the newest pending partial is kept.
@@ -642,7 +659,7 @@ pub async fn start_transcription(
     let sem_partial_latest_seq = transcript_seq.clone();
     let sem_partial_job = partial_semantic_job.clone();
     let sem_partial_notify = partial_semantic_notify.clone();
-    tauri::async_runtime::spawn(async move {
+    task_handles.push(spawn_stt_task("partial-semantic", async move {
         loop {
             sem_partial_notify.notified().await;
 
@@ -663,14 +680,14 @@ pub async fn start_transcription(
                 .await;
             }
         }
-    });
+    }));
 
     // Spawn detection worker (runs direct detection + reading mode without blocking
     // transcript delivery). Uses spawn_blocking so mutex locks and DB I/O don't
     // starve the tokio runtime.
     let det_app = app.clone();
     let det_latest_seq = latest_accepted_seq.clone();
-    tauri::async_runtime::spawn(async move {
+    task_handles.push(spawn_stt_task("detection", async move {
         while let Some((seq, transcript)) = detect_rx.recv().await {
             let app_clone = det_app.clone();
             let latest_seq = det_latest_seq.clone();
@@ -680,7 +697,7 @@ pub async fn start_transcription(
             })
             .await;
         }
-    });
+    }));
 
     let detect_sent_evt = detect_sent.clone();
     let detect_dropped_evt = detect_dropped.clone();
@@ -691,7 +708,7 @@ pub async fn start_transcription(
     let partial_semantic_job_evt = partial_semantic_job.clone();
     let partial_semantic_notify_evt = partial_semantic_notify.clone();
 
-    tauri::async_runtime::spawn(async move {
+    task_handles.push(spawn_stt_task("event-router", async move {
         let mut transcript_router = TranscriptRouter::default();
         let mut semantic_window: VecDeque<String> =
             VecDeque::with_capacity(SEMANTIC_WINDOW_SEGMENTS);
@@ -989,7 +1006,22 @@ pub async fn start_transcription(
         }
 
         log::info!("Transcript event consumer task exited");
-    });
+    }));
+
+    let stale_handles = match state.lock() {
+        Ok(mut app_state) => app_state.replace_stt_task_handles(task_handles),
+        Err(e) => {
+            for handle in task_handles {
+                handle.abort();
+            }
+            stt_active.store(false, Ordering::SeqCst);
+            audio_active.store(false, Ordering::SeqCst);
+            return Err(e.to_string());
+        }
+    };
+    for handle in stale_handles {
+        handle.abort();
+    }
 
     Ok(())
 }
@@ -1611,7 +1643,7 @@ fn check_translation_command(app: &AppHandle, transcript: &str) {
 /// Stop the transcription pipeline (audio capture + STT provider).
 #[tauri::command]
 pub fn stop_transcription(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
-    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let mut app_state = state.lock().map_err(|e| e.to_string())?;
 
     if !app_state.stt_active.swap(false, Ordering::SeqCst) {
         return Err("Transcription is not running".into());
@@ -1619,6 +1651,12 @@ pub fn stop_transcription(state: State<'_, Mutex<AppState>>) -> Result<(), Strin
 
     // Setting these flags causes the background threads/tasks to exit.
     app_state.audio_active.store(false, Ordering::SeqCst);
+    let task_handles = app_state.take_stt_task_handles();
+    drop(app_state);
+
+    for handle in task_handles {
+        handle.abort();
+    }
 
     log::info!("Transcription stop requested");
     Ok(())
