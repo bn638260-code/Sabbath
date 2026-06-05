@@ -43,11 +43,6 @@ function selectDetectedVerse(args: {
 }) {
   const verse = detectionLikeToVerse(args)
   selectPreviewVerse(verse)
-  useBibleStore.getState().setPendingNavigation({
-    bookNumber: args.book_number,
-    chapter: args.chapter,
-    verse: args.verse,
-  })
 }
 
 function findCurrentChapterVerse(detection: DetectionResult): Verse | null {
@@ -144,11 +139,5 @@ export function handleReadingAdvance(advance: ReadingAdvance) {
 
   previewVerseAndMaybeAutoLive(verse, {
     autoLiveWhenAlreadyOn: true,
-  })
-
-  useBibleStore.getState().setPendingNavigation({
-    bookNumber: advance.book_number,
-    chapter: advance.chapter,
-    verse: advance.verse,
   })
 }

@@ -128,7 +128,7 @@ describe("verse detection workflow", () => {
     vi.useRealTimers()
   })
 
-  it("selects a direct verse hit for preview and pending navigation", async () => {
+  it("selects a direct verse hit for preview without pending navigation", async () => {
     await handleVerseDetections([makeDetection({ auto_queued: false })])
 
     expect(useDetectionStore.getState().detections).toHaveLength(1)
@@ -141,11 +141,7 @@ describe("verse detection workflow", () => {
       verse: 16,
       text: "For God so loved the world",
     })
-    expect(useBibleStore.getState().pendingNavigation).toEqual({
-      bookNumber: 43,
-      chapter: 3,
-      verse: 16,
-    })
+    expect(useBibleStore.getState().pendingNavigation).toBeNull()
   })
 
   it("queues an auto-queued direct detection with the active translation", async () => {
@@ -167,6 +163,28 @@ describe("verse detection workflow", () => {
             verse: 16,
             text: "For God so loved the world",
           }),
+        }),
+      }),
+    ])
+  })
+
+  it("queues semantic detections without pending navigation", async () => {
+    await handleVerseDetections([
+      makeDetection({
+        source: "semantic",
+        confidence: 0.72,
+        transcript_snippet: "God loved the world and gave his son",
+      }),
+    ])
+
+    expect(useBibleStore.getState().selectedVerse).toBeNull()
+    expect(useBibleStore.getState().pendingNavigation).toBeNull()
+    expect(useQueueStore.getState().items).toEqual([
+      expect.objectContaining({
+        source: "ai-semantic",
+        confidence: 0.72,
+        presentation: expect.objectContaining({
+          reference: "John 3:16",
         }),
       }),
     ])
@@ -195,7 +213,7 @@ describe("verse detection workflow", () => {
     })
   })
 
-  it("uses reading-mode advances for preview/navigation without queueing", () => {
+  it("uses reading-mode advances for preview without queueing or navigation", () => {
     handleReadingAdvance(makeReadingAdvance())
 
     expect(useBibleStore.getState().selectedVerse).toMatchObject({
@@ -204,11 +222,7 @@ describe("verse detection workflow", () => {
       verse: 17,
       text: "For God sent not his Son",
     })
-    expect(useBibleStore.getState().pendingNavigation).toEqual({
-      bookNumber: 43,
-      chapter: 3,
-      verse: 17,
-    })
+    expect(useBibleStore.getState().pendingNavigation).toBeNull()
     expect(useQueueStore.getState().items).toHaveLength(0)
   })
 

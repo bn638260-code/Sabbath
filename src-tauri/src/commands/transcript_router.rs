@@ -163,7 +163,7 @@ fn looks_like_complete_reference(text: &str) -> bool {
     lower.contains(':')
         || lower.contains(" verse ")
         || lower.contains(" verses ")
-        || has_two_numbers(&lower)
+        || has_two_numberish(&lower)
         || (lower.contains(" chapter ") && has_numberish(&lower))
 }
 
@@ -230,52 +230,51 @@ fn contains_book_hint(lower: &str) -> bool {
 }
 
 fn has_numberish(lower: &str) -> bool {
-    lower.chars().any(|c| c.is_ascii_digit())
-        || lower.split_whitespace().any(|word| {
-            matches!(
-                word.trim_matches(|c: char| !c.is_alphanumeric()),
-                "one"
-                    | "two"
-                    | "three"
-                    | "four"
-                    | "five"
-                    | "six"
-                    | "seven"
-                    | "eight"
-                    | "nine"
-                    | "ten"
-                    | "eleven"
-                    | "twelve"
-                    | "thirteen"
-                    | "fourteen"
-                    | "fifteen"
-                    | "sixteen"
-                    | "seventeen"
-                    | "eighteen"
-                    | "nineteen"
-                    | "twenty"
-                    | "thirty"
-                    | "forty"
-                    | "fifty"
-                    | "sixty"
-                    | "seventy"
-                    | "eighty"
-                    | "ninety"
-            )
-        })
+    lower.chars().any(|c| c.is_ascii_digit()) || lower.split_whitespace().any(is_numberish_token)
 }
 
-fn has_two_numbers(lower: &str) -> bool {
+fn has_two_numberish(lower: &str) -> bool {
     lower
         .split_whitespace()
-        .filter(|word| {
-            word.trim_matches(|c: char| !c.is_alphanumeric())
-                .parse::<i32>()
-                .is_ok()
-        })
+        .filter(|word| is_numberish_token(word))
         .take(2)
         .count()
         >= 2
+}
+
+fn is_numberish_token(word: &str) -> bool {
+    let token = word.trim_matches(|c: char| !c.is_alphanumeric());
+    token.parse::<i32>().is_ok()
+        || matches!(
+            token,
+            "one"
+                | "two"
+                | "three"
+                | "four"
+                | "five"
+                | "six"
+                | "seven"
+                | "eight"
+                | "nine"
+                | "ten"
+                | "eleven"
+                | "twelve"
+                | "thirteen"
+                | "fourteen"
+                | "fifteen"
+                | "sixteen"
+                | "seventeen"
+                | "eighteen"
+                | "nineteen"
+                | "twenty"
+                | "thirty"
+                | "forty"
+                | "fifty"
+                | "sixty"
+                | "seventy"
+                | "eighty"
+                | "ninety"
+        )
 }
 
 #[cfg(test)]
@@ -327,6 +326,19 @@ mod tests {
 
         assert!(route.emit_transcript);
         assert_eq!(route.preview_candidate.as_deref(), Some("John 3 16"));
+        assert!(route.authoritative_detection.is_none());
+    }
+
+    #[test]
+    fn partial_spoken_number_reference_can_preview_only() {
+        let mut router = TranscriptRouter::default();
+        let route = router.route(input(TranscriptEventKind::Partial, "John three sixteen"));
+
+        assert!(route.emit_transcript);
+        assert_eq!(
+            route.preview_candidate.as_deref(),
+            Some("John three sixteen")
+        );
         assert!(route.authoritative_detection.is_none());
     }
 
