@@ -298,20 +298,25 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
   const runContextSearch = useCallback(async (query: string, translationId: number) => {
     const requestId = ++contextSearchRequestIdRef.current
     const isStale = () => requestId !== contextSearchRequestIdRef.current
-    const contextSearchModule = await import("@/lib/context-search").catch((e) => {
+    const contextSearchModulePromise = import("@/lib/context-search").catch((e) => {
       console.error("[context-search] fallback module import failed", e)
       return null
     })
 
     // Primary: hybrid search backend (combines vector + FTS5 BM25)
-    const hybridResults = await invoke<SemanticSearchResult[]>(
+    const hybridResultsPromise = invoke<SemanticSearchResult[]>(
       "semantic_search", { query, limit: 15 }
     ).catch((e) => {
       console.error("[context-search] hybrid semantic_search failed", e)
       return null
     })
 
+    const hybridResults = await hybridResultsPromise
     if (isStale()) return
+
+    const contextSearchModule = await contextSearchModulePromise
+    if (isStale()) return
+
     if (!contextSearchModule) {
       useBibleStore.getState().setSemanticResults(hybridResults ?? [])
       return
