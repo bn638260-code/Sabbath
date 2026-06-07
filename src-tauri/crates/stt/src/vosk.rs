@@ -7,7 +7,7 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{Child, ChildStderr, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -234,6 +234,26 @@ fn spawn_vosk_reader(
         .map_err(|e| SttError::ConnectionFailed(format!("failed to spawn Vosk reader: {e}")))
 }
 
+fn spawn_vosk_stderr_logger(stderr: ChildStderr) -> Result<std::thread::JoinHandle<()>, SttError> {
+    std::thread::Builder::new()
+        .name("vosk-worker-stderr".into())
+        .spawn(move || {
+            for line in BufReader::new(stderr).lines() {
+                match line {
+                    Ok(line) if !line.trim().is_empty() => {
+                        log::debug!("[VOSK] {line}");
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        log::warn!("Vosk stderr reader failed: {error}");
+                        break;
+                    }
+                }
+            }
+        })
+        .map_err(|e| SttError::ConnectionFailed(format!("failed to spawn Vosk stderr reader: {e}")))
+}
+
 async fn stop_vosk_writer(writer: tokio::task::JoinHandle<Result<(), SttError>>) {
     match tokio::time::timeout(Duration::from_secs(2), writer).await {
         Ok(Ok(Ok(()))) => {}
@@ -245,10 +265,17 @@ async fn stop_vosk_writer(writer: tokio::task::JoinHandle<Result<(), SttError>>)
     }
 }
 
-fn stop_vosk_worker(mut child: Child, reader: std::thread::JoinHandle<()>) {
+fn stop_vosk_worker(
+    mut child: Child,
+    reader: std::thread::JoinHandle<()>,
+    stderr_reader: std::thread::JoinHandle<()>,
+) {
     terminate_vosk_child(&mut child);
     if reader.join().is_err() {
         log::warn!("Vosk reader thread panicked");
+    }
+    if stderr_reader.join().is_err() {
+        log::warn!("Vosk stderr reader thread panicked");
     }
 }
 
@@ -295,9 +322,25 @@ impl SttProvider for VoskProvider {
                 ));
             }
         };
+        let stderr = match child.stderr.take() {
+            Some(stderr) => stderr,
+            None => {
+                terminate_vosk_child(&mut child);
+                return Err(SttError::ConnectionFailed(
+                    "failed to open Vosk stderr".to_string(),
+                ));
+            }
+        };
 
         let cancelled = self.cancelled.clone();
         let reader = match spawn_vosk_reader(stdout, event_tx.clone()) {
+            Ok(reader) => reader,
+            Err(error) => {
+                terminate_vosk_child(&mut child);
+                return Err(error);
+            }
+        };
+        let stderr_reader = match spawn_vosk_stderr_logger(stderr) {
             Ok(reader) => reader,
             Err(error) => {
                 terminate_vosk_child(&mut child);
@@ -336,7 +379,7 @@ impl SttProvider for VoskProvider {
         });
 
         stop_vosk_writer(writer).await;
-        stop_vosk_worker(child, reader);
+        stop_vosk_worker(child, reader, stderr_reader);
         let _ = event_tx.send(TranscriptEvent::Disconnected).await;
         Ok(())
     }

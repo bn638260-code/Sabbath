@@ -1,4 +1,12 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import {
+  lazy,
+  Suspense,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react"
 import { invoke } from "@tauri-apps/api/core"
 // Using native overflow-y-auto instead of Radix ScrollArea for reliable scrolling in flex layouts
 import { PanelHeader } from "@/components/ui/panel-header"
@@ -34,16 +42,17 @@ import { useQueueStore } from "@/stores/queue-store"
 import { getVerseFromItem, type Book, type Verse, type SemanticSearchResult } from "@/types"
 import { Input } from "@/components/ui/input"
 import {
-  mergeContextSearchResults,
-  searchContextWithFuse,
-} from "@/lib/context-search"
-import {
   createScriptureQueueItem,
   selectPreviewVerse,
 } from "@/lib/presentation-workflow"
-import { EgwBrowser } from "@/components/panels/egw-browser"
 
 type SearchTab = "book" | "context" | "egw"
+
+const LazyEgwBrowser = lazy(() =>
+  import("@/components/panels/egw-browser").then((mod) => ({
+    default: mod.EgwBrowser,
+  })),
+)
 
 /** Highlights words from the query that appear in the text. */
 function HighlightedText({ text, query }: { text: string; query: string }) {
@@ -289,6 +298,7 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
   const runContextSearch = useCallback(async (query: string, translationId: number) => {
     const requestId = ++contextSearchRequestIdRef.current
     const isStale = () => requestId !== contextSearchRequestIdRef.current
+    const contextSearch = import("@/lib/context-search")
 
     // Primary: hybrid search backend (combines vector + FTS5 BM25)
     const hybridResults = await invoke<SemanticSearchResult[]>(
@@ -302,6 +312,8 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
 
     // Client-side Fuse.js supplements backend vector/FTS5 results and acts as
     // fallback when semantic assets are not loaded.
+    const { mergeContextSearchResults, searchContextWithFuse } =
+      await contextSearch
     const fuseResults = await searchContextWithFuse(query, translationId, 15).catch(() => [])
     if (isStale()) return
     useBibleStore
@@ -843,7 +855,21 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
       )}
 
       {/* EGW tab — Ellen G. White browse + search */}
-      {activeTab === "egw" && <EgwBrowser />}
+      {activeTab === "egw" && (
+        <Suspense
+          fallback={
+            <div className="flex min-h-0 flex-1 items-center justify-center">
+              <PanelEmptyState
+                icon={<BookOpenIcon className="size-8" />}
+                title="Loading EGW"
+                description="Preparing the browser."
+              />
+            </div>
+          }
+        >
+          <LazyEgwBrowser />
+        </Suspense>
+      )}
     </div>
   )
 }

@@ -270,7 +270,7 @@ describe("use-transcription", () => {
         await loadModules()
       useTranscriptStore.getState().setPartial("hymn")
 
-      handleTranscriptFinalPayload({
+      await handleTranscriptFinalPayload({
         text: "hymn 12",
         is_final: true,
         confidence: 0.95,

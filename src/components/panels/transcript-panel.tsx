@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { LevelMeter } from "@/components/ui/level-meter"
 import { Button } from "@/components/ui/button"
-import { ApiKeyPrompt } from "@/components/ui/api-key-prompt"
 import { MicIcon, MicOffIcon, Trash2Icon } from "lucide-react"
 import { profileDetectionEvent } from "@/lib/detection-profiler"
 import { cn } from "@/lib/utils"
@@ -17,6 +24,12 @@ import {
   handleVerseDetections,
 } from "@/lib/verse-detection-workflow"
 import type { DetectionResult, ReadingAdvance } from "@/types"
+
+const LazyApiKeyPrompt = lazy(() =>
+  import("@/components/ui/api-key-prompt").then((mod) => ({
+    default: mod.ApiKeyPrompt,
+  })),
+)
 
 /**
  * Leaf component that subscribes to the audio level only. Isolated so the
@@ -205,12 +218,16 @@ export function TranscriptPanel({ className }: { className?: string }) {
         )}
       </div>
 
-      <ApiKeyPrompt
-        open={showKeyPrompt}
-        onOpenChange={setShowKeyPrompt}
-        service="Deepgram"
-        description="Live transcription needs a Deepgram API key. Add it in settings so the app can start listening."
-      />
+      {showKeyPrompt ? (
+        <Suspense fallback={null}>
+          <LazyApiKeyPrompt
+            open={showKeyPrompt}
+            onOpenChange={setShowKeyPrompt}
+            service="Deepgram"
+            description="Live transcription needs a Deepgram API key. Add it in settings so the app can start listening."
+          />
+        </Suspense>
+      ) : null}
     </div>
   )
 }

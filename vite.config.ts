@@ -23,10 +23,30 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
-          if (!id.includes("node_modules")) return
-          if (id.includes("fabric")) return "canvas"
-          if (id.includes("lucide-react")) return "icons"
-          if (id.includes("radix-ui") || id.includes("cmdk")) return "ui"
+          const normalizedId = id.replace(/\\/g, "/")
+          if (!normalizedId.includes("node_modules")) return
+          if (normalizedId.includes("fabric")) return "canvas"
+          if (normalizedId.includes("fuse.js")) return "search"
+          if (
+            normalizedId.includes("react-joyride") ||
+            normalizedId.includes("@gilbarbara") ||
+            normalizedId.includes("@fastify/deepmerge") ||
+            normalizedId.includes("react-innertext") ||
+            normalizedId.includes("/node_modules/scroll/") ||
+            normalizedId.includes("/node_modules/scrollparent/") ||
+            normalizedId.includes("/node_modules/is-lite/")
+          ) {
+            return "tour"
+          }
+          if (normalizedId.includes("lucide-react")) return "icons"
+          if (normalizedId.includes("@radix-ui/react-dialog")) return "dialog"
+          if (
+            normalizedId.includes("@radix-ui") ||
+            normalizedId.includes("radix-ui") ||
+            normalizedId.includes("cmdk")
+          ) {
+            return "ui"
+          }
           return "vendor"
         },
       },

@@ -2,14 +2,14 @@ use std::path::{Path, PathBuf};
 
 use tauri::{AppHandle, Manager};
 
-pub const VOSK_MODEL_DIRNAME: &str = "vosk-model-en-us-0.22-lgraph";
+pub const VOSK_MODEL_DIRNAME: &str = "vosk-model-small-en-us";
 const VOSK_MODEL_DIRNAMES: &[&str] = &[
+    "vosk-model-small-en-us",
+    "vosk-model-small-en-us-0.15",
     "vosk-model-en-us-0.22-lgraph",
     "vosk-model-en-us-0.22",
     "vosk-model-en-us-0.42-gigaspeech",
     "vosk-model-en-us-daanzu-20200905",
-    "vosk-model-small-en-us",
-    "vosk-model-small-en-us-0.15",
 ];
 
 fn dev_root() -> PathBuf {
@@ -21,7 +21,9 @@ fn first_existing(paths: impl IntoIterator<Item = PathBuf>) -> Option<PathBuf> {
 }
 
 fn is_vosk_model_dir(path: &Path) -> bool {
-    path.join("conf").exists() && path.join("am").exists()
+    path.join("conf").join("model.conf").exists()
+        && path.join("am").join("final.mdl").exists()
+        && path.join("graph").exists()
 }
 
 fn resolve_vosk_model_dir(path: PathBuf) -> Option<PathBuf> {

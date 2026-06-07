@@ -4,7 +4,6 @@ import { toast } from "sonner"
 import { useAudioStore } from "@/stores/audio-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
-import { handleHymnVoiceControl } from "@/services/hymnal/hymn-voice-control"
 import { handleSermonSlideVoiceControl } from "@/services/slides/sermon-slide-voice-control"
 import { useTauriEvent } from "./use-tauri-event"
 
@@ -32,6 +31,17 @@ interface UseTranscriptionOptions {
 
 const MISSING_DEEPGRAM_KEY_MARKER = "No Deepgram API key"
 const NOT_RUNNING_ERROR = "Transcription is not running"
+const MAYBE_HYMN_CUE_PATTERN =
+  /\b(?:sda\s+(?:hymn|song)|(?:hymn|song))(?:\s+number)?\s+[a-z0-9]/i
+
+let hymnVoiceControlPromise:
+  | Promise<typeof import("@/services/hymnal/hymn-voice-control")>
+  | null = null
+
+function loadHymnVoiceControl() {
+  hymnVoiceControlPromise ??= import("@/services/hymnal/hymn-voice-control")
+  return hymnVoiceControlPromise
+}
 
 export const transcriptionActions = {
   async start(onMissingApiKey?: () => void): Promise<void> {
@@ -83,9 +93,9 @@ export const transcriptionActions = {
   },
 }
 
-export function handleTranscriptFinalPayload(
+export async function handleTranscriptFinalPayload(
   payload: TranscriptPartialPayload
-): void {
+): Promise<void> {
   const transcriptStore = useTranscriptStore.getState()
   transcriptStore.setPartial("")
   transcriptStore.addSegment({
@@ -97,7 +107,10 @@ export function handleTranscriptFinalPayload(
     timestamp: Date.now(),
   })
   if (handleSermonSlideVoiceControl(payload.text)) return
-  void handleHymnVoiceControl(payload.text)
+  if (!MAYBE_HYMN_CUE_PATTERN.test(payload.text)) return
+
+  const { handleHymnVoiceControl } = await loadHymnVoiceControl()
+  await handleHymnVoiceControl(payload.text)
 }
 
 export function useTranscription(options?: UseTranscriptionOptions) {
@@ -152,7 +165,9 @@ export function useTranscription(options?: UseTranscriptionOptions) {
 
   useTauriEvent<TranscriptPartialPayload>(
     "transcript_final",
-    handleTranscriptFinalPayload
+    (payload) => {
+      void handleTranscriptFinalPayload(payload)
+    }
   )
 
   const onMissingApiKey = options?.onMissingApiKey

@@ -3,7 +3,7 @@ import { load } from "@tauri-apps/plugin-store"
 import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
 import type { Translation, Book, Verse, CrossReference } from "@/types"
 import type { SemanticSearchResult } from "@/types/detection"
-import { clearContextSearchCache } from "@/lib/context-search"
+import { clearLoadedContextSearchCache } from "@/lib/context-search-cache"
 
 /** Backend's own default active translation (see src-tauri/src/state.rs). Used only as a last resort to keep frontend and backend aligned. */
 const DEFAULT_TRANSLATION_ID = 1
@@ -48,17 +48,17 @@ export const useBibleStore = create<BibleState>((set) => ({
   pendingNavigation: null,
 
   setTranslations: (translations) => {
-    clearContextSearchCache()
+    clearLoadedContextSearchCache()
     set({ translations })
   },
   setActiveTranslation: (activeTranslationId) =>
     set((state) => {
       if (state.activeTranslationId === activeTranslationId) return state
-      clearContextSearchCache()
+      clearLoadedContextSearchCache()
       return { activeTranslationId }
     }),
   setBooks: (books) => {
-    clearContextSearchCache()
+    clearLoadedContextSearchCache()
     set({ books })
   },
   setSearchResults: (searchResults) => set({ searchResults }),

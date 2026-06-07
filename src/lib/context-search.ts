@@ -1,5 +1,6 @@
 import Fuse from "fuse.js"
 import { invoke } from "@tauri-apps/api/core"
+import { registerContextSearchCacheClearer } from "@/lib/context-search-cache"
 import type { SemanticSearchResult } from "@/types/detection"
 
 type VerseSearchRow = {
@@ -74,6 +75,8 @@ export function clearContextSearchCache(translationId?: number) {
   }
   fuseByTranslation.delete(translationId)
 }
+
+registerContextSearchCacheClearer(clearContextSearchCache)
 
 export function mergeContextSearchResults(
   primary: SemanticSearchResult[],

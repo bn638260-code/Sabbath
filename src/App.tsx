@@ -1,26 +1,53 @@
+import { lazy, Suspense } from "react"
 import { Dashboard } from "@/components/layout/dashboard"
 import { useRemoteControl } from "@/hooks/use-remote-control"
 import { useDetectionSettingsSync } from "@/hooks/use-detection-settings-sync"
-import { TutorialOverlay } from "@/components/tutorial/tutorial-overlay"
 import { Toaster } from "sonner"
-import { ApiKeyPrompt } from "@/components/ui/api-key-prompt"
 import { useApiKeyPromptStore } from "@/lib/api-key-prompt"
+import { isTauriRuntime } from "@/lib/tauri-runtime"
+import { useSettingsStore } from "@/stores/settings-store"
+import { useTutorialStore } from "@/stores/tutorial-store"
+
+const LazyTutorialOverlay = lazy(() =>
+  import("@/components/tutorial/tutorial-overlay").then((mod) => ({
+    default: mod.TutorialOverlay,
+  })),
+)
+
+const LazyApiKeyPrompt = lazy(() =>
+  import("@/components/ui/api-key-prompt").then((mod) => ({
+    default: mod.ApiKeyPrompt,
+  })),
+)
 
 export function App() {
   useRemoteControl()
   useDetectionSettingsSync()
   const apiKeyPromptOpen = useApiKeyPromptStore((s) => s.isOpen)
   const setApiKeyPromptOpen = useApiKeyPromptStore((s) => s.setOpen)
+  const onboardingComplete = useSettingsStore((s) => s.onboardingComplete)
+  const tutorialRunning = useTutorialStore((s) => s.isRunning)
+  const shouldMountTutorial =
+    isTauriRuntime() && (!onboardingComplete || tutorialRunning)
+
   return (
     <>
       <Dashboard />
-      <TutorialOverlay />
-      <ApiKeyPrompt
-        open={apiKeyPromptOpen}
-        onOpenChange={setApiKeyPromptOpen}
-        service="Deepgram"
-        description="Live transcription needs a Deepgram API key. Add it in settings so the app can start listening."
-      />
+      {shouldMountTutorial ? (
+        <Suspense fallback={null}>
+          <LazyTutorialOverlay />
+        </Suspense>
+      ) : null}
+      {apiKeyPromptOpen ? (
+        <Suspense fallback={null}>
+          <LazyApiKeyPrompt
+            open={apiKeyPromptOpen}
+            onOpenChange={setApiKeyPromptOpen}
+            service="Deepgram"
+            description="Live transcription needs a Deepgram API key. Add it in settings so the app can start listening."
+          />
+        </Suspense>
+      ) : null}
       <Toaster
         position="bottom-right"
         theme="dark"

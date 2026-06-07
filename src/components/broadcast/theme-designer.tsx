@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { Dialog as DialogPrimitive } from "radix-ui"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { Button } from "@/components/ui/button"
 import { SaveIcon, TrashIcon, XIcon } from "lucide-react"

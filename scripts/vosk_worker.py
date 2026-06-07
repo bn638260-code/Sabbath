@@ -44,7 +44,7 @@ def main() -> int:
     grammar_json = args.grammar_json
     if args.grammar_json_file:
         try:
-            with open(args.grammar_json_file, encoding="utf-8") as grammar_file:
+            with open(args.grammar_json_file, encoding="utf-8-sig") as grammar_file:
                 grammar_json = grammar_file.read()
         except OSError as exc:
             emit(
