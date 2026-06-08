@@ -100,6 +100,17 @@ jobs:
       - name: Verify public Bible DB
         run: bun run verify:bible:public
 
+      - name: Cache Vosk model
+        uses: actions/cache@v4
+        with:
+          path: |
+            models/vosk/vosk-model-small-en-us
+            models/vosk/vosk-model-small-en-us-0.15.zip
+          key: vosk-model-small-en-us-0.15
+
+      - name: Download Vosk model
+        run: bun run download:vosk
+
       - name: Cache Whisper model
         uses: actions/cache@v4
         with:
