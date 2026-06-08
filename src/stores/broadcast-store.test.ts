@@ -106,6 +106,33 @@ describe("broadcast store sync", () => {
     )
   })
 
+  it("commits a live item and syncs both outputs once", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const item = {
+      reference: "Psalm 23:1",
+      segments: [{ text: "The Lord is my shepherd", verseNumber: 1 }],
+    }
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().commitLiveItem(item)
+
+    expect(useBroadcastStore.getState()).toMatchObject({
+      isLive: true,
+      liveItem: item,
+    })
+    expect(emitToMock).toHaveBeenCalledTimes(2)
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:verse-update",
+      expect.objectContaining({ item }),
+    )
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast-alt",
+      "broadcast:verse-update",
+      expect.objectContaining({ item }),
+    )
+  })
+
   it("stores the reading mode auto-live preference without emitting output", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
 

@@ -105,16 +105,17 @@ function toPresentationRenderData(item: PresentationItem): PresentationRenderDat
   return getPresentationRenderData(item)
 }
 
+function commitRenderDataToLive(
+  renderData: PresentationRenderData,
+  options?: { makeLive?: boolean },
+) {
+  console.info("[pipeline] commit_live", { reference: renderData.reference })
+  useBroadcastStore.getState().commitLiveItem(renderData, options)
+}
+
 export function commitVerseToLive(verse: Verse, options?: { makeLive?: boolean }) {
   const renderData = toPresentationRenderData(createPresentationItem(verse))
-  const broadcast = useBroadcastStore.getState()
-
-  console.info("[pipeline] commit_live", { reference: renderData.reference })
-  broadcast.setLiveItem(renderData)
-
-  if (options?.makeLive ?? true) {
-    broadcast.setLive(true)
-  }
+  commitRenderDataToLive(renderData, options)
 }
 
 export function commitPreviewToLive(): boolean {
@@ -126,17 +127,14 @@ export function commitPreviewToLive(): boolean {
     })()
   if (!previewItem) return false
 
-  useBroadcastStore.getState().setLiveItem(previewItem)
-  useBroadcastStore.getState().setLive(true)
+  commitRenderDataToLive(previewItem)
   return true
 }
 
 export function presentItem(item: PresentationItem, options?: { navigate?: boolean }) {
   selectPreviewItem(item, { navigate: options?.navigate })
   const renderData = toPresentationRenderData(item)
-  console.info("[pipeline] commit_live", { reference: renderData.reference })
-  useBroadcastStore.getState().setLiveItem(renderData)
-  useBroadcastStore.getState().setLive(true)
+  commitRenderDataToLive(renderData)
 }
 
 export function presentVerse(verse: Verse, options?: { navigate?: boolean }) {

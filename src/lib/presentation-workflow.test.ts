@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { Verse } from "@/types"
+import type { EgwParagraph, HymnPresentationItemData, Verse } from "@/types"
 
 const emitToMock = vi.fn()
 
@@ -16,6 +16,45 @@ const sampleVerse: Verse = {
   chapter: 3,
   verse: 16,
   text: "For God so loved the world.",
+}
+
+const sampleHymnItem: HymnPresentationItemData = {
+  kind: "hymn",
+  hymnId: "hymn-001",
+  hymnNumber: 1,
+  hymnTitle: "Praise to the Lord",
+  screenId: "screen-1",
+  slideIndex: 0,
+  slideCount: 2,
+  reference: "#1 Praise to the Lord - Verse 1",
+  segments: [{ text: "Praise to the Lord, the Almighty" }],
+}
+
+const sampleEgwParagraph: EgwParagraph = {
+  id: 7,
+  book_number: 1,
+  book_title: "Patriarchs and Prophets",
+  chapter: 2,
+  chapter_title: "The Creation",
+  paragraph: 5,
+  text: "God is love.",
+}
+
+function expectBroadcastOutputsFor(reference: string) {
+  expect(emitToMock).toHaveBeenCalledWith(
+    "broadcast",
+    "broadcast:verse-update",
+    expect.objectContaining({
+      item: expect.objectContaining({ reference }),
+    }),
+  )
+  expect(emitToMock).toHaveBeenCalledWith(
+    "broadcast-alt",
+    "broadcast:verse-update",
+    expect.objectContaining({
+      item: expect.objectContaining({ reference }),
+    }),
+  )
 }
 
 describe("presentation workflow", () => {
@@ -73,6 +112,7 @@ describe("presentation workflow", () => {
         item: previewPayload,
       }),
     )
+    expectBroadcastOutputsFor("John 3:16 (KJV)")
   })
 
   it("commitPreviewToLive returns false when no verse is staged", async () => {
@@ -82,6 +122,21 @@ describe("presentation workflow", () => {
     useBibleStore.setState({ selectedVerse: null })
 
     expect(commitPreviewToLive()).toBe(false)
+  })
+
+  it("commitPreviewToLive broadcasts a staged non-scripture item", async () => {
+    const { useBroadcastStore } = await import("@/stores/broadcast-store")
+    const { commitPreviewToLive, selectPreviewItem } = await import("./presentation-workflow")
+
+    selectPreviewItem(sampleHymnItem)
+    emitToMock.mockClear()
+
+    expect(commitPreviewToLive()).toBe(true)
+    expect(useBroadcastStore.getState().isLive).toBe(true)
+    expect(useBroadcastStore.getState().liveItem).toEqual(
+      useBroadcastStore.getState().previewItem,
+    )
+    expectBroadcastOutputsFor("#1 Praise to the Lord - Verse 1")
   })
 
   it("auto-live commits the verse before staging preview", async () => {
@@ -125,5 +180,78 @@ describe("presentation workflow", () => {
 
     expect(previewSelections).toHaveLength(1)
     expect(useBibleStore.getState().selectedVerse).toEqual(sampleVerse)
+    expectBroadcastOutputsFor("John 3:16 (KJV)")
+  })
+
+  it("commitVerseToLive can refresh the live item without changing live visibility", async () => {
+    const { useBroadcastStore } = await import("@/stores/broadcast-store")
+    const { commitVerseToLive } = await import("./presentation-workflow")
+
+    useBroadcastStore.setState({
+      isLive: true,
+      liveItem: {
+        reference: "Romans 8:1 (KJV)",
+        segments: [{ verseNumber: 1, text: "There is therefore now no condemnation." }],
+      },
+    })
+
+    emitToMock.mockClear()
+    commitVerseToLive(sampleVerse, { makeLive: false })
+
+    expect(useBroadcastStore.getState().isLive).toBe(true)
+    expect(useBroadcastStore.getState().liveItem?.reference).toBe("John 3:16 (KJV)")
+    expectBroadcastOutputsFor("John 3:16 (KJV)")
+  })
+
+  it("presentVerse stages preview and broadcasts to both outputs", async () => {
+    const { useBibleStore } = await import("@/stores/bible-store")
+    const { useBroadcastStore } = await import("@/stores/broadcast-store")
+    const { presentVerse } = await import("./presentation-workflow")
+
+    emitToMock.mockClear()
+    presentVerse(sampleVerse)
+
+    expect(useBibleStore.getState().selectedVerse).toEqual(sampleVerse)
+    expect(useBroadcastStore.getState().previewItem?.reference).toBe("John 3:16 (KJV)")
+    expect(useBroadcastStore.getState().liveItem?.reference).toBe("John 3:16 (KJV)")
+    expect(useBroadcastStore.getState().isLive).toBe(true)
+    expectBroadcastOutputsFor("John 3:16 (KJV)")
+  })
+
+  it("presentItem broadcasts non-scripture presentation data to both outputs", async () => {
+    const { useBroadcastStore } = await import("@/stores/broadcast-store")
+    const { presentItem } = await import("./presentation-workflow")
+
+    emitToMock.mockClear()
+    presentItem(sampleHymnItem)
+
+    expect(useBroadcastStore.getState().previewItem).toMatchObject({
+      kind: "hymn",
+      reference: "#1 Praise to the Lord - Verse 1",
+      hymnSlide: {
+        screenId: "screen-1",
+        slideIndex: 0,
+        slideCount: 2,
+      },
+    })
+    expect(useBroadcastStore.getState().liveItem).toEqual(
+      useBroadcastStore.getState().previewItem,
+    )
+    expectBroadcastOutputsFor("#1 Praise to the Lord - Verse 1")
+  })
+
+  it("presentEgwParagraph broadcasts EGW presentation data to both outputs", async () => {
+    const { useBroadcastStore } = await import("@/stores/broadcast-store")
+    const { presentEgwParagraph } = await import("./presentation-workflow")
+
+    emitToMock.mockClear()
+    presentEgwParagraph(sampleEgwParagraph)
+
+    expect(useBroadcastStore.getState().liveItem).toMatchObject({
+      kind: "egw",
+      reference: "Patriarchs and Prophets 2:5",
+      segments: [{ text: "God is love." }],
+    })
+    expectBroadcastOutputsFor("Patriarchs and Prophets 2:5")
   })
 })

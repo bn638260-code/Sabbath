@@ -43,6 +43,7 @@ interface BroadcastState {
   setLive: (live: boolean) => void
   setPreviewItem: (item: PresentationRenderData | null) => void
   setLiveItem: (item: PresentationRenderData | null) => void
+  commitLiveItem: (item: PresentationRenderData, options?: { makeLive?: boolean }) => void
   setReadingModeAutoLive: (enabled: boolean) => void
   setOpacity: (opacity: number) => void
   syncBroadcastOutput: () => void
@@ -309,6 +310,11 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   },
   setLiveItem: (liveItem) => {
     set({ liveItem })
+    get().syncBroadcastOutput()
+  },
+  commitLiveItem: (liveItem, options) => {
+    const makeLive = options?.makeLive ?? true
+    set(makeLive ? { liveItem, isLive: true } : { liveItem })
     get().syncBroadcastOutput()
   },
   setReadingModeAutoLive: (readingModeAutoLive) => {
