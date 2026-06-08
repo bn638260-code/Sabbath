@@ -955,6 +955,304 @@ const CINEMA_LANTERN_LOWER: BroadcastTheme = {
   },
 }
 
+const PREMIUM_SERIF: BroadcastTheme["verseText"] = {
+  ...CLASSIC_DARK.verseText,
+  fontFamily: "DM Serif Display",
+  fontSize: 78,
+  fontWeight: 400,
+  horizontalAlign: "center",
+  verticalAlign: "middle",
+  lineHeight: 1.38,
+  letterSpacing: 0,
+  shadow: { color: "rgba(0,0,0,0.72)", blur: 20, x: 0, y: 5 },
+}
+
+const PREMIUM_REFERENCE: BroadcastTheme["reference"] = {
+  ...CLASSIC_DARK.reference,
+  fontFamily: "Source Sans 3 Variable",
+  fontSize: 34,
+  fontWeight: 700,
+  horizontalAlign: "center",
+  verticalAlign: "middle",
+  uppercase: true,
+  letterSpacing: 3,
+  position: "below",
+}
+
+const PREMIUM_LAYOUT: BroadcastTheme["layout"] = {
+  ...CLASSIC_DARK.layout,
+  anchor: "center",
+  padding: { top: 78, right: 110, bottom: 78, left: 110 },
+  textAlign: "center",
+  textAreaWidth: 84,
+  textAreaHeight: 76,
+  referenceGap: 34,
+}
+
+const PREMIUM_SUNRISE_GLORY: BroadcastTheme = {
+  ...CLASSIC_DARK,
+  id: "builtin-premium-sunrise-glory",
+  name: "Premium Sunrise Glory",
+  background: {
+    type: "gradient",
+    color: "#1c0e0b",
+    gradient: {
+      type: "linear",
+      angle: 135,
+      stops: [
+        { color: "#1c0e0b", position: 0 },
+        { color: "#3a1c15", position: 50 },
+        { color: "#150907", position: 100 },
+      ],
+    },
+    image: null,
+  },
+  textBox: {
+    enabled: false,
+    color: "#000000",
+    opacity: 0,
+    borderRadius: 0,
+    padding: 0,
+  },
+  verseText: { ...PREMIUM_SERIF, color: "#fff7ed" },
+  verseNumbers: {
+    visible: true,
+    fontSize: 18,
+    color: "#fb923c",
+    superscript: true,
+  },
+  reference: { ...PREMIUM_REFERENCE, color: "#fed7aa" },
+  layout: PREMIUM_LAYOUT,
+  transition: { ...CLASSIC_DARK.transition, duration: 520 },
+}
+
+const PREMIUM_MIDNIGHT_OCEAN: BroadcastTheme = {
+  ...CLASSIC_DARK,
+  id: "builtin-premium-midnight-ocean",
+  name: "Premium Midnight Ocean",
+  background: {
+    type: "gradient",
+    color: "#06152d",
+    gradient: {
+      type: "linear",
+      angle: 135,
+      stops: [
+        { color: "#06152d", position: 0 },
+        { color: "#0a2540", position: 50 },
+        { color: "#020b18", position: 100 },
+      ],
+    },
+    image: null,
+  },
+  textBox: PREMIUM_SUNRISE_GLORY.textBox,
+  verseText: { ...PREMIUM_SERIF, color: "#eff6ff" },
+  verseNumbers: {
+    visible: true,
+    fontSize: 18,
+    color: "#38bdf8",
+    superscript: true,
+  },
+  reference: { ...PREMIUM_REFERENCE, color: "#bae6fd" },
+  layout: PREMIUM_LAYOUT,
+  transition: { ...CLASSIC_DARK.transition, duration: 520 },
+}
+
+const PREMIUM_CELESTIAL_VELVET: BroadcastTheme = {
+  ...CLASSIC_DARK,
+  id: "builtin-premium-celestial-velvet",
+  name: "Premium Celestial Velvet",
+  background: {
+    type: "gradient",
+    color: "#120b29",
+    gradient: {
+      type: "linear",
+      angle: 135,
+      stops: [
+        { color: "#120b29", position: 0 },
+        { color: "#25133e", position: 50 },
+        { color: "#070313", position: 100 },
+      ],
+    },
+    image: null,
+  },
+  textBox: PREMIUM_SUNRISE_GLORY.textBox,
+  verseText: { ...PREMIUM_SERIF, color: "#faf5ff" },
+  verseNumbers: {
+    visible: true,
+    fontSize: 18,
+    color: "#c084fc",
+    superscript: true,
+  },
+  reference: { ...PREMIUM_REFERENCE, color: "#ddd6fe" },
+  layout: PREMIUM_LAYOUT,
+  transition: { ...CLASSIC_DARK.transition, duration: 520 },
+}
+
+const PREMIUM_EMERALD_SAGE: BroadcastTheme = {
+  ...CLASSIC_DARK,
+  id: "builtin-premium-emerald-sage",
+  name: "Premium Emerald Sage",
+  background: {
+    type: "gradient",
+    color: "#091712",
+    gradient: {
+      type: "linear",
+      angle: 135,
+      stops: [
+        { color: "#091712", position: 0 },
+        { color: "#122c22", position: 50 },
+        { color: "#040a08", position: 100 },
+      ],
+    },
+    image: null,
+  },
+  textBox: PREMIUM_SUNRISE_GLORY.textBox,
+  verseText: { ...PREMIUM_SERIF, color: "#ecfdf5" },
+  verseNumbers: {
+    visible: true,
+    fontSize: 18,
+    color: "#4ade80",
+    superscript: true,
+  },
+  reference: { ...PREMIUM_REFERENCE, color: "#bbf7d0" },
+  layout: PREMIUM_LAYOUT,
+  transition: { ...CLASSIC_DARK.transition, duration: 520 },
+}
+
+const PREMIUM_CRIMSON_CHAPEL: BroadcastTheme = {
+  ...CLASSIC_DARK,
+  id: "builtin-premium-crimson-chapel",
+  name: "Premium Crimson Chapel",
+  background: {
+    type: "gradient",
+    color: "#190711",
+    gradient: {
+      type: "linear",
+      angle: 135,
+      stops: [
+        { color: "#190711", position: 0 },
+        { color: "#4a0f1f", position: 52 },
+        { color: "#09030a", position: 100 },
+      ],
+    },
+    image: null,
+  },
+  textBox: PREMIUM_SUNRISE_GLORY.textBox,
+  verseText: { ...PREMIUM_SERIF, color: "#fff1f2" },
+  verseNumbers: {
+    visible: true,
+    fontSize: 18,
+    color: "#fb7185",
+    superscript: true,
+  },
+  reference: { ...PREMIUM_REFERENCE, color: "#fecdd3" },
+  layout: PREMIUM_LAYOUT,
+  transition: { ...CLASSIC_DARK.transition, duration: 520 },
+}
+
+const PREMIUM_GILDED_INDIGO: BroadcastTheme = {
+  ...CLASSIC_DARK,
+  id: "builtin-premium-gilded-indigo",
+  name: "Premium Gilded Indigo",
+  background: {
+    type: "gradient",
+    color: "#0a1026",
+    gradient: {
+      type: "linear",
+      angle: 135,
+      stops: [
+        { color: "#0a1026", position: 0 },
+        { color: "#1e1b4b", position: 48 },
+        { color: "#2b1607", position: 100 },
+      ],
+    },
+    image: null,
+  },
+  textBox: PREMIUM_SUNRISE_GLORY.textBox,
+  verseText: { ...PREMIUM_SERIF, color: "#fffaf0" },
+  verseNumbers: {
+    visible: true,
+    fontSize: 18,
+    color: "#facc15",
+    superscript: true,
+  },
+  reference: { ...PREMIUM_REFERENCE, color: "#fde68a" },
+  layout: PREMIUM_LAYOUT,
+  transition: { ...CLASSIC_DARK.transition, duration: 520 },
+}
+
+const PREMIUM_RIVER_STONE: BroadcastTheme = {
+  ...CLASSIC_DARK,
+  id: "builtin-premium-river-stone",
+  name: "Premium River Stone",
+  background: {
+    type: "gradient",
+    color: "#071412",
+    gradient: {
+      type: "linear",
+      angle: 135,
+      stops: [
+        { color: "#071412", position: 0 },
+        { color: "#164e63", position: 54 },
+        { color: "#111827", position: 100 },
+      ],
+    },
+    image: null,
+  },
+  textBox: PREMIUM_SUNRISE_GLORY.textBox,
+  verseText: { ...PREMIUM_SERIF, color: "#f0fdfa" },
+  verseNumbers: {
+    visible: true,
+    fontSize: 18,
+    color: "#5eead4",
+    superscript: true,
+  },
+  reference: { ...PREMIUM_REFERENCE, color: "#ccfbf1" },
+  layout: PREMIUM_LAYOUT,
+  transition: { ...CLASSIC_DARK.transition, duration: 520 },
+}
+
+const PREMIUM_PEARL_DAWN: BroadcastTheme = {
+  ...MODERN_LIGHT,
+  id: "builtin-premium-pearl-dawn",
+  name: "Premium Pearl Dawn",
+  background: {
+    type: "gradient",
+    color: "#fff8f1",
+    gradient: {
+      type: "linear",
+      angle: 135,
+      stops: [
+        { color: "#fff8f1", position: 0 },
+        { color: "#fde2d2", position: 50 },
+        { color: "#dbeafe", position: 100 },
+      ],
+    },
+    image: null,
+  },
+  textBox: {
+    enabled: true,
+    color: "#ffffff",
+    opacity: 0.34,
+    borderRadius: 8,
+    padding: 24,
+  },
+  verseText: {
+    ...PREMIUM_SERIF,
+    color: "#1f2937",
+    shadow: { color: "rgba(255,255,255,0.55)", blur: 10, x: 0, y: 2 },
+  },
+  verseNumbers: {
+    visible: true,
+    fontSize: 18,
+    color: "#c2410c",
+    superscript: true,
+  },
+  reference: { ...PREMIUM_REFERENCE, color: "#075985" },
+  layout: PREMIUM_LAYOUT,
+  transition: { ...MODERN_LIGHT.transition, type: "fade", duration: 520 },
+}
+
 export const BUILTIN_THEMES: BroadcastTheme[] = [
   CLASSIC_DARK,
   MODERN_LIGHT,
@@ -978,4 +1276,12 @@ export const BUILTIN_THEMES: BroadcastTheme[] = [
   CINEMA_CRIMSON_VEIL,
   CINEMA_ALPINE_MIST,
   CINEMA_LANTERN_LOWER,
+  PREMIUM_SUNRISE_GLORY,
+  PREMIUM_MIDNIGHT_OCEAN,
+  PREMIUM_CELESTIAL_VELVET,
+  PREMIUM_EMERALD_SAGE,
+  PREMIUM_CRIMSON_CHAPEL,
+  PREMIUM_GILDED_INDIGO,
+  PREMIUM_RIVER_STONE,
+  PREMIUM_PEARL_DAWN,
 ]
