@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act } from "react"
-import { renderHook } from "@testing-library/react"
+import { renderHook, type RenderHookResult } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { NdiSessionInfo } from "@/types"
 import type { BroadcastOutputCommandState } from "./use-broadcast-output-settings"
@@ -393,7 +393,7 @@ describe("use-broadcast-output-settings commands", () => {
   describe("useBroadcastOutputSettings hook", () => {
     async function renderHookResult(open = true) {
       const { useBroadcastOutputSettings } = await loadCommandModule()
-      let rendered!: ReturnType<typeof renderHook<ReturnType<typeof useBroadcastOutputSettings>>>
+      let rendered!: RenderHookResult<ReturnType<typeof useBroadcastOutputSettings>, never>
 
       await act(async () => {
         rendered = renderHook(() =>
@@ -508,13 +508,13 @@ describe("use-broadcast-output-settings commands", () => {
       expect(togglePreview).toBeDefined()
       expect(toggleEnabled).toBeDefined()
 
-      let previewToggle: Promise<void> | undefined
+      let previewToggle: Promise<unknown> | undefined
       await act(async () => {
         previewToggle = togglePreview?.()
         await Promise.resolve()
       })
 
-      let enabledToggle: Promise<void> | undefined
+      let enabledToggle: Promise<unknown> | undefined
       await act(async () => {
         enabledToggle = toggleEnabled?.(true)
         await Promise.resolve()
@@ -526,7 +526,7 @@ describe("use-broadcast-output-settings commands", () => {
         mockInvoke.mock.calls.filter((call) => call[0] === "open_broadcast_window"),
       ).toHaveLength(1)
 
-      let duplicateEnabledToggle: Promise<void> | undefined
+      let duplicateEnabledToggle: Promise<unknown> | undefined
       await act(async () => {
         duplicateEnabledToggle = result.current?.handleToggleEnabled(true)
         await Promise.resolve()
@@ -565,13 +565,13 @@ describe("use-broadcast-output-settings commands", () => {
       const toggleEnabled = result.current?.handleToggleEnabled
       expect(toggleEnabled).toBeDefined()
 
-      let enableToggle: Promise<void> | undefined
+      let enableToggle: Promise<unknown> | undefined
       await act(async () => {
         enableToggle = toggleEnabled?.(true)
         await Promise.resolve()
       })
 
-      let disableToggle: Promise<void> | undefined
+      let disableToggle: Promise<unknown> | undefined
       await act(async () => {
         disableToggle = toggleEnabled?.(false)
         await Promise.resolve()
@@ -613,14 +613,14 @@ describe("use-broadcast-output-settings commands", () => {
       expect(toggleNdi).toBeDefined()
       expect(toggleEnabled).toBeDefined()
 
-      let ndiToggle: Promise<void> | undefined
+      let ndiToggle: Promise<unknown> | undefined
       await act(async () => {
         ndiToggle = toggleNdi?.()
         await Promise.resolve()
         await Promise.resolve()
       })
 
-      let enabledToggle: Promise<void> | undefined
+      let enabledToggle: Promise<unknown> | undefined
       await act(async () => {
         enabledToggle = toggleEnabled?.(true)
         await Promise.resolve()
@@ -630,7 +630,7 @@ describe("use-broadcast-output-settings commands", () => {
       expect(result.current?.enabledPending).toBe(true)
       expect(mockInvoke.mock.calls.filter((call) => call[0] === "start_ndi")).toHaveLength(1)
 
-      let duplicateEnabledToggle: Promise<void> | undefined
+      let duplicateEnabledToggle: Promise<unknown> | undefined
       await act(async () => {
         duplicateEnabledToggle = result.current?.handleToggleEnabled(true)
         await Promise.resolve()
