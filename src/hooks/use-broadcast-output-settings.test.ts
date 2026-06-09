@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, useEffect } from "react"
+import { act } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { createRoot } from "react-dom/client"
 import React from "react"
@@ -410,9 +410,7 @@ describe("use-broadcast-output-settings commands", () => {
           monitors: sampleMonitors,
         })
 
-        useEffect(() => {
-          resultHolder.current = hookResult
-        })
+        resultHolder.current = hookResult
 
         return null
       }
