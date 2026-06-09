@@ -397,14 +397,14 @@ describe("use-broadcast-output-settings commands", () => {
       const container = document.createElement("div")
       document.body.appendChild(container)
       const root = createRoot(container)
-      const result: {
+      const resultRef: {
         current: ReturnType<typeof useBroadcastOutputSettings> | null
       } = {
         current: null,
       }
 
       function Probe() {
-        result.current = useBroadcastOutputSettings("main", {
+        resultRef.current = useBroadcastOutputSettings("main", {
           open,
           ndiSdkInstalled: true,
           monitors: sampleMonitors,
@@ -419,7 +419,7 @@ describe("use-broadcast-output-settings commands", () => {
       })
 
       return {
-        result,
+        result: resultRef,
         cleanup: () => {
           act(() => {
             root.unmount()
