@@ -155,14 +155,18 @@ function emitDraftToBroadcast(state: BroadcastState): void {
       theme: state.draftTheme,
       item: state.isLive ? state.liveItem : null,
       opacity: state.opacity,
-    }).catch(() => {})
+    }).catch((error) =>
+      console.warn("[broadcast-store] emit draft to 'broadcast' failed", error)
+    )
   }
   if (id === state.altActiveThemeId) {
     void emitTo("broadcast-alt", "broadcast:verse-update", {
       theme: state.draftTheme,
       item: state.isLive ? state.liveItem : null,
       opacity: state.opacity,
-    }).catch(() => {})
+    }).catch((error) =>
+      console.warn("[broadcast-store] emit draft to 'broadcast-alt' failed", error)
+    )
   }
 }
 
@@ -287,7 +291,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       theme,
       item: s.isLive ? s.liveItem : null,
       opacity: s.opacity,
-    }).catch(() => {})
+    }).catch((error) =>
+      console.warn(`[broadcast-store] sync emit to '${label}' failed`, error)
+    )
   },
   syncBroadcastOutput: () => {
     get().syncBroadcastOutputFor("main")

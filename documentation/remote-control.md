@@ -5,6 +5,7 @@ SabbathCue provides two remote control protocols for external integration: **OSC
 ## Overview
 
 Remote control enables you to:
+
 - **Navigate verses** - Advance or go back through your verse queue
 - **Control broadcast** - Show/hide output, toggle on-air status
 - **Switch themes** - Change active broadcast theme by name
@@ -13,10 +14,10 @@ Remote control enables you to:
 
 ## Supported Protocols
 
-| Protocol | Port | Transport | Best For |
-|----------|------|-----------|----------|
-| **OSC** | 8000 | UDP | Hardware controllers (Stream Deck, TouchOSC, Companion) |
-| **HTTP** | 8080 | TCP/HTTP | REST clients, automation scripts, custom dashboards |
+| Protocol | Port | Transport | Best For                                                |
+| -------- | ---- | --------- | ------------------------------------------------------- |
+| **OSC**  | 8000 | UDP       | Hardware controllers (Stream Deck, TouchOSC, Companion) |
+| **HTTP** | 8080 | TCP/HTTP  | REST clients, automation scripts, custom dashboards     |
 
 Both protocols support the same command set and can run simultaneously.
 
@@ -43,6 +44,7 @@ Both protocols support the same command set and can run simultaneously.
 ### Firewall & Network
 
 If accessing SabbathCue from another device on your network:
+
 - Allow incoming connections on your chosen ports (default 8000/8080)
 - Use your computer's local IP address (e.g., `192.168.1.100`)
 - For local-only access, change host to `127.0.0.1` in settings
@@ -56,11 +58,13 @@ All commands are case-insensitive and use the same structure across both protoco
 Moves forward in the verse queue and presents the next verse.
 
 **OSC:**
-```
+
+```text
 /sabbathcue/next
 ```
 
 **HTTP:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/command \
   -H "Content-Type: application/json" \
@@ -72,11 +76,13 @@ curl -X POST http://localhost:8080/api/v1/command \
 Moves backward in the verse queue and presents the previous verse.
 
 **OSC:**
-```
+
+```text
 /sabbathcue/prev
 ```
 
 **HTTP:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/command \
   -H "Content-Type: application/json" \
@@ -88,11 +94,13 @@ curl -X POST http://localhost:8080/api/v1/command \
 Makes the broadcast output visible (sets live state to true).
 
 **OSC:**
-```
+
+```text
 /sabbathcue/show
 ```
 
 **HTTP:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/command \
   -H "Content-Type: application/json" \
@@ -104,11 +112,13 @@ curl -X POST http://localhost:8080/api/v1/command \
 Hides the broadcast output (sets live state to false).
 
 **OSC:**
-```
+
+```text
 /sabbathcue/hide
 ```
 
 **HTTP:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/command \
   -H "Content-Type: application/json" \
@@ -120,15 +130,18 @@ curl -X POST http://localhost:8080/api/v1/command \
 Sets the broadcast live state to a specific value.
 
 **Parameters:**
+
 - `value` (boolean): `true` to go live, `false` to go off-air
 
 **OSC:**
-```
+
+```text
 /sabbathcue/on_air true
 /sabbathcue/on_air false
 ```
 
 **HTTP:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/command \
   -H "Content-Type: application/json" \
@@ -140,15 +153,18 @@ curl -X POST http://localhost:8080/api/v1/command \
 Changes the active broadcast theme by name (case-insensitive).
 
 **Parameters:**
+
 - `value` (string): Theme name (e.g., "Classic Dark", "Minimal", "Bold")
 
 **OSC:**
-```
+
+```text
 /sabbathcue/theme "Classic Dark"
 /sabbathcue/theme "Minimal"
 ```
 
 **HTTP:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/command \
   -H "Content-Type: application/json" \
@@ -160,15 +176,18 @@ curl -X POST http://localhost:8080/api/v1/command \
 Adjusts the opacity of the broadcast output.
 
 **Parameters:**
+
 - `value` (float): Opacity from 0.0 (transparent) to 1.0 (opaque)
 
 **OSC:**
-```
+
+```text
 /sabbathcue/opacity 0.75
 /sabbathcue/opacity 1.0
 ```
 
 **HTTP:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/command \
   -H "Content-Type: application/json" \
@@ -182,14 +201,17 @@ The value is clamped to the supported `0.0` to `1.0` range.
 Adjusts the minimum confidence threshold for verse detection.
 
 **Parameters:**
+
 - `value` (float): Confidence threshold from 0.0 to 1.0
 
 **OSC:**
-```
+
+```text
 /sabbathcue/confidence 0.8
 ```
 
 **HTTP:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/command \
   -H "Content-Type: application/json" \
@@ -205,11 +227,13 @@ The HTTP API provides additional endpoints for querying status.
 Returns current application status snapshot.
 
 **Request:**
+
 ```bash
 curl http://localhost:8080/api/v1/status
 ```
 
 **Response:**
+
 ```json
 {
   "on_air": true,
@@ -225,6 +249,7 @@ curl http://localhost:8080/api/v1/status
 Executes a remote command (see Available Commands above).
 
 **Request:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/command \
   -H "Content-Type: application/json" \
@@ -232,6 +257,7 @@ curl -X POST http://localhost:8080/api/v1/command \
 ```
 
 **Response:**
+
 ```json
 {
   "status": "ok"
@@ -260,6 +286,7 @@ curl -X POST http://localhost:8080/api/v1/command \
 Mobile control surfaces can send OSC commands directly.
 
 **TouchOSC Example:**
+
 1. Create buttons with OSC message type
 2. Set destination to SabbathCue computer IP:8000
 3. Configure OSC addresses:
@@ -273,49 +300,49 @@ Mobile control surfaces can send OSC commands directly.
 **Using HTTP API:**
 
 ```javascript
-const SABBATHCUE_URL = 'http://localhost:8080/api/v1';
+const SABBATHCUE_URL = "http://localhost:8080/api/v1"
 
 async function nextVerse() {
   await fetch(`${SABBATHCUE_URL}/command`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: 'next' })
-  });
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ command: "next" }),
+  })
 }
 
 async function setTheme(themeName) {
   await fetch(`${SABBATHCUE_URL}/command`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: 'theme', value: themeName })
-  });
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ command: "theme", value: themeName }),
+  })
 }
 
 async function getStatus() {
-  const res = await fetch(`${SABBATHCUE_URL}/status`);
-  return res.json();
+  const res = await fetch(`${SABBATHCUE_URL}/status`)
+  return res.json()
 }
 
 // Usage
-await nextVerse();
-await setTheme('Minimal');
-const status = await getStatus();
-console.log(status);
+await nextVerse()
+await setTheme("Minimal")
+const status = await getStatus()
+console.log(status)
 ```
 
 **Using OSC (via `osc` npm package):**
 
 ```javascript
-import { Client } from 'osc';
+import { Client } from "osc"
 
-const osc = new Client('localhost', 8000);
+const osc = new Client("localhost", 8000)
 
 // Send commands
-osc.send('/sabbathcue/next');
-osc.send('/sabbathcue/prev');
-osc.send('/sabbathcue/theme', 'Classic Dark');
-osc.send('/sabbathcue/opacity', 0.8);
-osc.send('/sabbathcue/on_air', true);
+osc.send("/sabbathcue/next")
+osc.send("/sabbathcue/prev")
+osc.send("/sabbathcue/theme", "Classic Dark")
+osc.send("/sabbathcue/opacity", 0.8)
+osc.send("/sabbathcue/on_air", true)
 ```
 
 ### Python Automation
@@ -382,6 +409,7 @@ Configure OBS hotkeys or macros to trigger this script.
 ### Command Log
 
 The Settings → Remote tab shows a real-time **Command Log** displaying:
+
 - Timestamp of each received command
 - Source (OSC or HTTP)
 - Command type
@@ -397,6 +425,7 @@ Use this to verify your integration is working correctly.
    - Confirm correct port numbers
 
 2. **Test Locally First**
+
    ```bash
    # Test HTTP locally
    curl -X POST http://localhost:8080/api/v1/command \
@@ -416,6 +445,7 @@ Use this to verify your integration is working correctly.
 #### Port Already in Use
 
 If you see "Port already in use" error:
+
 - Change the port number in settings
 - Check what's using the port: `lsof -i :8000` (macOS/Linux)
 - Kill conflicting process or choose different port
@@ -423,12 +453,14 @@ If you see "Port already in use" error:
 #### OSC vs HTTP - Which to Use?
 
 **Use OSC if:**
+
 - Integrating with hardware controllers
 - Using Companion, TouchOSC, QLab, etc.
 - Need low-latency, fire-and-forget commands
 - Already have OSC infrastructure
 
 **Use HTTP if:**
+
 - Building custom web dashboards
 - Scripting automation tasks
 - Need request/response confirmation
@@ -442,10 +474,12 @@ If you see "Port already in use" error:
 By default, both OSC and HTTP bind to `0.0.0.0`, making them accessible from any device on your network.
 
 **For local-only access:**
+
 - Bind to `127.0.0.1` instead (requires editing settings)
 - This prevents remote network access
 
 **For production environments:**
+
 - Use firewall rules to restrict access
 - Consider VPN or SSH tunneling for remote access
 - HTTP does not include authentication (add reverse proxy with auth if needed)
@@ -453,6 +487,7 @@ By default, both OSC and HTTP bind to `0.0.0.0`, making them accessible from any
 ### Command Validation
 
 All commands are validated before execution:
+
 - Invalid JSON is rejected (HTTP)
 - Unknown commands are ignored
 - Parameter types are checked (float/string/bool)
@@ -486,6 +521,7 @@ All commands are validated before execution:
 ### Status Sync
 
 The HTTP status endpoint is updated every 1000ms (1 second) with a snapshot from the frontend:
+
 - On-air state
 - Active theme name
 - Live verse reference
@@ -508,6 +544,7 @@ Planned additions to remote control:
 ## Support
 
 For issues or questions:
+
 - Check the main [README](../README.md)
 - Consult [Whisper Documentation](./whisper.md) for transcription setup
 - Report bugs on GitHub
@@ -516,5 +553,6 @@ For issues or questions:
 ---
 
 **Next Steps:**
+
 - Learn about [Whisper Transcription](./whisper.md) for local speech-to-text
 - See [README](../README.md) for general usage and setup

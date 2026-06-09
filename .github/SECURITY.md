@@ -63,7 +63,7 @@ manifest-src 'self';
 
 ## Reporting vulnerabilities
 
-Email **faithfulojebiyi@gmail.com**. Please do not open public issues for security reports. Include reproduction steps and, if possible, a proof of concept.
+Email <faithfulojebiyi@gmail.com>. Please do not open public issues for security reports. Include reproduction steps and, if possible, a proof of concept.
 
 ## References
 

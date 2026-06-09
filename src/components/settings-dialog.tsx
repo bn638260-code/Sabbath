@@ -7,7 +7,7 @@ import {
   useRef,
   type ComponentType,
 } from "react"
-import { invoke } from "@tauri-apps/api/core"
+import { invokeTauri } from "@/lib/tauri-runtime"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -128,7 +128,7 @@ function AudioSection() {
   const loadDevices = useCallback(async () => {
     try {
       setLoading(true)
-      const result = await invoke<DeviceInfo[]>("get_audio_devices")
+      const result = await invokeTauri<DeviceInfo[]>("get_audio_devices")
       setDevices(result)
     } catch {
       // Tauri command may not be available during dev
@@ -282,8 +282,8 @@ function SpeechSection() {
   const handleSaveKey = async () => {
     try {
       setKeyError(null)
-      await invoke("set_deepgram_api_key", { apiKey: keyValue })
-      const hasKey = await invoke<boolean>("has_deepgram_api_key")
+      await invokeTauri("set_deepgram_api_key", { apiKey: keyValue })
+      const hasKey = await invokeTauri<boolean>("has_deepgram_api_key")
       setHasDeepgramApiKey(hasKey)
       if (hasKey) {
         setKeyValue("")
@@ -301,7 +301,7 @@ function SpeechSection() {
   const handleClearKey = async () => {
     try {
       setKeyError(null)
-      await invoke("clear_deepgram_api_key")
+      await invokeTauri("clear_deepgram_api_key")
       setHasDeepgramApiKey(false)
       setKeyValue("")
       setEditingSavedKey(false)
@@ -721,8 +721,8 @@ function BibleSection() {
     async function load() {
       try {
         const [trans, active] = await Promise.all([
-          invoke<TranslationInfo[]>("list_translations"),
-          invoke<number>("get_active_translation"),
+          invokeTauri<TranslationInfo[]>("list_translations"),
+          invokeTauri<number>("get_active_translation"),
         ])
         setTranslations(trans)
         setActiveId(active)
@@ -738,7 +738,7 @@ function BibleSection() {
   const handleChange = async (value: string) => {
     const id = parseInt(value)
     try {
-      await invoke("set_active_translation", { translationId: id })
+      await invokeTauri("set_active_translation", { translationId: id })
       setActiveId(id)
       // Update frontend stores so all panels use the new translation
       useBibleStore.getState().setActiveTranslation(id)
@@ -841,21 +841,21 @@ function RemoteControlSection() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const osc = await invoke<RemoteStatus>("get_osc_status")
+        const osc = await invokeTauri<RemoteStatus>("get_osc_status")
         setOscStatus(osc)
         if (osc.running) setOscError(null)
       } catch {
         /* ignore */
       }
       try {
-        const http = await invoke<RemoteStatus>("get_http_status")
+        const http = await invokeTauri<RemoteStatus>("get_http_status")
         setHttpStatus(http)
         if (http.running) setHttpError(null)
       } catch {
         /* ignore */
       }
       try {
-        const hasToken = await invoke<boolean>("has_remote_http_token")
+        const hasToken = await invokeTauri<boolean>("has_remote_http_token")
         setHttpTokenConfigured(hasToken)
       } catch {
         // If the command isn't available (dev/web), don't spam errors.
@@ -908,12 +908,12 @@ function RemoteControlSection() {
   const handleOscToggle = async () => {
     try {
       if (oscStatus.running) {
-        await invoke("stop_osc")
+        await invokeTauri("stop_osc")
         setOscError(null)
       } else {
         const parsed = parseInt(oscPort, 10)
         const port = Number.isFinite(parsed) ? parsed : 8000
-        const boundPort = await invoke<number>("start_osc", { port })
+        const boundPort = await invokeTauri<number>("start_osc", { port })
         setOscPort(String(boundPort))
         setOscError(null)
       }
@@ -925,12 +925,12 @@ function RemoteControlSection() {
   const handleHttpToggle = async () => {
     try {
       if (httpStatus.running) {
-        await invoke("stop_http")
+        await invokeTauri("stop_http")
         setHttpError(null)
       } else {
         const parsed = parseInt(httpPort, 10)
         const port = Number.isFinite(parsed) ? parsed : 8080
-        const boundPort = await invoke<number>("start_http", { port })
+        const boundPort = await invokeTauri<number>("start_http", { port })
         setHttpPort(String(boundPort))
         setHttpError(null)
       }
@@ -946,7 +946,7 @@ function RemoteControlSection() {
   const handleRotateHttpToken = async () => {
     try {
       setTokenError(null)
-      const token = await invoke<string>("rotate_remote_http_token")
+      const token = await invokeTauri<string>("rotate_remote_http_token")
       await navigator.clipboard.writeText(token)
       setHttpTokenConfigured(true)
     } catch (e) {

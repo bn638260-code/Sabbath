@@ -62,26 +62,25 @@ to local Vosk speech recognition with the model and self-contained worker bundle
 
 ## Tech Stack
 
-| Layer | Technologies |
-|---|---|
-| **Frontend** | React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Zustand, Vite 7 |
-| **Backend** | Tauri v2, Rust (workspace with 7 crates) |
-| **AI/ML** | ONNX Runtime (MiniLM-L6-v2 embeddings), Aho-Corasick, Fuse.js |
-| **Database** | SQLite via rusqlite (bundled) with FTS5 |
-| **Broadcast** | NDI 6 SDK via dynamic loading (libloading FFI) |
-| **STT** | Local Vosk worker; Deepgram WebSocket + REST (`tokio-tungstenite`) |
+| Layer         | Technologies                                                       |
+| ------------- | ------------------------------------------------------------------ |
+| **Frontend**  | React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Zustand, Vite 7  |
+| **Backend**   | Tauri v2, Rust (workspace with 6 crates)                           |
+| **AI/ML**     | ONNX Runtime (MiniLM-L6-v2 embeddings), Aho-Corasick, Fuse.js      |
+| **Database**  | SQLite via rusqlite (bundled) with FTS5                            |
+| **Broadcast** | NDI 6 SDK via dynamic loading (libloading FFI)                     |
+| **STT**       | Local Vosk worker; Deepgram WebSocket + REST (`tokio-tungstenite`) |
 
 ### Rust Crates
 
-| Crate | Purpose |
-|---|---|
-| `rhema-audio` | Audio device enumeration, capture, VAD (cpal) |
-| `rhema-stt` | Local Vosk STT, legacy Whisper behind the `whisper` Cargo feature, and Deepgram STT streaming + REST fallback |
-| `rhema-bible` | SQLite Bible DB, FTS5 search, cross-references |
+| Crate             | Purpose                                                                                                               |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `rhema-audio`     | Audio device enumeration, capture, VAD (cpal)                                                                         |
+| `rhema-stt`       | Local Vosk STT, legacy Whisper behind the `whisper` Cargo feature, and Deepgram STT streaming + REST fallback         |
+| `rhema-bible`     | SQLite Bible DB, FTS5 search, cross-references                                                                        |
 | `rhema-detection` | Verse detection pipeline: direct, semantic, quotation, ensemble merger, sentence buffer, sermon context, reading mode |
-| `rhema-broadcast` | NDI video frame output via FFI |
-| `rhema-api` | Tauri command API layer |
-| `rhema-notes` | (placeholder) |
+| `rhema-broadcast` | NDI video frame output via FFI                                                                                        |
+| `rhema-api`       | Tauri command API layer                                                                                               |
 
 ## Prerequisites
 
@@ -95,35 +94,38 @@ to local Vosk speech recognition with the model and self-contained worker bundle
 
 Legacy local Whisper builds compile `whisper.cpp` from source, which requires CMake and `libclang` (via `bindgen`). Current public builds use the bundled Vosk worker, so this setup is only needed when working on the legacy Whisper feature.
 
-**macOS**
+#### macOS
 
 ```bash
 brew install cmake
 ```
 
-**Linux (Debian/Ubuntu)**
+#### Linux (Debian/Ubuntu)
 
 ```bash
 sudo apt install cmake clang libclang-dev
 ```
 
-**Linux (Arch)**
+#### Linux (Arch)
 
 ```bash
 sudo pacman -S llvm clang cmake
 ```
 
-**Windows**
+#### Windows
 
 Windows needs an extra build-tools bootstrap before the shared setup pipeline — LLVM/libclang and CMake aren't available out of the box.
 
 1. Install [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/) with the **Desktop development with C++** workload (provides MSVC).
 2. From the repo root:
+
    ```powershell
    bun install
    bun run setup:windows
    ```
+
    This installs LLVM + CMake via `winget` and persists `LIBCLANG_PATH`.
+
 3. **Close the terminal and open a new one** so `LIBCLANG_PATH` is inherited by subsequent commands.
 4. Continue with [Quick Setup](#quick-setup-recommended) (`bun run setup:all`) and then `bun run tauri dev`.
 
@@ -139,7 +141,7 @@ bun install
 
 One command sets up the development data pipeline: Python virtual environment, Bible data, database, ONNX model, precomputed embeddings, and speech assets:
 
-> **Windows:** run `bun run setup:windows` *before* `setup:all` and restart your terminal. See [Platform-specific setup](#platform-specific-setup) above.
+> **Windows:** run `bun run setup:windows` _before_ `setup:all` and restart your terminal. See [Platform-specific setup](#platform-specific-setup) above.
 
 ```bash
 bun run setup:all
@@ -163,6 +165,7 @@ SabbathCue supports two speech-to-text engines:
 
 **Option 1: Vosk (Local, Free)**
 Vosk runs locally on your machine with no API costs or per-minute billing.
+
 - Development builds can use Python plus `pip install vosk`.
 - Public release builds run `bun run build:vosk-sidecar` so the installed app has a self-contained `vosk_worker.exe`.
 - The model is fetched with `bun run download:vosk`.
@@ -170,7 +173,7 @@ Vosk runs locally on your machine with no API costs or per-minute billing.
 **Option 2: Deepgram (Cloud, Paid)**
 Create a `.env` file in the project root:
 
-```
+```text
 DEEPGRAM_API_KEY=your_key_here
 ```
 
@@ -230,7 +233,7 @@ bun run tauri build
 
 ## Project Structure
 
-```
+```text
 sabbathcue/
 ├── src/                          # React frontend
 │   ├── components/
@@ -252,8 +255,7 @@ sabbathcue/
 │   │   │   ├── direct/           # Aho-Corasick + fuzzy reference parsing
 │   │   │   └── semantic/         # ONNX embeddings, HNSW index, cloud booster, ensemble
 │   │   ├── broadcast/            # NDI output (FFI)
-│   │   ├── api/                  # Tauri command layer
-│   │   └── notes/                # (placeholder)
+│   │   └── api/                  # Tauri command layer
 │   └── tauri.conf.json
 ├── data/                         # Bible data pipeline
 │   ├── prepare-embeddings.ts     # Unified setup orchestrator (bun run setup:all)
@@ -274,31 +276,31 @@ sabbathcue/
 
 ## Scripts
 
-| Script | Description |
-|---|---|
-| `setup:all` | **Full setup** — runs the data/model/embedding/speech phases (idempotent; pass `--force` to re-run) |
-| `setup:windows` | Windows bootstrap — installs LLVM + CMake via `winget` and persists `LIBCLANG_PATH` |
-| `dev` | Start Vite dev server |
-| `build` | TypeScript check + Vite production build |
-| `tauri` | Run Tauri CLI commands |
-| `test` | Run Vitest tests |
-| `lint` | ESLint |
-| `format` | Prettier formatting |
-| `typecheck` | TypeScript type checking |
-| `preview` | Preview production build |
-| `download:bible-data` | Download bundled Bible translation archive + cross-references |
-| `build:bible` | Build SQLite Bible database from JSON sources |
-| `download:model` | Export all-MiniLM-L6-v2 to ONNX + quantize to INT8 |
-| `export:verses` | Export KJV verses to JSON for embedding precomputation |
-| `precompute:embeddings` | Precompute embeddings via Rust ONNX binary (recommended) |
-| `precompute:embeddings-onnx` | Precompute embeddings via Python ONNX Runtime |
-| `precompute:embeddings-py` | Precompute embeddings via Python sentence-transformers (GPU path) |
-| `quantize:model` | Quantize ONNX model to INT8 for ARM64 |
-| `download:vosk` | Download the small English Vosk model for local STT |
-| `build:vosk-sidecar` | Build the self-contained Vosk worker executable bundled in public installers |
-| `download:whisper` | Download `ggml-tiny.en.bin` for legacy Whisper STT development |
-| `download:ndi-sdk` | Download NDI 6 SDK headers and platform libraries |
-| `web:dev`, `web:build`, `web:start`, `web:lint` | Marketing + Fumadocs documentation site under `web/` |
+| Script                                          | Description                                                                                         |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `setup:all`                                     | **Full setup** — runs the data/model/embedding/speech phases (idempotent; pass `--force` to re-run) |
+| `setup:windows`                                 | Windows bootstrap — installs LLVM + CMake via `winget` and persists `LIBCLANG_PATH`                 |
+| `dev`                                           | Start Vite dev server                                                                               |
+| `build`                                         | TypeScript check + Vite production build                                                            |
+| `tauri`                                         | Run Tauri CLI commands                                                                              |
+| `test`                                          | Run Vitest tests                                                                                    |
+| `lint`                                          | ESLint                                                                                              |
+| `format`                                        | Prettier formatting                                                                                 |
+| `typecheck`                                     | TypeScript type checking                                                                            |
+| `preview`                                       | Preview production build                                                                            |
+| `download:bible-data`                           | Download bundled Bible translation archive + cross-references                                       |
+| `build:bible`                                   | Build SQLite Bible database from JSON sources                                                       |
+| `download:model`                                | Export all-MiniLM-L6-v2 to ONNX + quantize to INT8                                                  |
+| `export:verses`                                 | Export KJV verses to JSON for embedding precomputation                                              |
+| `precompute:embeddings`                         | Precompute embeddings via Rust ONNX binary (recommended)                                            |
+| `precompute:embeddings-onnx`                    | Precompute embeddings via Python ONNX Runtime                                                       |
+| `precompute:embeddings-py`                      | Precompute embeddings via Python sentence-transformers (GPU path)                                   |
+| `quantize:model`                                | Quantize ONNX model to INT8 for ARM64                                                               |
+| `download:vosk`                                 | Download the small English Vosk model for local STT                                                 |
+| `build:vosk-sidecar`                            | Build the self-contained Vosk worker executable bundled in public installers                        |
+| `download:whisper`                              | Download `ggml-tiny.en.bin` for legacy Whisper STT development                                      |
+| `download:ndi-sdk`                              | Download NDI 6 SDK headers and platform libraries                                                   |
+| `web:dev`, `web:build`, `web:start`, `web:lint` | Marketing + Fumadocs documentation site under `web/`                                                |
 
 ### Web documentation site (`web/`)
 
@@ -320,6 +322,6 @@ SabbathCue enforces a restrictive Content Security Policy on the Tauri webview t
 
 Create a `.env` file in the project root (optional):
 
-| Variable | Required | Description |
-|---|---|---|
+| Variable           | Required | Description                                                       |
+| ------------------ | -------- | ----------------------------------------------------------------- |
 | `DEEPGRAM_API_KEY` | Optional | API key for Deepgram speech-to-text (not needed if using Whisper) |

@@ -1,6 +1,6 @@
 ---
 title: Rust Crates
-description: Seven workspace crates, each with one job — audio, STT, Bible, detection, broadcast, API, and notes.
+description: Six workspace crates, each with one job — audio, STT, Bible, detection, broadcast, and API.
 icon: Boxes
 ---
 
@@ -18,7 +18,6 @@ dependencies follow a strict downward fan-out from the API layer.
 | `rhema-detection` | Verse detection pipeline: direct, semantic, quotation, ensemble merger, sentence buffer, sermon context, reading mode |
 | `rhema-broadcast` | NDI video frame output via FFI |
 | `rhema-api` | Tauri command API layer — the only crate that touches Tauri |
-| `rhema-notes` | (placeholder for upcoming sermon notes feature) |
 
 ## Why split this way
 
@@ -48,16 +47,11 @@ Each crate maps to a clear external responsibility:
   crates don't depend on Tauri, which means the workspace can be
   built and tested as plain Rust without the Tauri shell.
 
-- **`rhema-notes`** is a placeholder. Its `lib.rs` reads
-  *"Planned: Claude API integration, sermon note generation, and
-  PDF/Markdown export"* — none of that is implemented yet.
-
 ## Dependency graph
 
-![Dependency graph of the seven Rust crates fanning out from rhema-api with two internal cross-deps](/docs/diagrams/diagram-crate-dependencies.svg)
+![Dependency graph of the six Rust crates fanning out from rhema-api with two internal cross-deps](/docs/diagrams/diagram-crate-dependencies.svg)
 
-*The fan-out from `rhema-api` down through audio, stt, bible, detection, broadcast, and notes. Edges are strictly downward; no cycles. **Click to expand.***
-
+*The fan-out from `rhema-api` down through audio, stt, bible, detection, and broadcast. Edges are strictly downward; no cycles. **Click to expand.***
 
 ```
 rhema-api
@@ -65,8 +59,7 @@ rhema-api
 ├── rhema-stt        ───→  rhema-audio
 ├── rhema-bible
 ├── rhema-detection  ───→  rhema-bible
-├── rhema-broadcast
-└── rhema-notes
+└── rhema-broadcast
 ```
 
 The graph is strictly downward — no cycles, no horizontal

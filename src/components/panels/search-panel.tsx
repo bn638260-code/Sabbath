@@ -7,7 +7,7 @@ import {
   useRef,
   useMemo,
 } from "react"
-import { invoke } from "@tauri-apps/api/core"
+import { invokeTauri } from "@/lib/tauri-runtime"
 // Using native overflow-y-auto instead of Radix ScrollArea for reliable scrolling in flex layouts
 import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
@@ -304,7 +304,7 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
     })
 
     // Primary: hybrid search backend (combines vector + FTS5 BM25)
-    const hybridResultsPromise = invoke<SemanticSearchResult[]>(
+    const hybridResultsPromise = invokeTauri<SemanticSearchResult[]>(
       "semantic_search", { query, limit: 15 }
     ).catch((e) => {
       console.error("[context-search] hybrid semantic_search failed", e)
@@ -394,7 +394,7 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
       const requestId = ++quickVerseRequestIdRef.current
       if (quickVerseDebounceRef.current) clearTimeout(quickVerseDebounceRef.current)
       quickVerseDebounceRef.current = setTimeout(() => {
-        invoke<Verse[]>("get_chapter", {
+        invokeTauri<Verse[]>("get_chapter", {
           translationId: activeTranslationId,
           bookNumber: result.matchedBook!.book_number,
           chapter: result.chapter!
@@ -577,7 +577,7 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
               onValueChange={async (v) => {
                 const id = Number(v)
                 try {
-                  await invoke("set_active_translation", { translationId: id })
+                  await invokeTauri("set_active_translation", { translationId: id })
                   useBibleStore.getState().setActiveTranslation(id)
                 } catch (err) { console.error(err) }
               }}
@@ -607,7 +607,7 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
                 onValueChange={async (v) => {
                   const id = Number(v)
                   try {
-                    await invoke("set_active_translation", { translationId: id })
+                    await invokeTauri("set_active_translation", { translationId: id })
                     useBibleStore.getState().setActiveTranslation(id)
                   } catch (err) { console.error(err) }
                 }}

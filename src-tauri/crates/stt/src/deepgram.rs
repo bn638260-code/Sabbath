@@ -64,7 +64,7 @@ impl DeepgramClient {
             );
         }
 
-        log::info!("Deepgram WebSocket URL: {}", url.as_str());
+        log::info!("Deepgram WebSocket endpoint: {}", redact_ws_url_query(&url));
         Ok(url)
     }
 
@@ -346,6 +346,17 @@ impl DeepgramClient {
     /// Cancel the current connection and signal shutdown.
     pub fn stop(&self) {
         self.cancelled.store(true, Ordering::SeqCst);
+    }
+}
+
+/// Return a log-safe form of a WebSocket URL: scheme://host/path with any query
+/// string (which carries keyterms/keywords) replaced by `?<redacted>`.
+fn redact_ws_url_query(url: &Url) -> String {
+    let host = url.host_str().unwrap_or("");
+    if url.query().is_some() {
+        format!("{}://{}{}?<redacted>", url.scheme(), host, url.path())
+    } else {
+        format!("{}://{}{}", url.scheme(), host, url.path())
     }
 }
 
@@ -744,5 +755,32 @@ mod tests {
         let event = parse_one(r#"{"type":"Metadata","request_id":"abc"}"#).await;
 
         assert!(event.is_none());
+    }
+}
+
+#[cfg(test)]
+mod deepgram_url_tests {
+    use super::redact_ws_url_query;
+    use url::Url;
+
+    #[test]
+    fn redacts_query_with_keyterms() {
+        let url = Url::parse(
+            "wss://api.deepgram.com/v1/listen?interim_results=true&keyterm=Yahweh&keyterm=Selah",
+        )
+        .unwrap();
+        let redacted = redact_ws_url_query(&url);
+        assert_eq!(redacted, "wss://api.deepgram.com/v1/listen?<redacted>");
+        assert!(!redacted.contains("Yahweh"));
+        assert!(!redacted.contains("keyterm"));
+    }
+
+    #[test]
+    fn keeps_url_without_query_intact() {
+        let url = Url::parse("wss://api.deepgram.com/v1/listen").unwrap();
+        assert_eq!(
+            redact_ws_url_query(&url),
+            "wss://api.deepgram.com/v1/listen"
+        );
     }
 }

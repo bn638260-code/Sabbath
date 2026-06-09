@@ -57,12 +57,18 @@ const PARTIAL_SEMANTIC_MIN_WORDS: usize = 4;
 const LIVE_SEMANTIC_CAP: usize = 3;
 const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
 
+/// Pure policy: transcript text may be logged ONLY in debug builds AND when the
+/// operator explicitly opts in via SABBATHCUE_DEBUG_TRANSCRIPTS. Release builds
+/// can never log spoken content, regardless of the env var.
+fn transcript_logging_decision(is_debug_build: bool, env_value: &str) -> bool {
+    is_debug_build
+        && matches!(env_value.trim(), "1" | "true" | "TRUE" | "yes" | "YES")
+}
+
 fn transcript_logging_enabled() -> bool {
-    matches!(
-        std::env::var("SABBATHCUE_DEBUG_TRANSCRIPTS")
-            .unwrap_or_default()
-            .trim(),
-        "1" | "true" | "TRUE" | "yes" | "YES"
+    transcript_logging_decision(
+        cfg!(debug_assertions),
+        &std::env::var("SABBATHCUE_DEBUG_TRANSCRIPTS").unwrap_or_default(),
     )
 }
 
@@ -1911,6 +1917,22 @@ mod tests {
         assert_eq!(buffer.push_final(1, "Psalm 23".to_string(), false), None);
         assert_eq!(buffer.flush_with_seq(2), Some((2, "Psalm 23".to_string())));
         assert!(buffer.is_empty());
+    }
+
+    #[test]
+    fn release_build_never_logs_even_with_optin() {
+        assert!(!super::transcript_logging_decision(false, "1"));
+        assert!(!super::transcript_logging_decision(false, "true"));
+        assert!(!super::transcript_logging_decision(false, "YES"));
+    }
+
+    #[test]
+    fn debug_build_logs_only_with_optin() {
+        assert!(super::transcript_logging_decision(true, "1"));
+        assert!(super::transcript_logging_decision(true, " YES "));
+        assert!(!super::transcript_logging_decision(true, ""));
+        assert!(!super::transcript_logging_decision(true, "0"));
+        assert!(!super::transcript_logging_decision(true, "off"));
     }
 
     #[test]

@@ -1,5 +1,5 @@
 import { open, save } from "@tauri-apps/plugin-dialog"
-import { invoke } from "@tauri-apps/api/core"
+import { invokeTauri } from "@/lib/tauri-runtime"
 import type { BroadcastTheme } from "@/types"
 
 /**
@@ -19,7 +19,7 @@ export async function pickThemeBackgroundImage(): Promise<string | null> {
   if (!selected) return null
 
   const path = typeof selected === "string" ? selected : selected
-  return await invoke<string>("read_image_as_data_url", { path })
+  return await invokeTauri<string>("read_image_as_data_url", { path })
 }
 
 /**
@@ -32,7 +32,7 @@ export async function exportTheme(theme: BroadcastTheme): Promise<void> {
   })
   if (!path) return
 
-  await invoke("export_theme_to_path", { path, theme })
+  await invokeTauri("export_theme_to_path", { path, theme })
 }
 
 /**
@@ -47,7 +47,7 @@ export async function importTheme(): Promise<BroadcastTheme | null> {
   if (!selected) return null
 
   const path = typeof selected === "string" ? selected : selected
-  const parsed = (await invoke("import_theme_from_path", { path })) as BroadcastTheme
+  const parsed = (await invokeTauri("import_theme_from_path", { path })) as BroadcastTheme
 
   return {
     ...parsed,

@@ -1,7 +1,7 @@
 # SabbathCue Release Security Checklist
 
 **Version:** 0.1.3  
-**Last updated:** 2026-05-24  
+**Last updated:** 2026-05-24
 
 Check each item before tagging a release. CI automates the core checks; manual
 verification remains required for claims that cannot be proven by a test runner.

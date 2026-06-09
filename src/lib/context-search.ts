@@ -1,5 +1,5 @@
 import Fuse from "fuse.js"
-import { invoke } from "@tauri-apps/api/core"
+import { invokeTauri } from "@/lib/tauri-runtime"
 import { registerContextSearchCacheClearer } from "@/lib/context-search-cache"
 import type { SemanticSearchResult } from "@/types/detection"
 
@@ -41,7 +41,7 @@ async function getFuseIndex(translationId: number): Promise<Fuse<ContextSearchDo
   const existing = fuseByTranslation.get(translationId)
   if (existing) return existing
 
-  const rows = await invoke<VerseSearchRow[]>("get_translation_verses_for_search", {
+  const rows = await invokeTauri<VerseSearchRow[]>("get_translation_verses_for_search", {
     translationId,
   })
   const docs = rows.map(rowToDoc)

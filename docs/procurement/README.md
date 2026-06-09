@@ -2,7 +2,7 @@
 
 **Product:** SabbathCue - AI-assisted worship presentation software  
 **Version:** 0.1.3  
-**Prepared:** 2026-05-24  
+**Prepared:** 2026-05-24
 
 ## Purpose
 
@@ -12,18 +12,18 @@ practices, software supply chain, and operational requirements.
 
 ## Contents
 
-| Document | Description |
-|----------|-------------|
-| [Security Overview](./security-overview.md) | Architecture, CSP, remote control defaults, vulnerability reporting |
-| [Privacy & Data Flow](./privacy-data-flow.md) | Data inventory, network flows, retention, third-party dependencies |
-| [Release Security Checklist](./release-security-checklist.md) | Automated CI gates, manual verification steps, artifact evidence |
+| Document                                                      | Description                                                         |
+| ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [Security Overview](./security-overview.md)                   | Architecture, CSP, remote control defaults, vulnerability reporting |
+| [Privacy & Data Flow](./privacy-data-flow.md)                 | Data inventory, network flows, retention, third-party dependencies  |
+| [Release Security Checklist](./release-security-checklist.md) | Automated CI gates, manual verification steps, artifact evidence    |
 
 ## Software supply chain
 
 SabbathCue is built on:
 
 - **Frontend**: React 19, Vite 7, Tailwind CSS, Zustand
-- **Backend**: Rust workspace of 7 crates, Tauri v2
+- **Backend**: Rust workspace of 6 crates, Tauri v2
 - **STT**: Vosk, optional Deepgram
 - **ML**: ONNX Runtime, Qwen3-0.6B embeddings
 - **Database**: SQLite

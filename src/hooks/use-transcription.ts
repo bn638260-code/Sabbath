@@ -1,5 +1,5 @@
 import { useCallback } from "react"
-import { invoke } from "@tauri-apps/api/core"
+import { invokeTauri } from "@/lib/tauri-runtime"
 import { toast } from "sonner"
 import { useAudioStore } from "@/stores/audio-store"
 import { useSettingsStore } from "@/stores/settings-store"
@@ -50,7 +50,7 @@ export const transcriptionActions = {
 
     const settings = useSettingsStore.getState()
     try {
-      await invoke("start_transcription", {
+      await invokeTauri("start_transcription", {
         deviceId: settings.audioDeviceId,
         gain: settings.gain,
         provider: settings.sttProvider,
@@ -70,7 +70,7 @@ export const transcriptionActions = {
   async stop(): Promise<void> {
     const transcript = useTranscriptStore.getState()
     try {
-      await invoke("stop_transcription")
+      await invokeTauri("stop_transcription")
     } catch (e) {
       if (String(e) !== NOT_RUNNING_ERROR) {
         toast.error("Could not stop transcription", { description: String(e) })

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
-import { invoke } from "@tauri-apps/api/core"
+import { toast } from "sonner"
+import { invokeTauri } from "@/lib/tauri-runtime"
 
 export interface AssetStatus {
   bible_db: boolean
@@ -22,9 +23,13 @@ export function useAssets() {
   const refresh = useCallback(async () => {
     setLoading(true)
     try {
-      setStatus(await invoke<AssetStatus>("asset_status"))
-    } catch {
+      setStatus(await invokeTauri<AssetStatus>("asset_status"))
+    } catch (error) {
       setStatus(null)
+      toast.error("Could not check asset status", {
+        id: "asset-status-error",
+        description: error instanceof Error ? error.message : String(error),
+      })
     } finally {
       setLoading(false)
     }

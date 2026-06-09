@@ -2,7 +2,7 @@
 
 Hi! We're really excited that you're interested in contributing to SabbathCue. Before submitting your contribution, please read through this guide.
 
-SabbathCue is a Tauri v2 desktop app. The frontend is React 19 + TypeScript + Tailwind + Zustand; the backend is a Rust workspace with seven crates under `src-tauri/crates/` (audio, STT, Bible/FTS, verse detection, NDI broadcast, Tauri command API, and notes). Bun is the package manager and the runtime for the data pipeline scripts. Contributions on either side are welcome.
+SabbathCue is a Tauri v2 desktop app. The frontend is React 19 + TypeScript + Tailwind + Zustand; the backend is a Rust workspace with six crates under `src-tauri/crates/` (audio, STT, Bible/FTS, verse detection, NDI broadcast, and Tauri command API). Bun is the package manager and the runtime for the data pipeline scripts. Contributions on either side are welcome.
 
 ## Table of contents
 
@@ -59,7 +59,7 @@ bun run download:ndi-sdk
 
 ## Repository layout
 
-```
+```text
 sabbathcue/
 ├── src/              React frontend (components, hooks, Zustand stores, lib)
 ├── src-tauri/        Rust workspace
@@ -69,8 +69,7 @@ sabbathcue/
 │   │   ├── bible         SQLite + FTS5, cross-references
 │   │   ├── detection     Direct parsing, semantic search, ensemble merger
 │   │   ├── broadcast     NDI output via FFI
-│   │   ├── api           Tauri command layer
-│   │   └── notes         (placeholder)
+│   │   └── api           Tauri command layer
 │   └── tauri.conf.json
 ├── data/             Bible + model data pipeline (TypeScript + Python)
 └── documentation/    Feature-level docs (e.g. remote-control.md)
@@ -83,7 +82,7 @@ The README has a deeper [Project Structure](../README.md#project-structure) tree
 Frontend and top-level commands:
 
 | Command | What it does |
-|---|---|
+| --- | --- |
 | `bun run tauri dev` | Run the full app (Vite + Tauri) |
 | `bun run tauri build` | Produce a platform installer |
 | `bun run dev` | Run the frontend only on the Vite dev server |
@@ -96,7 +95,7 @@ Frontend and top-level commands:
 Rust commands — run from `src-tauri/`:
 
 | Command | What it does |
-|---|---|
+| --- | --- |
 | `cargo check` | Fast compile check across the workspace |
 | `cargo clippy --all-targets` | Lint the whole workspace |
 | `cargo fmt` | rustfmt |
@@ -118,7 +117,7 @@ Rust commands — run from `src-tauri/`:
 
 Commits must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>: <description>
 ```
 
@@ -145,7 +144,7 @@ Commits must follow [Conventional Commits](https://www.conventionalcommits.org/)
 
 ### Examples
 
-```
+```text
 feat: add verse bookmarking with offline sync
 fix: prevent crash when Bible translation has missing chapters
 refactor: extract audio playback into shared service
@@ -157,7 +156,7 @@ fix: voice navigation skipping last verse in chapter (fix #42)
 
 Run these before you open a PR. There are no pre-commit hooks wired up, so the responsibility is on you.
 
-**Frontend**
+### Frontend
 
 ```sh
 bun run typecheck
@@ -173,7 +172,7 @@ cargo fmt --check
 cargo test
 ```
 
-**Manual**
+### Manual
 
 - If the change affects UI, run `bun run tauri dev` and exercise the feature. Type checks don't catch visual regressions.
 - If you touch audio, STT, or detection, run at least one end-to-end pass with a real audio input — the pipelines are timing-sensitive and easy to break subtly.

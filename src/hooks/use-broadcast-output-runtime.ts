@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
-import { invoke } from "@tauri-apps/api/core"
+import { invokeTauri } from "@/lib/tauri-runtime"
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import { getBroadcastRenderKey } from "@/lib/broadcast-render-key"
 import { renderPresentation } from "@/lib/verse-renderer"
@@ -169,7 +169,7 @@ export function useBroadcastOutputRuntime({
         rgbaBase64: uint8ToBase64(imageData.data),
       }
 
-      await invoke("push_ndi_frame", { request })
+      await invokeTauri("push_ndi_frame", { request })
       lastPushRef.current = Date.now()
     } catch (error) {
       console.warn("[broadcast-output] push_ndi_frame failed", error)
@@ -261,7 +261,7 @@ export function useBroadcastOutputRuntime({
       logDebug("Tauri broadcast listeners unavailable", error)
     }
 
-    void invoke<{ active: boolean; width: number; height: number; fps: number } | null>(
+    void invokeTauri<{ active: boolean; width: number; height: number; fps: number } | null>(
       "get_ndi_status",
       { outputId },
     )

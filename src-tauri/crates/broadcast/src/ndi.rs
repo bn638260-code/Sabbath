@@ -132,6 +132,43 @@ pub enum NdiError {
     InvalidFrameBufferSize { width: u32, height: u32 },
 }
 
+/// Validate that an incoming RGBA frame matches the active session dimensions and that
+/// the buffer length is exactly width*height*4. Returns the expected byte length.
+fn validate_frame_dimensions(
+    width: u32,
+    height: u32,
+    rgba_len: usize,
+    expected_width: u32,
+    expected_height: u32,
+) -> Result<usize, NdiError> {
+    if width != expected_width || height != expected_height {
+        return Err(NdiError::FrameDimensionsMismatch {
+            expected_width,
+            expected_height,
+        });
+    }
+    let expected = (width * height * 4) as usize;
+    if rgba_len != expected {
+        return Err(NdiError::InvalidFrameBufferSize { width, height });
+    }
+    Ok(expected)
+}
+
+/// Convert `rgba` into the BGRA byte layout NDI expects, writing into `dst`
+/// (which must be the same length as `rgba`). Alpha is forced to 255 for opaque mode.
+fn convert_rgba_to_bgra_into(rgba: &[u8], dst: &mut [u8], alpha_mode: NdiAlphaMode) {
+    for (idx, px) in rgba.chunks_exact(4).enumerate() {
+        let offset = idx * 4;
+        dst[offset] = px[2];
+        dst[offset + 1] = px[1];
+        dst[offset + 2] = px[0];
+        dst[offset + 3] = match alpha_mode {
+            NdiAlphaMode::NoneOpaque => 255,
+            NdiAlphaMode::StraightAlpha | NdiAlphaMode::PremultipliedAlpha => px[3],
+        };
+    }
+}
+
 #[derive(Default)]
 pub struct NdiRuntime {
     sessions: std::collections::HashMap<String, ActiveNdiSession>,
@@ -326,33 +363,20 @@ impl ActiveNdiSession {
         height: u32,
         rgba_data: &[u8],
     ) -> Result<(), NdiError> {
-        if width != self.info.width || height != self.info.height {
-            return Err(NdiError::FrameDimensionsMismatch {
-                expected_width: self.info.width,
-                expected_height: self.info.height,
-            });
-        }
-
-        let expected = (width * height * 4) as usize;
-        if rgba_data.len() != expected {
-            return Err(NdiError::InvalidFrameBufferSize { width, height });
-        }
+        let expected = validate_frame_dimensions(
+            width,
+            height,
+            rgba_data.len(),
+            self.info.width,
+            self.info.height,
+        )?;
 
         if self.frame_buffer.len() != expected {
             self.frame_buffer.resize(expected, 0);
         }
 
         // Convert RGBA -> BGRA for NDIlib_FourCC_type_BGRA.
-        for (idx, px) in rgba_data.chunks_exact(4).enumerate() {
-            let offset = idx * 4;
-            self.frame_buffer[offset] = px[2];
-            self.frame_buffer[offset + 1] = px[1];
-            self.frame_buffer[offset + 2] = px[0];
-            self.frame_buffer[offset + 3] = match self.info.alpha_mode {
-                NdiAlphaMode::NoneOpaque => 255,
-                NdiAlphaMode::StraightAlpha | NdiAlphaMode::PremultipliedAlpha => px[3],
-            };
-        }
+        convert_rgba_to_bgra_into(rgba_data, &mut self.frame_buffer, self.info.alpha_mode);
 
         #[expect(
             clippy::cast_possible_wrap,
@@ -471,4 +495,88 @@ fn load_symbol<'a, T>(
         symbol: name,
         message: e.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolution_dimensions_are_correct() {
+        assert_eq!(NdiResolution::R720p.dimensions(), (1280, 720));
+        assert_eq!(NdiResolution::R1080p.dimensions(), (1920, 1080));
+        assert_eq!(NdiResolution::R4k.dimensions(), (3840, 2160));
+    }
+
+    #[test]
+    fn frame_rate_fps_are_correct() {
+        assert_eq!(NdiFrameRate::Fps24.fps(), 24);
+        assert_eq!(NdiFrameRate::Fps30.fps(), 30);
+        assert_eq!(NdiFrameRate::Fps60.fps(), 60);
+    }
+
+    #[test]
+    fn ndi_error_display_messages() {
+        assert_eq!(
+            NdiError::EmptySourceName.to_string(),
+            "NDI source name must not be empty"
+        );
+        assert_eq!(
+            NdiError::FrameDimensionsMismatch {
+                expected_width: 1920,
+                expected_height: 1080
+            }
+            .to_string(),
+            "frame dimensions do not match active NDI settings (1920x1080)"
+        );
+    }
+
+    #[test]
+    fn start_request_serde_round_trip() {
+        let req = NdiStartRequest {
+            source_name: "SabbathCue".to_string(),
+            resolution: NdiResolution::R1080p,
+            frame_rate: NdiFrameRate::Fps30,
+            alpha_mode: NdiAlphaMode::StraightAlpha,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("\"sourceName\""));
+        assert!(json.contains("\"frameRate\""));
+        let back: NdiStartRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, req);
+    }
+
+    #[test]
+    fn validate_frame_dimensions_enforces_size_and_shape() {
+        assert_eq!(validate_frame_dimensions(2, 1, 8, 2, 1).unwrap(), 8);
+        assert!(matches!(
+            validate_frame_dimensions(2, 1, 8, 4, 1),
+            Err(NdiError::FrameDimensionsMismatch {
+                expected_width: 4,
+                expected_height: 1
+            })
+        ));
+        assert!(matches!(
+            validate_frame_dimensions(2, 1, 7, 2, 1),
+            Err(NdiError::InvalidFrameBufferSize {
+                width: 2,
+                height: 1
+            })
+        ));
+    }
+
+    #[test]
+    fn convert_rgba_to_bgra_swaps_channels_and_honors_alpha() {
+        let rgba = [10u8, 20, 30, 40];
+        let mut dst = [0u8; 4];
+
+        convert_rgba_to_bgra_into(&rgba, &mut dst, NdiAlphaMode::NoneOpaque);
+        assert_eq!(dst, [30, 20, 10, 255]);
+
+        convert_rgba_to_bgra_into(&rgba, &mut dst, NdiAlphaMode::StraightAlpha);
+        assert_eq!(dst, [30, 20, 10, 40]);
+
+        convert_rgba_to_bgra_into(&rgba, &mut dst, NdiAlphaMode::PremultipliedAlpha);
+        assert_eq!(dst, [30, 20, 10, 40]);
+    }
 }

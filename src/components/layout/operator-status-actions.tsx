@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core"
+import { invokeTauri } from "@/lib/tauri-runtime"
 import {
   BellOffIcon,
   BellRingIcon,
@@ -57,7 +57,7 @@ export function OperatorStatusActions({
 
   const pauseAutoLive = () => {
     useBroadcastStore.getState().setReadingModeAutoLive(false)
-    invoke("stop_reading_mode").catch((e) =>
+    invokeTauri("stop_reading_mode").catch((e) =>
       console.error("[operator-strip] stop reading mode failed", e)
     )
   }

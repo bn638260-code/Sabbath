@@ -24,7 +24,7 @@ Outputs a static site to `web/out/`.
 
 Pushes to `main` that touch `web/**` trigger `.github/workflows/deploy-web.yml`, which builds the static export and publishes it to GitHub Pages at [https://github.com/BongaNdlovu/SabbathCue](https://github.com/BongaNdlovu/SabbathCue).
 
-To trigger a deploy without code changes (e.g., to refresh the GitHub stars count baked into the page), use the **Run workflow** button on the *Deploy web to GitHub Pages* action in the GitHub UI.
+To trigger a deploy without code changes (e.g., to refresh the GitHub stars count baked into the page), use the **Run workflow** button on the _Deploy web to GitHub Pages_ action in the GitHub UI.
 
 PRs touching `web/**` run the build job only (no deploy) as a smoke test.
 

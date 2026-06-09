@@ -11,8 +11,8 @@ const mockSetDetectionPaused = vi.fn().mockResolvedValue(true)
 const mockStop = vi.fn()
 const mockInvoke = vi.fn().mockResolvedValue(undefined)
 
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (...args: unknown[]) => mockInvoke(...args),
+vi.mock("@/lib/tauri-runtime", () => ({
+  invokeTauri: (...args: unknown[]) => mockInvoke(...args),
 }))
 
 vi.mock("@/stores/audio-store", () => ({

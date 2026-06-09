@@ -70,7 +70,7 @@
       <rect width="1400" height="180" rx="14" fill="url(#sl-rust)" stroke="#3d2a22" stroke-width="1.5"/>
       <rect x="0" y="0" width="6" height="180" rx="3" fill="#f97316"/>
       <text x="32" y="38" font-size="13" fill="#fb923c" letter-spacing="2" font-weight="600">RUST WORKSPACE · MSRV 1.77.2</text>
-      <text x="32" y="68" font-size="20" font-weight="600" fill="#ffffff">Seven crates, strict downward fan-out</text>
+      <text x="32" y="68" font-size="20" font-weight="600" fill="#ffffff">Six crates, strict downward fan-out</text>
 
       <!-- Crate pills -->
       <g font-size="13" fill="#fed7aa" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace">
@@ -97,10 +97,6 @@
         <g transform="translate(924 96)">
           <rect width="180" height="32" rx="6" fill="#1f130c" stroke="#3d2a22"/>
           <text x="90" y="22" text-anchor="middle">rhema-broadcast</text>
-        </g>
-        <g transform="translate(1120 96)">
-          <rect width="158" height="32" rx="6" fill="#1f130c" stroke="#3d2a22"/>
-          <text x="79" y="22" text-anchor="middle">rhema-notes</text>
         </g>
       </g>
 

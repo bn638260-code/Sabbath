@@ -6,13 +6,13 @@ This project includes hymn text and metadata from the `sda-hymnal` package.
 
 - **Package**: sda-hymnal v1.0.4
 - **License**: MIT
-- **Repository**: https://github.com/joshpetit/sda-hymnal
+- **Repository**: <https://github.com/joshpetit/sda-hymnal>
 - **Author**: Joshua Petitma
 - **Data credit noted upstream**: SQLite data modified from obaraIII/SDAHymnal
 
 The MIT License:
 
-```
+```text
 Copyright (c) Joshua Petitma
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

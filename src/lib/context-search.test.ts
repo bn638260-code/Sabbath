@@ -4,14 +4,14 @@ import {
   mergeContextSearchResults,
   searchContextWithFuse,
 } from "./context-search"
-import { invoke } from "@tauri-apps/api/core"
+import { invokeTauri } from "@/lib/tauri-runtime"
 import { useBibleStore } from "@/stores/bible-store"
 
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
+vi.mock("@/lib/tauri-runtime", () => ({
+  invokeTauri: vi.fn(),
 }))
 
-const mockInvoke = vi.mocked(invoke)
+const mockInvoke = vi.mocked(invokeTauri)
 
 describe("searchContextWithFuse", () => {
   beforeEach(() => {
