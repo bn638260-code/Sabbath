@@ -67,6 +67,7 @@ interface BroadcastState {
     id?: string
   }) => void
   clearOutputIssue: (id: string) => void
+  clearOutputIssueFor: (outputId: BroadcastIssueOutputId, kind: BroadcastOutputIssueKind) => void
   clearOutputIssuesFor: (outputId: BroadcastIssueOutputId) => void
 
   // Projector display setters
@@ -114,6 +115,10 @@ export function selectLatestOutputIssue(
 function findThemeById(themes: BroadcastTheme[], id: string): BroadcastTheme | null {
   return themes.find((theme) => theme.id === id) ?? themes[0] ?? null
 }
+
+const OUTPUT_ISSUE_LIMIT = 20
+const OUTPUT_ISSUE_TTL_MS = 10 * 60 * 1000
+const reportedLoadFailureIds = new Set<string>()
 
 export function buildBroadcastHydrationPatch({
   customThemes,
@@ -201,6 +206,49 @@ function reportSyncFailure(
     title: "Broadcast sync failed",
     description: `Could not sync draft to ${label}: ${String(error)}`,
   })
+}
+
+function dismissOutputIssueToast(id: string): void {
+  try {
+    toast.dismiss(id)
+  } catch {
+    // Sonner uses browser animation APIs that are absent in some unit-test runtimes.
+  }
+}
+
+function pruneOutputIssues(
+  issues: BroadcastOutputIssue[],
+  now = Date.now(),
+): BroadcastOutputIssue[] {
+  return issues
+    .filter((issue) => now - issue.lastSeenAt <= OUTPUT_ISSUE_TTL_MS)
+    .sort((a, b) => b.lastSeenAt - a.lastSeenAt)
+    .slice(0, OUTPUT_ISSUE_LIMIT)
+}
+
+function reportLoadFailureOnce(
+  id: string,
+  input: Parameters<BroadcastState["reportOutputIssue"]>[0],
+): void {
+  if (reportedLoadFailureIds.has(id)) return
+  const storageKey = `sabbathcue:${id}:reported`
+  try {
+    if (globalThis.localStorage.getItem(storageKey) === "1") return
+    globalThis.localStorage.setItem(storageKey, "1")
+  } catch {
+    // localStorage is optional in tests and non-browser runtimes.
+  }
+  reportedLoadFailureIds.add(id)
+  useBroadcastStore.getState().reportOutputIssue({ ...input, id })
+}
+
+function clearLoadFailureReport(id: string): void {
+  reportedLoadFailureIds.delete(id)
+  try {
+    globalThis.localStorage.removeItem(`sabbathcue:${id}:reported`)
+  } catch {
+    // localStorage is optional in tests and non-browser runtimes.
+  }
 }
 
 function emitDraftToBroadcast(state: BroadcastState): void {
@@ -349,15 +397,20 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       theme,
       item: s.isLive ? s.liveItem : null,
       opacity: s.opacity,
-    }).catch((error) => {
-      console.warn(`[broadcast-store] sync emit to '${label}' failed`, error)
-      get().reportOutputIssue({
-        outputId: outputId === "alt" ? "alt" : "main",
-        kind: "broadcast-sync",
-        title: "Broadcast sync failed",
-        description: `Could not sync live output to ${label}: ${String(error)}`,
-      })
-    })
+    }).then(
+      () => {
+        get().clearOutputIssueFor(outputId === "alt" ? "alt" : "main", "broadcast-sync")
+      },
+      (error) => {
+        console.warn(`[broadcast-store] sync emit to '${label}' failed`, error)
+        get().reportOutputIssue({
+          outputId: outputId === "alt" ? "alt" : "main",
+          kind: "broadcast-sync",
+          title: "Broadcast sync failed",
+          description: `Could not sync live output to ${label}: ${String(error)}`,
+        })
+      },
+    )
   },
   reportOutputIssue: (input) => {
     const id = input.id ?? `${input.outputId}:${input.kind}`
@@ -366,10 +419,19 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
 
     if (existing) {
       set({
-        outputIssues: get().outputIssues.map((issue) =>
-          issue.id === id
-            ? { ...issue, lastSeenAt: now, count: issue.count + 1 }
-            : issue,
+        outputIssues: pruneOutputIssues(
+          get().outputIssues.map((issue) =>
+            issue.id === id
+              ? {
+                  ...issue,
+                  title: input.title,
+                  description: input.description,
+                  lastSeenAt: now,
+                  count: issue.count + 1,
+                }
+              : issue,
+          ),
+          now,
         ),
       })
       return
@@ -385,7 +447,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       lastSeenAt: now,
       count: 1,
     }
-    set({ outputIssues: [...get().outputIssues, issue] })
+    set({ outputIssues: pruneOutputIssues([...get().outputIssues, issue], now) })
     toast.error(issue.title, {
       id,
       description: issue.description,
@@ -393,7 +455,12 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   },
   clearOutputIssue: (id) => {
     set({ outputIssues: get().outputIssues.filter((issue) => issue.id !== id) })
-    toast.dismiss(id)
+    dismissOutputIssueToast(id)
+  },
+  clearOutputIssueFor: (outputId, kind) => {
+    const id = `${outputId}:${kind}`
+    set({ outputIssues: get().outputIssues.filter((issue) => issue.id !== id) })
+    dismissOutputIssueToast(id)
   },
   clearOutputIssuesFor: (outputId) => {
     const removed = get().outputIssues.filter((issue) => issue.outputId === outputId)
@@ -401,7 +468,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       outputIssues: get().outputIssues.filter((issue) => issue.outputId !== outputId),
     })
     for (const issue of removed) {
-      toast.dismiss(issue.id)
+      dismissOutputIssueToast(issue.id)
     }
   },
   syncBroadcastOutput: () => {
@@ -577,6 +644,7 @@ export function hydrateBroadcastThemes(): Promise<void> {
       if (Object.keys(patch).length > 0) {
         useBroadcastStore.setState(patch)
       }
+      clearLoadFailureReport("global:persistence:broadcast-theme-load")
 
       // Auto-persist on changes (debounced)
       useBroadcastStore.subscribe((state, prevState) => {
@@ -603,7 +671,7 @@ export function hydrateBroadcastThemes(): Promise<void> {
     } catch {
       hydrationPromise = null
       console.warn("[broadcast] Failed to load persisted themes, using defaults")
-      useBroadcastStore.getState().reportOutputIssue({
+      reportLoadFailureOnce("global:persistence:broadcast-theme-load", {
         outputId: "global",
         kind: "persistence",
         title: "Theme load failed",

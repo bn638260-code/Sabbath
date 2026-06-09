@@ -3,10 +3,12 @@ export type BroadcastIssueOutputId = BroadcastOutputId | "global"
 
 export type BroadcastOutputIssueKind =
   | "broadcast-sync"
+  | "preview-open"
   | "ndi-config"
   | "ndi-frame"
   | "detection-settings"
   | "manual-detection"
+  | "auto-detection"
   | "verse-lookup"
   | "persistence"
 

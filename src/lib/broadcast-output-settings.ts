@@ -2,7 +2,7 @@ import {
   DEFAULT_NDI_ALT_SOURCE_NAME,
   DEFAULT_NDI_SOURCE_NAME,
 } from "@/lib/app-brand"
-import type { BroadcastOutputId } from "@/components/broadcast/broadcast-settings-wiring"
+import type { BroadcastOutputId } from "@/types"
 import type {
   NdiAlphaMode,
   NdiConfigEventPayload,

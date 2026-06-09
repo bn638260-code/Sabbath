@@ -266,6 +266,56 @@ describe("broadcast store sync", () => {
     )
   })
 
+  it("does not clear preview-open issues after a successful broadcast sync", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+
+    useBroadcastStore.getState().reportOutputIssue({
+      outputId: "main",
+      kind: "preview-open",
+      title: "Broadcast preview did not open",
+      description: "The open command completed, but the preview window was not found.",
+    })
+
+    emitToMock.mockResolvedValueOnce(undefined)
+    useBroadcastStore.getState().syncBroadcastOutputFor("main")
+    await Promise.resolve()
+
+    expect(useBroadcastStore.getState().outputIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "main:preview-open",
+        }),
+      ]),
+    )
+  })
+
+  it("clears broadcast sync issues after the next successful sync", async () => {
+    emitToMock.mockRejectedValueOnce(new Error("webview missing"))
+    const { useBroadcastStore } = await import("./broadcast-store")
+
+    useBroadcastStore.getState().syncBroadcastOutputFor("main")
+    await Promise.resolve()
+    expect(useBroadcastStore.getState().outputIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "main:broadcast-sync",
+        }),
+      ]),
+    )
+
+    emitToMock.mockResolvedValueOnce(undefined)
+    useBroadcastStore.getState().syncBroadcastOutputFor("main")
+    await Promise.resolve()
+
+    expect(useBroadcastStore.getState().outputIssues).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "main:broadcast-sync",
+        }),
+      ]),
+    )
+  })
+
   it("dedupes repeated output issues and increments count", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     const report = useBroadcastStore.getState().reportOutputIssue
@@ -288,6 +338,52 @@ describe("broadcast store sync", () => {
     expect(issues[0].count).toBe(2)
     expect(toastErrorMock).toHaveBeenCalledTimes(1)
     expect(toastErrorMock.mock.calls[0][1]).toMatchObject({ id: "main:ndi-frame" })
+  })
+
+  it("caps output issues and drops stale entries", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-09T10:00:00Z"))
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const report = useBroadcastStore.getState().reportOutputIssue
+
+    for (let i = 0; i < 20; i += 1) {
+      report({
+        id: `old-${i}`,
+        outputId: "global",
+        kind: "persistence",
+        title: "Old issue",
+        description: "old",
+      })
+    }
+    expect(useBroadcastStore.getState().outputIssues).toHaveLength(20)
+
+    vi.setSystemTime(new Date("2026-06-09T10:11:00Z"))
+    report({
+      id: "fresh",
+      outputId: "main",
+      kind: "ndi-config",
+      title: "Fresh issue",
+      description: "fresh",
+    })
+
+    expect(useBroadcastStore.getState().outputIssues).toEqual([
+      expect.objectContaining({ id: "fresh" }),
+    ])
+    vi.useRealTimers()
+  })
+
+  it("dismisses a typed output issue after targeted recovery", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    useBroadcastStore.getState().reportOutputIssue({
+      outputId: "main",
+      kind: "ndi-config",
+      title: "NDI config sync failed",
+      description: "missing",
+    })
+
+    useBroadcastStore.getState().clearOutputIssueFor("main", "ndi-config")
+
+    expect(useBroadcastStore.getState().outputIssues).toHaveLength(0)
   })
 
   it("clears a single output issue by id", async () => {

@@ -4,7 +4,6 @@ import { emitTo } from "@tauri-apps/api/event"
 import { getAllWindows } from "@tauri-apps/api/window"
 import {
   buildOpenBroadcastWindowArgs,
-  type BroadcastOutputId,
   type MonitorInfo,
 } from "@/components/broadcast/broadcast-settings-wiring"
 import {
@@ -15,7 +14,13 @@ import {
   type BroadcastOutputType,
 } from "@/lib/broadcast-output-settings"
 import { useBroadcastStore } from "@/stores/broadcast-store"
-import type { NdiAlphaMode, NdiFrameRate, NdiResolution, NdiSessionInfo } from "@/types"
+import type {
+  BroadcastOutputId,
+  NdiAlphaMode,
+  NdiFrameRate,
+  NdiResolution,
+  NdiSessionInfo,
+} from "@/types"
 import { toast } from "sonner"
 
 export type { MonitorInfo }
@@ -89,6 +94,16 @@ export async function runToggleBroadcastPreview(
     emitNdiConfig: (active: boolean, frameRate: NdiFrameRate, resolution: NdiResolution) => void
     onPreviewOpenChange: (open: boolean) => void
     onError: (title: string, error: unknown) => void
+    onIssue?: (input: {
+      outputId: BroadcastOutputId
+      kind: "preview-open" | "broadcast-sync" | "ndi-config"
+      title: string
+      description: string
+    }) => void
+    clearOutputIssueFor?: (
+      outputId: BroadcastOutputId,
+      kind: "preview-open",
+    ) => void
   },
 ): Promise<void> {
   const {
@@ -119,7 +134,23 @@ export async function runToggleBroadcastPreview(
       })
       const opened = await reconcileBroadcastPreviewState(outputId)
       deps.onPreviewOpenChange(opened)
-      if (!opened) return
+      if (!opened) {
+        const title =
+          outputId === "alt"
+            ? "Alternate preview did not open"
+            : "Broadcast preview did not open"
+        const description =
+          "The open command completed, but the preview window was not found."
+        deps.onIssue?.({
+          outputId,
+          kind: "preview-open",
+          title,
+          description,
+        })
+        deps.onError(title, description)
+        return
+      }
+      deps.clearOutputIssueFor?.(outputId, "preview-open")
       deps.syncBroadcastOutputFor(outputId)
       deps.emitNdiConfig(ndiActive, ndiFrameRate, ndiResolution)
       setTimeout(() => {
@@ -146,6 +177,12 @@ export async function runToggleBroadcastNdi(
     onNdiActiveChange: (active: boolean) => void
     onError: (title: string, error: unknown) => void
     onNdiSdkMissing: () => void
+    onIssue?: (input: {
+      outputId: BroadcastOutputId
+      kind: "ndi-config"
+      title: string
+      description: string
+    }) => void
   },
 ): Promise<void> {
   const {
@@ -195,9 +232,15 @@ export async function runToggleBroadcastNdi(
         fps: session.fps,
         width: session.width,
         height: session.height,
-      }).catch((error) =>
-        console.warn(`[broadcast-settings] emit post-start sync (${outputId}) failed`, error),
-      )
+      }).catch((error) => {
+        console.warn(`[broadcast-settings] emit post-start sync (${outputId}) failed`, error)
+        deps.onIssue?.({
+          outputId,
+          kind: "ndi-config",
+          title: "NDI config sync failed",
+          description: `Could not sync started NDI config to ${windowLabel}: ${String(error)}`,
+        })
+      })
       setTimeout(() => {
         deps.syncBroadcastOutputFor(outputId)
         deps.emitNdiConfig(true, ndiFrameRate, ndiResolution)
@@ -512,6 +555,8 @@ export function useBroadcastOutputSettings(
       onPreviewOpenChange: setIsPreviewOpen,
       onNdiActiveChange: setNdiActive,
       onError: showBroadcastError,
+      onIssue: useBroadcastStore.getState().reportOutputIssue,
+      clearOutputIssueFor: useBroadcastStore.getState().clearOutputIssueFor,
       onNdiSdkMissing: () => {
         toast.error("NDI SDK is missing", {
           description: "Run bun run download:ndi-sdk, then refresh SDK status.",

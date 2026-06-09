@@ -30,6 +30,20 @@ async function flushSave(): Promise<void> {
 describe("settings store", () => {
   beforeEach(async () => {
     vi.useFakeTimers()
+    const storage = new Map<string, string>()
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn((key: string) => storage.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        storage.set(key, value)
+      }),
+      removeItem: vi.fn((key: string) => {
+        storage.delete(key)
+      }),
+      clear: vi.fn(() => {
+        storage.clear()
+      }),
+    })
+    localStorage.clear()
     reportOutputIssueMock.mockReset()
     mockGet.mockReset()
     mockSet.mockReset()
@@ -179,6 +193,22 @@ describe("settings store", () => {
         title: "Settings load failed",
       }),
     )
+    warnSpy.mockRestore()
+  })
+
+  it("reports settings load failure on every failed hydration", async () => {
+    mockLoad.mockRejectedValue(new Error("store not available"))
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+    let settingsModule = await import("./settings-store")
+    await settingsModule.hydrateSettings()
+    expect(reportOutputIssueMock).toHaveBeenCalledTimes(1)
+
+    vi.resetModules()
+    settingsModule = await import("./settings-store")
+    await settingsModule.hydrateSettings()
+    expect(reportOutputIssueMock).toHaveBeenCalledTimes(2)
+
     warnSpy.mockRestore()
   })
 

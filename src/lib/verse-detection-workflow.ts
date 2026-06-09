@@ -170,6 +170,15 @@ async function queueDetectedVerse(detection: DetectionResult): Promise<void> {
 
 let detectionHandlingChain: Promise<void> = Promise.resolve()
 
+function reportDetectionBatchError(error: unknown): void {
+  useBroadcastStore.getState().reportOutputIssue({
+    outputId: "global",
+    kind: "auto-detection",
+    title: "Detection batch failed",
+    description: `An unexpected detection batch error occurred: ${String(error)}`,
+  })
+}
+
 async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
   useDetectionStore.getState().addDetections(detections)
 
@@ -185,8 +194,13 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
 
 export async function handleVerseDetections(detections: DetectionResult[]) {
   detectionHandlingChain = detectionHandlingChain
-    .catch(() => undefined)
+    .catch((error) => {
+      reportDetectionBatchError(error)
+    })
     .then(() => handleVerseDetectionsInternal(detections))
+    .catch((error) => {
+      reportDetectionBatchError(error)
+    })
   return detectionHandlingChain
 }
 

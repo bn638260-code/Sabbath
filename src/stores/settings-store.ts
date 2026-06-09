@@ -58,7 +58,6 @@ const PERSISTED_KEYS = [
 let tauriStore: Store | null = null
 let hydrationPromise: Promise<void> | null = null
 let settingsUnsubscribe: (() => void) | null = null
-
 async function getStore(): Promise<Store> {
   if (!tauriStore) {
     tauriStore = await load("settings.json", { autoSave: false, defaults: {} })
@@ -114,7 +113,6 @@ export function hydrateSettings(): Promise<void> {
       if (Object.keys(patch).length > 0) {
         useSettingsStore.setState(patch)
       }
-
       // Attach only after successful hydration so as not to overwrite disk with defaults.
       // Debounce writes, so a dragged slider (e.g. gain) coalesces into a single disk write.
       ensureSettingsPersistenceSubscription()
@@ -125,6 +123,7 @@ export function hydrateSettings(): Promise<void> {
         kind: "persistence",
         title: "Settings load failed",
         description: "Could not load saved settings; using defaults.",
+        id: "global:persistence:settings-load",
       })
     }
   })()

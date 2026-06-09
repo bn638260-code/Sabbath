@@ -1,4 +1,4 @@
-export type BroadcastOutputId = "main" | "alt"
+import type { BroadcastOutputId } from "@/types"
 
 export interface MonitorInfo {
   name: string
@@ -13,11 +13,6 @@ export interface OpenBroadcastWindowArgs {
   outputId: BroadcastOutputId
   monitorIndex: number
   fullscreen: boolean
-}
-
-export function parseMonitorIndex(value: string): number {
-  const parsed = Number.parseInt(value, 10)
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
 }
 
 export function buildMonitorKey(monitor: Pick<MonitorInfo, "name" | "width" | "height" | "x" | "y">): string {

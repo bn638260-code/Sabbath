@@ -77,6 +77,8 @@ function baseDeps() {
     onPreviewOpenChange: vi.fn(),
     onNdiActiveChange: vi.fn(),
     onError: vi.fn(),
+    onIssue: vi.fn(),
+    clearOutputIssueFor: vi.fn(),
     onNdiSdkMissing: vi.fn(),
     emitPostStartNdiConfig: vi.fn(),
   }
@@ -132,6 +134,7 @@ describe("use-broadcast-output-settings commands", () => {
         fullscreen: true,
       })
       expect(deps.onPreviewOpenChange).toHaveBeenCalledWith(true)
+      expect(deps.clearOutputIssueFor).toHaveBeenCalledWith("main", "preview-open")
       expect(mockSyncBroadcastOutputFor).toHaveBeenCalledWith("main")
       expect(deps.emitNdiConfig).toHaveBeenCalledWith(false, "fps24", "r1080p")
     })
@@ -149,6 +152,30 @@ describe("use-broadcast-output-settings commands", () => {
         outputId: "main",
       })
       expect(deps.onPreviewOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it("reports when the preview command succeeds but no window appears", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      mockGetAllWindows.mockResolvedValue([])
+
+      const { runToggleBroadcastPreview } = await loadCommandModule()
+      const deps = baseDeps()
+
+      await runToggleBroadcastPreview(baseState(), deps)
+
+      expect(deps.onPreviewOpenChange).toHaveBeenCalledWith(false)
+      expect(deps.onIssue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outputId: "main",
+          kind: "preview-open",
+          title: "Broadcast preview did not open",
+        }),
+      )
+      expect(deps.onError).toHaveBeenCalledWith(
+        "Broadcast preview did not open",
+        "The open command completed, but the preview window was not found.",
+      )
+      expect(mockSyncBroadcastOutputFor).not.toHaveBeenCalled()
     })
   })
 
@@ -193,6 +220,34 @@ describe("use-broadcast-output-settings commands", () => {
         width: 1920,
         height: 1080,
       })
+    })
+
+    it("reports post-start NDI config emit failures", async () => {
+      const session: NdiSessionInfo = {
+        sourceName: "SabbathCue Output",
+        resolution: "r1080p",
+        frameRate: "fps24",
+        alphaMode: "straightAlpha",
+        width: 1920,
+        height: 1080,
+        fps: 24,
+      }
+      mockInvoke.mockResolvedValue(session)
+      mockEmitTo.mockRejectedValueOnce(new Error("webview missing"))
+
+      const { runToggleBroadcastNdi } = await loadCommandModule()
+      const deps = baseDeps()
+
+      await runToggleBroadcastNdi(baseState(), deps)
+      await Promise.resolve()
+
+      expect(deps.onIssue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outputId: "main",
+          kind: "ndi-config",
+          title: "NDI config sync failed",
+        }),
+      )
     })
 
     it("stops NDI and closes the window when preview is not open", async () => {

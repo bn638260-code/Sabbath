@@ -445,6 +445,30 @@ describe("verse detection workflow", () => {
     )
   })
 
+  it("reports unexpected detection batch errors instead of swallowing them", async () => {
+    useBroadcastStore.setState({ outputIssues: [] })
+    const originalAddDetections = useDetectionStore.getState().addDetections
+    useDetectionStore.setState({
+      addDetections: () => {
+        throw new Error("batch exploded")
+      },
+    })
+
+    await handleVerseDetections([makeDetection()])
+
+    expect(useBroadcastStore.getState().outputIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          outputId: "global",
+          kind: "auto-detection",
+          title: "Detection batch failed",
+        }),
+      ]),
+    )
+
+    useDetectionStore.setState({ addDetections: originalAddDetections })
+  })
+
   it("queues text fetched from the current translation", async () => {
     invokeMock.mockResolvedValueOnce({
       id: 25,

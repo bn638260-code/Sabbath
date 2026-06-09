@@ -25,10 +25,12 @@ const LazyApiKeyPrompt = lazy(() =>
 
 const VALID_OUTPUT_ERROR_KINDS = new Set<BroadcastOutputIssueKind>([
   "broadcast-sync",
+  "preview-open",
   "ndi-config",
   "ndi-frame",
   "detection-settings",
   "manual-detection",
+  "auto-detection",
   "verse-lookup",
   "persistence",
 ])
