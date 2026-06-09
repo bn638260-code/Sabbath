@@ -120,7 +120,9 @@ export async function refreshVerification(): Promise<VerificationStateSnapshot> 
 
 export async function clearVerification(): Promise<VerificationStateSnapshot> {
   if (isTauriRuntime()) {
-    await invokeTauri("clear_verification_token").catch(() => {})
+    await invokeTauri("clear_verification_token").catch((error) => {
+      console.warn("[verification] clear verification token failed", error)
+    })
     const store = await getStore()
     await store.delete(METADATA_KEY)
     await store.save()

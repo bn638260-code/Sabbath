@@ -1,4 +1,4 @@
-import { presentItem } from "@/lib/presentation-workflow"
+import { presentSermonSlideAt } from "@/services/slides/sermon-slide-live"
 import { buildSermonSlideDeck } from "@/services/slides/sermon-slide-deck"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
@@ -34,29 +34,6 @@ function activeServiceItem() {
   const plan = useServicePlanStore.getState().activePlan
   if (!plan?.activeItemId) return null
   return plan.items.find((item) => item.id === plan.activeItemId) ?? null
-}
-
-export function loadActiveSermonSlideDeck(index = 0): boolean {
-  const item = activeServiceItem()
-  const deck = buildSermonSlideDeck(item)
-  if (!item || deck.length === 0) {
-    useSermonSlideStore.getState().clear()
-    return false
-  }
-  useSermonSlideStore.getState().setDeck(deck, index, item.id)
-  return true
-}
-
-export function presentSermonSlideAt(index: number): boolean {
-  const item = activeServiceItem()
-  if (!item) return false
-
-  const deck = buildSermonSlideDeck(item)
-  if (deck.length === 0 || index < 0 || index >= deck.length) return false
-
-  useSermonSlideStore.getState().setDeck(deck, index, item.id)
-  presentItem(deck[index])
-  return true
 }
 
 export function handleSermonSlideVoiceControl(text: string): boolean {

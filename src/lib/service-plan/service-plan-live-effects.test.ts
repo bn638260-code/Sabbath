@@ -4,7 +4,7 @@ const selectPreviewItem = vi.fn()
 const getHymnByNumber = vi.fn()
 const generateHymnScreens = vi.fn()
 const createHymnPresentationItem = vi.fn()
-const loadActiveSermonSlideDeck = vi.fn()
+const previewSermonSlideForItem = vi.fn()
 const buildSermonSlideDeck = vi.fn()
 const hymnSetDeck = vi.fn()
 const sermonSetDeck = vi.fn()
@@ -34,9 +34,9 @@ vi.mock("@/services/slides/sermon-slide-deck", () => ({
   buildSermonSlideDeck: (...args: unknown[]) => buildSermonSlideDeck(...args),
 }))
 
-vi.mock("@/services/slides/sermon-slide-voice-control", () => ({
-  loadActiveSermonSlideDeck: (...args: unknown[]) =>
-    loadActiveSermonSlideDeck(...args),
+vi.mock("@/services/slides/sermon-slide-live", () => ({
+  previewSermonSlideForItem: (...args: unknown[]) =>
+    previewSermonSlideForItem(...args),
 }))
 
 vi.mock("@/stores/hymn-slide-store", () => ({
@@ -102,8 +102,10 @@ describe("service plan live effects", () => {
     })
 
     expect(hymnSetDeck).toHaveBeenCalledWith([], 0)
-    expect(loadActiveSermonSlideDeck).toHaveBeenCalledWith(0)
-    expect(selectPreviewItem).toHaveBeenCalledWith(slide)
+    expect(previewSermonSlideForItem).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "item-1" }),
+      0,
+    )
   })
 
   it("preserves the active sermon slide index when the same slide item resyncs", async () => {
@@ -129,8 +131,10 @@ describe("service plan live effects", () => {
       checklist: [],
     })
 
-    expect(loadActiveSermonSlideDeck).toHaveBeenCalledWith(1)
-    expect(selectPreviewItem).toHaveBeenCalledWith(slides[1])
+    expect(previewSermonSlideForItem).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "item-1" }),
+      1,
+    )
   })
 
   it("stages the first sermon slide for practice preview before falling back to hymns", async () => {
@@ -151,8 +155,10 @@ describe("service plan live effects", () => {
       checklist: [],
     })
 
-    expect(sermonSetDeck).toHaveBeenCalledWith([slide], 0, "item-1")
-    expect(selectPreviewItem).toHaveBeenCalledWith(slide)
+    expect(previewSermonSlideForItem).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "item-1" }),
+      0,
+    )
     expect(getHymnByNumber).not.toHaveBeenCalled()
   })
 })

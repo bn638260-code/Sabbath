@@ -10,6 +10,9 @@ describe("service plan shell integration", () => {
   it("mounts the service plan workspace from the dashboard shell", () => {
     const dashboard = readSource("src/components/layout/dashboard.tsx")
     expect(dashboard).toContain("LazyServicePlanWorkspace")
+    expect(dashboard).toContain(
+      'import("@/components/service-plan/ServicePlanWorkspace")',
+    )
     const nav = readSource("src/lib/dashboard-workspace-nav.ts")
     expect(nav).toContain("Service Schedules")
     expect(dashboard).not.toContain("LazyServicePlanDialog")
@@ -42,9 +45,12 @@ describe("service plan shell integration", () => {
     expect(panel).toContain("serviceContext")
     expect(panel).not.toContain("activePlan")
 
-    const runService = readSource("src/components/service-plan/ServicePlanPage.tsx")
+    const runService = readSource("src/components/service-plan/RunServicePage.tsx")
     expect(runService).toContain("ServiceLiveContextPanel")
-    expect(runService).toContain("RunServicePage")
+    const servicePlanShell = readSource(
+      "src/components/service-plan/ServicePlanPage.tsx",
+    )
+    expect(servicePlanShell).toContain("RunServicePage")
   })
 
   it("opens the planner from the workspace sidebar", () => {

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { invokeTauri } from "@/lib/tauri-runtime"
-import { emitTo, listen } from "@tauri-apps/api/event"
-import { getAllWindows } from "@tauri-apps/api/window"
+import { listen } from "@tauri-apps/api/event"
 import {
   Dialog,
   DialogContent,
@@ -9,118 +8,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Button } from "@/components/ui/button"
-
-import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
-import {
-  buildOpenBroadcastWindowArgs,
-  clampMonitorIndex,
-  parseMonitorIndex,
-} from "@/components/broadcast/broadcast-settings-wiring"
-import { cn } from "@/lib/utils"
+import { clampMonitorIndex } from "@/components/broadcast/broadcast-settings-wiring"
+import { BroadcastOutputCard } from "@/components/broadcast/BroadcastOutputCard"
 import { useAssets } from "@/hooks/use-assets"
+import {
+  useBroadcastOutputSettings,
+  type MonitorInfo,
+} from "@/hooks/use-broadcast-output-settings"
 import { useBroadcastStore } from "@/stores/broadcast-store"
-import {
-  DEFAULT_NDI_ALT_SOURCE_NAME,
-  DEFAULT_NDI_SOURCE_NAME,
-} from "@/lib/app-brand"
-import type { NdiAlphaMode, NdiFrameRate, NdiResolution, NdiSessionInfo, NdiStartRequest } from "@/types"
-import {
-  MonitorIcon,
-  CastIcon,
-  EyeIcon,
-  EyeOffIcon,
-  RefreshCwIcon,
-  RadioIcon,
-  Maximize2Icon,
-} from "lucide-react"
+import { CastIcon, MonitorIcon } from "lucide-react"
 import { toast } from "sonner"
-
-type OutputType = "display" | "ndi"
-
-interface MonitorInfo {
-  name: string
-  width: number
-  height: number
-}
-
-const NDI_RESOLUTION_OPTIONS: Array<{ value: NdiResolution; label: string }> = [
-  { value: "r1080p", label: "1080p (1920×1080)" },
-  { value: "r720p", label: "720p (1280×720)" },
-  { value: "r4k", label: "4K (3840×2160)" },
-]
-
-const NDI_FRAME_RATE_OPTIONS: Array<{ value: NdiFrameRate; label: string }> = [
-  { value: "fps24", label: "24 fps" },
-  { value: "fps30", label: "30 fps" },
-  { value: "fps60", label: "60 fps" },
-]
-
-const NDI_ALPHA_OPTIONS: Array<{ value: NdiAlphaMode; label: string }> = [
-  { value: "noneOpaque", label: "None (Opaque)" },
-  { value: "straightAlpha", label: "Straight Alpha" },
-  { value: "premultipliedAlpha", label: "Premultiplied Alpha" },
-]
 
 function showBroadcastError(title: string, error: unknown) {
   toast.error(title, { description: String(error) })
-}
-
-function ndiFrameRateToNumber(frameRate: NdiFrameRate): number {
-  switch (frameRate) {
-    case "fps24":
-      return 24
-    case "fps30":
-      return 30
-    case "fps60":
-      return 60
-  }
-}
-
-function NdiSdkStatus({
-  installed,
-  loading,
-  onRefresh,
-}: {
-  installed: boolean
-  loading: boolean
-  onRefresh: () => void
-}) {
-  return (
-    <div className="rounded-md border border-white/5 bg-white/5 p-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground">NDI SDK</span>
-        <div className="flex items-center gap-1.5">
-          <Badge variant={installed ? "default" : "secondary"} className="text-[0.625rem]">
-            {loading ? "Checking" : installed ? "Installed" : "Missing"}
-          </Badge>
-          <Button
-            variant="ghost"
-            size="xs"
-            className="h-6 px-2"
-            disabled={loading}
-            onClick={onRefresh}
-          >
-            <RefreshCwIcon className={cn("size-3", loading && "animate-spin")} />
-          </Button>
-        </div>
-      </div>
-      {!loading && !installed ? (
-        <p className="mt-1.5 rounded bg-black/40 px-2 py-1 font-mono text-[0.625rem] text-muted-foreground">
-          bun run download:ndi-sdk
-        </p>
-      ) : null}
-    </div>
-  )
 }
 
 export function BroadcastSettings({
@@ -130,88 +30,24 @@ export function BroadcastSettings({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const themes = useBroadcastStore((s) => s.themes)
-  const activeThemeId = useBroadcastStore((s) => s.activeThemeId)
+  const mainDisplayMonitorIndex = useBroadcastStore((s) => s.mainDisplayMonitorIndex)
+  const altDisplayMonitorIndex = useBroadcastStore((s) => s.altDisplayMonitorIndex)
   const { status: assetStatus, loading: assetsLoading, refresh: refreshAssets } = useAssets()
   const ndiSdkInstalled = Boolean(assetStatus?.ndi_sdk)
 
-  // Main output state
-  const mainDisplayMonitorIndex = useBroadcastStore((s) => s.mainDisplayMonitorIndex)
-  const mainProjectorFullscreen = useBroadcastStore((s) => s.mainProjectorFullscreen)
-  const [mainEnabled, setMainEnabled] = useState(false)
-  const [mainThemeId, setMainThemeId] = useState(activeThemeId)
-  const [outputType, setOutputType] = useState<OutputType>("display")
   const [monitors, setMonitors] = useState<MonitorInfo[]>([])
-  const [selectedMonitor, setSelectedMonitor] = useState(String(mainDisplayMonitorIndex))
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [ndiSourceName, setNdiSourceName] = useState(DEFAULT_NDI_SOURCE_NAME)
-  const [ndiResolution, setNdiResolution] = useState<NdiResolution>("r1080p")
-  const [ndiFrameRate, setNdiFrameRate] = useState<NdiFrameRate>("fps24")
-  const [ndiAlphaMode, setNdiAlphaMode] = useState<NdiAlphaMode>("straightAlpha")
-  const [ndiActive, setNdiActive] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Alternate output state
-  const altActiveThemeId = useBroadcastStore((s) => s.altActiveThemeId)
-  const altDisplayMonitorIndex = useBroadcastStore((s) => s.altDisplayMonitorIndex)
-  const altProjectorFullscreen = useBroadcastStore((s) => s.altProjectorFullscreen)
-  const [altEnabled, setAltEnabled] = useState(false)
-  const [altThemeId, setAltThemeId] = useState(altActiveThemeId)
-  const [altOutputType, setAltOutputType] = useState<OutputType>("ndi")
-  const [altSelectedMonitor, setAltSelectedMonitor] = useState(String(altDisplayMonitorIndex))
-  const [altIsPreviewOpen, setAltIsPreviewOpen] = useState(false)
-  const [altNdiSourceName, setAltNdiSourceName] = useState(DEFAULT_NDI_ALT_SOURCE_NAME)
-  const [altNdiResolution, setAltNdiResolution] = useState<NdiResolution>("r1080p")
-  const [altNdiFrameRate, setAltNdiFrameRate] = useState<NdiFrameRate>("fps24")
-  const [altNdiAlphaMode, setAltNdiAlphaMode] = useState<NdiAlphaMode>("straightAlpha")
-  const [altNdiActive, setAltNdiActive] = useState(false)
-
-  const syncBroadcastOutput = useCallback(() => {
-    useBroadcastStore.getState().syncBroadcastOutput()
-  }, [])
-
-  const syncNdiConfigToOutput = useCallback(
-    (
-      outputId: string,
-      active: boolean,
-      frameRate: NdiFrameRate,
-      resolution: NdiResolution,
-    ) => {
-      const label = outputId === "alt" ? "broadcast-alt" : "broadcast"
-      const dims =
-        resolution === "r720p"
-          ? { width: 1280, height: 720 }
-          : resolution === "r4k"
-            ? { width: 3840, height: 2160 }
-            : { width: 1920, height: 1080 }
-      void emitTo(label, "broadcast:ndi-config", {
-        active,
-        fps: ndiFrameRateToNumber(frameRate),
-        width: dims.width,
-        height: dims.height,
-      }).catch((error) =>
-        console.warn("[broadcast-settings] emit ndi-config failed", error)
-      )
-    },
-    [],
-  )
-
-  const reconcilePreviewState = useCallback(async (outputId: string = "main") => {
-    const label = outputId === "alt" ? "broadcast-alt" : "broadcast"
-    const windows = await getAllWindows()
-    return windows.some((w) => w.label === label)
-  }, [])
+  const mainOutput = useBroadcastOutputSettings("main", { open, ndiSdkInstalled })
+  const altOutput = useBroadcastOutputSettings("alt", { open, ndiSdkInstalled })
 
   const fetchMonitors = useCallback(async () => {
     setRefreshing(true)
     try {
       const result = await invokeTauri<MonitorInfo[]>("list_monitors")
       setMonitors(result)
-      // Validate and clamp saved monitor indices
       const mainIndex = clampMonitorIndex(mainDisplayMonitorIndex, result.length)
       const altIndex = clampMonitorIndex(altDisplayMonitorIndex, result.length)
-      setSelectedMonitor(String(mainIndex))
-      setAltSelectedMonitor(String(altIndex))
       useBroadcastStore.getState().setMainDisplayMonitorIndex(mainIndex)
       useBroadcastStore.getState().setAltDisplayMonitorIndex(altIndex)
     } catch (error) {
@@ -232,23 +68,22 @@ export function BroadcastSettings({
     return () => clearTimeout(timeoutId)
   }, [open, fetchMonitors])
 
-  // Sync theme selection with broadcast store
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setMainThemeId(activeThemeId)
-    }, 0)
-
-    return () => clearTimeout(timeoutId)
-  }, [activeThemeId])
-
   useEffect(() => {
     if (!open) return
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const unlistenPromise = listen("broadcast:output-ready", () => {
       useBroadcastStore.getState().syncBroadcastOutput()
-      syncNdiConfigToOutput("main", ndiActive, ndiFrameRate, ndiResolution)
-      syncNdiConfigToOutput("alt", altNdiActive, altNdiFrameRate, altNdiResolution)
+      mainOutput.syncNdiConfigToOutput(
+        mainOutput.ndiActive,
+        mainOutput.ndiFrameRate,
+        mainOutput.ndiResolution,
+      )
+      altOutput.syncNdiConfigToOutput(
+        altOutput.ndiActive,
+        altOutput.ndiFrameRate,
+        altOutput.ndiResolution,
+      )
       timeoutId = setTimeout(() => {
         useBroadcastStore.getState().syncBroadcastOutput()
       }, 150)
@@ -260,246 +95,9 @@ export function BroadcastSettings({
     }
   }, [
     open,
-    isPreviewOpen,
-    ndiActive,
-    ndiFrameRate,
-    ndiResolution,
-    altNdiActive,
-    altNdiFrameRate,
-    altNdiResolution,
-    syncBroadcastOutput,
-    syncNdiConfigToOutput,
+    mainOutput,
+    altOutput,
   ])
-
-  useEffect(() => {
-    if (!open || !isPreviewOpen) return
-
-    const intervalId = setInterval(() => {
-      void reconcilePreviewState("main").then(setIsPreviewOpen)
-    }, 750)
-
-    return () => {
-      clearInterval(intervalId)
-    }
-  }, [open, isPreviewOpen, reconcilePreviewState])
-
-  useEffect(() => {
-    if (!open || !altIsPreviewOpen) return
-
-    const intervalId = setInterval(() => {
-      void reconcilePreviewState("alt").then(setAltIsPreviewOpen)
-    }, 750)
-
-    return () => {
-      clearInterval(intervalId)
-    }
-  }, [open, altIsPreviewOpen, reconcilePreviewState])
-
-  const handleMainThemeChange = (id: string) => {
-    setMainThemeId(id)
-    useBroadcastStore.getState().setActiveTheme(id)
-  }
-
-  const handleMainMonitorChange = (value: string) => {
-    setSelectedMonitor(value)
-    useBroadcastStore.getState().setMainDisplayMonitorIndex(parseMonitorIndex(value))
-  }
-
-  const handleTogglePreview = async () => {
-    try {
-      if (isPreviewOpen) {
-        await invokeTauri("close_broadcast_window", { outputId: "main" })
-        setIsPreviewOpen(await reconcilePreviewState("main"))
-      } else {
-        await invokeTauri("open_broadcast_window", {
-          ...buildOpenBroadcastWindowArgs("main", selectedMonitor, mainProjectorFullscreen),
-        })
-        const opened = await reconcilePreviewState("main")
-        setIsPreviewOpen(opened)
-        if (!opened) return
-        useBroadcastStore.getState().syncBroadcastOutputFor("main")
-        syncNdiConfigToOutput("main", ndiActive, ndiFrameRate, ndiResolution)
-        setTimeout(() => {
-          useBroadcastStore.getState().syncBroadcastOutputFor("main")
-        }, 150)
-      }
-    } catch (error) {
-      showBroadcastError("Could not toggle broadcast preview", error)
-    }
-  }
-
-  const handleToggleNdi = async () => {
-    try {
-      if (!ndiActive && !ndiSdkInstalled) {
-        toast.error("NDI SDK is missing", {
-          description: "Run bun run download:ndi-sdk, then refresh SDK status.",
-        })
-        return
-      }
-      if (ndiActive) {
-        await invokeTauri("stop_ndi", { outputId: "main" })
-        syncNdiConfigToOutput("main", false, ndiFrameRate, ndiResolution)
-        setNdiActive(false)
-        if (!isPreviewOpen) {
-          await invokeTauri("close_broadcast_window", { outputId: "main" }).catch((error) =>
-            console.warn("[broadcast-settings] close main window after NDI stop failed", error)
-          )
-        }
-      } else {
-        await invokeTauri("ensure_broadcast_window", { outputId: "main" })
-        const request: NdiStartRequest = {
-          sourceName: ndiSourceName,
-          resolution: ndiResolution,
-          frameRate: ndiFrameRate,
-          alphaMode: ndiAlphaMode,
-        }
-        const session = await invokeTauri<NdiSessionInfo>("start_ndi", { outputId: "main", request })
-        setNdiActive(true)
-        useBroadcastStore.getState().syncBroadcastOutputFor("main")
-        void emitTo("broadcast", "broadcast:ndi-config", {
-          active: true,
-          fps: session.fps,
-          width: session.width,
-          height: session.height,
-        }).catch((error) =>
-          console.warn("[broadcast-settings] emit post-start sync (main) failed", error)
-        )
-        setTimeout(() => {
-          useBroadcastStore.getState().syncBroadcastOutputFor("main")
-          syncNdiConfigToOutput("main", true, ndiFrameRate, ndiResolution)
-        }, 300)
-      }
-    } catch (error) {
-      showBroadcastError("Could not toggle NDI output", error)
-    }
-  }
-
-  const handleMainToggle = async (enabled: boolean) => {
-    setMainEnabled(enabled)
-    if (!enabled) {
-      if (isPreviewOpen) {
-        try {
-          await invokeTauri("close_broadcast_window", { outputId: "main" })
-        } catch (error) {
-          showBroadcastError("Could not close broadcast preview", error)
-        }
-        setIsPreviewOpen(false)
-      }
-      if (ndiActive) {
-        try {
-          await invokeTauri("stop_ndi", { outputId: "main" })
-        } catch (error) {
-          showBroadcastError("Could not stop NDI output", error)
-        }
-        syncNdiConfigToOutput("main", false, ndiFrameRate, ndiResolution)
-        setNdiActive(false)
-      }
-    }
-  }
-
-  // ── Alternate Output Handlers ──
-
-  const handleAltThemeChange = (id: string) => {
-    setAltThemeId(id)
-    useBroadcastStore.getState().setAltActiveTheme(id)
-  }
-
-  const handleAltMonitorChange = (value: string) => {
-    setAltSelectedMonitor(value)
-    useBroadcastStore.getState().setAltDisplayMonitorIndex(parseMonitorIndex(value))
-  }
-
-  const handleAltTogglePreview = async () => {
-    try {
-      if (altIsPreviewOpen) {
-        await invokeTauri("close_broadcast_window", { outputId: "alt" })
-        setAltIsPreviewOpen(await reconcilePreviewState("alt"))
-      } else {
-        await invokeTauri("open_broadcast_window", {
-          ...buildOpenBroadcastWindowArgs("alt", altSelectedMonitor, altProjectorFullscreen),
-        })
-        const opened = await reconcilePreviewState("alt")
-        setAltIsPreviewOpen(opened)
-        if (!opened) return
-        useBroadcastStore.getState().syncBroadcastOutputFor("alt")
-        syncNdiConfigToOutput("alt", altNdiActive, altNdiFrameRate, altNdiResolution)
-        setTimeout(() => {
-          useBroadcastStore.getState().syncBroadcastOutputFor("alt")
-        }, 150)
-      }
-    } catch (error) {
-      showBroadcastError("Could not toggle alternate preview", error)
-    }
-  }
-
-  const handleAltToggleNdi = async () => {
-    try {
-      if (!altNdiActive && !ndiSdkInstalled) {
-        toast.error("NDI SDK is missing", {
-          description: "Run bun run download:ndi-sdk, then refresh SDK status.",
-        })
-        return
-      }
-      if (altNdiActive) {
-        await invokeTauri("stop_ndi", { outputId: "alt" })
-        syncNdiConfigToOutput("alt", false, altNdiFrameRate, altNdiResolution)
-        setAltNdiActive(false)
-        if (!altIsPreviewOpen) {
-          await invokeTauri("close_broadcast_window", { outputId: "alt" }).catch((error) =>
-            console.warn("[broadcast-settings] close alt window after NDI stop failed", error)
-          )
-        }
-      } else {
-        await invokeTauri("ensure_broadcast_window", { outputId: "alt" })
-        const request: NdiStartRequest = {
-          sourceName: altNdiSourceName,
-          resolution: altNdiResolution,
-          frameRate: altNdiFrameRate,
-          alphaMode: altNdiAlphaMode,
-        }
-        const session = await invokeTauri<NdiSessionInfo>("start_ndi", { outputId: "alt", request })
-        setAltNdiActive(true)
-        useBroadcastStore.getState().syncBroadcastOutputFor("alt")
-        void emitTo("broadcast-alt", "broadcast:ndi-config", {
-          active: true,
-          fps: session.fps,
-          width: session.width,
-          height: session.height,
-        }).catch((error) =>
-          console.warn("[broadcast-settings] emit post-start sync (alt) failed", error)
-        )
-        setTimeout(() => {
-          useBroadcastStore.getState().syncBroadcastOutputFor("alt")
-          syncNdiConfigToOutput("alt", true, altNdiFrameRate, altNdiResolution)
-        }, 300)
-      }
-    } catch (error) {
-      showBroadcastError("Could not toggle alternate NDI output", error)
-    }
-  }
-
-  const handleAltToggle = async (enabled: boolean) => {
-    setAltEnabled(enabled)
-    if (!enabled) {
-      if (altIsPreviewOpen) {
-        try {
-          await invokeTauri("close_broadcast_window", { outputId: "alt" })
-        } catch (error) {
-          showBroadcastError("Could not close alternate broadcast preview", error)
-        }
-        setAltIsPreviewOpen(false)
-      }
-      if (altNdiActive) {
-        try {
-          await invokeTauri("stop_ndi", { outputId: "alt" })
-        } catch (error) {
-          showBroadcastError("Could not stop alternate NDI output", error)
-        }
-        syncNdiConfigToOutput("alt", false, altNdiFrameRate, altNdiResolution)
-        setAltNdiActive(false)
-      }
-    }
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -515,418 +113,28 @@ export function BroadcastSettings({
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4">
-          {/* ── Main Output Card ── */}
-          <div className="glass-panel relative space-y-4 p-4">
-            {/* Card header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MonitorIcon className="size-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Main Output</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    "text-xs",
-                    mainEnabled ? "text-foreground" : "text-muted-foreground"
-                  )}
-                >
-                  {mainEnabled ? "On" : "Off"}
-                </span>
-                <Switch
-                  checked={mainEnabled}
-                  onCheckedChange={handleMainToggle}
-                />
-              </div>
-            </div>
-
-            {/* Theme selector */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Theme</label>
-              <Select
-                value={mainThemeId}
-                onValueChange={handleMainThemeChange}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {themes.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Output type toggle */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">
-                Output Type
-              </label>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  onClick={() => setOutputType("display")}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-all",
-                    outputType === "display"
-                      ? "border-lime-500/50 bg-lime-500/15 text-lime-400"
-                      : "border-white/5 bg-black/40 text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <MonitorIcon className="size-3.5" />
-                  External Display
-                </button>
-                <button
-                  onClick={() => setOutputType("ndi")}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-all",
-                    outputType === "ndi"
-                      ? "border-lime-500/50 bg-lime-500/15 text-lime-400"
-                      : "border-white/5 bg-black/40 text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <RadioIcon className="size-3.5" />
-                  NDI
-                </button>
-              </div>
-            </div>
-
-            {/* Output-type-specific controls */}
-            {outputType === "display" ? (
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-muted-foreground">
-                      Target Monitor
-                    </label>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      disabled={refreshing}
-                      onClick={fetchMonitors}
-                      className="h-5 gap-1 px-1.5 text-[0.625rem] text-muted-foreground"
-                    >
-                      <RefreshCwIcon
-                        className={cn(
-                          "size-3",
-                          refreshing && "animate-spin"
-                        )}
-                      />
-                      Refresh
-                    </Button>
-                  </div>
-                  <Select
-                    value={selectedMonitor}
-                    onValueChange={handleMainMonitorChange}
-                    disabled={monitors.length === 0}
-                  >
-                    <SelectTrigger
-                      className="w-full"
-                      disabled={monitors.length === 0}
-                    >
-                      <SelectValue
-                        placeholder={
-                          monitors.length === 0
-                            ? "No monitors detected"
-                            : "Select monitor"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {monitors.map((m, i) => (
-                        <SelectItem key={i} value={String(i)}>
-                          {m.name} ({m.width}&times;{m.height})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Maximize2Icon className="size-3.5" />
-                    Fullscreen projector
-                  </label>
-                  <Switch
-                    checked={mainProjectorFullscreen}
-                    onCheckedChange={(checked) => {
-                      useBroadcastStore.getState().setMainProjectorFullscreen(checked)
-                    }}
-                  />
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-1.5"
-                  disabled={monitors.length === 0}
-                  onClick={handleTogglePreview}
-                >
-                  {isPreviewOpen ? (
-                    <>
-                      <EyeOffIcon className="size-3.5" />
-                      Close Preview
-                    </>
-                  ) : (
-                    <>
-                      <EyeIcon className="size-3.5" />
-                      Open Preview
-                    </>
-                  )}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <NdiSdkStatus
-                  installed={ndiSdkInstalled}
-                  loading={assetsLoading}
-                  onRefresh={() => void refreshAssets()}
-                />
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground">Resolution</label>
-                    <Select
-                      value={ndiResolution}
-                      onValueChange={(value) => setNdiResolution(value as NdiResolution)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {NDI_RESOLUTION_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground">Frame Rate</label>
-                    <Select
-                      value={ndiFrameRate}
-                      onValueChange={(value) => setNdiFrameRate(value as NdiFrameRate)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {NDI_FRAME_RATE_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Alpha Channel</label>
-                  <Select
-                    value={ndiAlphaMode}
-                    onValueChange={(value) => setNdiAlphaMode(value as NdiAlphaMode)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {NDI_ALPHA_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Source Name</label>
-                  <Input
-                    value={ndiSourceName}
-                    onChange={(e) => setNdiSourceName(e.target.value)}
-                    placeholder={DEFAULT_NDI_SOURCE_NAME}
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "w-full gap-1.5",
-                    ndiActive &&
-                    "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400"
-                  )}
-                  onClick={handleToggleNdi}
-                  disabled={!ndiActive && !assetsLoading && !ndiSdkInstalled}
-                >
-                  {ndiActive ? (
-                    <>
-                      <CastIcon className="size-3.5" />
-                      Stop NDI
-                    </>
-                  ) : (
-                    <>
-                      <CastIcon className="size-3.5" />
-                      Start NDI
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* ── Alternate Output Card ── */}
-          <div className="glass-panel relative space-y-4 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CastIcon className="size-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Alternate Output</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={cn("text-xs", altEnabled ? "text-foreground" : "text-muted-foreground")}>
-                  {altEnabled ? "On" : "Off"}
-                </span>
-                <Switch checked={altEnabled} onCheckedChange={handleAltToggle} />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Theme</label>
-              <Select value={altThemeId} onValueChange={handleAltThemeChange}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {themes.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Output Type</label>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  onClick={() => setAltOutputType("display")}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-all",
-                    altOutputType === "display"
-                      ? "border-lime-500/50 bg-lime-500/15 text-lime-400"
-                      : "border-white/5 bg-black/40 text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <MonitorIcon className="size-3.5" />
-                  External Display
-                </button>
-                <button
-                  onClick={() => setAltOutputType("ndi")}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-all",
-                    altOutputType === "ndi"
-                      ? "border-lime-500/50 bg-lime-500/15 text-lime-400"
-                      : "border-white/5 bg-black/40 text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <RadioIcon className="size-3.5" />
-                  NDI
-                </button>
-              </div>
-            </div>
-
-            {altOutputType === "display" ? (
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-muted-foreground">Target Monitor</label>
-                    <Button variant="ghost" size="xs" disabled={refreshing} onClick={fetchMonitors} className="h-5 gap-1 px-1.5 text-[0.625rem] text-muted-foreground">
-                      <RefreshCwIcon className={cn("size-3", refreshing && "animate-spin")} />
-                      Refresh
-                    </Button>
-                  </div>
-                  <Select value={altSelectedMonitor} onValueChange={handleAltMonitorChange} disabled={monitors.length === 0}>
-                    <SelectTrigger className="w-full" disabled={monitors.length === 0}>
-                      <SelectValue placeholder={monitors.length === 0 ? "No monitors detected" : "Select monitor"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {monitors.map((m, i) => (
-                        <SelectItem key={i} value={String(i)}>
-                          {m.name} ({m.width}&times;{m.height})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Maximize2Icon className="size-3.5" />
-                    Fullscreen projector
-                  </label>
-                  <Switch
-                    checked={altProjectorFullscreen}
-                    onCheckedChange={(checked) => {
-                      useBroadcastStore.getState().setAltProjectorFullscreen(checked)
-                    }}
-                  />
-                </div>
-                <Button variant="outline" size="sm" className="w-full gap-1.5" disabled={monitors.length === 0} onClick={handleAltTogglePreview}>
-                  {altIsPreviewOpen ? (<><EyeOffIcon className="size-3.5" />Close Preview</>) : (<><EyeIcon className="size-3.5" />Open Preview</>)}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <NdiSdkStatus
-                  installed={ndiSdkInstalled}
-                  loading={assetsLoading}
-                  onRefresh={() => void refreshAssets()}
-                />
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground">Resolution</label>
-                    <Select value={altNdiResolution} onValueChange={(v) => setAltNdiResolution(v as NdiResolution)}>
-                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {NDI_RESOLUTION_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground">Frame Rate</label>
-                    <Select value={altNdiFrameRate} onValueChange={(v) => setAltNdiFrameRate(v as NdiFrameRate)}>
-                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {NDI_FRAME_RATE_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Alpha Channel</label>
-                  <Select value={altNdiAlphaMode} onValueChange={(v) => setAltNdiAlphaMode(v as NdiAlphaMode)}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {NDI_ALPHA_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Source Name</label>
-                  <Input value={altNdiSourceName} onChange={(e) => setAltNdiSourceName(e.target.value)} placeholder={DEFAULT_NDI_ALT_SOURCE_NAME} />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn("w-full gap-1.5", altNdiActive && "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400")}
-                  onClick={handleAltToggleNdi}
-                  disabled={!altNdiActive && !assetsLoading && !ndiSdkInstalled}
-                >
-                  {altNdiActive ? (<><CastIcon className="size-3.5" />Stop NDI</>) : (<><CastIcon className="size-3.5" />Start NDI</>)}
-                </Button>
-              </div>
-            )}
-          </div>
+          <BroadcastOutputCard
+            title="Main Output"
+            titleIcon={MonitorIcon}
+            model={mainOutput}
+            monitors={monitors}
+            monitorsRefreshing={refreshing}
+            onRefreshMonitors={() => void fetchMonitors()}
+            ndiSdkInstalled={ndiSdkInstalled}
+            assetsLoading={assetsLoading}
+            onRefreshAssets={() => void refreshAssets()}
+          />
+          <BroadcastOutputCard
+            title="Alternate Output"
+            titleIcon={CastIcon}
+            model={altOutput}
+            monitors={monitors}
+            monitorsRefreshing={refreshing}
+            onRefreshMonitors={() => void fetchMonitors()}
+            ndiSdkInstalled={ndiSdkInstalled}
+            assetsLoading={assetsLoading}
+            onRefreshAssets={() => void refreshAssets()}
+          />
         </div>
       </DialogContent>
     </Dialog>

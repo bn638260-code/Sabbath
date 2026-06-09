@@ -1,0 +1,1025 @@
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::sync::Notify;
+
+use crate::state::AppState;
+use rhema_detection::{DetectionMerger, DirectDetector};
+
+use super::utils::{transcript_logging_enabled, truncate_safe};
+
+/// Check whether the operator has paused detection suggestions.
+/// Uses a blocking lock so the pause flag is authoritative.
+/// The lock is held only for an atomic load, so transcript events are not blocked.
+pub(crate) fn is_detection_paused(app: &AppHandle) -> bool {
+    let state: State<'_, Mutex<AppState>> = app.state();
+    let paused = match state.lock() {
+        Ok(s) => s.detection_paused.load(Ordering::Relaxed),
+        Err(_) => true,
+    };
+    paused
+}
+
+pub(crate) const SEMANTIC_WINDOW_SEGMENTS: usize = 8;
+pub(crate) const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(150);
+pub(crate) const PARTIAL_SEMANTIC_MIN_WORDS: usize = 4;
+pub(crate) const LIVE_SEMANTIC_CAP: usize = 3;
+const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
+
+/// Take the latest pending semantic job from a shared slot, recovering from
+/// poisoned locks so the worker doesn't die permanently.
+pub(crate) fn take_semantic_job(
+    slot: &Arc<Mutex<Option<(u64, String)>>>,
+    label: &str,
+) -> Option<(u64, String)> {
+    match slot.lock() {
+        Ok(mut guard) => guard.take(),
+        Err(poisoned) => {
+            log::error!("[DET-SEMANTIC] {label} semantic slot lock poisoned; recovering");
+            let mut guard = poisoned.into_inner();
+            guard.take()
+        }
+    }
+}
+
+/// Replace the latest pending semantic job in a shared slot, recovering from
+/// poisoned locks. Returns true if a previous job was replaced.
+fn replace_semantic_job(
+    slot: &Arc<Mutex<Option<(u64, String)>>>,
+    job: (u64, String),
+    label: &str,
+) -> bool {
+    match slot.lock() {
+        Ok(mut guard) => guard.replace(job).is_some(),
+        Err(poisoned) => {
+            log::error!("[DET-SEMANTIC] {label} semantic slot lock poisoned; recovering");
+            let mut guard = poisoned.into_inner();
+            guard.replace(job).is_some()
+        }
+    }
+}
+
+pub(crate) fn enqueue_final_semantic_job(
+    job_slot: &Arc<Mutex<Option<(u64, String)>>>,
+    notify: &Arc<Notify>,
+    sent_counter: &Arc<AtomicU64>,
+    replaced_counter: &Arc<AtomicU64>,
+    seq: u64,
+    text: String,
+) {
+    if text.trim().is_empty() {
+        return;
+    }
+
+    let replaced = replace_semantic_job(job_slot, (seq, text), "final");
+    let n = sent_counter.fetch_add(1, Ordering::Relaxed) + 1;
+
+    if replaced {
+        let replaced_count = replaced_counter.fetch_add(1, Ordering::Relaxed) + 1;
+        let sent = sent_counter.load(Ordering::Relaxed);
+        log::debug!(
+            "[QUEUE] final_semantic latest-wins replaced stale work sent={sent} replaced={replaced_count}"
+        );
+    } else if n % 25 == 0 {
+        let replaced_count = replaced_counter.load(Ordering::Relaxed);
+        log::info!("[QUEUE] final_semantic latest-wins sent={n} replaced={replaced_count}");
+    }
+
+    notify.notify_one();
+}
+
+pub(crate) fn enqueue_partial_semantic_job(
+    job_slot: &Arc<Mutex<Option<(u64, String)>>>,
+    notify: &Arc<Notify>,
+    sent_counter: &Arc<AtomicU64>,
+    replaced_counter: &Arc<AtomicU64>,
+    seq: u64,
+    text: String,
+) {
+    if text.trim().is_empty() {
+        return;
+    }
+
+    let replaced = replace_semantic_job(job_slot, (seq, text), "partial");
+    let n = sent_counter.fetch_add(1, Ordering::Relaxed) + 1;
+
+    if replaced {
+        let replaced_count = replaced_counter.fetch_add(1, Ordering::Relaxed) + 1;
+        let sent = sent_counter.load(Ordering::Relaxed);
+        log::debug!(
+            "[QUEUE] partial_semantic latest-wins replaced stale work sent={sent} replaced={replaced_count}"
+        );
+    } else if n % 25 == 0 {
+        let replaced_count = replaced_counter.load(Ordering::Relaxed);
+        log::info!("[QUEUE] partial_semantic latest-wins sent={n} replaced={replaced_count}");
+    }
+
+    notify.notify_one();
+}
+
+pub(crate) fn enqueue_direct_detection_job(
+    detect_tx: &tokio::sync::mpsc::Sender<(u64, String)>,
+    latest_accepted_seq: &Arc<AtomicU64>,
+    sent_counter: &Arc<AtomicU64>,
+    dropped_counter: &Arc<AtomicU64>,
+    seq: u64,
+    text: String,
+    source: &str,
+) {
+    match detect_tx.try_send((seq, text)) {
+        Ok(()) => {
+            latest_accepted_seq.store(seq, Ordering::Release);
+            let n = sent_counter.fetch_add(1, Ordering::Relaxed) + 1;
+            if n % 25 == 0 {
+                let depth = detect_tx.max_capacity() - detect_tx.capacity();
+                let dropped = dropped_counter.load(Ordering::Relaxed);
+                log::info!(
+                    "[QUEUE] detect_tx source={source} sent={n} dropped={dropped} depth={depth}/{}",
+                    detect_tx.max_capacity()
+                );
+            }
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+            let dropped = dropped_counter.fetch_add(1, Ordering::Relaxed) + 1;
+            let sent = sent_counter.load(Ordering::Relaxed);
+            log::warn!(
+                "[QUEUE] detect_tx DROPPED source={source} (consumer behind) sent={sent} dropped={dropped}"
+            );
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct DeepgramSemanticBuffer {
+    parts: Vec<String>,
+    seq: u64,
+}
+
+impl DeepgramSemanticBuffer {
+    pub(crate) fn push_final(
+        &mut self,
+        seq: u64,
+        text: String,
+        speech_final: bool,
+    ) -> Option<(u64, String)> {
+        self.parts.push(text);
+        self.seq = seq;
+        if speech_final {
+            self.flush_with_seq(seq)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn flush(&mut self) -> Option<(u64, String)> {
+        self.flush_with_seq(self.seq)
+    }
+
+    pub(crate) fn flush_with_seq(&mut self, seq: u64) -> Option<(u64, String)> {
+        if self.parts.is_empty() || seq == 0 {
+            return None;
+        }
+
+        let text = self.parts.join(" ");
+        self.clear();
+        Some((seq, text))
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.parts.clear();
+        self.seq = 0;
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.parts.is_empty()
+    }
+}
+
+fn semantic_result_key(result: &crate::commands::detection::DetectionResult) -> String {
+    if result.book_number > 0 && result.chapter > 0 && result.verse > 0 {
+        format!("{}:{}:{}", result.book_number, result.chapter, result.verse)
+    } else {
+        result.verse_ref.clone()
+    }
+}
+
+pub(crate) fn finalize_live_semantic_results(
+    results: Vec<crate::commands::detection::DetectionResult>,
+) -> Vec<crate::commands::detection::DetectionResult> {
+    let mut grouped: HashMap<String, (crate::commands::detection::DetectionResult, usize)> = HashMap::new();
+
+    for result in results {
+        let key = semantic_result_key(&result);
+        match grouped.get_mut(&key) {
+            Some((existing, overlap_count)) => {
+                *overlap_count += 1;
+                existing.confidence = existing.confidence.max(result.confidence);
+                existing.auto_queued |= result.auto_queued;
+                if existing.verse_text.is_empty() && !result.verse_text.is_empty() {
+                    existing.verse_text.clone_from(&result.verse_text);
+                }
+                if existing.transcript_snippet.is_empty() && !result.transcript_snippet.is_empty() {
+                    existing
+                        .transcript_snippet
+                        .clone_from(&result.transcript_snippet);
+                }
+                if existing.book_number <= 0 && result.book_number > 0 {
+                    *existing = result;
+                }
+            }
+            None => {
+                grouped.insert(key, (result, 1));
+            }
+        }
+    }
+
+    let mut merged = grouped
+        .into_values()
+        .map(|(mut result, overlap_count)| {
+            if overlap_count > 1 {
+                result.confidence = (result.confidence + LIVE_SEMANTIC_OVERLAP_BOOST).min(0.98);
+            }
+            result
+        })
+        .collect::<Vec<_>>();
+
+    merged.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.verse_ref.cmp(&b.verse_ref))
+    });
+    merged.truncate(LIVE_SEMANTIC_CAP);
+    merged
+}
+
+/// Run a preview-only direct detection pass on a transcript.
+///
+/// This intentionally skips semantic detection, reading mode, queueing, and
+/// cooldown state. Final transcript handling remains authoritative; this path
+/// exists only to stage complete direct references in the preview panel sooner.
+pub(crate) fn run_partial_direct_preview_detection(
+    app: &AppHandle,
+    detector_state: &Arc<Mutex<DirectDetector>>,
+    seq: u64,
+    latest_seq: &Arc<AtomicU64>,
+    transcript: &str,
+) {
+    if seq != latest_seq.load(Ordering::Acquire) {
+        return;
+    }
+
+    let t0 = std::time::Instant::now();
+    let direct_results = {
+        let Ok(mut detector) = detector_state.lock() else {
+            log::warn!("[DET-PARTIAL] DirectDetector lock poisoned");
+            return;
+        };
+        detector.detect(transcript)
+    };
+
+    if direct_results.is_empty() || seq != latest_seq.load(Ordering::Acquire) {
+        return;
+    }
+
+    let merged: Vec<rhema_detection::MergedDetection> = direct_results
+        .into_iter()
+        .filter(|d| {
+            !d.is_chapter_only
+                && d.verse_ref.book_number > 0
+                && d.verse_ref.chapter > 0
+                && d.verse_ref.verse_start > 0
+                && d.confidence >= 0.90
+        })
+        .map(|d| rhema_detection::MergedDetection {
+            detection: d,
+            auto_queued: false,
+        })
+        .collect();
+
+    if merged.is_empty() {
+        return;
+    }
+
+    let app_managed: State<'_, Mutex<AppState>> = app.state();
+    let Ok(app_state) = app_managed.try_lock() else {
+        if transcript_logging_enabled() {
+            log::debug!("[DET-PARTIAL] AppState busy; skipping partial preview");
+        }
+        return;
+    };
+    let results = finalize_live_semantic_results(
+        merged
+            .iter()
+            .map(|m| crate::commands::detection::to_result(&app_state, m))
+            .collect(),
+    );
+    drop(app_state);
+
+    if results.is_empty() || seq != latest_seq.load(Ordering::Acquire) {
+        return;
+    }
+
+    for r in &results {
+        log::info!(
+            "[DET-PARTIAL] Preview: {} ({:.0}%)",
+            r.verse_ref,
+            r.confidence * 100.0
+        );
+    }
+    let _ = app.emit("verse_detections", &results);
+
+    if transcript_logging_enabled() {
+        log::info!(
+            "[DET-PARTIAL] Detection+emit took {:?} for {:?}",
+            t0.elapsed(),
+            truncate_safe(transcript, 50)
+        );
+    }
+}
+
+/// Run direct (regex/pattern) detection only. Instant, no ONNX.
+/// Uses SEPARATE Mutex<DirectDetector> and Mutex<DetectionMerger> so it
+/// never blocks on the semantic worker, and cooldown state persists across calls.
+/// Returns true if high-confidence results were found (>= 0.90).
+#[expect(
+    clippy::similar_names,
+    clippy::too_many_lines,
+    reason = "direct detection orchestration is intentionally kept together"
+)]
+pub(crate) fn run_direct_detection(
+    app: &AppHandle,
+    seq: u64,
+    latest_seq: &Arc<AtomicU64>,
+    transcript: &str,
+) -> bool {
+    // [DIAG] AppState mutex contention on the direct-detection hot path.
+    static LOCK_OK: AtomicU64 = AtomicU64::new(0);
+    static LOCK_CONTENDED: AtomicU64 = AtomicU64::new(0);
+
+    // Stale detection suppression: if this job's sequence is older than the
+    // latest accepted transcript sequence, skip emission.
+    if seq < latest_seq.load(Ordering::Acquire) {
+        log::debug!("[DET-DIRECT] Skipping stale job seq={seq}");
+        return false;
+    }
+    let t0 = std::time::Instant::now();
+    let detector_state: State<'_, Mutex<DirectDetector>> = app.state();
+    let mut detector = match detector_state.lock() {
+        Ok(d) => d,
+        Err(e) => {
+            log::error!("Failed to lock DirectDetector: {e}");
+            return false;
+        }
+    };
+    let direct_results = detector.detect(transcript);
+    drop(detector); // Release immediately
+
+    if direct_results.is_empty() {
+        return false;
+    }
+
+    // Check if any result has high confidence before merging
+    let has_high_confidence = direct_results.iter().any(|d| d.confidence >= 0.90);
+
+    // Merge using the managed merger (persists cooldown state across calls,
+    // preventing duplicate emissions when running on both partials and finals)
+    let merger_state: State<'_, Mutex<DetectionMerger>> = app.state();
+    let mut merger = match merger_state.lock() {
+        Ok(m) => m,
+        Err(e) => {
+            log::error!("Failed to lock DetectionMerger: {e}");
+            return false;
+        }
+    };
+    let merged = merger.merge(direct_results, vec![]);
+    drop(merger);
+    if merged.is_empty() {
+        return false;
+    }
+
+    // Resolve verse info from DB (needs AppState, but only briefly for DB lookup)
+    let app_managed: State<'_, Mutex<AppState>> = app.state();
+    let Ok(app_state) = app_managed.lock() else {
+        let bad = LOCK_CONTENDED.fetch_add(1, Ordering::Relaxed) + 1;
+        let good = LOCK_OK.load(Ordering::Relaxed);
+        log::warn!("[DET-DIRECT] AppState lock FAILED (contention) ok={good} contended={bad}");
+
+        // Check for stale sequence BEFORE emitting in fallback path
+        if seq < latest_seq.load(Ordering::Acquire) {
+            log::debug!("[DET-DIRECT] Skipping stale emission in fallback path seq={seq}");
+            return has_high_confidence;
+        }
+
+        // AppState is locked, so emit results without verse text.
+        let results: Vec<crate::commands::detection::DetectionResult> = merged
+            .iter()
+            .map(|m| {
+                let vr = &m.detection.verse_ref;
+                crate::commands::detection::DetectionResult {
+                    verse_ref: format!("{} {}:{}", vr.book_name, vr.chapter, vr.verse_start),
+                    verse_text: String::new(),
+                    book_name: vr.book_name.clone(),
+                    book_number: vr.book_number,
+                    chapter: vr.chapter,
+                    verse: vr.verse_start,
+                    confidence: m.detection.confidence,
+                    source: "direct".to_string(),
+                    auto_queued: m.auto_queued,
+                    transcript_snippet: m.detection.transcript_snippet.clone(),
+                    is_chapter_only: m.detection.is_chapter_only,
+                }
+            })
+            .collect();
+        for r in &results {
+            log::info!(
+                "[DET-DIRECT] Found: {} ({:.0}%) (no DB)",
+                r.verse_ref,
+                r.confidence * 100.0
+            );
+        }
+        let _ = app.emit("verse_detections", &results);
+        return has_high_confidence;
+    };
+    let ok = LOCK_OK.fetch_add(1, Ordering::Relaxed) + 1;
+    if ok % 50 == 0 {
+        let bad = LOCK_CONTENDED.load(Ordering::Relaxed);
+        log::info!("[DET-DIRECT] AppState lock stats ok={ok} contended={bad}");
+    }
+    let results: Vec<crate::commands::detection::DetectionResult> = merged
+        .iter()
+        .map(|m| crate::commands::detection::to_result(&app_state, m))
+        .collect();
+
+    for r in &results {
+        log::info!(
+            "[DET-DIRECT] Found: {} ({:.0}%)",
+            r.verse_ref,
+            r.confidence * 100.0
+        );
+    }
+    drop(app_state);
+
+    // Final stale check before emission
+    if seq < latest_seq.load(Ordering::Acquire) {
+        log::debug!("[DET-DIRECT] Skipping emission for stale seq={seq}");
+        return has_high_confidence;
+    }
+
+    let _ = app.emit("verse_detections", &results);
+    if transcript_logging_enabled() {
+        log::info!(
+            "[DET-DIRECT] Detection took {:?} for {:?}",
+            t0.elapsed(),
+            truncate_safe(transcript, 50)
+        );
+    } else {
+        log::info!("[DET-DIRECT] Detection took {:?}", t0.elapsed());
+    }
+    has_high_confidence
+}
+
+/// Run hybrid semantic detection combining FTS5 BM25 with vector search.
+/// Uses `spawn_blocking` so mutex locks and DB I/O don't starve the tokio runtime.
+pub(crate) fn run_semantic_detection(
+    app: &AppHandle,
+    seq: u64,
+    latest_seq: &Arc<AtomicU64>,
+    transcript: &str,
+) {
+    // Stale detection suppression: if this job's sequence is older than the
+    // latest accepted transcript sequence, skip emission.
+    if seq < latest_seq.load(Ordering::Acquire) {
+        log::debug!("[DET-SEMANTIC] Skipping stale job seq={seq}");
+        return;
+    }
+
+    let t0 = std::time::Instant::now();
+    if transcript_logging_enabled() {
+        log::info!(
+            "[DET-SEMANTIC] Running on: {:?}",
+            truncate_safe(transcript, 80)
+        );
+    } else {
+        log::info!("[DET-SEMANTIC] Running");
+    }
+
+    // FTS5 BM25 phrase search (~5ms)
+    let fts_results = {
+        let managed: State<'_, Mutex<AppState>> = app.state();
+        let Ok(app_state) = managed.lock() else {
+            log::error!("Failed to lock AppState for FTS5");
+            return;
+        };
+        app_state
+            .bible_db
+            .as_ref()
+            .and_then(|db| db.search_verses_bm25(transcript, 10).ok())
+    };
+
+    let fts = fts_results.unwrap_or_default();
+    if fts.is_empty() {
+        log::debug!("[DET-SEMANTIC] No FTS5 results, trying vector-only search");
+    }
+
+    // Use hybrid pipeline: FTS5 + vector search when available.
+    // Even with empty FTS5, vector search can catch paraphrases.
+    let merged = {
+        let pipeline_state: State<'_, Mutex<rhema_detection::DetectionPipeline>> = app.state();
+        let Ok(mut pipeline) = pipeline_state.lock() else {
+            log::error!("Failed to lock DetectionPipeline");
+            return;
+        };
+        pipeline.process_hybrid_with_fts(transcript, &fts)
+    };
+
+    if merged.is_empty() {
+        log::info!("[DET-SEMANTIC] No detections");
+        return;
+    }
+
+    // Resolve verse text from DB for merged results
+    let app_managed: State<'_, Mutex<AppState>> = app.state();
+    let Ok(app_state) = app_managed.lock() else {
+        log::error!("Failed to lock AppState for verse resolution");
+        return;
+    };
+
+    let results: Vec<crate::commands::detection::DetectionResult> = merged
+        .iter()
+        .map(|m| crate::commands::detection::to_result(&app_state, m))
+        .collect();
+
+    drop(app_state);
+
+    // Final stale check before emission
+    if seq < latest_seq.load(Ordering::Acquire) {
+        log::debug!("[DET-SEMANTIC] Skipping emission for stale seq={seq}");
+        return;
+    }
+
+    for r in &results {
+        log::info!(
+            "[DET-SEMANTIC] Found: {} ({:.0}% {}) auto_q={}",
+            r.verse_ref,
+            r.confidence * 100.0,
+            r.source,
+            r.auto_queued
+        );
+    }
+    let _ = app.emit("verse_detections", &results);
+    log::info!("[DET-SEMANTIC] Total: {:?}", t0.elapsed());
+}
+
+/// Check reading mode: if active, test transcript against expected verse.
+/// If direct detection just found a new verse, start/restart reading mode.
+/// Returns `true` when reading mode handled the transcript (suppresses semantic).
+#[expect(
+    clippy::too_many_lines,
+    reason = "sequential state-machine logic is clearer in one flow"
+)]
+pub(crate) fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found: bool) -> bool {
+    use rhema_detection::ReadingMode;
+
+    // If direct detection found a verse, consider starting/restarting reading mode.
+    // BUT: if reading mode is already active on a book/chapter, do NOT restart
+    // on a different book — false positives from bare numbers (e.g., "verse 5"
+    // getting matched as "Job 3:5") would hijack the reading session.
+    if direct_found {
+        let verse_info = {
+            let detector_state: State<'_, Mutex<DirectDetector>> = app.state();
+            let Ok(detector) = detector_state.lock() else {
+                return false;
+            };
+            detector.recent_detections().front().cloned()
+        };
+
+        if let Some(recent) = verse_info {
+            // Get the confidence of the detection to distinguish explicit refs from false positives
+            let detection_confidence = {
+                let detector_state: State<'_, Mutex<DirectDetector>> = app.state();
+                detector_state
+                    .lock()
+                    .ok()
+                    .and_then(|d| d.recent_detections().front().map(|_| 0.95)) // Direct detections are always high confidence
+                    .unwrap_or(0.0)
+            };
+
+            let should_start = {
+                let rm_managed: &Mutex<ReadingMode> = app.state::<Mutex<ReadingMode>>().inner();
+                match rm_managed.lock() {
+                    Ok(rm) => {
+                        if !rm.is_active() && !rm.has_verses() {
+                            true // Not active, no verses loaded — start fresh
+                        } else if !rm.is_active() && rm.has_verses() {
+                            // Paused — restart on any new explicit reference
+                            true
+                        } else if rm.current_book() == recent.book_number
+                            && rm.current_chapter() == recent.chapter
+                        {
+                            false // Same book+chapter — already tracking this
+                        } else if rm.current_book() != recent.book_number
+                            && detection_confidence >= 0.90
+                        {
+                            // Different book with high confidence — explicit new reference
+                            // (e.g., "John 1:1" after reading Exodus). Restart.
+                            true
+                        } else if rm.current_book() == recent.book_number {
+                            // Same book, different chapter — natural progression
+                            true
+                        } else {
+                            // Different book, low confidence — likely false positive
+                            false
+                        }
+                    }
+                    Err(_) => false,
+                }
+            };
+
+            if should_start {
+                let chapter_data = {
+                    let t_db = std::time::Instant::now();
+                    let app_managed: State<'_, Mutex<AppState>> = app.state();
+                    // Blocking lock is OK — we're inside spawn_blocking, not on the async runtime.
+                    let Ok(app_state) = app_managed.lock() else {
+                        log::error!("[READING] AppState lock poisoned");
+                        return false;
+                    };
+                    let result = match &app_state.bible_db {
+                        Some(db) => db
+                            .get_chapter(
+                                app_state.active_translation_id,
+                                recent.book_number,
+                                recent.chapter,
+                            )
+                            .ok(),
+                        None => None,
+                    };
+                    log::info!("[READING] get_chapter took {:?}", t_db.elapsed());
+                    result
+                };
+
+                if let Some(chapter_verses) = chapter_data {
+                    let verses: Vec<(i32, String)> = chapter_verses
+                        .into_iter()
+                        .map(|v| (v.verse, v.text))
+                        .collect();
+
+                    let rm_managed: &Mutex<ReadingMode> = app.state::<Mutex<ReadingMode>>().inner();
+                    if let Ok(mut rm) = rm_managed.lock() {
+                        rm.start(
+                            recent.book_number,
+                            &recent.book_name,
+                            recent.chapter,
+                            recent.verse_start,
+                            verses,
+                        );
+
+                        // Check if transcript contains "chapter" keyword - if so, expect chapter number next
+                        // This handles "Genesis chapter" → pause → "5" → go to chapter 5
+                        let lower = transcript.to_lowercase();
+                        if lower.contains("chapter")
+                            && !lower.contains("next")
+                            && !lower.contains("previous")
+                        {
+                            rm.set_expecting_chapter();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let rm_managed: &Mutex<ReadingMode> = app.state::<Mutex<ReadingMode>>().inner();
+
+    // Check for chapter navigation commands (e.g., "let's go to chapter seven").
+    {
+        let chapter_change = {
+            let Ok(mut rm) = rm_managed.lock() else {
+                return false;
+            };
+            if !rm.is_active() && !rm.has_verses() {
+                None
+            } else {
+                if transcript_logging_enabled() {
+                    log::info!("[READING] Checking chapter command for: {transcript:?}");
+                }
+                rm.check_chapter_command(transcript)
+            }
+        };
+
+        if let Some(change) = chapter_change {
+            let chapter_data = {
+                let t_db = std::time::Instant::now();
+                let app_managed: State<'_, Mutex<AppState>> = app.state();
+                // Blocking lock is OK — we're inside spawn_blocking, not on the async runtime.
+                let Ok(app_state) = app_managed.lock() else {
+                    log::error!("[READING] AppState lock poisoned (chapter nav)");
+                    return false;
+                };
+                let result = match &app_state.bible_db {
+                    Some(db) => db
+                        .get_chapter(
+                            app_state.active_translation_id,
+                            change.book_number,
+                            change.new_chapter,
+                        )
+                        .ok(),
+                    None => None,
+                };
+                log::info!("[READING] get_chapter (nav) took {:?}", t_db.elapsed());
+                result
+            };
+
+            if let Some(chapter_verses) = chapter_data {
+                if !chapter_verses.is_empty() {
+                    let start_verse = change.start_verse.unwrap_or(1);
+
+                    // Find the text for the starting verse
+                    let start_verse_text = chapter_verses
+                        .iter()
+                        .find(|v| v.verse == start_verse)
+                        .map_or_else(|| chapter_verses[0].text.clone(), |v| v.text.clone());
+
+                    let verses: Vec<(i32, String)> = chapter_verses
+                        .into_iter()
+                        .map(|v| (v.verse, v.text))
+                        .collect();
+
+                    if let Ok(mut rm) = rm_managed.lock() {
+                        rm.start(
+                            change.book_number,
+                            &change.book_name,
+                            change.new_chapter,
+                            start_verse,
+                            verses,
+                        );
+                    }
+
+                    // Emit the starting verse of the new chapter
+                    let reference = format!(
+                        "{} {}:{}",
+                        change.book_name, change.new_chapter, start_verse
+                    );
+                    let advance = rhema_detection::ReadingAdvance {
+                        book_number: change.book_number,
+                        book_name: change.book_name.clone(),
+                        chapter: change.new_chapter,
+                        verse: start_verse,
+                        verse_text: start_verse_text.clone(),
+                        reference: reference.clone(),
+                        confidence: 1.0,
+                    };
+                    let _ = app.emit("reading_mode_verse", &advance);
+
+                    return true;
+                }
+            }
+        }
+    }
+
+    // Check reading mode for verse advancement.
+    // Allow check even when paused (has_verses but !active) so "verse N"
+    // commands can re-activate reading mode after timeout.
+    let advance = {
+        let Ok(mut rm) = rm_managed.lock() else {
+            return false;
+        };
+        if !rm.is_active() && !rm.has_verses() {
+            return false;
+        }
+        rm.check_transcript(transcript)
+    };
+
+    if let Some(advance) = advance {
+        let _ = app.emit("reading_mode_verse", &advance);
+        return true;
+    }
+
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        finalize_live_semantic_results, replace_semantic_job, take_semantic_job,
+        DeepgramSemanticBuffer, LIVE_SEMANTIC_CAP,
+    };
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    fn make_detection_result(
+        verse_ref: &str,
+        book_number: i32,
+        chapter: i32,
+        verse: i32,
+        confidence: f64,
+    ) -> crate::commands::detection::DetectionResult {
+        crate::commands::detection::DetectionResult {
+            verse_ref: verse_ref.to_string(),
+            verse_text: "verse text".to_string(),
+            book_name: "Book".to_string(),
+            book_number,
+            chapter,
+            verse,
+            confidence,
+            source: "semantic".to_string(),
+            auto_queued: false,
+            transcript_snippet: "snippet".to_string(),
+            is_chapter_only: false,
+        }
+    }
+
+    /// Test helper to verify stale sequence suppression logic.
+    /// This simulates the sequence checking used in `run_direct_detection`
+    /// and `run_semantic_detection` to ensure stale jobs don't emit.
+    #[test]
+    fn test_stale_sequence_suppression() {
+        let latest_seq = Arc::new(AtomicU64::new(10));
+
+        // Current job is stale (seq < latest)
+        let seq = 5;
+        assert!(seq < latest_seq.load(Ordering::Relaxed));
+        assert!(latest_seq.load(Ordering::Relaxed) > seq);
+
+        // Current job is fresh (seq == latest)
+        let seq = 10;
+        assert!(seq >= latest_seq.load(Ordering::Relaxed));
+
+        // Current job is ahead (seq > latest) - should be accepted
+        let seq = 15;
+        assert!(seq >= latest_seq.load(Ordering::Relaxed));
+    }
+
+    /// Test that sequence numbers increase monotonically
+    #[test]
+    fn test_sequence_monotonic_increase() {
+        let seq = Arc::new(AtomicU64::new(0));
+
+        let s1 = seq.fetch_add(1, Ordering::Relaxed) + 1;
+        let s2 = seq.fetch_add(1, Ordering::Relaxed) + 1;
+        let s3 = seq.fetch_add(1, Ordering::Relaxed) + 1;
+
+        assert!(s1 < s2);
+        assert!(s2 < s3);
+        assert_eq!(s1, 1);
+        assert_eq!(s2, 2);
+        assert_eq!(s3, 3);
+    }
+
+    /// Test that stale detection is correctly identified when
+    /// a newer transcript arrives while an older job is processing.
+    #[test]
+    fn test_stale_detection_with_concurrent_updates() {
+        let latest_seq = Arc::new(AtomicU64::new(5));
+
+        // Job starts with seq=5 (fresh)
+        let job_seq = 5;
+        assert!(job_seq >= latest_seq.load(Ordering::Relaxed));
+
+        // While job is processing, new transcript arrives (seq=6)
+        latest_seq.store(6, Ordering::Relaxed);
+
+        // Job finishes and checks for staleness
+        assert!(job_seq < latest_seq.load(Ordering::Relaxed));
+        // Should skip emission
+    }
+
+    /// Test that `detection_paused` initializes to false and toggles correctly.
+    /// This verifies the backend contract: Pause Suggestions must be backend-enforced.
+    #[test]
+    fn test_detection_paused_state() {
+        let app_state = crate::state::AppState::new();
+        assert!(
+            !app_state
+                .detection_paused
+                .load(std::sync::atomic::Ordering::Relaxed),
+            "detection_paused should default to false"
+        );
+
+        app_state
+            .detection_paused
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(app_state
+            .detection_paused
+            .load(std::sync::atomic::Ordering::Relaxed));
+
+        app_state
+            .detection_paused
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        assert!(!app_state
+            .detection_paused
+            .load(std::sync::atomic::Ordering::Relaxed));
+    }
+
+    #[test]
+    fn test_finalize_live_semantic_results_dedupes_and_boosts_overlap() {
+        let results = vec![
+            make_detection_result("John 3:16", 43, 3, 16, 0.86),
+            make_detection_result("John 3:16", 43, 3, 16, 0.74),
+            make_detection_result("Romans 8:28", 45, 8, 28, 0.72),
+        ];
+
+        let finalized = finalize_live_semantic_results(results);
+
+        assert_eq!(finalized.len(), 2);
+        assert_eq!(finalized[0].verse_ref, "John 3:16");
+        assert!(
+            finalized[0].confidence > 0.86,
+            "overlap should boost the deduped result"
+        );
+    }
+
+    #[test]
+    fn test_finalize_live_semantic_results_caps_after_dedupe() {
+        let results = vec![
+            make_detection_result("John 3:16", 43, 3, 16, 0.90),
+            make_detection_result("John 3:16", 43, 3, 16, 0.75),
+            make_detection_result("Romans 8:28", 45, 8, 28, 0.82),
+            make_detection_result("Genesis 1:1", 1, 1, 1, 0.81),
+            make_detection_result("Psalm 23:1", 19, 23, 1, 0.80),
+        ];
+
+        let finalized = finalize_live_semantic_results(results);
+
+        assert_eq!(finalized.len(), LIVE_SEMANTIC_CAP);
+        assert!(finalized.iter().any(|r| r.verse_ref == "Romans 8:28"));
+        assert!(finalized.iter().any(|r| r.verse_ref == "Genesis 1:1"));
+    }
+
+    #[test]
+    fn semantic_job_slot_replace_reports_whether_existing_job_was_replaced() {
+        let slot = Arc::new(Mutex::new(None));
+
+        assert!(!replace_semantic_job(&slot, (1, "old".to_string()), "test"));
+        assert!(replace_semantic_job(&slot, (2, "new".to_string()), "test"));
+
+        assert_eq!(
+            take_semantic_job(&slot, "test"),
+            Some((2, "new".to_string()))
+        );
+        assert_eq!(take_semantic_job(&slot, "test"), None);
+    }
+
+    #[test]
+    fn semantic_job_slot_recovers_from_poisoned_lock() {
+        let slot = Arc::new(Mutex::new(None));
+
+        let poisoned_slot = slot.clone();
+        let _ = std::panic::catch_unwind(move || {
+            let mut guard = poisoned_slot.lock().unwrap();
+            guard.replace((1, "poisoned".to_string()));
+            panic!("poison semantic slot");
+        });
+
+        assert!(replace_semantic_job(
+            &slot,
+            (2, "recovered".to_string()),
+            "test"
+        ));
+        assert_eq!(
+            take_semantic_job(&slot, "test"),
+            Some((2, "recovered".to_string()))
+        );
+    }
+
+    #[test]
+    fn deepgram_semantic_buffer_waits_until_speech_final() {
+        let mut buffer = DeepgramSemanticBuffer::default();
+
+        assert_eq!(buffer.push_final(1, "John 3".to_string(), false), None);
+        assert_eq!(
+            buffer.push_final(2, "sixteen".to_string(), true),
+            Some((2, "John 3 sixteen".to_string()))
+        );
+        assert!(buffer.is_empty());
+    }
+
+    #[test]
+    fn deepgram_semantic_buffer_flushes_duplicate_speech_final_boundary() {
+        let mut buffer = DeepgramSemanticBuffer::default();
+
+        assert_eq!(buffer.push_final(1, "Psalm 23".to_string(), false), None);
+        assert_eq!(buffer.flush_with_seq(2), Some((2, "Psalm 23".to_string())));
+        assert!(buffer.is_empty());
+    }
+
+    #[test]
+    fn deepgram_semantic_buffer_utterance_end_uses_last_final_seq() {
+        let mut buffer = DeepgramSemanticBuffer::default();
+
+        assert_eq!(
+            buffer.push_final(7, "The Lord is my shepherd".to_string(), false),
+            None
+        );
+        assert_eq!(
+            buffer.flush(),
+            Some((7, "The Lord is my shepherd".to_string()))
+        );
+        assert!(buffer.is_empty());
+    }
+}

@@ -7,10 +7,10 @@ use rhema_api::{
     HttpConfig, HttpHandle, OscConfig, OscHandle, SharedStatus,
 };
 
-use crate::commands::secrets;
 use super::validation::{
     bounded_text, valid_confidence_threshold, valid_port, MAX_QUEUE_LENGTH, MAX_STATUS_TEXT_BYTES,
 };
+use crate::commands::secrets;
 
 /// Tauri-aware implementation of `CommandSink`.
 ///
@@ -45,7 +45,11 @@ impl CommandSink for TauriSink {
         } else if action == "hide_broadcast" {
             log::info!("Remote control: hide broadcast");
         }
-        let payload = if uses_args { args.to_string() } else { "{}".to_string() };
+        let payload = if uses_args {
+            args.to_string()
+        } else {
+            "{}".to_string()
+        };
         self.app
             .emit(event, payload)
             .map_err(|e| CommandError::DispatchFailed(e.to_string()))
@@ -333,6 +337,8 @@ mod tests {
     #[test]
     fn rejects_unknown_backend_action() {
         let err = map_backend_remote_action("toggle_lasers").unwrap_err();
-        assert!(matches!(err, CommandError::DispatchFailed(message) if message.contains("Unknown backend action")));
+        assert!(
+            matches!(err, CommandError::DispatchFailed(message) if message.contains("Unknown backend action"))
+        );
     }
 }

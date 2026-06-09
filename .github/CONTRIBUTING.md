@@ -198,7 +198,9 @@ cargo test
 
 - Branch from `main` and merge back into `main`.
 - Make the PR about **one thing**. If you spot unrelated cleanup while working, save it for a follow-up PR.
-- Fill in the [PR template](./PULL_REQUEST_TEMPLATE.md). "Areas affected" and "Tested on" are load-bearing for reviewers — don't skip them.
+- Fill in the [PR template](./PULL_REQUEST_TEMPLATE.md). **Summary**, **risk**, **verification evidence**, and **rollback notes** are required — not optional boilerplate. "Areas affected" and "Tested on" are load-bearing for reviewers — don't skip them.
+- Commit messages and PR titles must describe the change in plain language. Avoid placeholder messages like `commit`, `wip`, or `updates` — they make `git log` and release notes useless.
+- Include verification output (or a concise summary of what you ran) in the PR body. Reviewers should not have to guess whether typecheck, lint, or tests were executed.
 - **New features** need a convincing reason. If there isn't an issue with maintainer agreement that the feature is wanted, open one (or a discussion) before writing code.
 - **Bug fixes**: reference the issue in the PR title if one exists, e.g. `fix: handle missing NDI library on Linux (fix #123)`. Include reproduction steps. Add test coverage when practical.
 - **UI changes**: include a screenshot or a short recording. The PR template has a slot for it.

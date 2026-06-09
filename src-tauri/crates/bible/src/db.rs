@@ -52,7 +52,9 @@ mod tests {
     fn open_readonly_rejects_missing_file() {
         let missing = Path::new("definitely-missing-bible-db-for-tests.sqlite");
         let err = BibleDb::open_readonly(missing).unwrap_err();
-        assert!(err.to_string().contains("no such file") || err.to_string().contains("unable to open"));
+        assert!(
+            err.to_string().contains("no such file") || err.to_string().contains("unable to open")
+        );
     }
 
     #[test]

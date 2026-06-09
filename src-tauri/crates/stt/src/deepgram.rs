@@ -349,7 +349,7 @@ impl DeepgramClient {
     }
 }
 
-/// Return a log-safe form of a WebSocket URL: scheme://host/path with any query
+/// Return a log-safe form of a WebSocket URL: `<scheme://host/path>` with any query
 /// string (which carries keyterms/keywords) replaced by `?<redacted>`.
 fn redact_ws_url_query(url: &Url) -> String {
     let host = url.host_str().unwrap_or("");

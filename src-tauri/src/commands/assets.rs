@@ -105,8 +105,7 @@ fn first_nonempty_lines(bytes: &[u8], limit: usize) -> String {
 fn worker_is_executable(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
-        .map(|extension| extension.eq_ignore_ascii_case("exe"))
-        .unwrap_or(false)
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"))
 }
 
 fn vosk_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
@@ -134,7 +133,9 @@ fn vosk_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
             };
             (
                 false,
-                Some(format!("Python can run, but the Vosk package is unavailable: {detail}")),
+                Some(format!(
+                    "Python can run, but the Vosk package is unavailable: {detail}"
+                )),
             )
         }
         Err(error) => (

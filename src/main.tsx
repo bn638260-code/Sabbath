@@ -35,11 +35,15 @@ if (
 // backend to a clean state on boot, then hydrate persisted settings and
 // bible store so the UI reflects the user's choices immediately.
 const resetTranscription = isTauriRuntime()
-  ? invokeTauri("stop_transcription").catch(() => {})
+  ? invokeTauri("stop_transcription").catch((error) => {
+      console.warn("[startup] stop_transcription reset failed", error)
+    })
   : Promise.resolve()
 
 resetTranscription
-  .catch(() => {})
+  .catch((error) => {
+    console.warn("[startup] reset transcription promise failed", error)
+  })
   .then(() =>
     Promise.all([
       hydrateSettings(),

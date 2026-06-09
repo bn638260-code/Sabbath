@@ -323,9 +323,7 @@ pub fn update_detection_settings(
 
     log::info!(
         "[DET] Settings updated: auto_mode={auto_mode}, operator_threshold={OPERATOR_DETECTION_THRESHOLD:.2}, auto_threshold={}, cooldown_ms={}",
-        auto_threshold
-            .map(|value| format!("{value:.2}"))
-            .unwrap_or_else(|| "disabled".to_string()),
+        auto_threshold.map_or_else(|| "disabled".to_string(), |value| format!("{value:.2}")),
         cooldown_ms.clamp(250, 60_000)
     );
 

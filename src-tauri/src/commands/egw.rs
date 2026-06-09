@@ -6,8 +6,8 @@
 use std::sync::Mutex;
 use tauri::State;
 
-use crate::state::AppState;
 use super::validation::{bounded_limit, bounded_text, MAX_QUERY_BYTES};
+use crate::state::AppState;
 use rhema_bible::{BibleDb, BibleError, EgwBook, EgwChapterInfo, EgwParagraph};
 
 const EGW_DB_NOT_LOADED: &str = "Bible database not loaded";
@@ -71,8 +71,8 @@ pub fn egw_search(
 
 #[cfg(test)]
 mod tests {
-    use crate::commands::validation::{bounded_limit, bounded_text, MAX_QUERY_BYTES};
     use super::EGW_DB_NOT_LOADED;
+    use crate::commands::validation::{bounded_limit, bounded_text, MAX_QUERY_BYTES};
 
     #[test]
     fn egw_search_validation_runs_before_db_access() {

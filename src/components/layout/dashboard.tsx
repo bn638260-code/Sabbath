@@ -25,7 +25,7 @@ const LazyHymnWorkspace = lazy(() =>
 )
 
 const LazyServicePlanWorkspace = lazy(() =>
-  import("@/components/service-plan/ServicePlanPage").then((mod) => ({
+  import("@/components/service-plan/ServicePlanWorkspace").then((mod) => ({
     default: mod.ServicePlanWorkspace,
   })),
 )

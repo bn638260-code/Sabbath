@@ -7,7 +7,7 @@ import {
 } from "@/services/hymnal/hymn-presentation"
 import { getHymnByNumber } from "@/services/hymnal/hymnal-repository"
 import { buildSermonSlideDeck } from "@/services/slides/sermon-slide-deck"
-import { loadActiveSermonSlideDeck } from "@/services/slides/sermon-slide-voice-control"
+import { previewSermonSlideForItem } from "@/services/slides/sermon-slide-live"
 import { mediaPreloadManager } from "@/services/media/media-preload-manager"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
@@ -78,8 +78,7 @@ export async function syncActiveServiceItemPresentations(
     const activeIndex = Math.max(0, Math.min(slideDeck.length - 1, requestedIndex))
 
     useHymnSlideStore.getState().setDeck([], 0)
-    loadActiveSermonSlideDeck(activeIndex)
-    selectPreviewItem(slideDeck[activeIndex])
+    previewSermonSlideForItem(item, activeIndex)
     return
   }
 
@@ -93,8 +92,7 @@ export async function syncActiveServiceItemPresentations(
 export async function previewFirstContentForItem(item: ServiceItem): Promise<void> {
   const slideDeck = buildSermonSlideDeck(item)
   if (slideDeck.length > 0) {
-    useSermonSlideStore.getState().setDeck(slideDeck, 0, item.id)
-    selectPreviewItem(slideDeck[0])
+    previewSermonSlideForItem(item, 0)
     return
   }
 

@@ -58,7 +58,10 @@ mod tests {
         assert!(bounded_limit(0).is_err());
         assert_eq!(bounded_limit(5).unwrap(), 5);
         assert_eq!(bounded_limit(MAX_SEARCH_LIMIT).unwrap(), MAX_SEARCH_LIMIT);
-        assert_eq!(bounded_limit(MAX_SEARCH_LIMIT + 50).unwrap(), MAX_SEARCH_LIMIT);
+        assert_eq!(
+            bounded_limit(MAX_SEARCH_LIMIT + 50).unwrap(),
+            MAX_SEARCH_LIMIT
+        );
     }
 
     #[test]

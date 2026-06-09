@@ -7,13 +7,13 @@ use serde::Serialize;
 use std::sync::Mutex;
 use tauri::State;
 
-use crate::state::AppState;
 use super::validation::{bounded_limit, bounded_text, MAX_QUERY_BYTES};
+use crate::state::AppState;
 use rhema_bible::{BibleDb, Book, CrossReference, Translation, Verse};
 
 const BIBLE_DB_NOT_LOADED: &str = "Bible database not loaded";
 
-fn require_bible_db<'a>(db: Option<&'a BibleDb>) -> Result<&'a BibleDb, String> {
+fn require_bible_db(db: Option<&BibleDb>) -> Result<&BibleDb, String> {
     db.ok_or_else(|| BIBLE_DB_NOT_LOADED.to_string())
 }
 

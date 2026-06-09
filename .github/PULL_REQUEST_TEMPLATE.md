@@ -1,3 +1,27 @@
+## Summary
+
+<!-- What changed and why? One or two sentences a reviewer can understand without opening every file. -->
+
+## Risk
+
+<!-- What could break? Call out behavior-sensitive areas (STT, broadcast outputs, persisted stores, Tauri commands). -->
+
+## Verification evidence
+
+<!-- Paste or summarize command output. At minimum note whether you ran typecheck, lint, unit tests, and any manual checks. -->
+
+```text
+bun run typecheck
+bun run lint
+bun run test -- --run
+cd src-tauri && cargo test --workspace
+cd src-tauri && cargo clippy --workspace --all-targets
+```
+
+## Rollback notes
+
+<!-- How to revert safely if this causes problems in production (revert commit, disable flag, etc.). -->
+
 ## Description
 
 <!-- What does this PR do? Reference any related issues (e.g., `fixes #123`). -->

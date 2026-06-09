@@ -170,8 +170,7 @@ fn push_grammar_file_args(command: &mut Command, grammar_file: &Path) {
 fn worker_is_executable(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
-        .map(|extension| extension.eq_ignore_ascii_case("exe"))
-        .unwrap_or(false)
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"))
 }
 
 fn worker_command(worker_path: &Path) -> Command {
@@ -393,32 +392,23 @@ impl SttProvider for VoskProvider {
         let grammar_json = vosk_grammar_json()?;
         let grammar_file = write_grammar_temp_file(&grammar_json)?;
         let mut child = self.spawn_worker(&grammar_file)?;
-        let mut stdin = match child.stdin.take() {
-            Some(stdin) => stdin,
-            None => {
-                terminate_vosk_child(&mut child);
-                return Err(SttError::ConnectionFailed(
-                    "failed to open Vosk stdin".to_string(),
-                ));
-            }
+        let Some(mut stdin) = child.stdin.take() else {
+            terminate_vosk_child(&mut child);
+            return Err(SttError::ConnectionFailed(
+                "failed to open Vosk stdin".to_string(),
+            ));
         };
-        let stdout = match child.stdout.take() {
-            Some(stdout) => stdout,
-            None => {
-                terminate_vosk_child(&mut child);
-                return Err(SttError::ConnectionFailed(
-                    "failed to open Vosk stdout".to_string(),
-                ));
-            }
+        let Some(stdout) = child.stdout.take() else {
+            terminate_vosk_child(&mut child);
+            return Err(SttError::ConnectionFailed(
+                "failed to open Vosk stdout".to_string(),
+            ));
         };
-        let stderr = match child.stderr.take() {
-            Some(stderr) => stderr,
-            None => {
-                terminate_vosk_child(&mut child);
-                return Err(SttError::ConnectionFailed(
-                    "failed to open Vosk stderr".to_string(),
-                ));
-            }
+        let Some(stderr) = child.stderr.take() else {
+            terminate_vosk_child(&mut child);
+            return Err(SttError::ConnectionFailed(
+                "failed to open Vosk stderr".to_string(),
+            ));
         };
 
         let cancelled = self.cancelled.clone();
