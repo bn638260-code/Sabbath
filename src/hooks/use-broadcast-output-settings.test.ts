@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { act } from "react"
+import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { createRoot } from "react-dom/client"
-import React from "react"
 import type { NdiSessionInfo } from "@/types"
 import type { BroadcastOutputCommandState } from "./use-broadcast-output-settings"
 
@@ -394,40 +393,24 @@ describe("use-broadcast-output-settings commands", () => {
   describe("useBroadcastOutputSettings hook", () => {
     async function renderHookResult(open = true) {
       const { useBroadcastOutputSettings } = await loadCommandModule()
-      const container = document.createElement("div")
-      document.body.appendChild(container)
-      const root = createRoot(container)
-      const resultHolder: {
-        current: ReturnType<typeof useBroadcastOutputSettings> | null
-      } = {
-        current: null,
-      }
-
-      function Probe() {
-        const hookResult = useBroadcastOutputSettings("main", {
-          open,
-          ndiSdkInstalled: true,
-          monitors: sampleMonitors,
-        })
-
-        resultHolder.current = hookResult
-
-        return null
-      }
+      let rendered!: ReturnType<typeof renderHook<ReturnType<typeof useBroadcastOutputSettings>>>
 
       await act(async () => {
-        root.render(React.createElement(Probe))
+        rendered = renderHook(() =>
+          useBroadcastOutputSettings("main", {
+            open,
+            ndiSdkInstalled: true,
+            monitors: sampleMonitors,
+          }),
+        )
         await Promise.resolve()
         await Promise.resolve()
       })
 
       return {
-        result: resultHolder,
+        result: rendered.result,
         cleanup: () => {
-          act(() => {
-            root.unmount()
-          })
-          container.remove()
+          rendered.unmount()
         },
       }
     }

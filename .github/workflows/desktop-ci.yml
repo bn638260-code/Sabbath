@@ -92,6 +92,16 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          shared-key: windows-vs2026
+
+      - name: Clear stale whisper CMake artifacts
+        working-directory: src-tauri
+        shell: pwsh
+        run: |
+          if (Test-Path target/debug/build) {
+            Get-ChildItem target/debug/build -Directory -Filter 'whisper-rs-sys-*' |
+              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Install frontend dependencies
         run: bun install
