@@ -7,7 +7,10 @@ import { useQueueStore } from "@/stores/queue-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { presentItem, presentVerse } from "@/lib/presentation-workflow"
 import {
-  getReferenceFromItem,
+  dispatchRemoteNavigation,
+  parsePayload,
+} from "@/hooks/use-remote-control-logic"
+import {
   getScriptureVerse,
   type Verse,
 } from "@/types"
@@ -36,32 +39,36 @@ export function useRemoteControl() {
       // remote:next — advance queue to next verse and present it
       const u1 = await listen("remote:next", () => {
         if (cancelled) return
-        const { items, activeIndex } = useQueueStore.getState()
-        if (items.length === 0) return
-
-        const currentIndex = activeIndex ?? findCurrentVerseIndex()
-        const nextIndex = Math.min(
-          currentIndex === null ? 0 : currentIndex + 1,
-          items.length - 1
+        const queue = useQueueStore.getState()
+        const broadcast = useBroadcastStore.getState()
+        dispatchRemoteNavigation(
+          "next",
+          {
+            items: queue.items,
+            activeIndex: queue.activeIndex,
+            liveReference: broadcast.liveItem?.reference ?? null,
+          },
+          presentQueueItem,
+          (index) => useQueueStore.getState().setActive(index),
         )
-        useQueueStore.getState().setActive(nextIndex)
-        presentQueueItem(nextIndex)
       })
       addUnlistener(u1)
 
       // remote:prev — go to previous verse in queue and present it
       const u2 = await listen("remote:prev", () => {
         if (cancelled) return
-        const { items, activeIndex } = useQueueStore.getState()
-        if (items.length === 0) return
-
-        const currentIndex = activeIndex ?? findCurrentVerseIndex()
-        const prevIndex = Math.max(
-          currentIndex === null ? 0 : currentIndex - 1,
-          0
+        const queue = useQueueStore.getState()
+        const broadcast = useBroadcastStore.getState()
+        dispatchRemoteNavigation(
+          "prev",
+          {
+            items: queue.items,
+            activeIndex: queue.activeIndex,
+            liveReference: broadcast.liveItem?.reference ?? null,
+          },
+          presentQueueItem,
+          (index) => useQueueStore.getState().setActive(index),
         )
-        useQueueStore.getState().setActive(prevIndex)
-        presentQueueItem(prevIndex)
       })
       addUnlistener(u2)
 
@@ -143,21 +150,6 @@ export function useRemoteControl() {
 }
 
 /**
- * Find the index of the currently displayed verse in the queue.
- * Returns null if the live verse doesn't match any queue item.
- */
-function findCurrentVerseIndex(): number | null {
-  const { liveItem } = useBroadcastStore.getState()
-  if (!liveItem) return null
-
-  const { items } = useQueueStore.getState()
-  const index = items.findIndex(
-    (item) => getReferenceFromItem(item) === liveItem.reference
-  )
-  return index >= 0 ? index : null
-}
-
-/**
  * Present a queue item at the given index to the live display.
  * Mirrors the logic from QueueItemRow's handlePresent.
  */
@@ -215,21 +207,3 @@ function syncStatusSnapshot() {
   })
 }
 
-/**
- * Safely parse a JSON string payload from a Tauri event.
- */
-function isRecordPayload(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function parsePayload(raw: unknown): Record<string, unknown> | null {
-  if (typeof raw === "string") {
-    try {
-      const parsed: unknown = JSON.parse(raw)
-      return isRecordPayload(parsed) ? parsed : null
-    } catch {
-      return null
-    }
-  }
-  return isRecordPayload(raw) ? raw : null
-}

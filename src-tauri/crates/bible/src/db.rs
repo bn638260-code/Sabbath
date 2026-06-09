@@ -41,3 +41,40 @@ impl BibleDb {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BibleDb;
+    use std::path::Path;
+    use std::sync::Arc;
+
+    #[test]
+    fn open_readonly_rejects_missing_file() {
+        let missing = Path::new("definitely-missing-bible-db-for-tests.sqlite");
+        let err = BibleDb::open_readonly(missing).unwrap_err();
+        assert!(err.to_string().contains("no such file") || err.to_string().contains("unable to open"));
+    }
+
+    #[test]
+    fn open_in_memory_database() {
+        let db = BibleDb::open(Path::new(":memory:")).expect("open");
+        let conn = db.conn().expect("conn");
+        let count: i64 = conn
+            .query_row("SELECT 1", [], |row| row.get(0))
+            .expect("query");
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn conn_reports_poisoned_lock_error() {
+        let db = Arc::new(BibleDb::open(Path::new(":memory:")).expect("open"));
+        let poison_target = Arc::clone(&db);
+        let handle = std::thread::spawn(move || {
+            let _guard = poison_target.conn.lock().unwrap();
+            panic!("intentional poison");
+        });
+        assert!(handle.join().is_err());
+        let err = db.conn().expect_err("poisoned lock");
+        assert!(err.to_string().contains("poisoned"));
+    }
+}

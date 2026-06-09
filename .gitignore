@@ -57,3 +57,8 @@ ghs.json
 
 # GSD planning artifacts
 .planning/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/

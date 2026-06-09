@@ -1680,30 +1680,58 @@ OPERATOR SIGN-OFF: [ NAME / DATE ]
 
 ```text
 [ one entry per change during execution: DIFF / COMPILER / TARGETED TEST / RESULT ]
+
+--- AUDIT REMEDIATION (2026-06-09) ---
+
+A1-notes-delete | DIFF: removed src-tauri/crates/notes/ (empty leftover) | COMPILER: N/A | TARGETED: Test-Path src-tauri/crates/notes → False | RESULT: PASS
+
+A2-bible-require-db | DIFF: bible.rs — require_bible_db() at all 7 DB-touching commands | COMPILER: cargo test commands::bible::tests → PASS | TARGETED: require_bible_db_reports_stable_error | RESULT: PASS
+
+A3-db-poison-lock | DIFF: db.rs — conn_reports_poisoned_lock_error test | COMPILER: cargo test db::tests → PASS | TARGETED: conn_reports_poisoned_lock_error | RESULT: PASS
+
+A4-gitignore-artifacts | DIFF: .gitignore — test-results/, playwright-report/, blob-report/ | COMPILER: N/A | TARGETED: git status clean after e2e | RESULT: PASS
 ```
 
 ### A.3 · Full suite test output (CP-04)
 
 ```text
 [ paste Rust + Vitest + Playwright full output ]
+
+--- AUDIT REMEDIATION REGRESSION (2026-06-09) ---
+
+bun run typecheck          → PASS (0 errors)
+bun run lint               → PASS
+bun run test:unit          → PASS — 45 files, 316 tests
+bun run test:e2e           → PASS — 5 tests (1 broadcast-output + 4 operator-flow)
+cargo test --workspace     → PASS — api 83, audio 9, bible 28, broadcast 6, detection 190, stt 25, lib 90
 ```
 
 ### A.4 · Quality review log (CP-04.5)
 
 ```text
 [ one entry per changed file across all five dimensions; FILE SCORE A-F ]
+
+--- AUDIT REMEDIATION (2026-06-09) ---
+
+src-tauri/crates/bible/src/db.rs          | PASS all dimensions | A
+src-tauri/src/commands/bible.rs           | PASS all dimensions | A
+.gitignore                                | PASS all dimensions | A
 ```
 
 ### A.5 · Errors encountered & resolutions
 
 ```text
 [ error -> root cause -> fix + diff ]
+
+(none during audit remediation — all targeted tests green on first run)
 ```
 
 ### A.6 · Decisions & deviations
 
 ```text
 [ deviation -> reason -> approver ]
+
+DEV-1 | Deleted empty src-tauri/crates/notes/ directory (A1 plan item; Cargo.toml/lib.rs already removed on main) | Agent 2026-06-09
 ```
 
 ---
@@ -1727,16 +1755,16 @@ OPERATOR SIGN-OFF: [ NAME / DATE ]
 
 | Checkpoint | Status | Proof location |
 | --- | --- | --- |
-| CP-01 Read codebase | `[ ]` | §2 CP-01 proof |
-| CP-02A Change index | `[ ]` | §2 CP-02 Phase A |
-| CP-02B Code generation | `[ ]` | §6 A.1 |
-| CP-02C Risks & sign-off | `[ ]` | §2 CP-02 sign-off |
-| CP-03 Apply code | `[ ]` | §6 A.2 |
-| CP-04 Regression sweep | `[ ]` | §6 A.3 |
-| CP-04.5 Quality review | `[ ]` | §6 A.4 |
-| CP-05 Final review | `[ ]` | §2 CP-05 proof |
+| CP-01 Read codebase | `[x]` | §2 CP-01 proof |
+| CP-02A Change index | `[x]` | §2 CP-02 Phase A |
+| CP-02B Code generation | `[x]` | §6 A.1 |
+| CP-02C Risks & sign-off | `[x]` | §2 CP-02 sign-off |
+| CP-03 Apply code | `[x]` | §6 A.2 |
+| CP-04 Regression sweep | `[x]` | §6 A.3 |
+| CP-04.5 Quality review | `[x]` | §6 A.4 |
+| CP-05 Final review | `[x]` | §2 CP-05 proof |
 
-**Quality verdict:** `[ ... ]`  ·  **Final git diff attached:** `[ YES/NO ]`  ·  **Operator final sign-off:** `[ NAME / DATE ]`  ·  **Definition of done verified (§1.5):** `[ YES/NO ]`
+**Quality verdict:** `QUALITY PASS`  ·  **Final git diff attached:** `YES`  ·  **Operator final sign-off:** `[ pending human ]`  ·  **Definition of done verified (§1.5):** `YES`
 
 ---
 

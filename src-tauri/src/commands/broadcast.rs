@@ -221,9 +221,7 @@ pub fn push_ndi_frame(
     runtime: State<'_, Mutex<NdiRuntime>>,
     request: NdiFrameRequest,
 ) -> Result<(), String> {
-    let rgba_data = base64::engine::general_purpose::STANDARD
-        .decode(&request.rgba_base64)
-        .map_err(|e| format!("base64 decode error: {e}"))?;
+    let rgba_data = decode_ndi_frame_base64(&request.rgba_base64)?;
     let mut runtime = runtime.lock().map_err(|e| e.to_string())?;
     runtime
         .send_frame_rgba(
@@ -233,4 +231,40 @@ pub fn push_ndi_frame(
             &rgba_data,
         )
         .map_err(|e| e.to_string())
+}
+
+fn decode_ndi_frame_base64(encoded: &str) -> Result<Vec<u8>, String> {
+    base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .map_err(|e| format!("base64 decode error: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{decode_ndi_frame_base64, window_label, window_url};
+
+    #[test]
+    fn window_label_maps_main_and_alt() {
+        assert_eq!(window_label("main"), "broadcast");
+        assert_eq!(window_label("alt"), "broadcast-alt");
+        assert_eq!(window_label("unknown"), "broadcast");
+    }
+
+    #[test]
+    fn window_url_includes_output_query_param() {
+        assert_eq!(window_url("main"), "broadcast-output.html?output=main");
+        assert_eq!(window_url("alt"), "broadcast-output.html?output=alt");
+    }
+
+    #[test]
+    fn decode_ndi_frame_base64_rejects_invalid_payload() {
+        let err = decode_ndi_frame_base64("not-valid-base64!!!").unwrap_err();
+        assert!(err.starts_with("base64 decode error:"));
+    }
+
+    #[test]
+    fn decode_ndi_frame_base64_accepts_valid_payload() {
+        let decoded = decode_ndi_frame_base64("AQID").unwrap();
+        assert_eq!(decoded, vec![1, 2, 3]);
+    }
 }

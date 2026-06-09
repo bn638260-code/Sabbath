@@ -11,6 +11,7 @@ import { hydrateBroadcastThemes } from "@/stores/broadcast-store"
 import { hydrateServicePlans } from "@/stores/service-plan-store"
 import { useAccentThemeStore } from "@/stores/accent-theme-store"
 import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
+import { installOperatorFlowHarness } from "@/test/operator-flow-harness"
 
 function ensureControllerDarkShell() {
   const root = document.documentElement
@@ -19,6 +20,13 @@ function ensureControllerDarkShell() {
 }
 
 ensureControllerDarkShell()
+
+if (
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).has("e2e")
+) {
+  installOperatorFlowHarness()
+}
 
 // Webview reloads do NOT restart the Rust backend, so any STT pipeline
 // left running from the previous webview session still has

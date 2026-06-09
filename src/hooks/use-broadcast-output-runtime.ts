@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef } from "react"
+import {
+  createNdiFrameRequest,
+  NDI_HEARTBEAT_INTERVAL_MS,
+  resolveNdiFrameSource,
+  scheduleNdiBurst,
+  shouldPushNdiHeartbeat,
+  warnNdiPushFailure,
+} from "@/lib/broadcast-output-ndi"
 import { invokeTauri } from "@/lib/tauri-runtime"
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import { getBroadcastRenderKey } from "@/lib/broadcast-render-key"
 import { renderPresentation } from "@/lib/verse-renderer"
 import type { BroadcastTheme, PresentationRenderData } from "@/types"
-import type { NdiConfigEventPayload, NdiFrameRequest } from "@/types"
+import type { NdiConfigEventPayload } from "@/types"
 
 export interface BroadcastPayload {
   theme: BroadcastTheme
@@ -25,20 +33,6 @@ const DEFAULT_NDI_CONFIG: NdiConfigEventPayload = {
   fps: 24,
   width: 1920,
   height: 1080,
-}
-
-function uint8ToBase64(bytes: Uint8Array | Uint8ClampedArray): string {
-  const chunk = 0x8000
-  const parts: string[] = []
-  for (let i = 0; i < bytes.length; i += chunk) {
-    parts.push(
-      String.fromCharCode.apply(
-        null,
-        bytes.subarray(i, i + chunk) as unknown as number[],
-      ),
-    )
-  }
-  return btoa(parts.join(""))
 }
 
 function fillBlack(canvas: HTMLCanvasElement): void {
@@ -144,35 +138,34 @@ export function useBroadcastOutputRuntime({
       const targetWidth = ndiConfigRef.current.width
       const targetHeight = ndiConfigRef.current.height
 
-      let sourceCtx = ctx
-      let sourceWidth = canvas.width
-      let sourceHeight = canvas.height
-
-      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-        const ndiCanvas = ndiCanvasRef.current ?? document.createElement("canvas")
-        ndiCanvas.width = targetWidth
-        ndiCanvas.height = targetHeight
-        const ndiCtx = ndiCanvas.getContext("2d")
-        if (!ndiCtx) return
-        ndiCtx.drawImage(canvas, 0, 0, targetWidth, targetHeight)
-        ndiCanvasRef.current = ndiCanvas
-        sourceCtx = ndiCtx
-        sourceWidth = targetWidth
-        sourceHeight = targetHeight
+      const resized = resolveNdiFrameSource(
+        canvas,
+        ctx,
+        targetWidth,
+        targetHeight,
+        ndiCanvasRef.current,
+      )
+      if (resized.scratch) {
+        ndiCanvasRef.current = resized.scratch
       }
 
-      const imageData = sourceCtx.getImageData(0, 0, sourceWidth, sourceHeight)
-      const request: NdiFrameRequest = {
+      const imageData = resized.source.ctx.getImageData(
+        0,
+        0,
+        resized.width,
+        resized.height,
+      )
+      const request = createNdiFrameRequest(
         outputId,
-        width: sourceWidth,
-        height: sourceHeight,
-        rgbaBase64: uint8ToBase64(imageData.data),
-      }
+        resized.width,
+        resized.height,
+        imageData.data,
+      )
 
       await invokeTauri("push_ndi_frame", { request })
       lastPushRef.current = Date.now()
     } catch (error) {
-      console.warn("[broadcast-output] push_ndi_frame failed", error)
+      warnNdiPushFailure(error)
     } finally {
       pushingRef.current = false
     }
@@ -180,16 +173,16 @@ export function useBroadcastOutputRuntime({
 
   const pushNdiBurst = useCallback(() => {
     if (!ndiConfigRef.current.active) return
-    void pushNdiFrame()
-    for (const delay of [150, 300]) {
-      const timer = setTimeout(() => {
+    const timers = scheduleNdiBurst(
+      () => pushNdiFrame(),
+      setTimeout,
+      (timer) => {
         ndiBurstTimersRef.current = ndiBurstTimersRef.current.filter(
           (pending) => pending !== timer,
         )
-        void pushNdiFrame()
-      }, delay)
-      ndiBurstTimersRef.current.push(timer)
-    }
+      },
+    )
+    ndiBurstTimersRef.current.push(...timers)
   }, [pushNdiFrame])
 
   useEffect(() => {
@@ -290,10 +283,16 @@ export function useBroadcastOutputRuntime({
 
   useEffect(() => {
     const timer = setInterval(() => {
-      if (!ndiConfigRef.current.active) return
-      const elapsed = Date.now() - lastPushRef.current
-      if (elapsed > 2000) void pushNdiFrame()
-    }, 2000)
+      if (
+        shouldPushNdiHeartbeat(
+          ndiConfigRef.current.active,
+          Date.now(),
+          lastPushRef.current,
+        )
+      ) {
+        void pushNdiFrame()
+      }
+    }, NDI_HEARTBEAT_INTERVAL_MS)
     return () => clearInterval(timer)
   }, [pushNdiFrame])
 }

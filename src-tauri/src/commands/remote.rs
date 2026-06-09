@@ -20,6 +20,17 @@ struct TauriSink {
     app: AppHandle,
 }
 
+fn map_backend_remote_action(action: &str) -> Result<(&'static str, bool), CommandError> {
+    match action {
+        "show_broadcast" => Ok(("remote:show", false)),
+        "hide_broadcast" => Ok(("remote:hide", false)),
+        "set_confidence" => Ok(("remote:confidence", true)),
+        _ => Err(CommandError::DispatchFailed(format!(
+            "Unknown backend action: {action}"
+        ))),
+    }
+}
+
 impl CommandSink for TauriSink {
     fn emit_event(&self, event: &str, payload: &str) -> Result<(), CommandError> {
         self.app
@@ -28,27 +39,16 @@ impl CommandSink for TauriSink {
     }
 
     fn invoke_backend(&self, action: &str, args: &str) -> Result<(), CommandError> {
-        match action {
-            "show_broadcast" => {
-                log::info!("Remote control: show broadcast");
-                self.app
-                    .emit("remote:show", "{}")
-                    .map_err(|e| CommandError::DispatchFailed(e.to_string()))
-            }
-            "hide_broadcast" => {
-                log::info!("Remote control: hide broadcast");
-                self.app
-                    .emit("remote:hide", "{}")
-                    .map_err(|e| CommandError::DispatchFailed(e.to_string()))
-            }
-            "set_confidence" => self
-                .app
-                .emit("remote:confidence", args.to_string())
-                .map_err(|e| CommandError::DispatchFailed(e.to_string())),
-            _ => Err(CommandError::DispatchFailed(format!(
-                "Unknown backend action: {action}"
-            ))),
+        let (event, uses_args) = map_backend_remote_action(action)?;
+        if action == "show_broadcast" {
+            log::info!("Remote control: show broadcast");
+        } else if action == "hide_broadcast" {
+            log::info!("Remote control: hide broadcast");
         }
+        let payload = if uses_args { args.to_string() } else { "{}".to_string() };
+        self.app
+            .emit(event, payload)
+            .map_err(|e| CommandError::DispatchFailed(e.to_string()))
     }
 }
 
@@ -303,4 +303,36 @@ pub async fn update_remote_status(
 pub struct HttpStatus {
     pub running: bool,
     pub port: Option<u16>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::map_backend_remote_action;
+    use rhema_api::CommandError;
+
+    #[test]
+    fn maps_show_and_hide_actions() {
+        assert_eq!(
+            map_backend_remote_action("show_broadcast").unwrap(),
+            ("remote:show", false)
+        );
+        assert_eq!(
+            map_backend_remote_action("hide_broadcast").unwrap(),
+            ("remote:hide", false)
+        );
+    }
+
+    #[test]
+    fn maps_confidence_action_with_args() {
+        assert_eq!(
+            map_backend_remote_action("set_confidence").unwrap(),
+            ("remote:confidence", true)
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_backend_action() {
+        let err = map_backend_remote_action("toggle_lasers").unwrap_err();
+        assert!(matches!(err, CommandError::DispatchFailed(message) if message.contains("Unknown backend action")));
+    }
 }

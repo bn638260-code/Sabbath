@@ -1,0 +1,258 @@
+import {
+  createPresentationItem,
+  createScriptureQueueItem,
+  detectionToVerse,
+  presentVerse,
+  selectPreviewVerse,
+} from "@/lib/presentation-workflow"
+import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useDetectionStore } from "@/stores/detection-store"
+import { useQueueStore } from "@/stores/queue-store"
+import type {
+  BroadcastTheme,
+  DetectionResult,
+  PresentationRenderData,
+  QueueItem,
+} from "@/types"
+
+export interface OperatorBroadcastPayload {
+  theme: BroadcastTheme
+  item: PresentationRenderData | null
+  opacity?: number
+}
+
+export interface OperatorFlowSnapshot {
+  queueLength: number
+  activeIndex: number | null
+  previewReference: string | null
+  liveReference: string | null
+  isLive: boolean
+  activeThemeId: string
+  detectionCount: number
+}
+
+declare global {
+  interface Window {
+    __SABBATHCUE_OPERATOR_E2E__?: {
+      queue: {
+        addItems: (items: QueueItem[]) => void
+        setActive: (index: number | null) => void
+        clear: () => void
+        getLength: () => number
+        getActiveIndex: () => number | null
+      }
+      detection: {
+        add: (detection: DetectionResult) => void
+        previewFromDetection: (detection: DetectionResult) => void
+        queueFromDetection: (detection: DetectionResult) => void
+      }
+      remote: {
+        next: () => void
+        prev: () => void
+        show: () => void
+        hide: () => void
+        setTheme: (name: string) => boolean
+        setOpacity: (value: number) => void
+      }
+      live: {
+        goLive: () => void
+        hide: () => void
+        isLive: () => boolean
+      }
+      theme: {
+        add: (theme: BroadcastTheme) => void
+        setActive: (themeId: string) => void
+        getActiveId: () => string
+        listNames: () => string[]
+      }
+      broadcast: {
+        getPreview: () => PresentationRenderData | null
+        getLive: () => PresentationRenderData | null
+        getPayload: () => OperatorBroadcastPayload
+        setPreview: (item: PresentationRenderData | null) => void
+        setLive: (item: PresentationRenderData | null, options?: { makeLive?: boolean }) => void
+        applyPayload: (payload: OperatorBroadcastPayload) => void
+      }
+      snapshot: () => OperatorFlowSnapshot
+    }
+  }
+}
+
+function getActiveTheme(): BroadcastTheme {
+  const broadcast = useBroadcastStore.getState()
+  return (
+    broadcast.themes.find((theme) => theme.id === broadcast.activeThemeId) ??
+    broadcast.themes[0]
+  )
+}
+
+function buildBroadcastPayload(): OperatorBroadcastPayload {
+  const broadcast = useBroadcastStore.getState()
+  return {
+    theme: getActiveTheme(),
+    item: broadcast.previewItem ?? broadcast.liveItem,
+    opacity: broadcast.opacity,
+  }
+}
+
+function snapshot(): OperatorFlowSnapshot {
+  const queue = useQueueStore.getState()
+  const broadcast = useBroadcastStore.getState()
+  const detection = useDetectionStore.getState()
+
+  return {
+    queueLength: queue.items.length,
+    activeIndex: queue.activeIndex,
+    previewReference: broadcast.previewItem?.reference ?? null,
+    liveReference: broadcast.liveItem?.reference ?? null,
+    isLive: broadcast.isLive,
+    activeThemeId: broadcast.activeThemeId,
+    detectionCount: detection.detections.length,
+  }
+}
+
+function navigateQueue(direction: "next" | "prev") {
+  const queue = useQueueStore.getState()
+  if (queue.items.length === 0) return
+
+  const current =
+    queue.activeIndex ??
+    (() => {
+      const liveReference = useBroadcastStore.getState().liveItem?.reference
+      if (!liveReference) return 0
+      const index = queue.items.findIndex(
+        (item) => item.presentation.kind === "scripture" && item.presentation.reference === liveReference,
+      )
+      return index >= 0 ? index : 0
+    })()
+
+  const nextIndex =
+    direction === "next"
+      ? Math.min(current + 1, queue.items.length - 1)
+      : Math.max(current - 1, 0)
+
+  queue.setActive(nextIndex)
+  const item = queue.items[nextIndex]
+  if (!item) return
+  if (item.presentation.kind === "scripture") {
+    presentVerse(item.presentation.verse, { navigate: false })
+  }
+}
+
+export function installOperatorFlowHarness(): void {
+  if (typeof window === "undefined") return
+  if (!new URLSearchParams(window.location.search).has("e2e")) return
+
+  window.__SABBATHCUE_OPERATOR_E2E__ = {
+    queue: {
+      addItems: (items) => useQueueStore.getState().addItems(items),
+      setActive: (index) => useQueueStore.getState().setActive(index),
+      clear: () => useQueueStore.getState().clearQueue(),
+      getLength: () => useQueueStore.getState().items.length,
+      getActiveIndex: () => useQueueStore.getState().activeIndex,
+    },
+    detection: {
+      add: (detection) => useDetectionStore.getState().addDetection(detection),
+      previewFromDetection: (detection) => {
+        selectPreviewVerse(detectionToVerse(detection), { navigate: false })
+      },
+      queueFromDetection: (detection) => {
+        const verse = detectionToVerse(detection)
+        useQueueStore.getState().addOrFlashItem(
+          createScriptureQueueItem(verse, {
+            reference: detection.verse_ref,
+            confidence: detection.confidence,
+            source: detection.source === "direct" ? "ai-direct" : "ai-semantic",
+          }),
+        )
+      },
+    },
+    remote: {
+      next: () => navigateQueue("next"),
+      prev: () => navigateQueue("prev"),
+      show: () => useBroadcastStore.getState().setLive(true),
+      hide: () => useBroadcastStore.getState().setLive(false),
+      setTheme: (name) => {
+        const theme = useBroadcastStore
+          .getState()
+          .themes.find((entry) => entry.name.toLowerCase() === name.toLowerCase())
+        if (!theme) return false
+        useBroadcastStore.getState().setActiveTheme(theme.id)
+        return true
+      },
+      setOpacity: (value) => useBroadcastStore.getState().setOpacity(value),
+    },
+    live: {
+      goLive: () => useBroadcastStore.getState().setLive(true),
+      hide: () => useBroadcastStore.getState().setLive(false),
+      isLive: () => useBroadcastStore.getState().isLive,
+    },
+    theme: {
+      add: (theme) => useBroadcastStore.getState().saveTheme(theme),
+      setActive: (themeId) => useBroadcastStore.getState().setActiveTheme(themeId),
+      getActiveId: () => useBroadcastStore.getState().activeThemeId,
+      listNames: () => useBroadcastStore.getState().themes.map((theme) => theme.name),
+    },
+    broadcast: {
+      getPreview: () => useBroadcastStore.getState().previewItem,
+      getLive: () => useBroadcastStore.getState().liveItem,
+      getPayload: () => buildBroadcastPayload(),
+      setPreview: (item) => useBroadcastStore.getState().setPreviewItem(item),
+      setLive: (item, options) => {
+        if (!item) {
+          useBroadcastStore.getState().setLiveItem(null)
+          return
+        }
+        useBroadcastStore.getState().commitLiveItem(item, options)
+      },
+      applyPayload: (payload) => {
+        useBroadcastStore.getState().setActiveTheme(payload.theme.id)
+        useBroadcastStore.getState().setPreviewItem(payload.item)
+        if (payload.opacity !== undefined) {
+          useBroadcastStore.getState().setOpacity(payload.opacity)
+        }
+        if (payload.item) {
+          useBroadcastStore.getState().commitLiveItem(payload.item, { makeLive: true })
+        }
+      },
+    },
+    snapshot,
+  }
+}
+
+export function seedOperatorQueue(items: QueueItem[]): void {
+  useQueueStore.getState().clearQueue()
+  useQueueStore.getState().addItems(items)
+}
+
+export function makeHarnessDetection(reference = "John 3:16"): DetectionResult {
+  return {
+    verse_ref: `${reference} (KJV)`,
+    book_number: 43,
+    book_name: "John",
+    chapter: 3,
+    verse: 16,
+    verse_text: "For God so loved the world.",
+    confidence: 0.95,
+    source: "direct",
+    auto_queued: true,
+    transcript_snippet: "For God so loved the world",
+    is_chapter_only: false,
+  }
+}
+
+export function makeHarnessQueueItem(reference = "John 3:16 (KJV)", verse = 16): QueueItem {
+  return createScriptureQueueItem(
+    createPresentationItem({
+      id: verse,
+      translation_id: 1,
+      book_number: 43,
+      book_name: "John",
+      book_abbreviation: "Jn",
+      chapter: 3,
+      verse,
+      text: verse === 16 ? "For God so loved the world." : "For God sent not his Son.",
+    }).verse,
+    { reference },
+  )
+}

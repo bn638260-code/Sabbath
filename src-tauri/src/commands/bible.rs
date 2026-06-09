@@ -9,15 +9,18 @@ use tauri::State;
 
 use crate::state::AppState;
 use super::validation::{bounded_limit, bounded_text, MAX_QUERY_BYTES};
-use rhema_bible::{Book, CrossReference, Translation, Verse};
+use rhema_bible::{BibleDb, Book, CrossReference, Translation, Verse};
+
+const BIBLE_DB_NOT_LOADED: &str = "Bible database not loaded";
+
+fn require_bible_db<'a>(db: Option<&'a BibleDb>) -> Result<&'a BibleDb, String> {
+    db.ok_or_else(|| BIBLE_DB_NOT_LOADED.to_string())
+}
 
 #[tauri::command]
 pub fn list_translations(state: State<'_, Mutex<AppState>>) -> Result<Vec<Translation>, String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
-    let db = app_state
-        .bible_db
-        .as_ref()
-        .ok_or_else(|| "Bible database not loaded".to_string())?;
+    let db = require_bible_db(app_state.bible_db.as_ref())?;
     db.list_translations().map_err(|e| e.to_string())
 }
 
@@ -27,10 +30,7 @@ pub fn list_books(
     translation_id: i64,
 ) -> Result<Vec<Book>, String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
-    let db = app_state
-        .bible_db
-        .as_ref()
-        .ok_or_else(|| "Bible database not loaded".to_string())?;
+    let db = require_bible_db(app_state.bible_db.as_ref())?;
     db.list_books(translation_id).map_err(|e| e.to_string())
 }
 
@@ -42,10 +42,7 @@ pub fn get_chapter(
     chapter: i32,
 ) -> Result<Vec<Verse>, String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
-    let db = app_state
-        .bible_db
-        .as_ref()
-        .ok_or_else(|| "Bible database not loaded".to_string())?;
+    let db = require_bible_db(app_state.bible_db.as_ref())?;
     db.get_chapter(translation_id, book_number, chapter)
         .map_err(|e| e.to_string())
 }
@@ -59,10 +56,7 @@ pub fn get_verse(
     verse: i32,
 ) -> Result<Option<Verse>, String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
-    let db = app_state
-        .bible_db
-        .as_ref()
-        .ok_or_else(|| "Bible database not loaded".to_string())?;
+    let db = require_bible_db(app_state.bible_db.as_ref())?;
     db.get_verse(translation_id, book_number, chapter, verse)
         .map_err(|e| e.to_string())
 }
@@ -77,10 +71,7 @@ pub fn search_verses(
     bounded_text(&query, "query", MAX_QUERY_BYTES)?;
     let limit = bounded_limit(limit)?;
     let app_state = state.lock().map_err(|e| e.to_string())?;
-    let db = app_state
-        .bible_db
-        .as_ref()
-        .ok_or_else(|| "Bible database not loaded".to_string())?;
+    let db = require_bible_db(app_state.bible_db.as_ref())?;
     db.search_verses(&query, translation_id, limit)
         .map_err(|e| e.to_string())
 }
@@ -93,10 +84,7 @@ pub fn get_cross_references(
     verse: i32,
 ) -> Result<Vec<CrossReference>, String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
-    let db = app_state
-        .bible_db
-        .as_ref()
-        .ok_or_else(|| "Bible database not loaded".to_string())?;
+    let db = require_bible_db(app_state.bible_db.as_ref())?;
     db.get_cross_references(book_number, chapter, verse)
         .map_err(|e| e.to_string())
 }
@@ -142,10 +130,7 @@ pub fn get_translation_verses_for_search(
     translation_id: i64,
 ) -> Result<Vec<VerseSearchRow>, String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
-    let db = app_state
-        .bible_db
-        .as_ref()
-        .ok_or_else(|| "Bible database not loaded".to_string())?;
+    let db = require_bible_db(app_state.bible_db.as_ref())?;
 
     db.load_translation_verses_for_search(translation_id)
         .map(|rows| {
@@ -160,4 +145,23 @@ pub fn get_translation_verses_for_search(
                 .collect()
         })
         .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{require_bible_db, BIBLE_DB_NOT_LOADED};
+    use crate::commands::validation::{bounded_limit, bounded_text, MAX_QUERY_BYTES};
+
+    #[test]
+    fn require_bible_db_reports_stable_error() {
+        assert_eq!(require_bible_db(None).unwrap_err(), BIBLE_DB_NOT_LOADED);
+    }
+
+    #[test]
+    fn search_validation_runs_before_db_access() {
+        let long_query = "x".repeat(MAX_QUERY_BYTES + 1);
+        let err = bounded_text(&long_query, "query", MAX_QUERY_BYTES).unwrap_err();
+        assert!(err.contains("query"));
+        assert!(bounded_limit(0).is_err());
+    }
 }
