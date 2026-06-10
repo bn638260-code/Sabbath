@@ -673,6 +673,22 @@ mod tests {
     }
 
     #[test]
+    fn grammar_json_includes_hymn_cue_words() {
+        // Hymn voice control matches "(sda) hymn/song (number) <number>";
+        // the grammar must contain those cue words or local Vosk can never
+        // transcribe a hymn command.
+        let json = vosk_grammar_json().expect("grammar JSON should be valid");
+        let parsed: Vec<String> =
+            serde_json::from_str(&json).expect("grammar JSON must parse as string array");
+        for cue in ["hymn", "song", "number", "sda"] {
+            assert!(
+                parsed.iter().any(|p| p == cue),
+                "grammar must include hymn cue word '{cue}'"
+            );
+        }
+    }
+
+    #[test]
     fn grammar_json_includes_high_number_support() {
         let json = vosk_grammar_json().expect("grammar JSON should be valid");
         let parsed: Vec<String> =

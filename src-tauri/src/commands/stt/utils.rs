@@ -15,6 +15,15 @@ pub(crate) fn transcript_logging_enabled() -> bool {
     )
 }
 
+/// Whether semantic (paraphrase) detection should also run on partial
+/// transcripts. Partials arrive every second or so, and each semantic pass
+/// runs the ONNX embedding model — this is the dominant CPU cost while
+/// transcribing. In low power mode semantic detection runs only on finished
+/// sentences; direct reference detection ("John 3:16") is unaffected.
+pub(crate) fn partial_semantic_detection_enabled(low_power: Option<bool>) -> bool {
+    !low_power.unwrap_or(false)
+}
+
 /// Truncate a string to at most `max_bytes`, snapping to a valid UTF-8 char boundary.
 pub(crate) fn truncate_safe(s: &str, max_bytes: usize) -> &str {
     if s.len() <= max_bytes {
@@ -68,7 +77,17 @@ pub(crate) fn word_count(text: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::transcript_logging_decision;
+    use super::{partial_semantic_detection_enabled, transcript_logging_decision};
+
+    #[test]
+    fn low_power_mode_disables_partial_semantic_detection() {
+        // Semantic detection on partials is the dominant CPU cost while
+        // transcribing; low power mode must restrict it to finished
+        // sentences while the default keeps it on.
+        assert!(partial_semantic_detection_enabled(None));
+        assert!(partial_semantic_detection_enabled(Some(false)));
+        assert!(!partial_semantic_detection_enabled(Some(true)));
+    }
 
     #[test]
     fn release_build_never_logs_even_with_optin() {

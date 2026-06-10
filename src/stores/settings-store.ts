@@ -14,6 +14,9 @@ interface SettingsState {
   cooldownMs: number
   onboardingComplete: boolean
   sttProvider: SttProvider
+  /** Reduce CPU/RAM use on weaker machines (semantic detection runs on
+   *  finished sentences only). */
+  lowPowerMode: boolean
 
   setHasDeepgramApiKey: (has: boolean) => void
   setAudioDeviceId: (id: string | null) => void
@@ -23,6 +26,7 @@ interface SettingsState {
   setCooldownMs: (ms: number) => void
   setOnboardingComplete: (complete: boolean) => void
   setSttProvider: (provider: SttProvider) => void
+  setLowPowerMode: (enabled: boolean) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -34,6 +38,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   cooldownMs: 2500,
   onboardingComplete: false,
   sttProvider: "vosk",
+  lowPowerMode: false,
 
   setHasDeepgramApiKey: (hasDeepgramApiKey) => set({ hasDeepgramApiKey }),
   setAudioDeviceId: (audioDeviceId) => set({ audioDeviceId }),
@@ -43,6 +48,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
   setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
   setSttProvider: (sttProvider) => set({ sttProvider }),
+  setLowPowerMode: (lowPowerMode) => set({ lowPowerMode }),
 }))
 
 const PERSISTED_KEYS = [
@@ -53,6 +59,7 @@ const PERSISTED_KEYS = [
   "cooldownMs",
   "onboardingComplete",
   "sttProvider",
+  "lowPowerMode",
 ] as const satisfies readonly (keyof SettingsState)[]
 
 let tauriStore: Store | null = null

@@ -5,7 +5,7 @@ import { CanvasPresentation } from "@/components/ui/canvas-verse"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { Switch } from "@/components/ui/switch"
-import { isPanelFullscreen, togglePanelFullscreen } from "@/components/panels/live-output-panel-fullscreen"
+import { applyPanelFullscreen, tauriWindowFullscreen } from "@/components/panels/live-output-panel-fullscreen"
 import { commitPreviewToLive, presentItem } from "@/lib/presentation-workflow"
 import { cn } from "@/lib/utils"
 import { selectActiveTheme, useBroadcastStore } from "@/stores/broadcast-store"
@@ -56,18 +56,14 @@ export function LiveOutputPanel({ className }: { className?: string }) {
     presentItem(next)
   }
 
-  const toggleFullscreen = async () => {
-    const panel = panelRef.current
-    if (!panel) return
-
+  const setPanelFullscreen = async (fullscreen: boolean) => {
     try {
-      await togglePanelFullscreen(
-        panel,
-        document.fullscreenElement,
-        () => document.exitFullscreen(),
-        (fullscreen) => {
-          setIsFullscreen(fullscreen)
-          setIsFullscreenLayout(fullscreen)
+      await applyPanelFullscreen(
+        fullscreen,
+        { setFullscreen: tauriWindowFullscreen },
+        (next) => {
+          setIsFullscreen(next)
+          setIsFullscreenLayout(next)
         },
       )
     } catch (error) {
@@ -77,18 +73,25 @@ export function LiveOutputPanel({ className }: { className?: string }) {
     }
   }
 
+  const toggleFullscreen = () => setPanelFullscreen(!isFullscreen)
+
+  // Window fullscreen has no built-in Escape handling (unlike the HTML5
+  // Fullscreen API), so restore it here.
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      const panelIsFullscreen = isPanelFullscreen(panelRef.current, document.fullscreenElement)
-      setIsFullscreen(panelIsFullscreen)
-      setIsFullscreenLayout(panelIsFullscreen)
+    if (!isFullscreenLayout) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      event.preventDefault()
+      void setPanelFullscreen(false)
     }
 
-    document.addEventListener("fullscreenchange", handleFullscreenChange)
+    window.addEventListener("keydown", handleKeyDown)
     return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+      window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFullscreenLayout])
 
   return (
     <div
@@ -97,7 +100,8 @@ export function LiveOutputPanel({ className }: { className?: string }) {
       data-fullscreen-layout={isFullscreenLayout ? "true" : undefined}
       className={cn(
         "glass-panel relative flex min-h-0 flex-col overflow-hidden",
-        isFullscreenLayout && "!h-screen !w-screen !rounded-none !border-0",
+        isFullscreenLayout &&
+          "!fixed !inset-0 !z-[80] !h-screen !w-screen !rounded-none !border-0",
         className,
       )}
     >
@@ -112,6 +116,7 @@ export function LiveOutputPanel({ className }: { className?: string }) {
               variant="ghost"
               size="xs"
               className="h-6 gap-1 px-2"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
               onClick={toggleFullscreen}
             >
               {isFullscreen ? (

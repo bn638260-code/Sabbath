@@ -35,8 +35,8 @@ use self::detection::{
 };
 use self::provider::build_stt_provider;
 use self::utils::{
-    average_word_confidence, to_word_payloads, transcript_logging_enabled, truncate_safe,
-    word_count,
+    average_word_confidence, partial_semantic_detection_enabled, to_word_payloads,
+    transcript_logging_enabled, truncate_safe, word_count,
 };
 use self::voice::{check_stt_voice_command, check_translation_command};
 use crate::commands::transcript_router::{
@@ -101,6 +101,7 @@ pub async fn start_transcription(
     device_id: Option<String>,
     gain: Option<f32>,
     provider: Option<String>,
+    low_power: Option<bool>,
     _whisper_profile: Option<String>,
 ) -> Result<(), String> {
     // Guard: already running?
@@ -132,6 +133,12 @@ pub async fn start_transcription(
         };
 
     audio_active.store(true, Ordering::SeqCst);
+
+    log::info!(
+        "[STT] low_power={} partial_semantic={}",
+        low_power.unwrap_or(false),
+        partial_semantic_detection_enabled(low_power)
+    );
 
     // Prepare channels.
     let (audio_send_tx, audio_send_rx) = crossbeam_channel::bounded::<Vec<i16>>(128);
@@ -400,7 +407,7 @@ pub async fn start_transcription(
         let mut transcript_router = TranscriptRouter::default();
         let mut semantic_window: VecDeque<String> =
             VecDeque::with_capacity(SEMANTIC_WINDOW_SEGMENTS);
-        let partial_semantic_enabled = true;
+        let partial_semantic_enabled = partial_semantic_detection_enabled(low_power);
         let deepgram_semantic_on_speech_final = false;
         let mut deepgram_semantic_buffer = DeepgramSemanticBuffer::default();
         let mut last_partial_semantic_at = Instant::now()

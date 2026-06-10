@@ -62,7 +62,25 @@ describe("use-transcription", () => {
         deviceId: "dev-42",
         gain: 1.5,
         provider: "vosk",
+        lowPower: false,
       })
+    })
+
+    it("forwards low power mode so the backend can skip partial semantic detection", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      const { useSettingsStore, transcriptionActions } = await loadModules()
+
+      useSettingsStore.setState({
+        sttProvider: "vosk",
+        lowPowerMode: true,
+      })
+
+      await transcriptionActions.start()
+
+      expect(mockInvoke).toHaveBeenCalledWith(
+        "start_transcription",
+        expect.objectContaining({ lowPower: true }),
+      )
     })
 
     it("invokes deepgram provider without forwarding secrets", async () => {

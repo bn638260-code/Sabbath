@@ -18,6 +18,7 @@ import {
   resolveEffectiveVerseId,
 } from "@/lib/search-panel-state"
 import { selectPreviewVerse } from "@/lib/presentation-workflow"
+import { scrollIntoPanelView } from "@/lib/scroll-into-panel-view"
 import { useBibleStore } from "@/stores/bible-store"
 import { useQueueStore } from "@/stores/queue-store"
 import type { Book } from "@/types"
@@ -154,11 +155,11 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
           if (target) {
             setSelectedVerseId(target.id)
             selectPreviewVerse(target)
-            document
-              .getElementById(`verse-${target.id}`)
-              ?.scrollIntoView({ behavior: "smooth", block: "center" })
+            // Scroll only the verse list, never the page — previewing a
+            // detection must not yank the app down to the Bible section.
+            scrollIntoPanelView(document.getElementById(`verse-${target.id}`))
           }
-          panelRef.current?.focus()
+          panelRef.current?.focus({ preventScroll: true })
         })
         .catch(console.error)
         .finally(() => {

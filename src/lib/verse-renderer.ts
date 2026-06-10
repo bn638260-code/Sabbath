@@ -172,7 +172,7 @@ function lineHeightForPresentation(
   return fontSize * lineHeight
 }
 
-function textForPresentation(
+export function textForPresentation(
   data: VerseRenderData | PresentationRenderData,
   showVerseNumbers: boolean
 ): string {
@@ -186,19 +186,9 @@ function textForPresentation(
     return data.segments.map((segment) => segment.text.trim()).filter(Boolean).join("\n")
   }
 
-  if ((kind === "scripture" || !kind) && data.segments.length > 1) {
-    return data.segments
-      .map((segment) => {
-        const prefix =
-          showVerseNumbers && segment.verseNumber !== undefined
-            ? `${segment.verseNumber} `
-            : ""
-        return `${prefix}${segment.text}`.trim()
-      })
-      .filter(Boolean)
-      .join("\n\n")
-  }
-
+  // Scripture flows as one continuous wrapped paragraph (verse numbers
+  // inline). Joining readability chunks with blank lines produced uneven
+  // blocks with large gaps on the projected slide.
   let fullText = ""
   for (const segment of data.segments) {
     if (showVerseNumbers && segment.verseNumber !== undefined) {

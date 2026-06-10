@@ -1,42 +1,39 @@
-export function isPanelFullscreen(
-  panel: Element | null,
-  fullscreenElement: Element | null,
-): boolean {
-  return panel !== null && fullscreenElement === panel
+/**
+ * Fullscreen for the live output panel.
+ *
+ * Uses Tauri window fullscreen + a fixed overlay layout instead of the HTML5
+ * Fullscreen API. WebView2's element-fullscreen transition swaps compositor
+ * surfaces, which produces an unavoidable flash/glitch on enter and exit; a
+ * window-level fullscreen with the panel pinned over the whole webview does
+ * not.
+ */
+
+export interface FullscreenWindowController {
+  setFullscreen(fullscreen: boolean): Promise<void>
+}
+
+/** Default controller: drives the current Tauri window. */
+export async function tauriWindowFullscreen(fullscreen: boolean): Promise<void> {
+  const { getCurrentWindow } = await import("@tauri-apps/api/window")
+  await getCurrentWindow().setFullscreen(fullscreen)
 }
 
 /**
- * Layout state the panel should adopt after a toggle. Applied optimistically
- * (before the async fullscreen request resolves) so the panel never paints a
- * frame with windowed chrome at fullscreen size, which reads as a flash.
+ * Apply the fullscreen layout optimistically, then drive the window. The
+ * layout flips before the async window call so the panel never paints a
+ * frame of windowed chrome at fullscreen size. Rolls back if the window
+ * call fails.
  */
-export function nextFullscreenLayout(
-  panel: Element | null,
-  fullscreenElement: Element | null,
-): boolean {
-  return panel !== null && !isPanelFullscreen(panel, fullscreenElement)
-}
-
-export async function togglePanelFullscreen(
-  panel: HTMLElement | null,
-  fullscreenElement: Element | null,
-  exitFullscreen: () => Promise<void>,
-  onLayoutChange?: (fullscreen: boolean) => void,
+export async function applyPanelFullscreen(
+  fullscreen: boolean,
+  controller: FullscreenWindowController,
+  onLayoutChange: (fullscreen: boolean) => void,
 ): Promise<void> {
-  if (!panel) return
-
-  const entering = nextFullscreenLayout(panel, fullscreenElement)
-  onLayoutChange?.(entering)
+  onLayoutChange(fullscreen)
   try {
-    if (entering) {
-      await panel.requestFullscreen()
-    } else {
-      await exitFullscreen()
-    }
+    await controller.setFullscreen(fullscreen)
   } catch (error) {
-    // Roll the optimistic layout back so the panel chrome matches reality.
-    onLayoutChange?.(!entering)
+    onLayoutChange(!fullscreen)
     throw error
   }
 }
-

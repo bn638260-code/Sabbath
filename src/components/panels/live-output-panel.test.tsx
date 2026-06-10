@@ -14,6 +14,17 @@ vi.mock("@/lib/presentation-workflow", () => ({
   presentItem: vi.fn(),
 }))
 
+const setWindowFullscreenMock = vi.fn().mockResolvedValue(undefined)
+vi.mock("./live-output-panel-fullscreen", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./live-output-panel-fullscreen")>()
+  return {
+    ...actual,
+    tauriWindowFullscreen: (fullscreen: boolean) =>
+      setWindowFullscreenMock(fullscreen) as Promise<void>,
+  }
+})
+
 vi.mock("@/stores/broadcast-store", () => {
   const useBroadcastStore = (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
@@ -90,26 +101,26 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
     expect(panel.children.length).toBeGreaterThan(1)
   })
 
-  it("marks the panel with the fullscreen layout attribute on fullscreenchange", () => {
+  it("drives Tauri window fullscreen and applies the layout attribute synchronously", async () => {
     const panel = renderPanel()
     expect(panel.dataset.fullscreenLayout).toBeUndefined()
 
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      get: () => panel,
+    const button = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Enter fullscreen"]',
+    )
+    expect(button).not.toBeNull()
+
+    await act(async () => {
+      button?.click()
     })
-    act(() => {
-      document.dispatchEvent(new Event("fullscreenchange"))
-    })
+    expect(setWindowFullscreenMock).toHaveBeenCalledWith(true)
     expect(panel.dataset.fullscreenLayout).toBe("true")
 
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      get: () => null,
+    // Escape leaves fullscreen (window fullscreen has no built-in handling).
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
     })
-    act(() => {
-      document.dispatchEvent(new Event("fullscreenchange"))
-    })
+    expect(setWindowFullscreenMock).toHaveBeenCalledWith(false)
     expect(panel.dataset.fullscreenLayout).toBeUndefined()
   })
 })
@@ -119,7 +130,7 @@ describe("fullscreen stylesheet contract", () => {
 
   it("strips the panel border, blur, and transitions in fullscreen", () => {
     const rule = css.match(
-      /\[data-slot="live-output-panel"\]:fullscreen \{[^}]*\}/,
+      /\[data-slot="live-output-panel"\]\[data-fullscreen-layout="true"\],\s*\[data-slot="live-output-panel"\]:fullscreen \{[^}]*\}/,
     )?.[0]
     expect(rule).toBeDefined()
     expect(rule).toContain("border: 0 !important")
@@ -129,13 +140,13 @@ describe("fullscreen stylesheet contract", () => {
 
   it("hides all panel chrome except the stage in fullscreen", () => {
     expect(css).toContain(
-      '[data-slot="live-output-panel"]:fullscreen > *:not([data-slot="live-output-stage"])',
+      '[data-slot="live-output-panel"][data-fullscreen-layout="true"] > *:not([data-slot="live-output-stage"])',
     )
   })
 
   it("removes the frame border so no hairline shows at the top of the output", () => {
     const rule = css.match(
-      /\[data-slot="live-output-panel"\]:fullscreen \[data-slot="live-output-frame"\] \{[^}]*\}/,
+      /\[data-slot="live-output-panel"\]\[data-fullscreen-layout="true"\] \[data-slot="live-output-frame"\][^{]*\{[^}]*\}/,
     )?.[0]
     expect(rule).toBeDefined()
     expect(rule).toContain("border: 0 !important")

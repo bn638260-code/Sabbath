@@ -150,7 +150,9 @@ pub fn bible_keyterms() -> Vec<String> {
 /// Returns a verse-only term list for the Vosk constrained grammar.
 ///
 /// Includes canonical and spoken book names, parseable number words
-/// (including `hundred` and `and`), and verse-navigation keywords.
+/// (including `hundred` and `and`), verse-navigation keywords, and the
+/// hymn cue words (`hymn`, `song`, `number`, `sda`) used by hymn voice
+/// control.
 /// Keeps a narrow set of explicit voice-control and translation terms
 /// that the app already supports so local Vosk does not silently lose
 /// those workflows.
@@ -295,6 +297,12 @@ pub fn verse_only_keyterms() -> Vec<String> {
         "chapter", "verse", "verses", "to", "through", "next", "previous",
     ];
     terms.extend(navigation.iter().map(ToString::to_string));
+
+    // Hymn cue words so local Vosk can recognize "hymn number two fifty",
+    // "song number ...", and "sda hymn ..." (the number words above are
+    // shared with chapter/verse parsing).
+    let hymn_cues = ["hymn", "song", "number", "sda"];
+    terms.extend(hymn_cues.iter().map(ToString::to_string));
 
     // Keep the exact local voice-control commands that the app already supports.
     let voice_control = ["stop", "start", "transcribing", "stop transcribing"];

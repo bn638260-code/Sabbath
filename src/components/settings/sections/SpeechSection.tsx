@@ -2,11 +2,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Switch } from "@/components/ui/switch"
 import { useAssets } from "@/hooks/use-assets"
 import { useDeepgramKeySettings } from "@/hooks/use-deepgram-key-settings"
-import { CheckIcon, DownloadIcon, HardDriveIcon } from "lucide-react"
+import { useSettingsStore } from "@/stores/settings-store"
+import { CheckIcon, DownloadIcon, HardDriveIcon, ZapIcon } from "lucide-react"
 
 export function SpeechSection() {
+  const lowPowerMode = useSettingsStore((s) => s.lowPowerMode)
   const {
     sttProvider,
     hasDeepgramApiKey,
@@ -127,7 +130,7 @@ export function SpeechSection() {
           )}
           {!assetsLoading && !assetStatus?.vosk_model && (
             <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
-              C:\Users\fanel\Downloads\vosk-model-small-en-us
+              models\vosk\vosk-model-small-en-us
             </p>
           )}
 
@@ -200,6 +203,38 @@ export function SpeechSection() {
           </p>
         </div>
       )}
+
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+          Performance
+        </label>
+        <label
+          data-testid="low-power-mode"
+          className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3"
+        >
+          <div className="flex items-start gap-3">
+            <ZapIcon className="mt-0.5 size-3.5 text-muted-foreground" />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-foreground">
+                Low power mode
+              </span>
+              <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
+                Reduces CPU and memory use on weaker machines. Paraphrase
+                detection runs only on finished sentences instead of live
+                partial speech; spoken references like &quot;John 3:16&quot;
+                are still detected instantly. Takes effect the next time
+                transcription starts.
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={lowPowerMode}
+            onCheckedChange={(checked) =>
+              useSettingsStore.getState().setLowPowerMode(checked)
+            }
+          />
+        </label>
+      </div>
     </div>
   )
 }
