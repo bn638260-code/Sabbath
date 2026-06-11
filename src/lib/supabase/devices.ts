@@ -3,6 +3,7 @@ import { getSupabaseClient } from "@/lib/supabase/client"
 export type RegisterDeviceResult =
   | { ok: true }
   | { ok: false; code: "device_limit_reached" }
+  | { ok: false; code: "suspended" }
   | { ok: false; code: "error"; message: string }
 
 function isNetworkError(error: unknown): boolean {
@@ -24,6 +25,7 @@ function parseRegisterDeviceStatus(data: unknown): RegisterDeviceResult {
   const status = (data as { status?: unknown }).status
   if (status === "ok") return { ok: true }
   if (status === "device_limit_reached") return { ok: false, code: "device_limit_reached" }
+  if (status === "suspended") return { ok: false, code: "suspended" }
 
   return { ok: false, code: "error", message: "Unexpected device registration response." }
 }

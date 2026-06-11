@@ -12,16 +12,34 @@ export type AuthErrorCode =
   | "unknown"
 
 export type SignUpResult =
-  | { ok: true; needsEmailConfirmation: false; userId: string; refreshToken: string }
+  | {
+      ok: true
+      needsEmailConfirmation: false
+      userId: string
+      email: string | null
+      refreshToken: string
+    }
   | { ok: true; needsEmailConfirmation: true }
   | { ok: false; code: AuthErrorCode; message: string }
 
 export type SignInResult =
-  | { ok: true; userId: string; refreshToken: string; accessTokenExpiresAt: number }
+  | {
+      ok: true
+      userId: string
+      email: string | null
+      refreshToken: string
+      accessTokenExpiresAt: number
+    }
   | { ok: false; code: AuthErrorCode; message: string }
 
 export type RestoreSessionResult =
-  | { ok: true; userId: string; refreshToken: string; accessTokenExpiresAt: number }
+  | {
+      ok: true
+      userId: string
+      email: string | null
+      refreshToken: string
+      accessTokenExpiresAt: number
+    }
   | { ok: false; code: "expired" | "network" | "unknown"; message: string }
 
 function isNetworkError(error: unknown): boolean {
@@ -84,6 +102,7 @@ export async function signUpWithEmail(email: string, password: string): Promise<
       ok: true,
       needsEmailConfirmation: false,
       userId: data.user.id,
+      email: data.user.email ?? null,
       refreshToken: data.session.refresh_token,
     }
   } catch (error) {
@@ -121,6 +140,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
     return {
       ok: true,
       userId,
+      email: data.user?.email ?? null,
       refreshToken,
       accessTokenExpiresAt: accessTokenExpiresAt(data.session.expires_at),
     }
@@ -171,6 +191,7 @@ export async function restoreSession(): Promise<RestoreSessionResult> {
     return {
       ok: true,
       userId,
+      email: data.user?.email ?? null,
       refreshToken: rotatedToken,
       accessTokenExpiresAt: accessTokenExpiresAt(data.session?.expires_at),
     }

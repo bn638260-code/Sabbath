@@ -10,6 +10,7 @@ export type SettingsSection =
   | "themes"
   | "api-keys"
   | "remote"
+  | "account"
   | "help"
 
 interface SettingsNavigationState {

@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect } from "react"
+import { lazy, Suspense, useEffect, useRef } from "react"
 import { listen } from "@tauri-apps/api/event"
 import { Dashboard } from "@/components/layout/dashboard"
 import { useRemoteControl } from "@/hooks/use-remote-control"
 import { useDetectionSettingsSync } from "@/hooks/use-detection-settings-sync"
-import { Toaster } from "sonner"
+import { Toaster, toast } from "sonner"
+import { useVerificationStore } from "@/stores/verification-store"
 import type { BroadcastOutputErrorEvent, BroadcastOutputIssueKind } from "@/types"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useApiKeyPromptStore } from "@/lib/api-key-prompt"
@@ -76,10 +77,25 @@ function useBroadcastOutputErrorListener() {
   }, [])
 }
 
+function useWelcomeToast() {
+  const status = useVerificationStore((s) => s.status)
+  const email = useVerificationStore((s) => s.verifiedEmail)
+  const welcomedRef = useRef(false)
+
+  useEffect(() => {
+    if (status !== "verified" || welcomedRef.current) return
+    welcomedRef.current = true
+    toast.success(email ? `Welcome back, ${email}` : "Welcome to SabbathCue", {
+      description: "You are signed in and ready to go.",
+    })
+  }, [status, email])
+}
+
 export function App() {
   useRemoteControl()
   useDetectionSettingsSync()
   useBroadcastOutputErrorListener()
+  useWelcomeToast()
   const apiKeyPromptOpen = useApiKeyPromptStore((s) => s.isOpen)
   const setApiKeyPromptOpen = useApiKeyPromptStore((s) => s.setOpen)
   const onboardingComplete = useSettingsStore((s) => s.onboardingComplete)

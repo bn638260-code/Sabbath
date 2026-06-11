@@ -98,6 +98,7 @@ describe("supabase auth", () => {
       ok: true,
       needsEmailConfirmation: false,
       userId: "user-1",
+      email: null,
       refreshToken: "signup-refresh",
     })
     expect(mockSetRefreshToken).toHaveBeenCalledWith("signup-refresh")

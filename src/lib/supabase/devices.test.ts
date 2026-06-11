@@ -43,6 +43,15 @@ describe("registerDevice", () => {
     expect(result).toEqual({ ok: false, code: "device_limit_reached" })
   })
 
+  it("returns suspended when the RPC reports a suspended account", async () => {
+    mockRpc.mockResolvedValue({ data: { status: "suspended" }, error: null })
+
+    const { registerDevice } = await import("@/lib/supabase/devices")
+    const result = await registerDevice("device-1", "windows", "0.1.3")
+
+    expect(result).toEqual({ ok: false, code: "suspended" })
+  })
+
   it("returns error when the RPC fails", async () => {
     mockRpc.mockResolvedValue({
       data: null,

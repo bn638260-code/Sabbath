@@ -6,6 +6,7 @@ import {
   BookOpenIcon,
   RadioIcon,
   HelpCircleIcon,
+  UserIcon,
   BrainCircuitIcon,
   CastIcon,
   PaletteIcon,
@@ -23,6 +24,7 @@ import { BroadcastSection } from "@/components/settings/sections/BroadcastSectio
 import { ThemeSection } from "@/components/settings/sections/ThemeSection"
 import { RemoteControlSection } from "@/components/settings/sections/RemoteControlSection"
 import { ApiKeysSection } from "@/components/settings/sections/ApiKeysSection"
+import { AccountSection } from "@/components/settings/sections/AccountSection"
 import { HelpSection } from "@/components/settings/sections/HelpSection"
 
 const navItems: { name: string; id: SettingsSection; icon: React.ReactNode }[] = [
@@ -46,6 +48,7 @@ const navItems: { name: string; id: SettingsSection; icon: React.ReactNode }[] =
   },
   { name: "Remote Control", id: "remote", icon: <RadioIcon strokeWidth={2} /> },
   { name: "API Keys", id: "api-keys", icon: <KeyIcon strokeWidth={2} /> },
+  { name: "Account", id: "account", icon: <UserIcon strokeWidth={2} /> },
   { name: "Help", id: "help", icon: <HelpCircleIcon strokeWidth={2} /> },
 ]
 
@@ -58,6 +61,7 @@ const sectionTitles: Record<SettingsSection, string> = {
   themes: "Theme Settings",
   remote: "Remote Control",
   "api-keys": "API Keys",
+  account: "Account",
   help: "Help",
 }
 
@@ -70,6 +74,7 @@ const sectionComponents: Record<SettingsSection, ComponentType> = {
   themes: ThemeSection,
   remote: RemoteControlSection,
   "api-keys": ApiKeysSection,
+  account: AccountSection,
   help: HelpSection,
 }
 
