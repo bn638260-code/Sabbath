@@ -8,13 +8,13 @@ export default function manifest(): MetadataRoute.Manifest {
     name: SITE.name,
     short_name: SITE.name,
     description: SITE.description,
-    start_url: "/",
+    start_url: "/SabbathCue/",
     display: "standalone",
     background_color: "#000000",
     theme_color: "#000000",
     icons: [
       {
-        src: "/sabbathcue-icon.png",
+        src: "/SabbathCue/sabbathcue-icon.png",
         sizes: "1280x1280",
         type: "image/png",
         purpose: "any",

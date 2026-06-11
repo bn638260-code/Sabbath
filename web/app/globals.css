@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 @source "../node_modules/fumadocs-ui/dist/**/*.js";
@@ -6,9 +6,9 @@
 @font-face {
   font-family: "GT Walsheim Pro";
   src: local("GT Walsheim Pro Regular"),
-    url("/fonts/GTWalsheimProRegular.woff2") format("woff2"),
-    url("/fonts/GTWalsheimProRegular.woff") format("woff"),
-    url("/fonts/GTWalsheimProRegular.ttf") format("truetype");
+    url("/SabbathCue/fonts/GTWalsheimProRegular.woff2") format("woff2"),
+    url("/SabbathCue/fonts/GTWalsheimProRegular.woff") format("woff"),
+    url("/SabbathCue/fonts/GTWalsheimProRegular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -17,9 +17,9 @@
 @font-face {
   font-family: "GT Walsheim Pro";
   src: local("GT Walsheim Pro Medium"),
-    url("/fonts/GTWalsheimProMedium.woff2") format("woff2"),
-    url("/fonts/GTWalsheimProMedium.woff") format("woff"),
-    url("/fonts/GTWalsheimProMedium.ttf") format("truetype");
+    url("/SabbathCue/fonts/GTWalsheimProMedium.woff2") format("woff2"),
+    url("/SabbathCue/fonts/GTWalsheimProMedium.woff") format("woff"),
+    url("/SabbathCue/fonts/GTWalsheimProMedium.ttf") format("truetype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -28,9 +28,9 @@
 @font-face {
   font-family: "GT Walsheim Pro";
   src: local("GT Walsheim Pro Bold"),
-    url("/fonts/GTWalsheimProBold.woff2") format("woff2"),
-    url("/fonts/GTWalsheimProBold.woff") format("woff"),
-    url("/fonts/GTWalsheimProBold.ttf") format("truetype");
+    url("/SabbathCue/fonts/GTWalsheimProBold.woff2") format("woff2"),
+    url("/SabbathCue/fonts/GTWalsheimProBold.woff") format("woff"),
+    url("/SabbathCue/fonts/GTWalsheimProBold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -180,7 +180,7 @@ html.lenis body {
  * ImageZoom modal backdrop: lift the zoomed image off the page with
  * a translucent dark overlay and a subtle blur instead of the default
  * opaque background. The default fumadocs preset paints the overlay
- * with --color-fd-background — using !important to win over the
+ * with --color-fd-background â€” using !important to win over the
  * component's side-effect-imported stylesheet (loaded at runtime, so
  * it lands after globals.css in the cascade).
  */

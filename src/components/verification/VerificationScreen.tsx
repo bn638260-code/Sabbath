@@ -3,10 +3,7 @@ import { KeyRoundIcon, ShieldCheckIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
-import {
-  requestPasswordReset,
-  resetPasswordWithCode,
-} from "@/lib/supabase/auth"
+import { requestPasswordReset } from "@/lib/supabase/auth"
 import { useVerificationStore } from "@/stores/verification-store"
 import type { VerificationErrorCode } from "@/types/verification"
 
@@ -33,8 +30,6 @@ function errorMessage(
   }
 }
 
-type ResetStep = "request" | "confirm"
-
 function PasswordResetForm({
   initialEmail,
   onDone,
@@ -42,14 +37,12 @@ function PasswordResetForm({
   initialEmail: string
   onDone: (notice: string | null) => void
 }) {
-  const [step, setStep] = useState<ResetStep>("request")
   const [email, setEmail] = useState(initialEmail)
-  const [code, setCode] = useState("")
-  const [newPassword, setNewPassword] = useState("")
   const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleSendCode() {
+  async function handleSendLink() {
     setBusy(true)
     setError(null)
     const result = await requestPasswordReset(email.trim())
@@ -58,26 +51,14 @@ function PasswordResetForm({
       setError(result.message)
       return
     }
-    setStep("confirm")
-  }
-
-  async function handleResetPassword() {
-    setBusy(true)
-    setError(null)
-    const result = await resetPasswordWithCode(email.trim(), code.trim(), newPassword)
-    setBusy(false)
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
-    onDone("Password updated. Sign in with your new password.")
+    setSent(true)
   }
 
   const description =
     error ??
-    (step === "request"
-      ? "Enter your account email and we'll send you a reset code."
-      : `Enter the reset code sent to ${email.trim()} and choose a new password.`)
+    (sent
+      ? `We sent a reset link to ${email.trim()}. Open it in your browser, choose a new password, then return here and sign in.`
+      : "Enter your account email and we'll send a reset link you can open in your browser.")
 
   return (
     <PanelEmptyState
@@ -86,7 +67,7 @@ function PasswordResetForm({
       description={description}
     >
       <div className="flex w-full max-w-xs flex-col gap-3">
-        {step === "request" ? (
+        {!sent ? (
           <>
             <Input
               autoComplete="email"
@@ -96,38 +77,14 @@ function PasswordResetForm({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
-            <Button disabled={busy || !email.trim()} onClick={() => void handleSendCode()}>
-              {busy ? "Sending..." : "Send reset code"}
+            <Button disabled={busy || !email.trim()} onClick={() => void handleSendLink()}>
+              {busy ? "Sending..." : "Send reset link"}
             </Button>
           </>
         ) : (
-          <>
-            <Input
-              autoComplete="one-time-code"
-              disabled={busy}
-              inputMode="numeric"
-              placeholder="Reset code from email"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-            />
-            <Input
-              autoComplete="new-password"
-              disabled={busy}
-              placeholder="New password"
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-            />
-            <Button
-              disabled={busy || !code.trim() || !newPassword}
-              onClick={() => void handleResetPassword()}
-            >
-              {busy ? "Updating..." : "Reset password"}
-            </Button>
-            <Button disabled={busy} variant="ghost" onClick={() => void handleSendCode()}>
-              Resend code
-            </Button>
-          </>
+          <Button disabled={busy} variant="outline" onClick={() => void handleSendLink()}>
+            {busy ? "Sending..." : "Resend link"}
+          </Button>
         )}
         <Button disabled={busy} variant="ghost" onClick={() => onDone(null)}>
           Back to sign in

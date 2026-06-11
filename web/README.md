@@ -31,5 +31,5 @@ PRs touching `web/**` run the build job only (no deploy) as a smoke test.
 ## Notes
 
 - `output: "export"` in `next.config.ts` — static export is required for GitHub Pages. Anything that needs a Node server (route handlers, server actions, ISR, `next/image` optimization) will fail the build.
-- Self-hosted fonts under `public/fonts/`. Referenced from `app/globals.css` via absolute paths — do not introduce a `basePath`, it does not rewrite CSS `url()` values.
+- `basePath: "/SabbathCue"` matches the GitHub Pages project-site prefix. Dev also serves under it: [http://localhost:3029/SabbathCue](http://localhost:3029/SabbathCue). Next.js does NOT rewrite CSS `url()` values or `manifest.ts` for `basePath`, so the font paths in `app/globals.css` and the icon/start_url in `app/manifest.ts` carry the `/SabbathCue/` prefix by hand — keep them in sync if the repo is ever renamed or moved to a custom domain.
 - `getGitHubStars()` runs at build time. Authenticated via `GITHUB_TOKEN` in CI to avoid the 60/hr unauthenticated rate limit; falls back to a hardcoded count if the API call fails.

@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase/client"
+import { PASSWORD_RESET_REDIRECT_URL } from "@/lib/supabase/password-reset-url"
 import {
   clearToken,
   getRefreshToken,
@@ -154,17 +155,15 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
 export type PasswordResetResult =
   | { ok: true }
-  | { ok: false; code: AuthErrorCode | "invalid_code"; message: string }
+  | { ok: false; code: AuthErrorCode; message: string }
 
-/**
- * Emails a recovery code to the account. The Supabase "Reset Password" email
- * template must render {{ .Token }} so the user gets a code they can type
- * into the desktop app (the default template only contains a browser link).
- */
+/** Emails a reset link. The user completes the reset in their browser. */
 export async function requestPasswordReset(email: string): Promise<PasswordResetResult> {
   try {
     const supabase = getSupabaseClient()
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: PASSWORD_RESET_REDIRECT_URL,
+    })
 
     if (error) {
       if (isNetworkError(error)) {
@@ -173,7 +172,7 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
       return {
         ok: false,
         code: mapAuthError(error),
-        message: error.message || "Could not send the reset code.",
+        message: error.message || "Could not send the reset email.",
       }
     }
 
@@ -182,65 +181,7 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
     if (isNetworkError(error)) {
       return { ok: false, code: "network", message: "Unable to reach the authentication service." }
     }
-    return { ok: false, code: "unknown", message: "Could not send the reset code." }
-  }
-}
-
-/**
- * Verifies the emailed recovery code and sets the new password. The temporary
- * recovery session is discarded afterwards; the user signs in normally with
- * the new password (which also runs device registration).
- */
-export async function resetPasswordWithCode(
-  email: string,
-  code: string,
-  newPassword: string,
-): Promise<PasswordResetResult> {
-  try {
-    const supabase = getSupabaseClient()
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      type: "recovery",
-      email,
-      token: code,
-    })
-
-    if (verifyError) {
-      if (isNetworkError(verifyError)) {
-        return { ok: false, code: "network", message: "Unable to reach the authentication service." }
-      }
-      return {
-        ok: false,
-        code: "invalid_code",
-        message: "The reset code is incorrect or has expired. Request a new one.",
-      }
-    }
-
-    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
-
-    if (updateError) {
-      if (isNetworkError(updateError)) {
-        return { ok: false, code: "network", message: "Unable to reach the authentication service." }
-      }
-      return {
-        ok: false,
-        code: "unknown",
-        message: updateError.message || "Could not update the password.",
-      }
-    }
-
-    return { ok: true }
-  } catch (error) {
-    if (isNetworkError(error)) {
-      return { ok: false, code: "network", message: "Unable to reach the authentication service." }
-    }
-    return { ok: false, code: "unknown", message: "Could not update the password." }
-  } finally {
-    // Drop the temporary recovery session; it must never become a stored login.
-    try {
-      await getSupabaseClient().auth.signOut()
-    } catch {
-      // Ignored: the in-memory session dies with the client either way.
-    }
+    return { ok: false, code: "unknown", message: "Could not send the reset email." }
   }
 }
 

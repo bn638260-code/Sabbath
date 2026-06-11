@@ -4,6 +4,10 @@ import { createMDX } from "fumadocs-mdx/next";
 
 const nextConfig: NextConfig = {
   output: "export",
+  // Served as a GitHub Pages project site under /SabbathCue/. Next prefixes
+  // routes and next/image automatically; CSS url() values and manifest.ts
+  // do NOT get rewritten and carry the prefix by hand.
+  basePath: "/SabbathCue",
   trailingSlash: true,
   // The default next/image loader requires a server runtime; with
   // output: "export" we ship every image through the static pipeline,
