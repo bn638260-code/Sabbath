@@ -10,6 +10,7 @@ import { getOrCreateDeviceId } from "@/lib/verification/device-id"
 import {
   clearSessionMetadata,
   getRefreshToken,
+  getSessionMetadata,
   setSessionMetadata,
 } from "@/lib/verification/session-storage"
 import { isTauriRuntime } from "@/lib/tauri-runtime"
@@ -20,6 +21,9 @@ import type {
 } from "@/types/verification"
 
 const APP_VERSION = packageJson.version
+
+/** How long a previously verified session may keep working without connectivity. */
+export const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000
 
 function now(): number {
   return Date.now()
@@ -74,7 +78,7 @@ function sessionFromAuth(
     verifiedDeviceId: deviceId,
     accessTokenExpiresAt,
     lastVerifiedAt: timestamp,
-    offlineGraceExpiresAt: 0,
+    offlineGraceExpiresAt: timestamp + OFFLINE_GRACE_MS,
     verifiedEmail: email,
   }
 }
@@ -131,6 +135,25 @@ async function completeVerification(
   return snapshotFromSession(session)
 }
 
+/**
+ * Offline fallback: a session verified online within the grace window keeps
+ * working when the network is unreachable. Legacy metadata written before
+ * grace existed has offlineGraceExpiresAt = 0; derive the window from
+ * lastVerifiedAt instead so those sessions are not locked out either.
+ */
+async function offlineGraceSnapshot(): Promise<VerificationStateSnapshot | null> {
+  const session = await getSessionMetadata()
+  if (!session) return null
+
+  const graceExpiresAt =
+    session.offlineGraceExpiresAt > 0
+      ? session.offlineGraceExpiresAt
+      : session.lastVerifiedAt + OFFLINE_GRACE_MS
+  if (now() > graceExpiresAt) return null
+
+  return snapshotFromSession(session)
+}
+
 export async function loadCachedVerification(): Promise<VerificationStateSnapshot> {
   if (!isTauriRuntime()) return emptySnapshot("required")
 
@@ -143,12 +166,22 @@ export async function loadCachedVerification(): Promise<VerificationStateSnapsho
       return emptySnapshot("expired", restored.message)
     }
     if (restored.code === "network") {
-      return emptySnapshot("error", restored.message, "network")
+      const grace = await offlineGraceSnapshot()
+      return grace ?? emptySnapshot("error", restored.message, "network")
     }
     return emptySnapshot("error", restored.message, "unknown")
   }
 
-  return completeVerification(restored.userId, restored.accessTokenExpiresAt, restored.email)
+  const snapshot = await completeVerification(
+    restored.userId,
+    restored.accessTokenExpiresAt,
+    restored.email,
+  )
+  if (snapshot.status === "error" && snapshot.errorCode === "network") {
+    const grace = await offlineGraceSnapshot()
+    return grace ?? snapshot
+  }
+  return snapshot
 }
 
 export async function signIn(email: string, password: string): Promise<VerificationStateSnapshot> {

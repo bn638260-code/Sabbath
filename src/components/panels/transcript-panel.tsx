@@ -86,7 +86,9 @@ export function TranscriptPanel({ className }: { className?: string }) {
     "translation_command",
     (data) => {
       useBibleStore.getState().setActiveTranslation(data.translation_id)
-      console.log(`[VOICE] Translation switched to ${data.abbreviation}`)
+      if (import.meta.env.DEV) {
+        console.log(`[VOICE] Translation switched to ${data.abbreviation}`)
+      }
     }
   )
 

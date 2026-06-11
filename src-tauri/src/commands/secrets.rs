@@ -9,6 +9,8 @@ const SERVICE_NAME: &str = "sabbathcue";
 pub trait KeychainStore: Send + Sync {
     fn get_password(&self, name: &str) -> Result<String, keyring::Error>;
     fn set_password(&self, name: &str, password: &str) -> Result<(), keyring::Error>;
+    /// Remove the credential entirely; absent entries are not an error.
+    fn delete_password(&self, name: &str) -> Result<(), keyring::Error>;
 }
 
 /// Production implementation using the OS keyring.
@@ -21,6 +23,13 @@ impl KeychainStore for RealKeychainStore {
 
     fn set_password(&self, name: &str, password: &str) -> Result<(), keyring::Error> {
         keyring::Entry::new(SERVICE_NAME, name)?.set_password(password)
+    }
+
+    fn delete_password(&self, name: &str) -> Result<(), keyring::Error> {
+        match keyring::Entry::new(SERVICE_NAME, name)?.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -114,10 +123,8 @@ pub fn set_deepgram_api_key_with_store(
 
 #[command]
 pub fn clear_deepgram_api_key() -> Result<(), String> {
-    // keyring v3 does not expose a cross-platform delete API; overwriting with
-    // an empty value is sufficient for our "configured vs not configured" model.
-    entry("deepgram_api_key")?
-        .set_password("")
+    DEFAULT_STORE
+        .delete_password("deepgram_api_key")
         .map_err(|e| format!("Could not remove Deepgram API key from OS keychain: {e}"))
 }
 
@@ -161,7 +168,7 @@ pub fn clear_verification_token() -> Result<(), String> {
 
 pub fn clear_verification_token_with_store(store: &dyn KeychainStore) -> Result<(), String> {
     store
-        .set_password("verification_token", "")
+        .delete_password("verification_token")
         .map_err(|e| format!("Could not clear verification token from OS keychain: {e}"))
 }
 
@@ -316,6 +323,11 @@ mod tests {
                 .lock()
                 .unwrap()
                 .insert(name.to_string(), password.to_string());
+            Ok(())
+        }
+
+        fn delete_password(&self, name: &str) -> Result<(), keyring::Error> {
+            self.storage.lock().unwrap().remove(name);
             Ok(())
         }
     }

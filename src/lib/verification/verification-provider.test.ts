@@ -7,6 +7,7 @@ const mockSupabaseSignOut = vi.fn()
 const mockRegisterDevice = vi.fn()
 const mockGetOrCreateDeviceId = vi.fn()
 const mockGetRefreshToken = vi.fn()
+const mockGetSessionMetadata = vi.fn()
 const mockSetSessionMetadata = vi.fn()
 const mockClearSessionMetadata = vi.fn()
 
@@ -27,6 +28,7 @@ vi.mock("@/lib/verification/device-id", () => ({
 
 vi.mock("@/lib/verification/session-storage", () => ({
   getRefreshToken: (...args: unknown[]) => mockGetRefreshToken(...args),
+  getSessionMetadata: (...args: unknown[]) => mockGetSessionMetadata(...args),
   setSessionMetadata: (...args: unknown[]) => mockSetSessionMetadata(...args),
   clearSessionMetadata: (...args: unknown[]) => mockClearSessionMetadata(...args),
 }))
@@ -41,11 +43,13 @@ describe("verification-provider", () => {
     mockRegisterDevice.mockReset()
     mockGetOrCreateDeviceId.mockReset()
     mockGetRefreshToken.mockReset()
+    mockGetSessionMetadata.mockReset()
     mockSetSessionMetadata.mockReset()
     mockClearSessionMetadata.mockReset()
 
     mockGetOrCreateDeviceId.mockResolvedValue("device-1")
     mockRegisterDevice.mockResolvedValue({ ok: true })
+    mockGetSessionMetadata.mockResolvedValue(null)
   })
 
   it("loadCachedVerification returns required when no keychain token exists", async () => {
@@ -73,7 +77,7 @@ describe("verification-provider", () => {
     expect(mockRegisterDevice).not.toHaveBeenCalled()
   })
 
-  it("loadCachedVerification returns error(network) when restore fails due to connectivity", async () => {
+  it("loadCachedVerification returns error(network) when restore fails offline with no cached session", async () => {
     mockGetRefreshToken.mockResolvedValue("stored-token")
     mockRestoreSession.mockResolvedValue({
       ok: false,
@@ -90,6 +94,104 @@ describe("verification-provider", () => {
         errorCode: "network",
       }),
     )
+  })
+
+  it("loadCachedVerification grants offline grace when restore fails offline within the window", async () => {
+    mockGetRefreshToken.mockResolvedValue("stored-token")
+    mockRestoreSession.mockResolvedValue({
+      ok: false,
+      code: "network",
+      message: "Unable to reach the authentication service.",
+    })
+    mockGetSessionMetadata.mockResolvedValue({
+      verifiedUserId: "user-1",
+      verifiedDeviceId: "device-1",
+      accessTokenExpiresAt: Date.now() - 1000,
+      lastVerifiedAt: Date.now() - 60_000,
+      offlineGraceExpiresAt: Date.now() + 60_000,
+    })
+
+    const { loadCachedVerification } = await import("@/lib/verification/verification-provider")
+    const result = await loadCachedVerification()
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "verified",
+        verifiedUserId: "user-1",
+        verifiedDeviceId: "device-1",
+      }),
+    )
+  })
+
+  it("loadCachedVerification derives the grace window from lastVerifiedAt for legacy metadata", async () => {
+    mockGetRefreshToken.mockResolvedValue("stored-token")
+    mockRestoreSession.mockResolvedValue({
+      ok: false,
+      code: "network",
+      message: "Unable to reach the authentication service.",
+    })
+    mockGetSessionMetadata.mockResolvedValue({
+      verifiedUserId: "user-1",
+      verifiedDeviceId: "device-1",
+      accessTokenExpiresAt: Date.now() - 1000,
+      lastVerifiedAt: Date.now() - 24 * 60 * 60 * 1000,
+      offlineGraceExpiresAt: 0,
+    })
+
+    const { loadCachedVerification } = await import("@/lib/verification/verification-provider")
+    const result = await loadCachedVerification()
+
+    expect(result.status).toBe("verified")
+  })
+
+  it("loadCachedVerification denies offline grace once the window has expired", async () => {
+    mockGetRefreshToken.mockResolvedValue("stored-token")
+    mockRestoreSession.mockResolvedValue({
+      ok: false,
+      code: "network",
+      message: "Unable to reach the authentication service.",
+    })
+    mockGetSessionMetadata.mockResolvedValue({
+      verifiedUserId: "user-1",
+      verifiedDeviceId: "device-1",
+      accessTokenExpiresAt: Date.now() - 1000,
+      lastVerifiedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      offlineGraceExpiresAt: Date.now() - 60_000,
+    })
+
+    const { loadCachedVerification } = await import("@/lib/verification/verification-provider")
+    const result = await loadCachedVerification()
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: "error", errorCode: "network" }),
+    )
+  })
+
+  it("loadCachedVerification grants offline grace when device registration fails offline", async () => {
+    mockGetRefreshToken.mockResolvedValue("stored-token")
+    mockRestoreSession.mockResolvedValue({
+      ok: true,
+      userId: "user-1",
+      refreshToken: "rotated-token",
+      accessTokenExpiresAt: 1_700_000_000_000,
+    })
+    mockRegisterDevice.mockResolvedValue({
+      ok: false,
+      code: "error",
+      message: "Unable to reach the device registration service.",
+    })
+    mockGetSessionMetadata.mockResolvedValue({
+      verifiedUserId: "user-1",
+      verifiedDeviceId: "device-1",
+      accessTokenExpiresAt: Date.now() - 1000,
+      lastVerifiedAt: Date.now() - 60_000,
+      offlineGraceExpiresAt: Date.now() + 60_000,
+    })
+
+    const { loadCachedVerification } = await import("@/lib/verification/verification-provider")
+    const result = await loadCachedVerification()
+
+    expect(result.status).toBe("verified")
   })
 
   it("loadCachedVerification returns error(device_limit_reached) when registration is blocked", async () => {

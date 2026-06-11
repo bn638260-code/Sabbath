@@ -1,7 +1,7 @@
 export type VerificationStatus =
   | "checking"
   | "verified"
-  /** Legacy stored-metadata value only — never grants app entry (online-only policy). */
+  /** Legacy stored-metadata value only — offline grace now surfaces as "verified". */
   | "grace"
   | "required"
   | "expired"
@@ -21,7 +21,7 @@ export interface VerificationStateSnapshot {
   verifiedDeviceId: string | null
   accessTokenExpiresAt: number | null
   lastVerifiedAt: number | null
-  /** Legacy field for backward-compatible reads; does not gate app entry. */
+  /** When offline access expires if the network is unreachable (0 in legacy metadata). */
   offlineGraceExpiresAt: number | null
   error: string | null
   errorCode: VerificationErrorCode | null
@@ -34,7 +34,7 @@ export interface VerificationSession {
   verifiedDeviceId: string
   accessTokenExpiresAt: number
   lastVerifiedAt: number
-  /** Legacy field retained for stored-metadata compatibility. */
+  /** When offline access expires if the network is unreachable (0 in legacy metadata). */
   offlineGraceExpiresAt: number
   /** Signed-in account email for display; absent in legacy stored metadata. */
   verifiedEmail?: string | null
