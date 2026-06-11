@@ -25,6 +25,9 @@ dist-ssr
 
 # Build artifacts
 build
+src-tauri/target/
+src-tauri/src-tauri/
+supabase/.temp/
 releases/**/SabbathCue*.exe
 releases/**/*.msi
 data/rhema.db
