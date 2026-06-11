@@ -1,8 +1,12 @@
 import { useState } from "react"
-import { ShieldCheckIcon } from "lucide-react"
+import { KeyRoundIcon, ShieldCheckIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
+import {
+  requestPasswordReset,
+  resetPasswordWithCode,
+} from "@/lib/supabase/auth"
 import { useVerificationStore } from "@/stores/verification-store"
 import type { VerificationErrorCode } from "@/types/verification"
 
@@ -29,6 +33,110 @@ function errorMessage(
   }
 }
 
+type ResetStep = "request" | "confirm"
+
+function PasswordResetForm({
+  initialEmail,
+  onDone,
+}: {
+  initialEmail: string
+  onDone: (notice: string | null) => void
+}) {
+  const [step, setStep] = useState<ResetStep>("request")
+  const [email, setEmail] = useState(initialEmail)
+  const [code, setCode] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSendCode() {
+    setBusy(true)
+    setError(null)
+    const result = await requestPasswordReset(email.trim())
+    setBusy(false)
+    if (!result.ok) {
+      setError(result.message)
+      return
+    }
+    setStep("confirm")
+  }
+
+  async function handleResetPassword() {
+    setBusy(true)
+    setError(null)
+    const result = await resetPasswordWithCode(email.trim(), code.trim(), newPassword)
+    setBusy(false)
+    if (!result.ok) {
+      setError(result.message)
+      return
+    }
+    onDone("Password updated. Sign in with your new password.")
+  }
+
+  const description =
+    error ??
+    (step === "request"
+      ? "Enter your account email and we'll send you a reset code."
+      : `Enter the reset code sent to ${email.trim()} and choose a new password.`)
+
+  return (
+    <PanelEmptyState
+      icon={<KeyRoundIcon className="size-10" />}
+      title="Reset password"
+      description={description}
+    >
+      <div className="flex w-full max-w-xs flex-col gap-3">
+        {step === "request" ? (
+          <>
+            <Input
+              autoComplete="email"
+              disabled={busy}
+              placeholder="Email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            <Button disabled={busy || !email.trim()} onClick={() => void handleSendCode()}>
+              {busy ? "Sending..." : "Send reset code"}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Input
+              autoComplete="one-time-code"
+              disabled={busy}
+              inputMode="numeric"
+              placeholder="Reset code from email"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+            />
+            <Input
+              autoComplete="new-password"
+              disabled={busy}
+              placeholder="New password"
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+            />
+            <Button
+              disabled={busy || !code.trim() || !newPassword}
+              onClick={() => void handleResetPassword()}
+            >
+              {busy ? "Updating..." : "Reset password"}
+            </Button>
+            <Button disabled={busy} variant="ghost" onClick={() => void handleSendCode()}>
+              Resend code
+            </Button>
+          </>
+        )}
+        <Button disabled={busy} variant="ghost" onClick={() => onDone(null)}>
+          Back to sign in
+        </Button>
+      </div>
+    </PanelEmptyState>
+  )
+}
+
 export function VerificationScreen() {
   const status = useVerificationStore((s) => s.status)
   const error = useVerificationStore((s) => s.error)
@@ -40,6 +148,8 @@ export function VerificationScreen() {
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showReset, setShowReset] = useState(false)
+  const [resetNotice, setResetNotice] = useState<string | null>(null)
 
   const isChecking = status === "checking"
   const showStaleSessionActions = status === "expired"
@@ -52,69 +162,93 @@ export function VerificationScreen() {
         : "Sign in to SabbathCue"
 
   const description =
-    status === "checking"
+    resetNotice ??
+    (status === "checking"
       ? "Checking your account..."
       : status === "expired"
         ? "Your saved session is no longer valid. Sign in again or clear the stale session."
         : status === "error" || status === "required"
           ? errorMessage(errorCode, error)
-          : "Sign in with your SabbathCue account to continue."
+          : "Sign in with your SabbathCue account to continue.")
 
   async function handleSignIn() {
+    setResetNotice(null)
     await signIn(email.trim(), password)
   }
 
   async function handleSignUp() {
+    setResetNotice(null)
     await signUp(email.trim(), password)
   }
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-background p-6">
       <div className="w-full max-w-md rounded-lg border border-border bg-card">
-        <PanelEmptyState
-          icon={<ShieldCheckIcon className="size-10" />}
-          title={title}
-          description={description}
-        >
-          <div className="flex w-full max-w-xs flex-col gap-3">
-            <Input
-              autoComplete="email"
-              disabled={isChecking}
-              placeholder="Email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-            <Input
-              autoComplete="current-password"
-              disabled={isChecking}
-              placeholder="Password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <Button disabled={isChecking || !email || !password} onClick={() => void handleSignIn()}>
-              {isChecking ? "Signing in..." : "Sign in"}
-            </Button>
-            <Button
-              disabled={isChecking || !email || !password}
-              variant="outline"
-              onClick={() => void handleSignUp()}
-            >
-              {isChecking ? "Working..." : "Create account"}
-            </Button>
-            {(status === "error" && errorCode === "network") || showStaleSessionActions ? (
-              <Button disabled={isChecking} variant="ghost" onClick={() => void refresh()}>
-                Retry
+        {showReset ? (
+          <PasswordResetForm
+            initialEmail={email.trim()}
+            onDone={(notice) => {
+              setResetNotice(notice)
+              if (notice) setPassword("")
+              setShowReset(false)
+            }}
+          />
+        ) : (
+          <PanelEmptyState
+            icon={<ShieldCheckIcon className="size-10" />}
+            title={title}
+            description={description}
+          >
+            <div className="flex w-full max-w-xs flex-col gap-3">
+              <Input
+                autoComplete="email"
+                disabled={isChecking}
+                placeholder="Email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+              <Input
+                autoComplete="current-password"
+                disabled={isChecking}
+                placeholder="Password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <Button disabled={isChecking || !email || !password} onClick={() => void handleSignIn()}>
+                {isChecking ? "Signing in..." : "Sign in"}
               </Button>
-            ) : null}
-            {showStaleSessionActions ? (
-              <Button disabled={isChecking} variant="ghost" onClick={() => void signOut()}>
-                Clear stale session
+              <Button
+                disabled={isChecking || !email || !password}
+                variant="outline"
+                onClick={() => void handleSignUp()}
+              >
+                {isChecking ? "Working..." : "Create account"}
               </Button>
-            ) : null}
-          </div>
-        </PanelEmptyState>
+              <Button
+                disabled={isChecking}
+                variant="ghost"
+                onClick={() => {
+                  setResetNotice(null)
+                  setShowReset(true)
+                }}
+              >
+                Forgot password?
+              </Button>
+              {(status === "error" && errorCode === "network") || showStaleSessionActions ? (
+                <Button disabled={isChecking} variant="ghost" onClick={() => void refresh()}>
+                  Retry
+                </Button>
+              ) : null}
+              {showStaleSessionActions ? (
+                <Button disabled={isChecking} variant="ghost" onClick={() => void signOut()}>
+                  Clear stale session
+                </Button>
+              ) : null}
+            </div>
+          </PanelEmptyState>
+        )}
       </div>
     </div>
   )
