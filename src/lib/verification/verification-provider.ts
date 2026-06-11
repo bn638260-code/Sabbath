@@ -199,9 +199,25 @@ export async function clearVerification(): Promise<VerificationStateSnapshot> {
   return signOut()
 }
 
-export async function heartbeatDeviceRegistration(): Promise<void> {
-  if (!isTauriRuntime()) return
+/**
+ * Periodic re-registration while the app is running. Returns a blocking
+ * snapshot when the account was suspended mid-session; null means no state
+ * change (transient network failures never kick an active session).
+ */
+export async function heartbeatDeviceRegistration(): Promise<VerificationStateSnapshot | null> {
+  if (!isTauriRuntime()) return null
 
   const deviceId = await getOrCreateDeviceId()
-  await registerDevice(deviceId, getRuntimeOs(), APP_VERSION)
+  const registration = await registerDevice(deviceId, getRuntimeOs(), APP_VERSION)
+
+  if (!registration.ok && registration.code === "suspended") {
+    await clearSessionMetadata()
+    return emptySnapshot(
+      "error",
+      "This account has been suspended. Contact support for assistance.",
+      "suspended",
+    )
+  }
+
+  return null
 }

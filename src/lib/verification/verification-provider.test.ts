@@ -174,6 +174,36 @@ describe("verification-provider", () => {
     expect(mockRegisterDevice).not.toHaveBeenCalled()
   })
 
+  it("heartbeat returns a suspended snapshot and clears metadata when blocked", async () => {
+    mockRegisterDevice.mockResolvedValue({ ok: false, code: "suspended" })
+
+    const { heartbeatDeviceRegistration } = await import(
+      "@/lib/verification/verification-provider"
+    )
+    const result = await heartbeatDeviceRegistration()
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: "error", errorCode: "suspended" }),
+    )
+    expect(mockClearSessionMetadata).toHaveBeenCalled()
+  })
+
+  it("heartbeat returns null on transient registration failure", async () => {
+    mockRegisterDevice.mockResolvedValue({
+      ok: false,
+      code: "error",
+      message: "Unable to reach the device registration service.",
+    })
+
+    const { heartbeatDeviceRegistration } = await import(
+      "@/lib/verification/verification-provider"
+    )
+    const result = await heartbeatDeviceRegistration()
+
+    expect(result).toBeNull()
+    expect(mockClearSessionMetadata).not.toHaveBeenCalled()
+  })
+
   it("signOut clears local session metadata", async () => {
     mockSupabaseSignOut.mockResolvedValue(undefined)
 

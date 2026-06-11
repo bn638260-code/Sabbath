@@ -36,6 +36,11 @@ if (
 // fail silently with "Transcription is already running". Reset the
 // backend to a clean state on boot, then hydrate persisted settings and
 // bible store so the UI reflects the user's choices immediately.
+// Verification needs the network (Supabase session refresh), so it hydrates
+// independently: the gate shows its checking state instead of blocking first
+// paint behind a slow or unreachable connection.
+void hydrateVerification()
+
 const resetTranscription = isTauriRuntime()
   ? invokeTauri("stop_transcription").catch((error) => {
       console.warn("[startup] stop_transcription reset failed", error)
@@ -52,7 +57,6 @@ resetTranscription
       hydrateBibleStore(),
       hydrateBroadcastThemes(),
       hydrateServicePlans(),
-      hydrateVerification(),
     ]).then(() => {
       useAccentThemeStore.getState().hydrate()
     }),

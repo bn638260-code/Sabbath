@@ -35,7 +35,12 @@ function stopHeartbeat(): void {
 function startHeartbeat(): void {
   stopHeartbeat()
   heartbeatTimer = setInterval(() => {
-    void heartbeatDeviceRegistration()
+    void (async () => {
+      const snapshot = await heartbeatDeviceRegistration()
+      if (snapshot) applySnapshot(snapshot)
+    })().catch(() => {
+      // Transient heartbeat failures never kick an active session.
+    })
   }, HEARTBEAT_MS)
 }
 
