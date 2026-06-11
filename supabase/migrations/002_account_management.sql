@@ -3,7 +3,7 @@
 --
 -- IMPORTANT (one-time operator step): after applying, register yourself as admin:
 --   insert into public.app_admins (user_id)
---   select id from auth.users where email = 'bonga6557@gmail.com'
+--   select id from auth.users where email = 'fanelesibonge50@gmail.com'
 --   on conflict do nothing;
 
 -- Admins: accounts allowed to call admin_* RPCs.
