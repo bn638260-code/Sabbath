@@ -156,9 +156,50 @@ pub fn rotate_verification_token_with_store(store: &dyn KeychainStore) -> Result
 
 #[command]
 pub fn clear_verification_token() -> Result<(), String> {
-    entry("verification_token")?
-        .set_password("")
+    clear_verification_token_with_store(&DEFAULT_STORE)
+}
+
+pub fn clear_verification_token_with_store(store: &dyn KeychainStore) -> Result<(), String> {
+    store
+        .set_password("verification_token", "")
         .map_err(|e| format!("Could not clear verification token from OS keychain: {e}"))
+}
+
+#[command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri command extractors require pass-by-value"
+)]
+pub fn set_verification_token(value: String) -> Result<(), String> {
+    set_verification_token_with_store(&DEFAULT_STORE, &value)
+}
+
+pub fn set_verification_token_with_store(
+    store: &dyn KeychainStore,
+    value: &str,
+) -> Result<(), String> {
+    if value.trim().is_empty() {
+        return Err("Verification token cannot be empty".into());
+    }
+    store
+        .set_password("verification_token", value)
+        .map_err(|e| format!("Could not store verification token in OS keychain: {e}"))
+}
+
+#[command]
+pub fn get_verification_token() -> Result<String, String> {
+    get_verification_token_with_store(&DEFAULT_STORE)
+}
+
+pub fn get_verification_token_with_store(store: &dyn KeychainStore) -> Result<String, String> {
+    match store.get_password("verification_token") {
+        Ok(pw) if pw.trim().is_empty() => Ok(String::new()),
+        Ok(pw) => Ok(pw),
+        Err(keyring::Error::NoEntry) => Ok(String::new()),
+        Err(e) => Err(format!(
+            "Could not read verification token from OS keychain: {e}"
+        )),
+    }
 }
 
 /// Testable version that accepts a `KeychainStore` implementation.
@@ -374,6 +415,52 @@ mod tests {
 
         assert!(!token.is_empty());
         assert!(has_verification_token_with_store(&store).unwrap());
+    }
+
+    #[test]
+    fn set_verification_token_round_trips_through_get() {
+        let store = MockKeychainStore::new();
+        set_verification_token_with_store(&store, "supabase-refresh-token").unwrap();
+
+        let stored = get_verification_token_with_store(&store).unwrap();
+        assert_eq!(stored, "supabase-refresh-token");
+        assert!(has_verification_token_with_store(&store).unwrap());
+    }
+
+    #[test]
+    fn get_verification_token_returns_empty_when_missing() {
+        let store = MockKeychainStore::new();
+        let result = get_verification_token_with_store(&store).unwrap();
+        assert_eq!(result, "");
+        assert!(!has_verification_token_with_store(&store).unwrap());
+    }
+
+    #[test]
+    fn get_verification_token_treats_empty_string_as_absent() {
+        let store = MockKeychainStore::new();
+        store.set_password("verification_token", "   ").unwrap();
+
+        let result = get_verification_token_with_store(&store).unwrap();
+        assert_eq!(result, "");
+        assert!(!has_verification_token_with_store(&store).unwrap());
+    }
+
+    #[test]
+    fn clear_verification_token_makes_get_return_empty() {
+        let store = MockKeychainStore::new();
+        set_verification_token_with_store(&store, "token-to-clear").unwrap();
+
+        clear_verification_token_with_store(&store).unwrap();
+
+        assert_eq!(get_verification_token_with_store(&store).unwrap(), "");
+        assert!(!has_verification_token_with_store(&store).unwrap());
+    }
+
+    #[test]
+    fn set_verification_token_rejects_empty_value() {
+        let store = MockKeychainStore::new();
+        let result = set_verification_token_with_store(&store, "   ");
+        assert_eq!(result, Err("Verification token cannot be empty".into()));
     }
 
     #[test]

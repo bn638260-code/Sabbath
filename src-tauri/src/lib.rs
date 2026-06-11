@@ -102,6 +102,8 @@ pub fn run() {
             commands::secrets::has_remote_http_token,
             commands::secrets::rotate_remote_http_token,
             commands::secrets::has_verification_token,
+            commands::secrets::set_verification_token,
+            commands::secrets::get_verification_token,
             commands::secrets::rotate_verification_token,
             commands::secrets::clear_verification_token,
             commands::theme_files::import_theme_from_path,
