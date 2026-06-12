@@ -3,9 +3,12 @@ import { Trash2Icon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { APP_DISPLAY_NAME } from "@/lib/app-brand"
 import { AppLogo } from "@/components/ui/app-logo"
-import { useAccentThemeStore, type AccentTheme } from "@/stores/accent-theme-store"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import {
+  useAccentThemeStore,
+  type AccentTheme,
+} from "@/stores/accent-theme-store"
 import { isTauriRuntime } from "@/lib/tauri-runtime"
+import { blackoutOutput } from "@/lib/operator-actions"
 import packageJson from "../../../package.json"
 
 const ACCENT_SWATCHES: { id: AccentTheme; className: string; title: string }[] =
@@ -38,27 +41,25 @@ export function AppControllerHeader() {
     return () => window.clearInterval(id)
   }, [])
 
-  const blackoutOutput = () => {
-    useBroadcastStore.getState().setLiveItem(null)
-    useBroadcastStore.getState().setLive(false)
-  }
-
   const versionLabel = `v${packageJson.version}`
 
   return (
     <header className="z-50 flex h-[56px] shrink-0 items-center justify-between border-b border-[rgba(255,255,255,0.06)] bg-[#02040a]/90 px-6 backdrop-blur-xl">
       <div className="flex items-center gap-5">
         <div className="flex items-center gap-3">
-          <AppLogo size="sm" className="transition-transform duration-300 hover:rotate-3" />
+          <AppLogo
+            size="sm"
+            className="transition-transform duration-300 hover:rotate-3"
+          />
           <div className="flex flex-col leading-none">
             <span className="font-display text-xl tracking-wide text-white">
               {APP_DISPLAY_NAME}
             </span>
-            <span className="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-slate-500">
+            <span className="mt-0.5 font-mono text-[9px] tracking-wider text-slate-500 uppercase">
               Automated Presentation Space
             </span>
           </div>
-          <span className="ml-2 rounded-md border border-yellow-400/20 bg-yellow-400/10 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-yellow-400">
+          <span className="ml-2 rounded-md border border-yellow-400/20 bg-yellow-400/10 px-2 py-0.5 font-mono text-[9px] font-semibold tracking-wider text-yellow-400 uppercase">
             {versionLabel}
           </span>
         </div>
@@ -81,7 +82,7 @@ export function AppControllerHeader() {
           className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-slate-900/60 p-1"
           data-tour="theme"
         >
-          <span className="hidden px-2 font-mono text-[10px] font-bold uppercase text-slate-400 sm:inline">
+          <span className="hidden px-2 font-mono text-[10px] font-bold text-slate-400 uppercase sm:inline">
             Theme:
           </span>
           {ACCENT_SWATCHES.map((swatch) => (
@@ -95,7 +96,7 @@ export function AppControllerHeader() {
               className={cn(
                 "btn-action size-[18px] rounded-md border border-white/10 transition-all hover:scale-125",
                 swatch.className,
-                theme === swatch.id && "ring-2 ring-white/40",
+                theme === swatch.id && "ring-2 ring-white/40"
               )}
             />
           ))}

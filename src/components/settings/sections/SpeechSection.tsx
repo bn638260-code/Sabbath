@@ -38,6 +38,8 @@ export function SpeechSection() {
       assetStatus?.vosk_worker &&
       assetStatus?.vosk_runtime,
   )
+  const voskModelName = assetStatus?.vosk_model_name ?? null
+  const voskModelQuality = assetStatus?.vosk_model_quality ?? null
   const voskMissingMessage = !assetStatus?.vosk_model
     ? "Vosk model files are missing from the app resources or configured model path."
     : !assetStatus?.vosk_worker
@@ -111,18 +113,33 @@ export function SpeechSection() {
               </span>
             </div>
             <Badge variant="outline" className="text-[0.5rem]">
-              {assetsLoading ? "Checking" : voskReady ? "Installed" : "Missing"}
+              {assetsLoading
+                ? "Checking"
+                : voskReady
+                  ? voskModelQuality || "Installed"
+                  : "Missing"}
             </Badge>
           </div>
 
           <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-            Vosk runs with a verse-focused constrained grammar. It recognizes
-            Bible book names, numbers, and navigation keywords for fast verse
-            reference detection. This build also needs Python with the{" "}
+            Vosk runs with a verse-focused constrained grammar. For better
+            offline recognition, install{" "}
+            <code className="text-[0.5625rem]">
+              vosk-model-en-us-0.22-lgraph
+            </code>
+            . The smaller{" "}
+            <code className="text-[0.5625rem]">vosk-model-small-en-us</code>{" "}
+            model remains supported as a fallback. Development builds using the
+            Python worker also need the{" "}
             <code className="text-[0.5625rem]">vosk</code> package installed.
             Place the model folder here or set{" "}
             <code className="text-[0.5625rem]">SABBATHCUE_VOSK_MODEL_DIR</code>.
           </p>
+          {!assetsLoading && voskModelName && (
+            <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
+              Active model: {voskModelName}
+            </p>
+          )}
           {!assetsLoading && voskMissingMessage && (
             <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
               {voskMissingMessage}
@@ -130,7 +147,7 @@ export function SpeechSection() {
           )}
           {!assetsLoading && !assetStatus?.vosk_model && (
             <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
-              models\vosk\vosk-model-small-en-us
+              models\vosk\vosk-model-en-us-0.22-lgraph
             </p>
           )}
 

@@ -5,6 +5,7 @@ import {
   type DashboardWorkspace,
 } from "@/stores/dashboard-workspace-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
+import { formatShortcutLabel } from "@/lib/dashboard-keyboard-shortcuts"
 
 export function WorkspaceSidebar() {
   const workspace = useDashboardWorkspaceStore((s) => s.workspace)
@@ -65,7 +66,22 @@ export function WorkspaceSidebar() {
       <div className="border-t border-[rgba(255,255,255,0.06)] bg-slate-950/40 p-4">
         <div className="flex items-center gap-2.5 text-xs text-slate-400">
           <span className="size-2.5 animate-ping rounded-full bg-emerald-500" />
-          <span className="font-mono text-[11px] tracking-wide">System: Online</span>
+          <span className="font-mono text-[11px] tracking-wide">
+            System: Online
+          </span>
+        </div>
+        <div className="mt-3 space-y-1 font-mono text-[9px] text-slate-500">
+          {[
+            ["Ctrl/Cmd + 1", "Live"],
+            ["Ctrl/Cmd + M", "Mic"],
+            ["Ctrl/Cmd + Enter", "Present"],
+            ["Ctrl/Cmd + Shift + B", "Blackout"],
+          ].map(([keys, action]) => (
+            <div key={keys} className="flex min-w-0 justify-between gap-2">
+              <span className="shrink-0">{formatShortcutLabel(keys)}</span>
+              <span className="truncate text-right">{action}</span>
+            </div>
+          ))}
         </div>
         <div className="mt-2 flex justify-between font-mono text-[9px] text-slate-600">
           <span>SABBATHCUE PRO</span>

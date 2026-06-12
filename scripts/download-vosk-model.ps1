@@ -1,17 +1,37 @@
 param(
-  [switch]$Force
+  [switch]$Force,
+  [ValidateSet("accurate", "small")]
+  [string]$Quality = "accurate"
 )
 
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $ModelsRoot = Join-Path $ProjectRoot "models\vosk"
-$ModelDir = Join-Path $ModelsRoot "vosk-model-small-en-us"
-$ArchivePath = Join-Path $ModelsRoot "vosk-model-small-en-us-0.15.zip"
 $ExtractRoot = Join-Path $ModelsRoot "__vosk_extract"
-$ExtractedDir = Join-Path $ExtractRoot "vosk-model-small-en-us-0.15"
-$ModelUrl = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
-$ExpectedSha256 = "30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498"
+$ModelOptions = @{
+  accurate = @{
+    Directory = "vosk-model-en-us-0.22-lgraph"
+    Archive = "vosk-model-en-us-0.22-lgraph.zip"
+    ExtractedDirectory = "vosk-model-en-us-0.22-lgraph"
+    Url = "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip"
+    ExpectedSha256 = ""
+  }
+  small = @{
+    Directory = "vosk-model-small-en-us"
+    Archive = "vosk-model-small-en-us-0.15.zip"
+    ExtractedDirectory = "vosk-model-small-en-us-0.15"
+    Url = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+    ExpectedSha256 = "30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498"
+  }
+}
+
+$SelectedModel = $ModelOptions[$Quality]
+$ModelDir = Join-Path $ModelsRoot $SelectedModel["Directory"]
+$ArchivePath = Join-Path $ModelsRoot $SelectedModel["Archive"]
+$ExtractedDir = Join-Path $ExtractRoot $SelectedModel["ExtractedDirectory"]
+$ModelUrl = $SelectedModel["Url"]
+$ExpectedSha256 = $SelectedModel["ExpectedSha256"]
 
 function Test-VoskModelDir {
   param([string]$Path)
@@ -49,24 +69,34 @@ New-Item -ItemType Directory -Force -Path $ModelsRoot | Out-Null
 
 if ((-not $Force) -and (Test-Path $ArchivePath)) {
   Write-Host "Using cached Vosk archive: $ArchivePath"
-  $CachedSha256 = Get-Sha256Hex $ArchivePath
-  if ($CachedSha256 -ne $ExpectedSha256) {
-    Write-Warning "Cached Vosk archive checksum mismatch. Redownloading."
-    Remove-Item -LiteralPath $ArchivePath -Force
+  if ($ExpectedSha256) {
+    $CachedSha256 = Get-Sha256Hex $ArchivePath
+    if ($CachedSha256 -ne $ExpectedSha256) {
+      Write-Warning "Cached Vosk archive checksum mismatch. Redownloading."
+      Remove-Item -LiteralPath $ArchivePath -Force
+    }
   }
 }
 
 if ((-not $Force) -and (Test-Path $ArchivePath)) {
-  Write-Host "Cached Vosk archive verified."
+  if ($ExpectedSha256) {
+    Write-Host "Cached Vosk archive verified."
+  } else {
+    Write-Host "Using cached Vosk archive without checksum verification."
+  }
 } else {
   Write-Host "Downloading Vosk model from $ModelUrl"
   Invoke-WebRequest -Uri $ModelUrl -OutFile $ArchivePath -UseBasicParsing
 }
 
-$ActualSha256 = Get-Sha256Hex $ArchivePath
-if ($ActualSha256 -ne $ExpectedSha256) {
-  Remove-Item -LiteralPath $ArchivePath -Force
-  throw "Downloaded Vosk model checksum mismatch. Expected $ExpectedSha256, got $ActualSha256."
+if ($ExpectedSha256) {
+  $ActualSha256 = Get-Sha256Hex $ArchivePath
+  if ($ActualSha256 -ne $ExpectedSha256) {
+    Remove-Item -LiteralPath $ArchivePath -Force
+    throw "Downloaded Vosk model checksum mismatch. Expected $ExpectedSha256, got $ActualSha256."
+  }
+} else {
+  Write-Warning "No pinned checksum is configured for $($SelectedModel["Archive"]). The archive was downloaded over HTTPS from alphacephei.com."
 }
 
 Remove-Item -LiteralPath $ExtractRoot -Recurse -Force -ErrorAction SilentlyContinue

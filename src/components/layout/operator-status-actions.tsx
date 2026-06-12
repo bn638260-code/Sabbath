@@ -1,4 +1,3 @@
-import { invokeTauri } from "@/lib/tauri-runtime"
 import {
   BellOffIcon,
   BellRingIcon,
@@ -17,10 +16,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { useBibleStore } from "@/stores/bible-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { detectionActions } from "@/hooks/use-detection"
 import { transcriptionActions } from "@/hooks/use-transcription"
+import {
+  clearLiveOutput,
+  clearPreviewOutput,
+  pauseReadingModeAutoLive,
+} from "@/lib/operator-actions"
 
 type OperatorStatusActionsProps = {
   liveItem: { reference: string } | null
@@ -45,23 +48,6 @@ export function OperatorStatusActions({
   onDetectionPausedChange,
   layout,
 }: OperatorStatusActionsProps) {
-  const clearLiveOutput = () => {
-    useBroadcastStore.getState().setLiveItem(null)
-    useBroadcastStore.getState().setLive(false)
-  }
-
-  const clearPreview = () => {
-    useBroadcastStore.getState().setPreviewItem?.(null)
-    useBibleStore.getState().selectVerse(null)
-  }
-
-  const pauseAutoLive = () => {
-    useBroadcastStore.getState().setReadingModeAutoLive(false)
-    invokeTauri("stop_reading_mode").catch((e) =>
-      console.error("[operator-strip] stop reading mode failed", e)
-    )
-  }
-
   const toggleDetectionPaused = () => {
     const next = !detectionPaused
     detectionActions
@@ -72,9 +58,12 @@ export function OperatorStatusActions({
       )
   }
 
-  const stripActionClass = (enabled: boolean, tone: "amber" | "emerald" | "red") =>
+  const stripActionClass = (
+    enabled: boolean,
+    tone: "amber" | "emerald" | "red"
+  ) =>
     cn(
-      "btn-action flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wider transition-colors",
+      "btn-action flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.6rem] tracking-wider uppercase transition-colors",
       enabled
         ? tone === "emerald"
           ? "text-emerald-500 hover:bg-emerald-500/15 hover:text-emerald-400"
@@ -99,7 +88,7 @@ export function OperatorStatusActions({
       icon: XIcon,
       enabled: Boolean(previewItem || selectedVerse),
       tone: "amber" as const,
-      onClick: clearPreview,
+      onClick: clearPreviewOutput,
     },
     {
       key: "pause-auto",
@@ -107,7 +96,7 @@ export function OperatorStatusActions({
       icon: PauseCircleIcon,
       enabled: readingModeAutoLive,
       tone: "amber" as const,
-      onClick: pauseAutoLive,
+      onClick: pauseReadingModeAutoLive,
     },
     {
       key: "detection",
@@ -141,7 +130,11 @@ export function OperatorStatusActions({
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="chrome" size="xs" className="btn-action gap-1 font-mono text-[10px] uppercase">
+          <Button
+            variant="chrome"
+            size="xs"
+            className="btn-action gap-1 font-mono text-[10px] uppercase"
+          >
             <MoreHorizontalIcon className="size-3.5" />
             Actions
           </Button>

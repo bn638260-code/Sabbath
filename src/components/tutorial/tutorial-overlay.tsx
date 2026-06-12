@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { Joyride, STATUS, type EventData } from "react-joyride"
 import { toast } from "sonner"
 import { useSettingsStore } from "@/stores/settings-store"
+import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
+import { useServicePlanStore } from "@/stores/service-plan-store"
 import {
   useTutorialStore,
   hydrateOnboardingState,
@@ -58,6 +60,8 @@ function DesktopTutorialOverlay() {
   const handleEvent = useCallback((data: EventData) => {
     if (data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {
       useTutorialStore.getState().stopTutorial()
+      useServicePlanStore.getState().closePlanner()
+      useDashboardWorkspaceStore.getState().setWorkspace("live")
       persistOnboardingComplete()
 
       if (data.status === STATUS.SKIPPED) {
@@ -80,6 +84,7 @@ function DesktopTutorialOverlay() {
       options={{
         buttons: ["back", "primary", "skip"],
         skipScroll: true,
+        targetWaitTimeout: 2500,
         zIndex: 60,
         overlayColor: "rgba(0, 0, 0, 0.5)",
       }}

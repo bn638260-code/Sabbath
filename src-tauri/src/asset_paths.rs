@@ -2,11 +2,13 @@ use std::path::{Path, PathBuf};
 
 use tauri::{AppHandle, Manager};
 
-pub const VOSK_MODEL_DIRNAME: &str = "vosk-model-small-en-us";
+pub const VOSK_ACCURATE_MODEL_DIRNAME: &str = "vosk-model-en-us-0.22-lgraph";
+pub const VOSK_SMALL_MODEL_DIRNAME: &str = "vosk-model-small-en-us";
+pub const VOSK_MODEL_DIRNAME: &str = VOSK_ACCURATE_MODEL_DIRNAME;
 const VOSK_MODEL_DIRNAMES: &[&str] = &[
+    "vosk-model-en-us-0.22-lgraph",
     "vosk-model-small-en-us",
     "vosk-model-small-en-us-0.15",
-    "vosk-model-en-us-0.22-lgraph",
     "vosk-model-en-us-0.22",
     "vosk-model-en-us-0.42-gigaspeech",
     "vosk-model-en-us-daanzu-20200905",
@@ -318,15 +320,29 @@ mod tests {
 
     #[test]
     fn resolve_vosk_model_dir_descends_into_known_dirnames() {
-        // Zip extractions often produce models/vosk/vosk-model-small-en-us-0.15/<model>,
+        // Zip extractions often produce models/vosk/<downloaded-model>/<model>,
         // where the picked candidate is the parent directory.
         let temp = tempfile::tempdir().expect("temp dir");
-        let nested = temp.path().join("vosk-model-small-en-us-0.15");
+        let nested = temp.path().join(VOSK_ACCURATE_MODEL_DIRNAME);
         make_fake_vosk_model(&nested);
 
         assert_eq!(
             resolve_vosk_model_dir(temp.path().to_path_buf()),
             Some(nested)
+        );
+    }
+
+    #[test]
+    fn resolve_vosk_model_dir_prefers_accurate_dynamic_graph_model() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let accurate = temp.path().join(VOSK_ACCURATE_MODEL_DIRNAME);
+        let small = temp.path().join(VOSK_SMALL_MODEL_DIRNAME);
+        make_fake_vosk_model(&small);
+        make_fake_vosk_model(&accurate);
+
+        assert_eq!(
+            resolve_vosk_model_dir(temp.path().to_path_buf()),
+            Some(accurate)
         );
     }
 

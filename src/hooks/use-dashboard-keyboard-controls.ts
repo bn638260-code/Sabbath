@@ -4,6 +4,13 @@ import {
   presentItem,
   selectPreviewItem,
 } from "@/lib/presentation-workflow"
+import {
+  blackoutOutput,
+  clearLiveOutput,
+  clearPreviewOutput,
+  toggleLiveOutputVisibility,
+  toggleTranscription,
+} from "@/lib/operator-actions"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useQueueStore } from "@/stores/queue-store"
 import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
@@ -20,9 +27,7 @@ import { useEgwSlideStore } from "@/stores/egw-slide-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
-import { useTranscriptStore } from "@/stores/transcript-store"
-import { transcriptionActions } from "./use-transcription"
-import { openApiKeyPrompt } from "@/lib/api-key-prompt"
+import { useTutorialStore } from "@/stores/tutorial-store"
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -36,8 +41,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
 
   return Boolean(
     target.closest(
-      '[contenteditable="true"], input, textarea, select, [role="textbox"], [role="combobox"], [role="spinbutton"]',
-    ),
+      '[contenteditable="true"], input, textarea, select, [role="textbox"], [role="combobox"], [role="spinbutton"]'
+    )
   )
 }
 
@@ -48,7 +53,10 @@ function selectQueueItem(delta: number): void {
   const fallbackIndex = delta > 0 ? -1 : queue.items.length
   const nextIndex = Math.max(
     0,
-    Math.min(queue.items.length - 1, (queue.activeIndex ?? fallbackIndex) + delta),
+    Math.min(
+      queue.items.length - 1,
+      (queue.activeIndex ?? fallbackIndex) + delta
+    )
   )
   const item = queue.items[nextIndex]
   if (!item) return
@@ -78,7 +86,7 @@ function advancePresentationDeck(delta: number): boolean {
 
   const queue = useQueueStore.getState()
   const activeQueueItem =
-    queue.activeIndex === null ? null : queue.items[queue.activeIndex] ?? null
+    queue.activeIndex === null ? null : (queue.items[queue.activeIndex] ?? null)
 
   if (
     isLive &&
@@ -88,16 +96,14 @@ function advancePresentationDeck(delta: number): boolean {
   ) {
     const activeGroup = activeQueueItem.hymnGroup
     const targetItemIndex = activeGroup.itemIndex + delta
-    const targetQueueIndex = queue.items.findIndex(
-      (item) => {
-        const group = item.hymnGroup
-        return (
-          item.presentation.kind === "hymn" &&
-          group?.groupId === activeGroup.groupId &&
-          group.itemIndex === targetItemIndex
-        )
-      },
-    )
+    const targetQueueIndex = queue.items.findIndex((item) => {
+      const group = item.hymnGroup
+      return (
+        item.presentation.kind === "hymn" &&
+        group?.groupId === activeGroup.groupId &&
+        group.itemIndex === targetItemIndex
+      )
+    })
     const target = queue.items[targetQueueIndex]
     if (target) {
       queue.setActive(targetQueueIndex)
@@ -113,7 +119,7 @@ function advancePresentationDeck(delta: number): boolean {
     const currentIndex = findDeckIndex(
       deck,
       presentationDeckSlideId(targetItem),
-      hymnSlides.activeIndex,
+      hymnSlides.activeIndex
     )
     const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
     const next = hymnSlides.deck[nextIndex]
@@ -131,7 +137,7 @@ function advancePresentationDeck(delta: number): boolean {
     const currentIndex = findDeckIndex(
       deck,
       presentationDeckSlideId(targetItem),
-      egwSlides.activeIndex,
+      egwSlides.activeIndex
     )
     const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
     const next = egwSlides.deck[nextIndex]
@@ -148,7 +154,7 @@ function advancePresentationDeck(delta: number): boolean {
   const currentIndex = findDeckIndex(
     deck,
     presentationDeckSlideId(targetItem),
-    sermonSlides.activeIndex,
+    sermonSlides.activeIndex
   )
   const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
   const next = sermonSlides.deck[nextIndex]
@@ -162,15 +168,47 @@ function advancePresentationDeck(delta: number): boolean {
 export function useDashboardKeyboardControls(): void {
   useEffect(() => {
     window.addEventListener("keydown", handleDashboardKeyboardEvent)
-    return () => window.removeEventListener("keydown", handleDashboardKeyboardEvent)
+    return () =>
+      window.removeEventListener("keydown", handleDashboardKeyboardEvent)
   }, [])
 }
 
 export function handleDashboardKeyboardEvent(event: KeyboardEvent): void {
-  if (event.defaultPrevented || event.repeat || isEditableTarget(event.target)) return
+  if (event.defaultPrevented || event.repeat || isEditableTarget(event.target))
+    return
+  if (useTutorialStore.getState().isRunning) return
 
   const key = event.key.toLowerCase()
   const mod = event.ctrlKey || event.metaKey
+  const workspaceMod = mod || event.altKey
+
+  if (workspaceMod && !event.shiftKey && key === "1") {
+    event.preventDefault()
+    useDashboardWorkspaceStore.getState().setWorkspace("live")
+    useServicePlanStore.getState().closePlanner()
+    return
+  }
+
+  if (workspaceMod && !event.shiftKey && key === "2") {
+    event.preventDefault()
+    useDashboardWorkspaceStore.getState().setWorkspace("service-plans")
+    useServicePlanStore.getState().openPlanner()
+    return
+  }
+
+  if (workspaceMod && !event.shiftKey && key === "3") {
+    event.preventDefault()
+    useDashboardWorkspaceStore.getState().setWorkspace("run-service")
+    useServicePlanStore.getState().closePlanner()
+    return
+  }
+
+  if (workspaceMod && !event.shiftKey && key === "4") {
+    event.preventDefault()
+    useDashboardWorkspaceStore.getState().setWorkspace("hymns")
+    useServicePlanStore.getState().closePlanner()
+    return
+  }
 
   if (!mod && !event.altKey && !event.shiftKey && event.key === "ArrowRight") {
     if (advancePresentationDeck(1)) event.preventDefault()
@@ -179,34 +217,6 @@ export function handleDashboardKeyboardEvent(event: KeyboardEvent): void {
 
   if (!mod && !event.altKey && !event.shiftKey && event.key === "ArrowLeft") {
     if (advancePresentationDeck(-1)) event.preventDefault()
-    return
-  }
-
-  if (event.altKey && key === "1") {
-    event.preventDefault()
-    useDashboardWorkspaceStore.getState().setWorkspace("live")
-    useServicePlanStore.getState().closePlanner()
-    return
-  }
-
-  if (event.altKey && key === "2") {
-    event.preventDefault()
-    useDashboardWorkspaceStore.getState().setWorkspace("service-plans")
-    useServicePlanStore.getState().openPlanner()
-    return
-  }
-
-  if (event.altKey && key === "3") {
-    event.preventDefault()
-    useDashboardWorkspaceStore.getState().setWorkspace("run-service")
-    useServicePlanStore.getState().closePlanner()
-    return
-  }
-
-  if (event.altKey && key === "4") {
-    event.preventDefault()
-    useDashboardWorkspaceStore.getState().setWorkspace("hymns")
-    useServicePlanStore.getState().closePlanner()
     return
   }
 
@@ -224,18 +234,31 @@ export function handleDashboardKeyboardEvent(event: KeyboardEvent): void {
 
   if (mod && key === "l") {
     event.preventDefault()
-    const broadcast = useBroadcastStore.getState()
-    broadcast.setLive(!broadcast.isLive)
+    toggleLiveOutputVisibility()
+    return
+  }
+
+  if (mod && event.shiftKey && key === "b") {
+    event.preventDefault()
+    blackoutOutput()
+    return
+  }
+
+  if (mod && event.shiftKey && key === "x") {
+    event.preventDefault()
+    clearLiveOutput()
+    return
+  }
+
+  if (mod && event.shiftKey && key === "p") {
+    event.preventDefault()
+    clearPreviewOutput()
     return
   }
 
   if (mod && key === "m") {
     event.preventDefault()
-    if (useTranscriptStore.getState().isTranscribing) {
-      void transcriptionActions.stop()
-    } else {
-      void transcriptionActions.start(openApiKeyPrompt)
-    }
+    toggleTranscription()
     return
   }
 

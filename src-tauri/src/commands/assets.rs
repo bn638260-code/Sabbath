@@ -46,6 +46,8 @@ pub struct ServiceAttachmentValidation {
 pub struct AssetStatus {
     pub bible_db: bool,
     pub vosk_model: bool,
+    pub vosk_model_name: Option<String>,
+    pub vosk_model_quality: Option<String>,
     pub vosk_worker: bool,
     pub vosk_runtime: bool,
     pub vosk_runtime_error: Option<String>,
@@ -66,6 +68,8 @@ pub async fn asset_status(app: AppHandle) -> AssetStatus {
             AssetStatus {
                 bible_db: false,
                 vosk_model: false,
+                vosk_model_name: None,
+                vosk_model_quality: None,
                 vosk_worker: false,
                 vosk_runtime: false,
                 vosk_runtime_error: Some(format!("Asset status check failed: {error}")),
@@ -82,7 +86,20 @@ pub async fn asset_status(app: AppHandle) -> AssetStatus {
 
 fn build_asset_status(app: &AppHandle) -> AssetStatus {
     let bible_db = asset_paths::bible_db_path(&app).exists();
-    let vosk_model = asset_paths::vosk_model_path(&app).exists();
+    let vosk_model_path = asset_paths::vosk_model_path(&app);
+    let vosk_model = vosk_model_path.exists();
+    let vosk_model_name = vosk_model
+        .then(|| {
+            vosk_model_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+        })
+        .flatten();
+    let vosk_model_quality = vosk_model_name
+        .as_deref()
+        .map(vosk_model_quality_label)
+        .map(str::to_string);
     let vosk_worker_path = asset_paths::vosk_worker_path(&app);
     let vosk_worker = vosk_worker_path.exists();
     let (vosk_runtime, vosk_runtime_error) = vosk_runtime_status(&vosk_worker_path);
@@ -95,6 +112,8 @@ fn build_asset_status(app: &AppHandle) -> AssetStatus {
     AssetStatus {
         bible_db,
         vosk_model,
+        vosk_model_name,
+        vosk_model_quality,
         vosk_worker,
         vosk_runtime,
         vosk_runtime_error,
@@ -104,6 +123,16 @@ fn build_asset_status(app: &AppHandle) -> AssetStatus {
         embedding_ids,
         semantic_ready: onnx_model && tokenizer && embeddings && embedding_ids,
         ndi_sdk,
+    }
+}
+
+fn vosk_model_quality_label(model_name: &str) -> &'static str {
+    if model_name.contains("0.22-lgraph") {
+        "Better accuracy"
+    } else if model_name.contains("small") {
+        "Standard"
+    } else {
+        "High accuracy"
     }
 }
 

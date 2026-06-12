@@ -27,6 +27,7 @@ export function TutorialTooltip({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") {
         e.preventDefault()
+        e.stopPropagation()
         if (isLastStepRef.current) {
           controlsRef.current.skip("button_skip")
         } else {
@@ -34,9 +35,11 @@ export function TutorialTooltip({
         }
       } else if (e.key === "ArrowLeft" && indexRef.current > 0) {
         e.preventDefault()
+        e.stopPropagation()
         controlsRef.current.prev()
       } else if (e.key === "Escape") {
         e.preventDefault()
+        e.stopPropagation()
         controlsRef.current.skip("button_close")
       }
     }
@@ -50,11 +53,11 @@ export function TutorialTooltip({
       {...tooltipProps}
       className="glass-panel z-[70] w-[340px] overflow-hidden shadow-2xl shadow-black/25"
     >
-      <div className="flex items-center gap-2.5 border-b border-white/5 px-4 pb-3 pt-4">
+      <div className="flex items-center gap-2.5 border-b border-white/5 px-4 pt-4 pb-3">
         <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-glow)]">
           <SparklesIcon className="size-3.5 text-[var(--accent)]" />
         </div>
-        <h3 className="text-sm font-semibold leading-tight tracking-tight text-foreground">
+        <h3 className="text-sm leading-tight font-semibold tracking-tight text-foreground">
           {step.title ?? `Step ${index + 1}`}
         </h3>
       </div>
@@ -79,7 +82,7 @@ export function TutorialTooltip({
               }`}
             />
           ))}
-          <span className="ml-1 text-[0.6875rem] tabular-nums text-muted-foreground/50">
+          <span className="ml-1 text-[0.6875rem] text-muted-foreground/50 tabular-nums">
             {index + 1}/{size}
           </span>
         </div>
