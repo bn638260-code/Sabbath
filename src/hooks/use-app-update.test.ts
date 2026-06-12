@@ -25,7 +25,7 @@ describe("useAppUpdate", () => {
     mockDownloadAndInstallUpdate.mockReset()
     mockGetAppVersion.mockReset()
     mockRelaunchApp.mockReset()
-    mockGetAppVersion.mockResolvedValue("0.1.4")
+    mockGetAppVersion.mockResolvedValue("0.1.5")
   })
 
   it("reports available when a newer version exists", async () => {

@@ -31,9 +31,9 @@ describe("updater", () => {
   })
 
   it("returns the app version from Tauri", async () => {
-    mockGetVersion.mockResolvedValue("0.1.4")
+    mockGetVersion.mockResolvedValue("0.1.5")
     const { getAppVersion } = await import("@/lib/updater")
-    await expect(getAppVersion()).resolves.toBe("0.1.4")
+    await expect(getAppVersion()).resolves.toBe("0.1.5")
   })
 
   it("returns null update when check finds nothing new", async () => {
