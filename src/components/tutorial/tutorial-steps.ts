@@ -158,13 +158,13 @@ export const TUTORIAL_STEPS: Step[] = [
   },
   {
     ...STEP_DEFAULTS,
-    target: "#settings-section-account",
+    target: '[data-tour="settings-section-account"]',
     title: "Your Account",
     content:
       "Settings > Account shows the email you signed in with. From there you can sign out, manage your account, and your sign-in works on up to 2 machines.",
     placement: "left",
     before: () =>
-      prepareTarget("#settings-section-account", {
+      prepareTarget('[data-tour="settings-section-account"]', {
         settingsSection: "account",
       }),
   },

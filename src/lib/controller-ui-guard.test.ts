@@ -22,6 +22,7 @@ const TUTORIAL_DATA_TOUR_IDS = [
   "broadcast",
   "theme",
   "settings",
+  "settings-section-account",
 ] as const
 
 const TUTORIAL_DATA_SLOTS = [
