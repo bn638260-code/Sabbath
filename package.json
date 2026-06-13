@@ -64,7 +64,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "fabric": "^7.2.0",
+    "fabric": "^7.4.0",
     "fuse.js": "^7.1.0",
     "lucide-react": "^1.7.0",
     "radix-ui": "^1.4.3",
@@ -101,7 +101,7 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.1",
-    "vite": "^7.3.1",
+    "vite": "^8.0.16",
     "vitest": "^4.1.0"
   }
 }
