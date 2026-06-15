@@ -25,8 +25,8 @@ from tokenizers import Tokenizer
 # ── Paths ───────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
 VERSES_PATH = ROOT / "data" / "verses-for-embedding.json"
-EMB_OUT = ROOT / "embeddings" / "kjv-minilm-l6-v2.bin"
-IDS_OUT = ROOT / "embeddings" / "kjv-minilm-l6-v2-ids.bin"
+EMB_OUT = ROOT / "embeddings" / "kjv-nkjv-nlt-minilm-l6-v2.bin"
+IDS_OUT = ROOT / "embeddings" / "kjv-nkjv-nlt-minilm-l6-v2-ids.bin"
 
 # Try INT8 first, fall back to FP32
 MODEL_INT8 = ROOT / "models" / "minilm-l6-v2-int8" / "onnx" / "model_quantized.onnx"

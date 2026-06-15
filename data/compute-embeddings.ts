@@ -1,82 +1,145 @@
 /// <reference types="bun-types" />
 /**
- * Pre-computes verse embeddings using the ONNX model.
- * This script exports verses to a JSON file, then a Rust binary does the actual embedding.
+ * Prepares canonical verse text for semantic embeddings.
+ *
+ * The semantic index stores one vector per Bible reference, keyed by the KJV
+ * verse row id. When NKJV/NLT are available, their wording is blended into the
+ * same text so live semantic search can match modern phrasing without emitting
+ * duplicate references for the same verse.
  *
  * Usage:
- * 1. Run: bun run data/download-model.ts  (download the ONNX model first)
- * 2. Run: bun run data/compute-embeddings.ts  (export verses to JSON)
+ * 1. Run: bun run data/download-model.ts
+ * 2. Run: bun run data/compute-embeddings.ts
  * 3. Run: cargo run -p rhema-detection --features onnx,vector-search --bin precompute -- \
- *         --model models/minilm-l6-v2-int8/onnx/model_quantized.onnx \
- *         --tokenizer models/minilm-l6-v2/tokenizer.json \
- *         --verses data/verses-for-embedding.json \
- *         --output-embeddings embeddings/kjv-minilm-l6-v2.bin \
- *         --output-ids embeddings/kjv-minilm-l6-v2-ids.bin
- *
- * For now, this script just exports the verses to JSON.
- * The actual embedding computation will be done via Rust.
+ *        --model models/minilm-l6-v2-int8/onnx/model_quantized.onnx \
+ *        --tokenizer models/minilm-l6-v2/tokenizer.json \
+ *        --verses data/verses-for-embedding.json \
+ *        --output-embeddings embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin \
+ *        --output-ids embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin
  */
 
 import { Database } from "bun:sqlite"
-import { join } from "node:path"
 import { mkdir } from "node:fs/promises"
+import { join } from "node:path"
 
 const DATA_DIR = import.meta.dir
 const DB_PATH = join(DATA_DIR, "rhema.db")
 const OUTPUT_PATH = join(DATA_DIR, "verses-for-embedding.json")
+const EMBEDDING_TRANSLATIONS = ["KJV", "NKJV", "NLT"] as const
+
+type TranslationRow = {
+  id: number
+  abbreviation: string
+}
+
+type VerseRow = {
+  id: number
+  translation_id: number
+  book_number: number
+  book_name: string
+  chapter: number
+  verse: number
+  text: string
+}
+
+function verseKey(bookNumber: number, chapter: number, verse: number): string {
+  return `${bookNumber}:${chapter}:${verse}`
+}
 
 async function main() {
   await mkdir(join(DATA_DIR, "..", "embeddings"), { recursive: true })
 
-  console.log("\n📖 Exporting KJV verses for embedding...\n")
+  console.log("\nExporting canonical KJV/NKJV/NLT verses for embedding...\n")
 
   const db = new Database(DB_PATH, { readonly: true })
 
-  // Resolve the KJV translation id by abbreviation (do not assume id = 1).
-  const kjvRow = db
-    .query("SELECT id FROM translations WHERE abbreviation = 'KJV'")
-    .get() as { id: number } | null
+  const placeholders = EMBEDDING_TRANSLATIONS.map(() => "?").join(", ")
+  const translationRows = db
+    .query(
+      `SELECT id, abbreviation FROM translations WHERE abbreviation IN (${placeholders})`,
+    )
+    .all(...EMBEDDING_TRANSLATIONS) as TranslationRow[]
 
+  const translations = EMBEDDING_TRANSLATIONS.map((abbreviation) =>
+    translationRows.find((row) => row.abbreviation === abbreviation),
+  ).filter((row): row is TranslationRow => Boolean(row))
+
+  const kjvRow = translations.find((row) => row.abbreviation === "KJV")
   if (!kjvRow) {
     throw new Error(
-      "KJV translation not found in rhema.db — run build:bible (or build:bible:public) first"
+      "KJV translation not found in rhema.db - run build:bible first",
     )
   }
 
-  const verses = db
+  const missing = EMBEDDING_TRANSLATIONS.filter(
+    (abbreviation) =>
+      !translations.some((row) => row.abbreviation === abbreviation),
+  )
+  if (missing.length > 0) {
+    console.log(`  Missing optional translations: ${missing.join(", ")}`)
+  }
+  console.log(
+    `  Using translations: ${translations
+      .map((row) => row.abbreviation)
+      .join(", ")}`,
+  )
+
+  const kjvVerses = db
     .query(
-      "SELECT id, book_name, chapter, verse, text FROM verses WHERE translation_id = ? ORDER BY id"
+      "SELECT id, translation_id, book_number, book_name, chapter, verse, text FROM verses WHERE translation_id = ? ORDER BY book_number, chapter, verse",
     )
-    .all(kjvRow.id) as Array<{
-    id: number
-    book_name: string
-    chapter: number
-    verse: number
-    text: string
-  }>
+    .all(kjvRow.id) as VerseRow[]
 
-  console.log(`  Found ${verses.length} KJV verses`)
+  const translationIds = translations.map((row) => row.id)
+  const idPlaceholders = translationIds.map(() => "?").join(", ")
+  const translationNamesById = new Map(
+    translations.map((row) => [row.id, row.abbreviation]),
+  )
+  const verseRows = db
+    .query(
+      `SELECT id, translation_id, book_number, book_name, chapter, verse, text FROM verses WHERE translation_id IN (${idPlaceholders}) ORDER BY translation_id, book_number, chapter, verse`,
+    )
+    .all(...translationIds) as VerseRow[]
 
-  // Write to JSON for the Rust precompute binary
-  const output = verses.map((v) => ({
-    id: v.id,
-    text: v.text,
-    ref: `${v.book_name} ${v.chapter}:${v.verse}`,
-  }))
+  const textByReference = new Map<string, Map<string, string>>()
+  for (const row of verseRows) {
+    const abbreviation = translationNamesById.get(row.translation_id)
+    if (!abbreviation) continue
+
+    const key = verseKey(row.book_number, row.chapter, row.verse)
+    const texts = textByReference.get(key) ?? new Map<string, string>()
+    texts.set(abbreviation, row.text)
+    textByReference.set(key, texts)
+  }
+
+  console.log(`  Found ${kjvVerses.length} canonical KJV verse references`)
+
+  const output = kjvVerses.map((verse) => {
+    const texts = textByReference.get(
+      verseKey(verse.book_number, verse.chapter, verse.verse),
+    )
+    const blendedText = translations
+      .map((translation) => texts?.get(translation.abbreviation))
+      .filter((text): text is string => Boolean(text && text.trim()))
+      .join(" ")
+
+    return {
+      id: verse.id,
+      text: blendedText || verse.text,
+      ref: `${verse.book_name} ${verse.chapter}:${verse.verse}`,
+    }
+  })
 
   await Bun.write(OUTPUT_PATH, JSON.stringify(output))
-  console.log(`  ✓ Exported to ${OUTPUT_PATH}`)
+  console.log(`  Exported to ${OUTPUT_PATH}`)
   console.log(
-    `\n  Next: Run the Rust precompute binary to generate embeddings.`
-  )
-  console.log(
-    `  This requires the ONNX model to be downloaded first (bun run data/download-model.ts)\n`
+    "\n  Next: run the embedding precompute step to generate the binary index.\n",
   )
 
   db.close()
 }
 
 main().catch((err) => {
-  console.error("❌ Export failed:", err)
+  console.error("Export failed:", err)
   process.exit(1)
 })

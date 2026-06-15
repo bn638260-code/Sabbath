@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useRef } from "react"
-import { listen } from "@tauri-apps/api/event"
 import { Dashboard } from "@/components/layout/dashboard"
 import { useRemoteControl } from "@/hooks/use-remote-control"
 import { useDetectionSettingsSync } from "@/hooks/use-detection-settings-sync"
 import { useAnnouncements } from "@/hooks/use-announcements"
 import { useAppUpdate } from "@/hooks/use-app-update"
+import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { Toaster, toast } from "sonner"
 import { useVerificationStore } from "@/stores/verification-store"
 import type {
@@ -55,34 +55,18 @@ function isValidOutputErrorPayload(
 }
 
 function useBroadcastOutputErrorListener() {
-  useEffect(() => {
-    if (!isTauriRuntime()) return
-
-    let unlisten: (() => void) | undefined
-
-    void listen<BroadcastOutputErrorEvent>(
-      "broadcast:output-error",
-      (event) => {
-        if (!isValidOutputErrorPayload(event.payload)) return
-        useBroadcastStore.getState().reportOutputIssue({
-          outputId: event.payload.outputId,
-          kind: event.payload.kind,
-          title: event.payload.title,
-          description: event.payload.description,
-        })
-      }
-    )
-      .then((dispose) => {
-        unlisten = dispose
+  useTauriEvent<BroadcastOutputErrorEvent>(
+    "broadcast:output-error",
+    (payload) => {
+      if (!isValidOutputErrorPayload(payload)) return
+      useBroadcastStore.getState().reportOutputIssue({
+        outputId: payload.outputId,
+        kind: payload.kind,
+        title: payload.title,
+        description: payload.description,
       })
-      .catch(() => {
-        // Non-Tauri or listener registration failure should not crash the app.
-      })
-
-    return () => {
-      unlisten?.()
     }
-  }, [])
+  )
 }
 
 function useWelcomeToast() {

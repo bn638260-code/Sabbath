@@ -9,20 +9,20 @@ use crate::semantic::detector::SemanticDetector;
 use crate::types::{Detection, DetectionSource, VerseRef};
 
 /// Confidence assigned to the best FTS5 BM25 match (rank 0).
-const FTS5_RANK0_CONFIDENCE: f64 = 0.75;
+const FTS5_RANK0_CONFIDENCE: f64 = 0.68;
 
-/// Confidence decrease per FTS5 rank position (rank 1 = 0.71, rank 2 = 0.67, etc.).
+/// Confidence decrease per FTS5 rank position (rank 1 = 0.64, rank 2 = 0.60, etc.).
 const FTS5_CONFIDENCE_DECAY: f64 = 0.04;
 
 /// FTS5 results below this confidence are not included.
-const FTS5_MIN_CONFIDENCE: f64 = 0.42;
+const FTS5_MIN_CONFIDENCE: f64 = 0.50;
 
 /// Minimum word count for vector embedding search (short text lacks semantic signal).
 const MIN_WORDS_FOR_VECTOR: usize = 4;
 
 const OVERLAP_CONFIDENCE_BOOST: f64 = 0.10;
 
-const LIVE_SEMANTIC_CAP: usize = 3;
+const LIVE_SEMANTIC_CAP: usize = 5;
 
 /// The main detection pipeline that runs on each transcript segment.
 ///
@@ -351,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pipeline_hybrid_with_fts_caps_at_three() {
+    fn test_pipeline_hybrid_with_fts_caps_at_five() {
         let mut pipeline = DetectionPipeline::new();
         let fts_results = vec![
             Bm25Result {
@@ -381,6 +381,20 @@ mod tests {
                 chapter: 23,
                 verse: 1,
                 rank: 3.0,
+            },
+            Bm25Result {
+                book_number: 23,
+                book_name: "Isaiah".to_string(),
+                chapter: 53,
+                verse: 5,
+                rank: 4.0,
+            },
+            Bm25Result {
+                book_number: 40,
+                book_name: "Matthew".to_string(),
+                chapter: 5,
+                verse: 3,
+                rank: 5.0,
             },
         ];
 

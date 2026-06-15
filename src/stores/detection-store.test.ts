@@ -55,7 +55,7 @@ describe("detection store", () => {
     expect(detections[1].verse_ref).toBe("John 3:16")
   })
 
-  it("stronger semantic hit outranks weaker direct hit", () => {
+  it("direct hit outranks stronger semantic hit", () => {
     const store = useDetectionStore.getState()
 
     store.addDetection(makeDetection({
@@ -72,8 +72,8 @@ describe("detection store", () => {
     }))
 
     const detections = useDetectionStore.getState().detections
-    expect(detections[0].verse_ref).toBe("Strong Semantic")
-    expect(detections[1].verse_ref).toBe("Weak Direct")
+    expect(detections[0].verse_ref).toBe("Weak Direct")
+    expect(detections[1].verse_ref).toBe("Strong Semantic")
   })
 
   it("near-tied direct hit wins over semantic", () => {
@@ -92,7 +92,6 @@ describe("detection store", () => {
       source: "direct",
     }))
 
-    // 0.87 + 0.04 = 0.91 vs 0.90 → direct wins by narrow margin
     const detections = useDetectionStore.getState().detections
     expect(detections[0].verse_ref).toBe("Near Direct")
     expect(detections[1].verse_ref).toBe("Near Semantic")
@@ -249,7 +248,7 @@ describe("detection store", () => {
     expect(detections[0].confidence).toBe(0.92)
   })
 
-  it("keeps at most 8 detections", () => {
+  it("keeps at most 5 detections", () => {
     const store = useDetectionStore.getState()
 
     for (let i = 0; i < 9; i += 1) {
@@ -258,7 +257,7 @@ describe("detection store", () => {
     }
 
     const detections = useDetectionStore.getState().detections
-    expect(detections).toHaveLength(8)
+    expect(detections).toHaveLength(5)
     expect(detections[0].verse_ref).toBe("Ref 8")
     expect(detections.some((d) => d.verse_ref === "Ref 0")).toBe(false)
   })

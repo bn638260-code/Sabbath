@@ -15,7 +15,7 @@ const DEFAULT_CACHE_CAPACITY: usize = 256;
 /// Default cosine-similarity threshold below which results are discarded.
 const DEFAULT_CONFIDENCE_THRESHOLD: f64 = 0.42;
 const SEMANTIC_SEARCH_K: usize = 12;
-const MAX_SEMANTIC_DETECTIONS: usize = 8;
+const MAX_SEMANTIC_DETECTIONS: usize = 5;
 
 /// Orchestrator that combines text chunking, embedding, vector search,
 /// and caching to detect Bible verses from transcript text using
@@ -101,10 +101,10 @@ impl SemanticDetector {
                 Ok(results) => {
                     let now = Self::timestamp_ms();
                     for result in results {
-                        if result.best_similarity >= self.confidence_threshold {
+                        if result.score >= self.confidence_threshold {
                             detections.push(Self::make_detection(
                                 result.verse_id,
-                                result.best_similarity,
+                                result.score,
                                 text,
                                 now,
                             ));
@@ -156,7 +156,7 @@ impl SemanticDetector {
             }
         }
 
-        // Cap results: sort by confidence, keep top 5
+        // Cap results: sort by confidence, keep top semantic suggestions.
         detections.sort_by(|a, b| {
             b.confidence
                 .partial_cmp(&a.confidence)
@@ -293,6 +293,30 @@ mod tests {
     }
 
     #[test]
+    fn test_ensemble_detection_confidence_uses_combined_score() {
+        let fake_results = vec![SearchResult {
+            verse_id: 1001,
+            similarity: 0.85,
+        }];
+
+        let mut detector = SemanticDetector::new(
+            Box::new(StubEmbedder::new(128)),
+            Box::new(FakeIndex {
+                results: fake_results,
+            }),
+        );
+
+        let detections = detector.detect("plain transcription filler without biblical theme words");
+
+        assert_eq!(detections.len(), 1);
+        assert!(
+            detections[0].confidence < 0.85,
+            "displayed confidence should use ensemble score, not best raw similarity"
+        );
+        assert!(detections[0].confidence >= DEFAULT_CONFIDENCE_THRESHOLD);
+    }
+
+    #[test]
     fn test_threshold_adjustment() {
         let fake_results = vec![SearchResult {
             verse_id: 1001,
@@ -306,7 +330,7 @@ mod tests {
             }),
         );
 
-        // Default threshold is 0.50 — should include 0.60
+        // Default threshold should include this supported semantic result.
         let detections = detector.detect("for God so loved the world that he gave his son");
         assert!(!detections.is_empty());
 

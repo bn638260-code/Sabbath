@@ -4,6 +4,10 @@ use tauri::{AppHandle, Manager};
 
 pub const VOSK_ACCURATE_MODEL_DIRNAME: &str = "vosk-model-en-us-0.22-lgraph";
 pub const VOSK_MODEL_DIRNAME: &str = VOSK_ACCURATE_MODEL_DIRNAME;
+pub const PREFERRED_EMBEDDINGS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2.bin";
+pub const PREFERRED_EMBEDDING_IDS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2-ids.bin";
+const LEGACY_EMBEDDINGS_FILENAME: &str = "kjv-minilm-l6-v2.bin";
+const LEGACY_EMBEDDING_IDS_FILENAME: &str = "kjv-minilm-l6-v2-ids.bin";
 #[cfg(test)]
 const VOSK_SMALL_MODEL_DIRNAME: &str = "vosk-model-small-en-us";
 const VOSK_MODEL_DIRNAMES: &[&str] = &[
@@ -39,6 +43,17 @@ pub fn simplify_windows_path(path: PathBuf) -> PathBuf {
 
 fn first_existing(paths: impl IntoIterator<Item = PathBuf>) -> Option<PathBuf> {
     paths.into_iter().find(|p| p.exists())
+}
+
+fn named_asset_candidates(roots: &[PathBuf], subdir: &str, filenames: &[&str]) -> Vec<PathBuf> {
+    filenames
+        .iter()
+        .flat_map(|filename| {
+            roots
+                .iter()
+                .map(move |root| root.join(subdir).join(filename))
+        })
+        .collect()
 }
 
 fn is_vosk_model_dir(path: &Path) -> bool {
@@ -232,52 +247,49 @@ pub fn tokenizer_path(app: &AppHandle) -> PathBuf {
 }
 
 pub fn embeddings_path(app: &AppHandle) -> PathBuf {
-    first_existing(
-        [
-            app_data_dir(app)
-                .ok()
-                .map(|p| p.join("embeddings").join("kjv-minilm-l6-v2.bin")),
-            app.path()
-                .resource_dir()
-                .ok()
-                .map(|p| p.join("embeddings").join("kjv-minilm-l6-v2.bin")),
-            Some(dev_root().join("embeddings").join("kjv-minilm-l6-v2.bin")),
-        ]
-        .into_iter()
-        .flatten(),
-    )
+    let roots: Vec<PathBuf> = [
+        app_data_dir(app).ok(),
+        app.path().resource_dir().ok(),
+        Some(dev_root()),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    first_existing(named_asset_candidates(
+        &roots,
+        "embeddings",
+        &[PREFERRED_EMBEDDINGS_FILENAME, LEGACY_EMBEDDINGS_FILENAME],
+    ))
     .unwrap_or_else(|| {
         app_data_dir(app)
             .unwrap_or_else(|_| dev_root())
             .join("embeddings")
-            .join("kjv-minilm-l6-v2.bin")
+            .join(PREFERRED_EMBEDDINGS_FILENAME)
     })
 }
 
 pub fn embedding_ids_path(app: &AppHandle) -> PathBuf {
-    first_existing(
-        [
-            app_data_dir(app)
-                .ok()
-                .map(|p| p.join("embeddings").join("kjv-minilm-l6-v2-ids.bin")),
-            app.path()
-                .resource_dir()
-                .ok()
-                .map(|p| p.join("embeddings").join("kjv-minilm-l6-v2-ids.bin")),
-            Some(
-                dev_root()
-                    .join("embeddings")
-                    .join("kjv-minilm-l6-v2-ids.bin"),
-            ),
-        ]
-        .into_iter()
-        .flatten(),
-    )
+    let roots: Vec<PathBuf> = [
+        app_data_dir(app).ok(),
+        app.path().resource_dir().ok(),
+        Some(dev_root()),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    first_existing(named_asset_candidates(
+        &roots,
+        "embeddings",
+        &[
+            PREFERRED_EMBEDDING_IDS_FILENAME,
+            LEGACY_EMBEDDING_IDS_FILENAME,
+        ],
+    ))
     .unwrap_or_else(|| {
         app_data_dir(app)
             .unwrap_or_else(|_| dev_root())
             .join("embeddings")
-            .join("kjv-minilm-l6-v2-ids.bin")
+            .join(PREFERRED_EMBEDDING_IDS_FILENAME)
     })
 }
 
@@ -388,6 +400,32 @@ mod tests {
         );
         assert_eq!(first_existing([missing.clone()]), None);
         assert_eq!(first_existing([present.clone(), missing]), Some(present));
+    }
+
+    #[test]
+    fn named_asset_candidates_prefer_blended_semantic_assets_before_legacy_assets() {
+        let root_a = PathBuf::from("a");
+        let root_b = PathBuf::from("b");
+
+        let candidates = named_asset_candidates(
+            &[root_a.clone(), root_b.clone()],
+            "embeddings",
+            &[PREFERRED_EMBEDDINGS_FILENAME, LEGACY_EMBEDDINGS_FILENAME],
+        );
+
+        assert_eq!(
+            candidates,
+            vec![
+                root_a
+                    .join("embeddings")
+                    .join(PREFERRED_EMBEDDINGS_FILENAME),
+                root_b
+                    .join("embeddings")
+                    .join(PREFERRED_EMBEDDINGS_FILENAME),
+                root_a.join("embeddings").join(LEGACY_EMBEDDINGS_FILENAME),
+                root_b.join("embeddings").join(LEGACY_EMBEDDINGS_FILENAME),
+            ]
+        );
     }
 }
 

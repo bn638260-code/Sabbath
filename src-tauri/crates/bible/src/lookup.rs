@@ -29,6 +29,40 @@ impl BibleDb {
         }
     }
 
+    pub fn get_verse_by_id_in_translation(
+        &self,
+        id: i64,
+        translation_id: i64,
+    ) -> Result<Option<Verse>, BibleError> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT target.id, target.translation_id, target.book_number, target.book_name, target.book_abbreviation, target.chapter, target.verse, target.text \
+             FROM verses source \
+             JOIN verses target \
+               ON target.translation_id = ?2 \
+              AND target.book_number = source.book_number \
+              AND target.chapter = source.chapter \
+              AND target.verse = source.verse \
+             WHERE source.id = ?1",
+        )?;
+        let mut rows = stmt.query_map(rusqlite::params![id, translation_id], |row| {
+            Ok(Verse {
+                id: row.get(0)?,
+                translation_id: row.get(1)?,
+                book_number: row.get(2)?,
+                book_name: row.get(3)?,
+                book_abbreviation: row.get(4)?,
+                chapter: row.get(5)?,
+                verse: row.get(6)?,
+                text: row.get(7)?,
+            })
+        })?;
+        match rows.next() {
+            Some(row) => Ok(Some(row?)),
+            None => Ok(None),
+        }
+    }
+
     pub fn get_verse(
         &self,
         translation_id: i64,
@@ -205,7 +239,9 @@ mod lookup_tests {
             "CREATE TABLE translations (id INTEGER PRIMARY KEY, abbreviation TEXT, title TEXT, language TEXT, is_copyrighted INTEGER, is_downloaded INTEGER);
              CREATE TABLE books (id INTEGER PRIMARY KEY, translation_id INTEGER, book_number INTEGER, name TEXT, abbreviation TEXT, testament TEXT);
              CREATE TABLE verses (id INTEGER PRIMARY KEY, translation_id INTEGER, book_number INTEGER, book_name TEXT, book_abbreviation TEXT, chapter INTEGER, verse INTEGER, text TEXT);
-             INSERT INTO translations VALUES (1, 'KJV', 'King James', 'en', 0, 1);
+             INSERT INTO translations VALUES
+               (1, 'KJV', 'King James', 'en', 0, 1),
+               (2, 'NKJV', 'New King James', 'en', 1, 1);
              INSERT INTO books VALUES (1, 1, 43, 'John', 'Jn', 'NT');
              INSERT INTO verses VALUES
                (1, 1, 43, 'John', 'Jn', 3, 16, 'For God so loved the world.'),
@@ -223,6 +259,23 @@ mod lookup_tests {
         let db = fixture_db();
         let verse = db.get_verse(1, 43, 3, 16).unwrap().expect("verse");
         assert_eq!(verse.text, "For God so loved the world.");
+    }
+
+    #[test]
+    fn get_verse_by_id_in_translation_returns_matching_reference() {
+        let db = fixture_db();
+        let verse = db
+            .get_verse_by_id_in_translation(1, 2)
+            .unwrap()
+            .expect("verse");
+        assert_eq!(verse.translation_id, 2);
+        assert_eq!(verse.text, "Other translation verse.");
+    }
+
+    #[test]
+    fn get_verse_by_id_in_translation_returns_none_when_translation_missing_reference() {
+        let db = fixture_db();
+        assert!(db.get_verse_by_id_in_translation(2, 2).unwrap().is_none());
     }
 
     #[test]

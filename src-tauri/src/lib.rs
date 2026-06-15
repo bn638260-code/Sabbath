@@ -202,7 +202,19 @@ pub fn run() {
                             let dim = embedder.dimension();
                             match rhema_detection::HnswVectorIndex::load(&embeddings_path, &ids_path, dim) {
                                 Ok(index) => {
-                                    log::info!("Verse embeddings loaded ({} vectors)", index.len());
+                                    let semantic_corpus = if embeddings_path
+                                        .file_name()
+                                        .and_then(|name| name.to_str())
+                                        == Some(asset_paths::PREFERRED_EMBEDDINGS_FILENAME)
+                                    {
+                                        "KJV/NKJV/NLT canonical blend"
+                                    } else {
+                                        "KJV canonical legacy"
+                                    };
+                                    log::info!(
+                                        "Verse embeddings loaded ({} vectors, corpus={semantic_corpus}; semantic hits resolve to active translation)",
+                                        index.len(),
+                                    );
                                     pipeline.set_semantic(
                                         rhema_detection::SemanticDetector::new(
                                             Box::new(embedder),

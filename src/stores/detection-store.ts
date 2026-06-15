@@ -10,8 +10,7 @@ interface DetectionResultWithMeta extends DetectionResult {
   received_at?: number
 }
 
-const MAX_RECENT_DETECTIONS = 8
-const DIRECT_SOURCE_BONUS = 0.04
+const MAX_RECENT_DETECTIONS = 5
 const MAX_RECENCY_BONUS = 0.01
 const RECENCY_BONUS_WINDOW_MS = 30_000
 
@@ -26,7 +25,6 @@ interface DetectionState {
 }
 
 function detectionRank(detection: DetectionResultWithMeta, now: number): number {
-  const sourceBonus = detection.source === "direct" ? DIRECT_SOURCE_BONUS : 0
   const receivedAt = detection.received_at ?? 0
   const ageMs = Math.max(0, now - receivedAt)
   const recencyBonus =
@@ -34,7 +32,11 @@ function detectionRank(detection: DetectionResultWithMeta, now: number): number 
       ? Math.max(0, MAX_RECENCY_BONUS * (1 - ageMs / RECENCY_BONUS_WINDOW_MS))
       : 0
 
-  return detection.confidence + sourceBonus + recencyBonus
+  return detection.confidence + recencyBonus
+}
+
+function sourcePriority(detection: DetectionResultWithMeta): number {
+  return detection.source === "direct" ? 1 : 0
 }
 
 function compareDetections(
@@ -42,6 +44,9 @@ function compareDetections(
   b: DetectionResultWithMeta,
   now: number,
 ): number {
+  const sourceDiff = sourcePriority(b) - sourcePriority(a)
+  if (sourceDiff !== 0) return sourceDiff
+
   const rankDiff = detectionRank(b, now) - detectionRank(a, now)
   if (Math.abs(rankDiff) > Number.EPSILON) return rankDiff
 

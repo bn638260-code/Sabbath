@@ -5,8 +5,8 @@
 //!     --model models/minilm-l6-v2-int8/onnx/model_quantized.onnx \
 //!     --tokenizer models/minilm-l6-v2/tokenizer.json \
 //!     --verses data/verses-for-embedding.json \
-//!     --output-embeddings embeddings/kjv-minilm-l6-v2.bin \
-//!     --output-ids embeddings/kjv-minilm-l6-v2-ids.bin
+//!     --output-embeddings embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin \
+//!     --output-ids embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin
 
 use std::path::PathBuf;
 
@@ -31,9 +31,9 @@ fn main() {
     let verses_path =
         get_arg(&args, "--verses").unwrap_or_else(|| "data/verses-for-embedding.json".to_string());
     let output_embeddings = get_arg(&args, "--output-embeddings")
-        .unwrap_or_else(|| "embeddings/kjv-minilm-l6-v2.bin".to_string());
+        .unwrap_or_else(|| "embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin".to_string());
     let output_ids = get_arg(&args, "--output-ids")
-        .unwrap_or_else(|| "embeddings/kjv-minilm-l6-v2-ids.bin".to_string());
+        .unwrap_or_else(|| "embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin".to_string());
 
     log::info!("=== SabbathCue Verse Embedding Pre-computation ===");
     log::info!("Model: {model_path}");

@@ -1735,6 +1735,30 @@ mod tests {
     }
 
     #[test]
+    fn test_cross_segment_daniel_7_dangling_number_verse_waits_for_actual_verse() {
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("Daniel 7");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_chapter_only);
+        assert_eq!(results[0].verse_ref.book_name, "Daniel");
+        assert_eq!(results[0].verse_ref.chapter, 7);
+        assert_eq!(results[0].verse_ref.verse_start, 1);
+        assert!(detector.incomplete.is_some());
+
+        let results = detector.detect("7 verse");
+        assert!(results.is_empty());
+        assert!(detector.incomplete.is_some());
+
+        let results = detector.detect("9");
+        assert_eq!(results.len(), 1);
+        assert!(!results[0].is_chapter_only);
+        assert_eq!(results[0].verse_ref.book_name, "Daniel");
+        assert_eq!(results[0].verse_ref.chapter, 7);
+        assert_eq!(results[0].verse_ref.verse_start, 9);
+    }
+
+    #[test]
     fn test_bare_number_as_chapter_after_book_only() {
         // "Acts" → "3" → "22"
         let mut detector = DirectDetector::new();

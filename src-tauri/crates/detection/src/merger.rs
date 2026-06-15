@@ -61,7 +61,7 @@ impl DetectionMerger {
     ///
     /// 1. Combine all detections.
     /// 2. Dedup: if direct and semantic found the same verse, keep direct.
-    /// 3. Sort by confidence descending.
+    /// 3. Sort direct references before semantic suggestions, then by confidence.
     /// 4. Drop anything below `confidence_threshold`.
     /// 5. Mark `auto_queued = true` for the highest-ranked eligible item
     ///    (only one auto-queue per merge pass).
@@ -93,11 +93,13 @@ impl DetectionMerger {
             }
         }
 
-        // 3. Sort by confidence descending
+        // 3. Direct references are more trustworthy than semantic suggestions.
         deduped.sort_by(|a, b| {
-            b.confidence
-                .partial_cmp(&a.confidence)
-                .unwrap_or(std::cmp::Ordering::Equal)
+            source_priority(b).cmp(&source_priority(a)).then_with(|| {
+                b.confidence
+                    .partial_cmp(&a.confidence)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
         });
 
         // 4. Drop below threshold
@@ -185,6 +187,10 @@ fn should_replace(existing: &Detection, incoming: &Detection) -> bool {
         (true, false) => false,
         _ => incoming.confidence > existing.confidence,
     }
+}
+
+fn source_priority(detection: &Detection) -> u8 {
+    u8::from(matches!(detection.source, DetectionSource::DirectReference))
 }
 
 #[cfg(test)]
@@ -334,6 +340,33 @@ mod tests {
     }
 
     #[test]
+    fn test_merger_direct_ranks_above_stronger_distinct_semantic_result() {
+        let mut merger = DetectionMerger::new();
+
+        let direct = vec![make_detection(
+            27,
+            "Daniel",
+            7,
+            9,
+            0.88,
+            DetectionSource::DirectReference,
+        )];
+        let semantic = vec![make_detection(
+            66,
+            "Revelation",
+            20,
+            12,
+            0.99,
+            DetectionSource::Semantic { similarity: 0.99 },
+        )];
+
+        let results = merger.merge(direct, semantic);
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].detection.verse_ref.book_name, "Daniel");
+        assert_eq!(results[1].detection.verse_ref.book_name, "Revelation");
+    }
+
+    #[test]
     fn test_merger_drops_below_threshold() {
         let mut merger = DetectionMerger::new();
 
@@ -401,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merger_sort_order() {
+    fn test_merger_sort_order_prioritizes_direct_then_confidence() {
         let mut merger = DetectionMerger::new();
 
         let direct = vec![make_detection(
@@ -433,9 +466,12 @@ mod tests {
 
         let results = merger.merge(direct, semantic);
         assert_eq!(results.len(), 3);
-        // Highest confidence first
-        assert!((results[0].detection.confidence - 0.95).abs() < f64::EPSILON);
-        assert!((results[1].detection.confidence - 0.90).abs() < f64::EPSILON);
+        assert!(matches!(
+            results[0].detection.source,
+            DetectionSource::DirectReference
+        ));
+        assert!((results[0].detection.confidence - 0.90).abs() < f64::EPSILON);
+        assert!((results[1].detection.confidence - 0.95).abs() < f64::EPSILON);
         assert!((results[2].detection.confidence - 0.60).abs() < f64::EPSILON);
     }
 

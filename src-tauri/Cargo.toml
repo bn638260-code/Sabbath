@@ -76,6 +76,9 @@ default = ["whisper"]
 whisper = ["rhema-stt/whisper"]
 faster-whisper = ["rhema-stt/faster-whisper"]
 
+[dev-dependencies]
+rusqlite = { version = "0.34", features = ["bundled"] }
+
 [lints]
 workspace = true
 

@@ -23,10 +23,10 @@ pub(crate) fn is_detection_paused(app: &AppHandle) -> bool {
     paused
 }
 
-pub(crate) const SEMANTIC_WINDOW_SEGMENTS: usize = 8;
-pub(crate) const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(150);
+pub(crate) const SEMANTIC_WINDOW_SEGMENTS: usize = 4;
+pub(crate) const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(250);
 pub(crate) const PARTIAL_SEMANTIC_MIN_WORDS: usize = 4;
-pub(crate) const LIVE_SEMANTIC_CAP: usize = 3;
+pub(crate) const LIVE_SEMANTIC_CAP: usize = 5;
 const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
 
 /// Take the latest pending semantic job from a shared slot, recovering from
@@ -510,33 +510,60 @@ pub(crate) fn run_semantic_detection(
     }
 
     // FTS5 BM25 phrase search (~5ms)
-    let fts_results = {
+    let (fts_results, active_translation_id) = {
         let managed: State<'_, Mutex<AppState>> = app.state();
         let Ok(app_state) = managed.lock() else {
             log::error!("Failed to lock AppState for FTS5");
             return;
         };
-        app_state
-            .bible_db
-            .as_ref()
-            .and_then(|db| db.search_verses_bm25(transcript, 10).ok())
+        (
+            app_state
+                .bible_db
+                .as_ref()
+                .and_then(|db| db.search_verses_bm25(transcript, 10).ok()),
+            app_state.active_translation_id,
+        )
     };
 
     let fts = fts_results.unwrap_or_default();
     if fts.is_empty() {
         log::debug!("[DET-SEMANTIC] No FTS5 results, trying vector-only search");
+    } else if let Some(top) = fts.first() {
+        log::debug!(
+            "[DET-SEMANTIC] FTS5 hits={} top={} {}:{} rank={:.3}",
+            fts.len(),
+            top.book_name,
+            top.chapter,
+            top.verse,
+            top.rank
+        );
     }
 
     // Use hybrid pipeline: FTS5 + vector search when available.
     // Even with empty FTS5, vector search can catch paraphrases.
-    let merged = {
+    let (merged, semantic_ready, paraphrase_enabled) = {
         let pipeline_state: State<'_, Mutex<rhema_detection::DetectionPipeline>> = app.state();
         let Ok(mut pipeline) = pipeline_state.lock() else {
             log::error!("Failed to lock DetectionPipeline");
             return;
         };
-        pipeline.process_hybrid_with_fts(transcript, &fts)
+        let semantic_ready = pipeline.has_semantic();
+        let paraphrase_enabled = pipeline.use_synonyms();
+        let merged = pipeline.process_hybrid_with_fts(transcript, &fts);
+        (merged, semantic_ready, paraphrase_enabled)
     };
+
+    log::info!(
+        "[DET-SEMANTIC] Workflow seq={} words={} fts_hits={} vector_ready={} paraphrase={} active_translation_id={} candidates={} elapsed={:?}",
+        seq,
+        transcript.split_whitespace().count(),
+        fts.len(),
+        semantic_ready,
+        paraphrase_enabled,
+        active_translation_id,
+        merged.len(),
+        t0.elapsed()
+    );
 
     if merged.is_empty() {
         log::info!("[DET-SEMANTIC] No detections");
@@ -808,10 +835,12 @@ pub(crate) fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found
 mod tests {
     use super::{
         finalize_live_semantic_results, replace_semantic_job, take_semantic_job,
-        DeepgramSemanticBuffer, LIVE_SEMANTIC_CAP,
+        DeepgramSemanticBuffer, LIVE_SEMANTIC_CAP, PARTIAL_SEMANTIC_DEBOUNCE,
+        SEMANTIC_WINDOW_SEGMENTS,
     };
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     fn make_detection_result(
         verse_ref: &str,
@@ -870,6 +899,13 @@ mod tests {
         assert_eq!(s1, 1);
         assert_eq!(s2, 2);
         assert_eq!(s3, 3);
+    }
+
+    #[test]
+    fn live_semantic_workflow_matches_requested_speed_and_result_window() {
+        assert_eq!(LIVE_SEMANTIC_CAP, 5);
+        assert_eq!(SEMANTIC_WINDOW_SEGMENTS, 4);
+        assert!(PARTIAL_SEMANTIC_DEBOUNCE <= Duration::from_millis(300));
     }
 
     /// Test that stale detection is correctly identified when
@@ -943,6 +979,8 @@ mod tests {
             make_detection_result("Romans 8:28", 45, 8, 28, 0.82),
             make_detection_result("Genesis 1:1", 1, 1, 1, 0.81),
             make_detection_result("Psalm 23:1", 19, 23, 1, 0.80),
+            make_detection_result("Isaiah 53:5", 23, 53, 5, 0.79),
+            make_detection_result("Matthew 5:3", 40, 5, 3, 0.78),
         ];
 
         let finalized = finalize_live_semantic_results(results);

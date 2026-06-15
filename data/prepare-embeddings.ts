@@ -6,7 +6,7 @@
  * Phase 3: Build rhema.db (SQLite + FTS5)
  * Phase 4: Import EGW books into rhema.db
  * Phase 5: Download and export ONNX model + INT8 quantization
- * Phase 6: Export KJV verses to JSON
+ * Phase 6: Export canonical KJV/NKJV/NLT verses to JSON
  * Phase 7: Pre-compute verse embeddings
  * Phase 8: Download Whisper model for local STT
  *
@@ -36,8 +36,8 @@ const CROSS_REFS = join(DATA_DIR, "cross-refs", "cross_references.txt")
 const DB_PATH = join(DATA_DIR, "rhema.db")
 const EGW_SOURCE_DIR = join(DATA_DIR, "sources", "egw")
 const VERSES_JSON = join(DATA_DIR, "verses-for-embedding.json")
-const EMB_BIN = join(PROJECT_ROOT, "embeddings", "kjv-minilm-l6-v2.bin")
-const IDS_BIN = join(PROJECT_ROOT, "embeddings", "kjv-minilm-l6-v2-ids.bin")
+const EMB_BIN = join(PROJECT_ROOT, "embeddings", "kjv-nkjv-nlt-minilm-l6-v2.bin")
+const IDS_BIN = join(PROJECT_ROOT, "embeddings", "kjv-nkjv-nlt-minilm-l6-v2-ids.bin")
 const WHISPER_MODEL = join(
   PROJECT_ROOT,
   "models",

@@ -688,6 +688,13 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
         return None;
     }
 
+    // In split speech, Deepgram can produce fragments like "7 verse"
+    // before the actual verse number arrives. Do not treat the leading
+    // number as a verse in that case; wait for the next segment.
+    if !is_book_only && starts_with_dangling_number_verse(&tokens) {
+        return None;
+    }
+
     // Pattern 1: "chapter N [... verse M]"
     for i in 0..tokens.len() {
         if let Token::Word(w) = &tokens[i] {
@@ -742,6 +749,18 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
     }
 
     None
+}
+
+fn starts_with_dangling_number_verse(tokens: &[Token]) -> bool {
+    let Some((_number, next_idx)) = consume_number_at(tokens, 0) else {
+        return false;
+    };
+
+    let Some(Token::Word(word)) = tokens.get(next_idx) else {
+        return false;
+    };
+
+    (word == "verse" || word == "verses") && consume_number(tokens, next_idx + 1).is_none()
 }
 
 #[cfg(test)]
@@ -1149,6 +1168,28 @@ mod tests {
         assert_eq!(
             try_extract_continuation("22. Acts three for Moses", false),
             Some(Continuation::VerseOnly(22))
+        );
+    }
+
+    #[test]
+    fn test_continuation_dangling_number_verse_waits_for_number() {
+        assert_eq!(try_extract_continuation("7 verse", false), None);
+        assert_eq!(try_extract_continuation("seven verse", false), None);
+    }
+
+    #[test]
+    fn test_continuation_dangling_number_verse_after_book_only_sets_chapter() {
+        assert_eq!(
+            try_extract_continuation("3 verse", true),
+            Some(Continuation::ChapterOnly(3))
+        );
+    }
+
+    #[test]
+    fn test_continuation_number_verse_number_uses_following_verse() {
+        assert_eq!(
+            try_extract_continuation("7 verse 9", false),
+            Some(Continuation::VerseOnly(9))
         );
     }
 
