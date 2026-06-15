@@ -290,7 +290,7 @@ pub async fn start_transcription(
         })?;
 
     // Spawn STT provider and transcript event workers on the tokio runtime.
-    let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<TranscriptEvent>(64);
+    let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<TranscriptEvent>(128);
     let mut task_handles = Vec::new();
 
     let conn_active = stt_active.clone();
@@ -324,12 +324,12 @@ pub async fn start_transcription(
     let partial_semantic_notify = Arc::new(Notify::new());
 
     // Background detection channel — direct + reading mode, non-blocking
-    let (detect_tx, mut detect_rx) = tokio::sync::mpsc::channel::<(u64, String)>(16);
+    let (detect_tx, mut detect_rx) = tokio::sync::mpsc::channel::<(u64, String)>(64);
 
     // Background fast-preview channel: direct references only, latest work wins.
     // This gives preview a fast path without touching final detector/cooldown state.
     let (partial_preview_tx, mut partial_preview_rx) =
-        tokio::sync::mpsc::channel::<(u64, String)>(32);
+        tokio::sync::mpsc::channel::<(u64, String)>(64);
 
     // [DIAG] Counters so we can see whether transcripts are being dropped
     // because the detection workers can't keep up. Logged every 25 sends
@@ -387,6 +387,10 @@ pub async fn start_transcription(
             let app_clone = det_app.clone();
             let latest_seq = det_latest_seq.clone();
             let _ = tokio::task::spawn_blocking(move || {
+                if check_reading_mode(&app_clone, &transcript, false) {
+                    return;
+                }
+
                 let direct_found = run_direct_detection(&app_clone, seq, &latest_seq, &transcript);
                 check_reading_mode(&app_clone, &transcript, direct_found);
             })

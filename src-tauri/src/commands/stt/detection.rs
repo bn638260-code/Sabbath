@@ -24,8 +24,8 @@ pub(crate) fn is_detection_paused(app: &AppHandle) -> bool {
 }
 
 pub(crate) const SEMANTIC_WINDOW_SEGMENTS: usize = 4;
-pub(crate) const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(250);
-pub(crate) const PARTIAL_SEMANTIC_MIN_WORDS: usize = 4;
+pub(crate) const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(100);
+pub(crate) const PARTIAL_SEMANTIC_MIN_WORDS: usize = 3;
 pub(crate) const LIVE_SEMANTIC_CAP: usize = 5;
 const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
 
@@ -836,7 +836,7 @@ mod tests {
     use super::{
         finalize_live_semantic_results, replace_semantic_job, take_semantic_job,
         DeepgramSemanticBuffer, LIVE_SEMANTIC_CAP, PARTIAL_SEMANTIC_DEBOUNCE,
-        SEMANTIC_WINDOW_SEGMENTS,
+        PARTIAL_SEMANTIC_MIN_WORDS, SEMANTIC_WINDOW_SEGMENTS,
     };
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
@@ -905,7 +905,8 @@ mod tests {
     fn live_semantic_workflow_matches_requested_speed_and_result_window() {
         assert_eq!(LIVE_SEMANTIC_CAP, 5);
         assert_eq!(SEMANTIC_WINDOW_SEGMENTS, 4);
-        assert!(PARTIAL_SEMANTIC_DEBOUNCE <= Duration::from_millis(300));
+        assert_eq!(PARTIAL_SEMANTIC_DEBOUNCE, Duration::from_millis(100));
+        assert_eq!(PARTIAL_SEMANTIC_MIN_WORDS, 3);
     }
 
     /// Test that stale detection is correctly identified when

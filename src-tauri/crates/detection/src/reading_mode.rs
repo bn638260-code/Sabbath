@@ -453,12 +453,12 @@ impl ReadingMode {
 
     /// Check if the transcript contains a verse navigation command:
     /// - "verse three", "verse 4" → jump to that verse
-    /// - "next" / "next verse" → advance by 1
-    /// - "previous verse" / "go back" / go back by 1
+    /// - "next" / "next verse" / "let's go to the next verse" → advance by 1
+    /// - "previous verse" / "go back" / "let's go to the previous verse" → go back by 1
     /// - Bare numbers when context is `ExpectingVerse`
     fn check_verse_number_reference(&mut self, text: &str) -> Option<ReadingAdvance> {
-        let lower = text.to_lowercase();
-        let trimmed = lower.trim();
+        let normalized = normalize_command_text(text);
+        let trimmed = normalized.as_str();
 
         // If we're expecting a verse number and this is a bare number, interpret it as verse
         if self.bare_number_context == BareNumberContext::ExpectingVerse {
@@ -478,12 +478,7 @@ impl ReadingMode {
             }
         }
 
-        // Check for "next" / "next verse" command
-        if trimmed == "next"
-            || trimmed == "next."
-            || trimmed == "next verse"
-            || trimmed == "next verse."
-        {
+        if is_next_verse_command(trimmed) {
             let next_idx = self.current_index + 1;
             if next_idx < self.verses.len() {
                 log::info!("[READING] 'Next' command detected");
@@ -492,12 +487,7 @@ impl ReadingMode {
             return None;
         }
 
-        // Check for "previous" / "go back" command
-        if trimmed == "previous verse"
-            || trimmed == "previous verse."
-            || trimmed == "go back"
-            || trimmed == "go back."
-        {
+        if is_previous_verse_command(trimmed) {
             if self.current_index > 0 {
                 let prev_idx = self.current_index - 1;
                 log::info!("[READING] 'Previous' command detected");
@@ -554,6 +544,84 @@ impl Default for ReadingMode {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn normalize_command_text(text: &str) -> String {
+    let mut normalized = String::with_capacity(text.len());
+    let mut previous_was_space = true;
+
+    for ch in text.to_lowercase().chars() {
+        if ch.is_alphanumeric() {
+            normalized.push(ch);
+            previous_was_space = false;
+        } else if ch == '\'' {
+            continue;
+        } else if !previous_was_space {
+            normalized.push(' ');
+            previous_was_space = true;
+        }
+    }
+
+    normalized.trim().to_string()
+}
+
+fn contains_command_phrase(command: &str, phrase: &str) -> bool {
+    command == phrase
+        || command.starts_with(&format!("{phrase} "))
+        || command.ends_with(&format!(" {phrase}"))
+        || command.contains(&format!(" {phrase} "))
+}
+
+fn is_next_verse_command(command: &str) -> bool {
+    matches!(
+        command,
+        "next" | "next verse" | "please next verse" | "next verse please"
+    ) || [
+        "go to next verse",
+        "go to the next verse",
+        "lets go to next verse",
+        "lets go to the next verse",
+        "let us go to next verse",
+        "let us go to the next verse",
+        "advance to next verse",
+        "advance to the next verse",
+        "move to next verse",
+        "move to the next verse",
+        "bring up next verse",
+        "bring up the next verse",
+    ]
+    .iter()
+    .any(|phrase| contains_command_phrase(command, phrase))
+}
+
+fn is_previous_verse_command(command: &str) -> bool {
+    matches!(
+        command,
+        "previous"
+            | "previous verse"
+            | "prev verse"
+            | "please previous verse"
+            | "previous verse please"
+            | "go back"
+            | "go back please"
+    ) || [
+        "go to previous verse",
+        "go to the previous verse",
+        "lets go to previous verse",
+        "lets go to the previous verse",
+        "let us go to previous verse",
+        "let us go to the previous verse",
+        "go back a verse",
+        "go back one verse",
+        "back one verse",
+        "back a verse",
+        "move to previous verse",
+        "move to the previous verse",
+        "bring up previous verse",
+        "bring up the previous verse",
+    ]
+    .iter()
+    .any(|phrase| contains_command_phrase(command, phrase))
 }
 
 /// Extract a verse number from text containing "verse N" anywhere.
@@ -868,6 +936,43 @@ mod tests {
         let r = rm.check_transcript("verse three");
         assert!(r.is_some());
         assert_eq!(r.unwrap().verse, 3);
+    }
+
+    #[test]
+    fn next_verse_command_accepts_natural_go_to_phrase() {
+        let mut rm = ReadingMode::new();
+
+        rm.start(44, "Acts", 15, 29, sample_verses());
+
+        let advance = rm
+            .check_transcript("let's go to the next verse")
+            .expect("natural next verse command should advance");
+
+        assert_eq!(advance.verse, 30);
+    }
+
+    #[test]
+    fn previous_verse_command_accepts_natural_go_to_phrase() {
+        let mut rm = ReadingMode::new();
+
+        rm.start(44, "Acts", 15, 29, sample_verses());
+
+        let advance = rm
+            .check_transcript("lets go to the previous verse")
+            .expect("natural previous verse command should go back");
+
+        assert_eq!(advance.verse, 28);
+    }
+
+    #[test]
+    fn next_verse_command_does_not_fire_for_plain_sermon_sentence() {
+        let mut rm = ReadingMode::new();
+
+        rm.start(44, "Acts", 15, 29, sample_verses());
+
+        let result = rm.check_transcript("the next verse explains the same idea");
+
+        assert_eq!(result, None);
     }
 
     #[test]

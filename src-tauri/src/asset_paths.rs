@@ -190,11 +190,11 @@ pub fn vosk_worker_path(app: &AppHandle) -> PathBuf {
                     .resource_dir()
                     .ok()
                     .map(|p| p.join("scripts").join("vosk_worker.exe")),
+                Some(dev_root().join("sidecars").join("vosk_worker.exe")),
                 app.path()
                     .resource_dir()
                     .ok()
                     .map(|p| p.join("scripts").join("vosk_worker.py")),
-                Some(dev_root().join("sidecars").join("vosk_worker.exe")),
                 Some(dev_root().join("scripts").join("vosk_worker.py")),
             ]
             .into_iter()
@@ -255,11 +255,11 @@ pub fn sherpa_worker_path(app: &AppHandle) -> PathBuf {
                     .resource_dir()
                     .ok()
                     .map(|p| p.join("scripts").join("sherpa_worker.exe")),
+                Some(dev_root().join("sidecars").join("sherpa_worker.exe")),
                 app.path()
                     .resource_dir()
                     .ok()
                     .map(|p| p.join("scripts").join("sherpa_worker.py")),
-                Some(dev_root().join("sidecars").join("sherpa_worker.exe")),
                 Some(dev_root().join("scripts").join("sherpa_worker.py")),
             ]
             .into_iter()
