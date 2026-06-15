@@ -38,6 +38,10 @@ mod tests {
         );
     }
 
+    #[expect(
+        clippy::assertions_on_constants,
+        reason = "This regression test documents the intended log retention cap"
+    )]
     #[test]
     fn max_log_file_size_holds_a_full_session() {
         // The plugin default (40 KB) overflows within minutes of transcription

@@ -45,6 +45,11 @@ pub struct ServiceAttachmentValidation {
 )]
 pub struct AssetStatus {
     pub bible_db: bool,
+    pub sherpa_model: bool,
+    pub sherpa_model_name: Option<String>,
+    pub sherpa_worker: bool,
+    pub sherpa_runtime: bool,
+    pub sherpa_runtime_error: Option<String>,
     pub vosk_model: bool,
     pub vosk_model_name: Option<String>,
     pub vosk_model_quality: Option<String>,
@@ -67,6 +72,11 @@ pub async fn asset_status(app: AppHandle) -> AssetStatus {
             log::error!("[ASSETS] asset_status task failed: {error}");
             AssetStatus {
                 bible_db: false,
+                sherpa_model: false,
+                sherpa_model_name: None,
+                sherpa_worker: false,
+                sherpa_runtime: false,
+                sherpa_runtime_error: Some(format!("Asset status check failed: {error}")),
                 vosk_model: false,
                 vosk_model_name: None,
                 vosk_model_quality: None,
@@ -85,8 +95,21 @@ pub async fn asset_status(app: AppHandle) -> AssetStatus {
 }
 
 fn build_asset_status(app: &AppHandle) -> AssetStatus {
-    let bible_db = asset_paths::bible_db_path(&app).exists();
-    let vosk_model_path = asset_paths::vosk_model_path(&app);
+    let bible_db = asset_paths::bible_db_path(app).exists();
+    let sherpa_model_path = asset_paths::sherpa_model_path(app);
+    let sherpa_model = sherpa_model_path.exists();
+    let sherpa_model_name = sherpa_model
+        .then(|| {
+            sherpa_model_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+        })
+        .flatten();
+    let sherpa_worker_path = asset_paths::sherpa_worker_path(app);
+    let sherpa_worker = sherpa_worker_path.exists();
+    let (sherpa_runtime, sherpa_runtime_error) = sherpa_runtime_status(&sherpa_worker_path);
+    let vosk_model_path = asset_paths::vosk_model_path(app);
     let vosk_model = vosk_model_path.exists();
     let vosk_model_name = vosk_model
         .then(|| {
@@ -100,17 +123,22 @@ fn build_asset_status(app: &AppHandle) -> AssetStatus {
         .as_deref()
         .map(vosk_model_quality_label)
         .map(str::to_string);
-    let vosk_worker_path = asset_paths::vosk_worker_path(&app);
+    let vosk_worker_path = asset_paths::vosk_worker_path(app);
     let vosk_worker = vosk_worker_path.exists();
     let (vosk_runtime, vosk_runtime_error) = vosk_runtime_status(&vosk_worker_path);
-    let onnx_model = asset_paths::onnx_model_path(&app).exists();
-    let tokenizer = asset_paths::tokenizer_path(&app).exists();
-    let embeddings = asset_paths::embeddings_path(&app).exists();
-    let embedding_ids = asset_paths::embedding_ids_path(&app).exists();
-    let ndi_sdk = asset_paths::ndi_library_path(&app).exists();
+    let onnx_model = asset_paths::onnx_model_path(app).exists();
+    let tokenizer = asset_paths::tokenizer_path(app).exists();
+    let embeddings = asset_paths::embeddings_path(app).exists();
+    let embedding_ids = asset_paths::embedding_ids_path(app).exists();
+    let ndi_sdk = asset_paths::ndi_library_path(app).exists();
 
     AssetStatus {
         bible_db,
+        sherpa_model,
+        sherpa_model_name,
+        sherpa_worker,
+        sherpa_runtime,
+        sherpa_runtime_error,
         vosk_model,
         vosk_model_name,
         vosk_model_quality,
@@ -159,7 +187,11 @@ fn worker_is_executable(path: &Path) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"))
 }
 
-fn vosk_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
+fn python_package_runtime_status(
+    label: &str,
+    package_import: &str,
+    worker_path: &Path,
+) -> (bool, Option<String>) {
     if worker_path.exists() && worker_is_executable(worker_path) {
         return (true, None);
     }
@@ -169,7 +201,7 @@ fn vosk_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
     suppress_console_window(&mut command);
     match command
         .arg("-c")
-        .arg("import vosk")
+        .arg(format!("import {package_import}"))
         .stdin(Stdio::null())
         .output()
     {
@@ -187,7 +219,7 @@ fn vosk_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
             (
                 false,
                 Some(format!(
-                    "Python can run, but the Vosk package is unavailable: {detail}"
+                    "Python can run, but the {label} package is unavailable: {detail}"
                 )),
             )
         }
@@ -198,6 +230,14 @@ fn vosk_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
             )),
         ),
     }
+}
+
+fn sherpa_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
+    python_package_runtime_status("sherpa-onnx", "sherpa_onnx", worker_path)
+}
+
+fn vosk_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
+    python_package_runtime_status("Vosk", "vosk", worker_path)
 }
 
 #[cfg(windows)]

@@ -66,6 +66,26 @@ describe("use-transcription", () => {
       })
     })
 
+    it("invokes start_transcription with settings-derived params for sherpa", async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      const { useSettingsStore, transcriptionActions } = await loadModules()
+
+      useSettingsStore.setState({
+        sttProvider: "sherpa",
+        audioDeviceId: "dev-43",
+        gain: 1.25,
+      })
+
+      await transcriptionActions.start()
+
+      expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
+        deviceId: "dev-43",
+        gain: 1.25,
+        provider: "sherpa",
+        lowPower: false,
+      })
+    })
+
     it("forwards low power mode so the backend can skip partial semantic detection", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()

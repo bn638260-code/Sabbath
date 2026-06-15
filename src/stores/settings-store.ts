@@ -3,7 +3,7 @@ import { load, type Store } from "@tauri-apps/plugin-store"
 import { isTauriRuntime, invokeTauri } from "@/lib/tauri-runtime"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 
-export type SttProvider = "deepgram" | "gladia" | "vosk"
+export type SttProvider = "deepgram" | "gladia" | "sherpa" | "vosk"
 
 interface SettingsState {
   hasDeepgramApiKey: boolean
@@ -40,7 +40,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   confidenceThreshold: 0.8,
   cooldownMs: 2500,
   onboardingComplete: false,
-  sttProvider: "vosk",
+  sttProvider: "sherpa",
   lowPowerMode: false,
 
   setHasDeepgramApiKey: (hasDeepgramApiKey) => set({ hasDeepgramApiKey }),
@@ -67,8 +67,15 @@ const PERSISTED_KEYS = [
 ] as const satisfies readonly (keyof SettingsState)[]
 
 function parseSttProvider(value: unknown): SttProvider {
-  if (value === "deepgram" || value === "gladia") return value
-  return "vosk"
+  if (
+    value === "deepgram" ||
+    value === "gladia" ||
+    value === "sherpa" ||
+    value === "vosk"
+  ) {
+    return value
+  }
+  return "sherpa"
 }
 
 let tauriStore: Store | null = null

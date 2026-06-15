@@ -25,8 +25,8 @@ export function ApiKeysSection() {
           )}
         </div>
         <p className="text-[0.625rem] text-muted-foreground">
-          {sttProvider === "vosk"
-            ? "Not required when using local Vosk. "
+          {sttProvider === "sherpa" || sttProvider === "vosk"
+            ? "Not required when using local speech recognition. "
             : "Required for cloud transcription. "}
           Configure in the Speech Recognition section.
         </p>
@@ -50,8 +50,8 @@ export function ApiKeysSection() {
           )}
         </div>
         <p className="text-[0.625rem] text-muted-foreground">
-          {sttProvider === "vosk"
-            ? "Not required when using local Vosk. "
+          {sttProvider === "sherpa" || sttProvider === "vosk"
+            ? "Not required when using local speech recognition. "
             : "Required for cloud transcription. "}
           Configure in the Speech Recognition section.
         </p>

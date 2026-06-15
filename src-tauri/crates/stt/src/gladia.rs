@@ -399,7 +399,7 @@ mod tests {
             }) => {
                 assert_eq!(transcript, "John 3:16");
                 assert!(words.is_empty());
-                assert_eq!(confidence, 1.0);
+                assert!((confidence - 1.0).abs() < f64::EPSILON);
                 assert!(speech_final);
             }
             other => panic!("expected final transcript, got {other:?}"),

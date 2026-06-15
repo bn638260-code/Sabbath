@@ -117,7 +117,7 @@ pub async fn start_transcription(
         return Err("Transcription is already running".into());
     }
 
-    let provider_name = provider.as_deref().unwrap_or("vosk");
+    let provider_name = provider.as_deref().unwrap_or("sherpa");
 
     // Build the STT provider.
     let stt_provider =

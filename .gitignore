@@ -27,6 +27,7 @@ dist-ssr
 build
 src-tauri/target/
 src-tauri/src-tauri/
+tmp/
 supabase/.temp/
 releases/**/SabbathCue*.exe
 releases/**/*.msi
@@ -41,6 +42,9 @@ data/verses-for-embedding.json
 
 # ML models and embeddings (downloaded, not committed)
 models/*
+!models/sherpa/
+models/sherpa/*
+!models/sherpa/.gitkeep
 sidecars/*
 !sidecars/.gitkeep
 .env

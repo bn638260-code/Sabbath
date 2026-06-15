@@ -125,6 +125,18 @@ pub fn run() {
                 app.package_info().version,
                 std::process::id()
             );
+            let sherpa_model = asset_paths::sherpa_model_path(app.handle());
+            let sherpa_worker = asset_paths::sherpa_worker_path(app.handle());
+            log::info!(
+                "Resolved Sherpa model path: {} (exists={})",
+                sherpa_model.display(),
+                sherpa_model.exists()
+            );
+            log::info!(
+                "Resolved Sherpa worker path: {} (exists={})",
+                sherpa_worker.display(),
+                sherpa_worker.exists()
+            );
             let vosk_model = asset_paths::vosk_model_path(app.handle());
             let vosk_worker = asset_paths::vosk_worker_path(app.handle());
             log::info!(
