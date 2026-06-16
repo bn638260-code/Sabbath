@@ -72,7 +72,7 @@ runs seven phases in this exact order:
    GPU via PyTorch if available; falls back to ONNX Runtime on
    CPU).
 7. **Local STT model** - prepares the local speech-to-text model files used by
-   the offline Vosk provider.
+   the default offline Whisper provider (`bun run download:whisper`).
 
   </Step>
   <Step>
@@ -132,7 +132,7 @@ bun run export:verses              # Export verses to JSON
 bun run precompute:embeddings      # Rust ONNX binary (recommended)
 bun run precompute:embeddings-onnx # Python ONNX Runtime path
 bun run precompute:embeddings-py   # Python sentence-transformers (GPU)
-bun run download:whisper           # Optional legacy Whisper model
+bun run download:whisper           # Default local Whisper model (ggml-tiny.en.bin)
 ```
 
   </Tab>

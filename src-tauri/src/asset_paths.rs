@@ -4,6 +4,13 @@ use tauri::{AppHandle, Manager};
 
 pub const VOSK_ACCURATE_MODEL_DIRNAME: &str = "vosk-model-en-us-0.22-lgraph";
 pub const VOSK_MODEL_DIRNAME: &str = VOSK_ACCURATE_MODEL_DIRNAME;
+/// Smallest/lightest Whisper model — the default local STT model.
+pub const WHISPER_MODEL_FILENAME: &str = "ggml-tiny.en.bin";
+/// Well-known LibreOffice install locations probed after env and PATH lookups.
+const SOFFICE_FIXED_CANDIDATES: &[&str] = &[
+    r"C:\Program Files\LibreOffice\program\soffice.exe",
+    r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+];
 pub const PREFERRED_EMBEDDINGS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2.bin";
 pub const PREFERRED_EMBEDDING_IDS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2-ids.bin";
 const LEGACY_EMBEDDINGS_FILENAME: &str = "kjv-minilm-l6-v2.bin";
@@ -160,6 +167,98 @@ pub fn vosk_worker_path(app: &AppHandle) -> PathBuf {
         )
         .unwrap_or_else(|| dev_root().join("scripts").join("vosk_worker.py")),
     )
+}
+
+/// Resolve the Whisper GGML model file (`ggml-tiny.en.bin`).
+///
+/// Search order: `SABBATHCUE_WHISPER_MODEL` override, app data dir, bundled
+/// resource dir, then the dev-tree `models/whisper`. Falls back to the app
+/// data location (which may not exist yet) so callers can report a stable path.
+pub fn whisper_model_path(app: &AppHandle) -> PathBuf {
+    let mut candidates = Vec::new();
+    if let Ok(path) = std::env::var("SABBATHCUE_WHISPER_MODEL") {
+        if !path.trim().is_empty() {
+            candidates.push(PathBuf::from(path));
+        }
+    }
+
+    let roots = [
+        app_data_dir(app)
+            .ok()
+            .map(|p| p.join("models").join("whisper")),
+        app.path()
+            .resource_dir()
+            .ok()
+            .map(|p| p.join("models").join("whisper")),
+        Some(dev_root().join("models").join("whisper")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
+
+    for root in &roots {
+        candidates.push(root.join(WHISPER_MODEL_FILENAME));
+    }
+
+    simplify_windows_path(first_existing(candidates).unwrap_or_else(|| {
+        app_data_dir(app)
+            .unwrap_or_else(|_| dev_root())
+            .join("models")
+            .join("whisper")
+            .join(WHISPER_MODEL_FILENAME)
+    }))
+}
+
+/// Executable names for the LibreOffice CLI, per platform.
+fn soffice_executable_names() -> &'static [&'static str] {
+    if cfg!(windows) {
+        &["soffice.exe", "soffice.com"]
+    } else {
+        &["soffice"]
+    }
+}
+
+/// Build the ordered list of candidate `soffice` paths from an explicit
+/// override, the directories in `PATH`, and well-known install locations.
+///
+/// Pure so the precedence can be unit-tested without touching the real
+/// environment.
+fn soffice_candidate_paths(
+    env_override: Option<&str>,
+    path_var: Option<&std::ffi::OsStr>,
+    fixed: &[&str],
+    exe_names: &[&str],
+) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(value) = env_override {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            candidates.push(PathBuf::from(trimmed));
+        }
+    }
+    if let Some(path_var) = path_var {
+        for dir in std::env::split_paths(path_var) {
+            for name in exe_names {
+                candidates.push(dir.join(name));
+            }
+        }
+    }
+    candidates.extend(fixed.iter().map(PathBuf::from));
+    candidates
+}
+
+/// Resolve a LibreOffice `soffice` executable used to convert PowerPoint decks
+/// to PDF. Honors `SABBATHCUE_SOFFICE_PATH`, then `PATH`, then the common
+/// Windows install directories. Returns `None` when LibreOffice is absent.
+pub fn resolve_soffice() -> Option<PathBuf> {
+    let env_override = std::env::var("SABBATHCUE_SOFFICE_PATH").ok();
+    let candidates = soffice_candidate_paths(
+        env_override.as_deref(),
+        std::env::var_os("PATH").as_deref(),
+        SOFFICE_FIXED_CANDIDATES,
+        soffice_executable_names(),
+    );
+    candidates.into_iter().find(|candidate| candidate.is_file())
 }
 
 pub fn onnx_model_path(app: &AppHandle) -> PathBuf {
@@ -389,6 +488,38 @@ mod tests {
             simplify_windows_path(PathBuf::from(r"C:\app\models\vosk")),
             PathBuf::from(r"C:\app\models\vosk")
         );
+    }
+
+    #[test]
+    fn soffice_candidate_paths_prefer_override_then_path_then_fixed() {
+        let path_var = std::env::join_paths(["C:\\tools", "C:\\bin"]).expect("join paths");
+        let candidates = soffice_candidate_paths(
+            Some("C:\\custom\\soffice.exe"),
+            Some(path_var.as_os_str()),
+            &["C:\\Program Files\\LibreOffice\\program\\soffice.exe"],
+            &["soffice.exe"],
+        );
+
+        assert_eq!(candidates.first(), Some(&PathBuf::from("C:\\custom\\soffice.exe")));
+        assert!(candidates.contains(&PathBuf::from("C:\\tools\\soffice.exe")));
+        assert!(candidates.contains(&PathBuf::from("C:\\bin\\soffice.exe")));
+        assert_eq!(
+            candidates.last(),
+            Some(&PathBuf::from(
+                "C:\\Program Files\\LibreOffice\\program\\soffice.exe"
+            ))
+        );
+    }
+
+    #[test]
+    fn soffice_candidate_paths_skip_blank_override_and_missing_path() {
+        let candidates = soffice_candidate_paths(Some("   "), None, &["soffice"], &["soffice"]);
+        assert_eq!(candidates, vec![PathBuf::from("soffice")]);
+    }
+
+    #[test]
+    fn whisper_model_filename_is_the_tiny_english_model() {
+        assert_eq!(WHISPER_MODEL_FILENAME, "ggml-tiny.en.bin");
     }
 
     #[test]

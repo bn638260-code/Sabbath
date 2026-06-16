@@ -5,9 +5,19 @@ use tauri::AppHandle;
 use crate::asset_paths;
 use crate::commands::secrets;
 use rhema_stt::{DeepgramClient, GladiaClient, SttConfig, SttProvider, VoskProvider};
+#[cfg(feature = "whisper")]
+use rhema_stt::WhisperProvider;
 
 const DISABLED_SHERPA_PROVIDER_ERROR: &str =
-    "Sherpa local transcription has been disabled. Choose Vosk, Deepgram, or Gladia.";
+    "Sherpa local transcription has been disabled. Choose Whisper, Deepgram, or Gladia.";
+
+pub(crate) fn missing_whisper_model_error(model_path: &Path) -> String {
+    format!(
+        "Whisper model not found at {}. Run `bun run download:whisper` to fetch {}, or set SABBATHCUE_WHISPER_MODEL to an existing model file.",
+        model_path.display(),
+        asset_paths::WHISPER_MODEL_FILENAME
+    )
+}
 
 pub(crate) fn missing_vosk_model_error(model_path: &Path) -> String {
     format!(
@@ -64,24 +74,70 @@ async fn build_vosk_provider(
     Ok(Box::new(VoskProvider::new(model_path, worker_path)))
 }
 
+/// Choose a thread count for Whisper inference: leave one core free for the
+/// rest of the app, clamped to a sensible range.
+#[cfg(feature = "whisper")]
+fn whisper_thread_count() -> i32 {
+    let available = std::thread::available_parallelism()
+        .map(std::num::NonZeroUsize::get)
+        .unwrap_or(4);
+    let threads = available.saturating_sub(1).clamp(1, 8);
+    i32::try_from(threads).unwrap_or(4)
+}
+
+#[cfg(feature = "whisper")]
+async fn build_whisper_provider(
+    app: &AppHandle,
+    whisper_profile: Option<&str>,
+) -> Result<Box<dyn SttProvider>, String> {
+    let model_path = asset_paths::whisper_model_path(app);
+    if !model_path.exists() {
+        let error = missing_whisper_model_error(&model_path);
+        log::error!("[STT-whisper] {error}");
+        return Err(error);
+    }
+
+    let threads = whisper_thread_count();
+    log::info!(
+        "Starting Whisper transcription: model={}, profile={whisper_profile:?}, threads={threads}",
+        model_path.display(),
+    );
+
+    Ok(Box::new(WhisperProvider::new(
+        model_path,
+        Some("en".to_string()),
+        threads,
+        whisper_profile,
+    )))
+}
+
+#[cfg(not(feature = "whisper"))]
+async fn build_whisper_provider(
+    app: &AppHandle,
+    _whisper_profile: Option<&str>,
+) -> Result<Box<dyn SttProvider>, String> {
+    let model_path = asset_paths::whisper_model_path(app);
+    Err(format!(
+        "This build was compiled without local Whisper support. Expected model at {}.",
+        model_path.display()
+    ))
+}
+
 pub(crate) async fn build_stt_provider(
     provider_name: &str,
     app: &AppHandle,
     device_id: Option<&str>,
     gain: Option<f32>,
+    whisper_profile: Option<&str>,
 ) -> Result<Box<dyn SttProvider>, String> {
     match provider_name {
         "sherpa" => Err(DISABLED_SHERPA_PROVIDER_ERROR.to_string()),
-        "vosk" | "whisper" => build_vosk_provider(app, device_id).await,
-        #[cfg(feature = "whisper")]
-        "legacy-whisper" => {
-            let model_path = asset_paths::vosk_model_path(app);
-            Err(format!(
-                "Legacy Whisper is no longer the local provider. Use Vosk; expected Vosk model at {}.",
-                model_path.display()
-            ))
+        "whisper" | "legacy-whisper" => build_whisper_provider(app, whisper_profile).await,
+        // Vosk is retained as hidden compatibility only; Whisper is the default.
+        "vosk" => build_vosk_provider(app, device_id).await,
+        "faster-whisper" => {
+            Err("faster-whisper has been removed. Choose Whisper or Deepgram.".into())
         }
-        "faster-whisper" => Err("faster-whisper has been removed. Choose Vosk or Deepgram.".into()),
         "gladia" => {
             let resolved_api_key = secrets::get_gladia_api_key_or_empty()?;
 
@@ -125,7 +181,7 @@ pub(crate) async fn build_stt_provider(
             Ok(Box::new(DeepgramClient::new(stt_config)))
         }
         _ => Err(format!(
-            "Unknown speech-to-text provider \"{provider_name}\". Choose Vosk, Deepgram, or Gladia."
+            "Unknown speech-to-text provider \"{provider_name}\". Choose Whisper, Deepgram, or Gladia."
         )),
     }
 }
@@ -134,6 +190,23 @@ pub(crate) async fn build_stt_provider(
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn missing_whisper_model_error_mentions_path_and_download_step() {
+        let error =
+            missing_whisper_model_error(&PathBuf::from("C:\\app\\models\\whisper\\ggml-tiny.en.bin"));
+        assert!(error.contains("C:\\app\\models\\whisper\\ggml-tiny.en.bin"));
+        assert!(error.contains("download:whisper"));
+        assert!(error.contains(asset_paths::WHISPER_MODEL_FILENAME));
+        assert!(error.contains("SABBATHCUE_WHISPER_MODEL"));
+    }
+
+    #[cfg(feature = "whisper")]
+    #[test]
+    fn whisper_thread_count_is_bounded() {
+        let threads = whisper_thread_count();
+        assert!((1..=8).contains(&threads));
+    }
 
     #[test]
     fn missing_model_error_mentions_path_and_recovery_steps() {
@@ -169,6 +242,6 @@ mod tests {
         assert!(
             DISABLED_SHERPA_PROVIDER_ERROR.contains("Sherpa local transcription has been disabled")
         );
-        assert!(DISABLED_SHERPA_PROVIDER_ERROR.contains("Vosk"));
+        assert!(DISABLED_SHERPA_PROVIDER_ERROR.contains("Whisper"));
     }
 }

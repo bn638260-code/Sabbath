@@ -106,6 +106,33 @@ describe("service plan shell integration", () => {
     expect(slides).toContain("attachmentSizeLimitError")
     expect(slides).not.toContain("smaller than 10 MB")
   })
+
+  it("wires PowerPoint import into the sermon slide editor", () => {
+    const slides = readSource("src/components/service-plan/SermonSlidesEditor.tsx")
+    expect(slides).toContain("importPowerPointSlides")
+    expect(slides).toContain("slidesToAttachments")
+    expect(slides).toContain("Import PowerPoint")
+
+    const helper = readSource("src/lib/powerpoint-import.ts")
+    expect(helper).toContain("convert_powerpoint_to_pdf")
+    expect(helper).toContain("renderPdfToSlides")
+  })
+
+  it("applies a single selected PowerPoint slide as the theme background", () => {
+    const background = readSource(
+      "src/components/broadcast/background-properties.tsx"
+    )
+    expect(background).toContain("importPowerPointSlides")
+    expect(background).toContain("PowerPointSlidePicker")
+    expect(background).toContain('update("background.image.url", slide.dataUrl)')
+  })
+
+  it("converts PowerPoint decks through a validated Tauri command", () => {
+    const command = readSource("src-tauri/src/commands/powerpoint.rs")
+    expect(command).toContain("convert_powerpoint_to_pdf")
+    expect(command).toContain("resolve_soffice")
+    expect(command).toContain("validate_deck_path")
+  })
 })
 
 describe("prepare queue resources", () => {

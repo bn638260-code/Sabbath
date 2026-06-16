@@ -1,5 +1,13 @@
+import { useState } from "react"
+import { open } from "@tauri-apps/plugin-dialog"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { pickThemeBackgroundImage } from "@/lib/theme-designer-files"
+import {
+  importPowerPointSlides,
+  POWERPOINT_EXTENSIONS,
+  type ImportedSlide,
+} from "@/lib/powerpoint-import"
+import { PowerPointSlidePicker } from "@/components/broadcast/PowerPointSlidePicker"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import {
@@ -182,6 +190,48 @@ function GradientSection() {
 function ImageSection() {
   const draftTheme = useBroadcastStore((s) => s.draftTheme)
   const update = useBroadcastStore((s) => s.updateDraftNested)
+  const [deckSlides, setDeckSlides] = useState<ImportedSlide[]>([])
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [importingDeck, setImportingDeck] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+
+  const importDeck = async () => {
+    setImportError(null)
+    let selected: string | string[] | null
+    try {
+      selected = await open({
+        multiple: false,
+        filters: [
+          { name: "PowerPoint presentations", extensions: POWERPOINT_EXTENSIONS },
+        ],
+      })
+    } catch (error) {
+      setImportError(
+        error instanceof Error ? error.message : "Could not open the picker."
+      )
+      return
+    }
+    if (!selected || Array.isArray(selected)) return
+
+    setImportingDeck(true)
+    try {
+      const slides = await importPowerPointSlides(selected)
+      if (slides.length === 0) {
+        setImportError("No slides were found in that presentation.")
+        return
+      }
+      setDeckSlides(slides)
+      setPickerOpen(true)
+    } catch (error) {
+      setImportError(
+        error instanceof Error
+          ? error.message
+          : "Could not import the PowerPoint file."
+      )
+    } finally {
+      setImportingDeck(false)
+    }
+  }
 
   if (!draftTheme || !draftTheme.background.image) return null
 
@@ -206,6 +256,29 @@ function ImageSection() {
         >
           Change Image
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={importingDeck}
+          onClick={() => void importDeck()}
+        >
+          {importingDeck ? "Importing…" : "Import from PowerPoint"}
+        </Button>
+        {importError && (
+          <p role="alert" className="text-[0.625rem] text-destructive">
+            {importError}
+          </p>
+        )}
+        <PowerPointSlidePicker
+          open={pickerOpen}
+          slides={deckSlides}
+          onOpenChange={setPickerOpen}
+          onSelect={(slide) => {
+            update("background.image.url", slide.dataUrl)
+            setPickerOpen(false)
+          }}
+        />
       </div>
 
       {/* Fit Mode */}

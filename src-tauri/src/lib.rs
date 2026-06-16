@@ -114,6 +114,7 @@ pub fn run() {
             commands::theme_files::import_theme_from_path,
             commands::theme_files::export_theme_to_path,
             commands::theme_files::read_image_as_data_url,
+            commands::powerpoint::convert_powerpoint_to_pdf,
         ])
         .setup(|app| {
             use tauri::Manager;
@@ -124,6 +125,12 @@ pub fn run() {
                 "SabbathCue v{} starting (pid {})",
                 app.package_info().version,
                 std::process::id()
+            );
+            let whisper_model = asset_paths::whisper_model_path(app.handle());
+            log::info!(
+                "Resolved Whisper model path: {} (exists={}) — default local STT",
+                whisper_model.display(),
+                whisper_model.exists()
             );
             let vosk_model = asset_paths::vosk_model_path(app.handle());
             let vosk_worker = asset_paths::vosk_worker_path(app.handle());

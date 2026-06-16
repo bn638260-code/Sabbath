@@ -46,12 +46,12 @@ describe("use-transcription", () => {
   })
 
   describe("transcriptionActions.start", () => {
-    it("invokes start_transcription with settings-derived params for vosk", async () => {
+    it("invokes start_transcription with settings-derived params for whisper", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()
 
       useSettingsStore.setState({
-        sttProvider: "vosk",
+        sttProvider: "whisper",
         audioDeviceId: "dev-42",
         gain: 1.5,
       })
@@ -61,17 +61,18 @@ describe("use-transcription", () => {
       expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
         deviceId: "dev-42",
         gain: 1.5,
-        provider: "vosk",
+        provider: "whisper",
         lowPower: false,
+        whisperProfile: "balanced",
       })
     })
 
-    it("keeps local transcription on Vosk for settings-derived params", async () => {
+    it("keeps local transcription on Whisper for settings-derived params", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()
 
       useSettingsStore.setState({
-        sttProvider: "vosk",
+        sttProvider: "whisper",
         audioDeviceId: "dev-43",
         gain: 1.25,
       })
@@ -81,17 +82,18 @@ describe("use-transcription", () => {
       expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
         deviceId: "dev-43",
         gain: 1.25,
-        provider: "vosk",
+        provider: "whisper",
         lowPower: false,
+        whisperProfile: "balanced",
       })
     })
 
-    it("forwards low power mode so the backend can skip partial semantic detection", async () => {
+    it("forwards low power mode and the fast Whisper profile", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()
 
       useSettingsStore.setState({
-        sttProvider: "vosk",
+        sttProvider: "whisper",
         lowPowerMode: true,
       })
 
@@ -99,7 +101,7 @@ describe("use-transcription", () => {
 
       expect(mockInvoke).toHaveBeenCalledWith(
         "start_transcription",
-        expect.objectContaining({ lowPower: true })
+        expect.objectContaining({ lowPower: true, whisperProfile: "fast" })
       )
     })
 

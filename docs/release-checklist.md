@@ -6,7 +6,7 @@
 - [ ] Installer does not include NIV, ESV, NASB, NKJV, NLT, or AMP unless written redistribution permission exists.
 - [ ] Installer does not include NDI SDK/runtime binaries.
 - [ ] App launches without `.env`.
-- [ ] Default STT provider is local Vosk.
+- [ ] Default STT provider is local Whisper (`ggml-tiny.en.bin`).
 - [ ] Deepgram is labeled optional paid cloud mode.
 - [ ] HTTP and OSC remote control bind to localhost by default.
 - [ ] Packaged app is tested outside the source repository.
@@ -18,7 +18,8 @@ Run these from the repo root unless noted:
 - [ ] `bun install`
 - [ ] `bun run build:bible:public`
 - [ ] `bun run verify:bible:public`
-- [ ] Confirm the packaged Vosk model is present.
+- [ ] Confirm the packaged Whisper model (`ggml-tiny.en.bin`) is present.
+- [ ] (Optional) Confirm LibreOffice is available for PowerPoint import testing.
 - [ ] `bun run download:model`
 - [ ] `bun run export:verses`
 - [ ] `bun run precompute:embeddings`
@@ -50,13 +51,13 @@ If PowerShell blocks `npm`, use `npm.cmd` explicitly.
 - [ ] Preview changes when selecting verses.
 - [ ] Live output only changes when presenting.
 - [ ] Settings persist after restart.
-- [ ] Vosk missing state is clear.
+- [ ] Whisper missing-model state is clear.
 - [ ] Deepgram key is optional.
 - [ ] HTTP remote starts on localhost.
 - [ ] NDI missing state is clear and non-fatal.
 
 ## Known v0.1 Limitations
 
-- [ ] In-app model download is not implemented yet. Local Vosk works after the model is placed in the resolved app data or development model directory.
+- [ ] In-app model download is not implemented yet. Local Whisper works after `ggml-tiny.en.bin` is placed in the resolved app data or development model directory (`bun run download:whisper`).
 - [ ] Semantic search remains optional and disabled when ONNX/tokenizer/embedding files are missing.
 - [ ] NDI remains optional and user-installed; SabbathCue must not ship NDI SDK/runtime binaries in the public installer.

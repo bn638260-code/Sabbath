@@ -14,14 +14,23 @@ plus a Python interpreter for the data-prep pipeline. The complete list:
 | [Bun](https://bun.sh) | JavaScript runtime + package manager for `web/`, build scripts, and the orchestrator |
 | [Rust](https://rustup.rs) (stable, 1.77.2+) | Compiles the Tauri backend and the seven workspace crates |
 | [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/) | Platform-specific system libraries (WebView2 on Windows, WebKit on Linux) |
-| [Python 3](https://www.python.org/) | Downloads copyrighted translations, exports the embedding model to ONNX, and runs the local Vosk worker |
-| CMake + LLVM/libclang | Required for the optional legacy Whisper feature and some native Rust dependencies |
-| [Deepgram API key](https://deepgram.com/) (optional) | Cloud speech-to-text, only if you don't want to run local Vosk |
+| [Python 3](https://www.python.org/) | Downloads copyrighted translations, exports the embedding model to ONNX, and runs the optional legacy Vosk worker |
+| CMake + LLVM/libclang | Required for the local Whisper feature and some native Rust dependencies |
+| [LibreOffice](https://www.libreoffice.org/) (optional) | Converts `.ppt`/`.pptx` decks to slides for service-plan and theme imports |
+| [Deepgram API key](https://deepgram.com/) (optional) | Cloud speech-to-text, only if you don't want to run local Whisper |
 
 <Callout title="Local vs Deepgram" type="info">
-You only need **one** speech-to-text engine. Vosk runs locally with no API
-costs. Deepgram streams via WebSocket and needs a paid API key. See
-[Speech-to-text](/docs/getting-started/speech-to-text) for tradeoffs.
+You only need **one** speech-to-text engine. Whisper runs locally with no
+API costs and is the default. Deepgram streams via WebSocket and needs a
+paid API key. See [Speech-to-text](/docs/getting-started/speech-to-text)
+for tradeoffs.
+</Callout>
+
+<Callout title="PowerPoint import" type="info">
+Importing PowerPoint decks (sermon slides or theme backgrounds) requires a
+local [LibreOffice](https://www.libreoffice.org/) install. SabbathCue finds
+`soffice` on your `PATH` or the default install location; set
+`SABBATHCUE_SOFFICE_PATH` to override it.
 </Callout>
 
 ## Hardware

@@ -35,21 +35,11 @@ export function SpeechSection() {
     refresh: refreshAssets,
   } = useAssets()
 
-  const voskReady = Boolean(
-    assetStatus?.vosk_model &&
-    assetStatus?.vosk_worker &&
-    assetStatus?.vosk_runtime
-  )
-  const voskModelName = assetStatus?.vosk_model_name ?? null
-  const voskModelQuality = assetStatus?.vosk_model_quality ?? null
-  const voskMissingMessage = !assetStatus?.vosk_model
-    ? "Vosk model files are missing from the app resources or configured model path."
-    : !assetStatus?.vosk_worker
-      ? "Vosk worker script is missing from the app resources."
-      : !assetStatus?.vosk_runtime
-        ? assetStatus?.vosk_runtime_error ||
-          "Python is available, but the Vosk package could not be loaded."
-        : null
+  const whisperReady = Boolean(assetStatus?.whisper_model)
+  const whisperModelName = assetStatus?.whisper_model_name ?? null
+  const whisperMissingMessage = !assetStatus?.whisper_model
+    ? "Whisper model file is missing. Run the download:whisper script, or set SABBATHCUE_WHISPER_MODEL to an installed model file."
+    : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -104,26 +94,26 @@ export function SpeechSection() {
 
           <label
             className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-data-[state=checked]:border-primary/50 has-data-[state=checked]:bg-primary/5 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary/20 ${
-              sttProvider !== "vosk" ? "hover:border-muted-foreground/25" : ""
+              sttProvider !== "whisper" ? "hover:border-muted-foreground/25" : ""
             }`}
           >
-            <RadioGroupItem value="vosk" className="mt-0.5" />
+            <RadioGroupItem value="whisper" className="mt-0.5" />
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-foreground">
-                Local (Vosk)
+                Local (Whisper) — default
               </span>
               <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-                Uses a verse-focused constrained grammar for fast Bible
-                reference detection. Free after the model is installed, and
-                audio never leaves your machine. For full-sermon transcript
-                quality, use Deepgram.
+                Runs the lightweight Whisper tiny.en model on your machine for
+                fully offline transcription. Free after the model is installed,
+                and audio never leaves your computer. For the highest full-sermon
+                accuracy, use Deepgram.
               </p>
             </div>
           </label>
         </RadioGroup>
       </div>
 
-      {sttProvider === "vosk" && (
+      {sttProvider === "whisper" && (
         <div className="flex flex-col gap-3 rounded-lg border border-white/5 bg-white/5 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -135,39 +125,34 @@ export function SpeechSection() {
             <Badge variant="outline" className="text-[0.5rem]">
               {assetsLoading
                 ? "Checking"
-                : voskReady
-                  ? voskModelQuality || "Installed"
+                : whisperReady
+                  ? "Installed"
                   : "Missing"}
             </Badge>
           </div>
 
           <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-            Vosk runs with a verse-focused constrained grammar. For better
-            offline recognition, install{" "}
-            <code className="text-[0.5625rem]">
-              vosk-model-en-us-0.22-lgraph
-            </code>
-            . The smaller{" "}
-            <code className="text-[0.5625rem]">vosk-model-small-en-us</code>{" "}
-            model remains supported as a fallback. Development builds using the
-            Python worker also need the{" "}
-            <code className="text-[0.5625rem]">vosk</code> package installed.
-            Place the model folder here or set{" "}
-            <code className="text-[0.5625rem]">SABBATHCUE_VOSK_MODEL_DIR</code>.
+            Whisper runs the lightweight{" "}
+            <code className="text-[0.5625rem]">ggml-tiny.en.bin</code> model
+            entirely on your machine. Install it with{" "}
+            <code className="text-[0.5625rem]">bun run download:whisper</code>,
+            or point{" "}
+            <code className="text-[0.5625rem]">SABBATHCUE_WHISPER_MODEL</code> at
+            an existing model file.
           </p>
-          {!assetsLoading && voskModelName && (
+          {!assetsLoading && whisperModelName && (
             <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
-              Active model: {voskModelName}
+              Active model: {whisperModelName}
             </p>
           )}
-          {!assetsLoading && voskMissingMessage && (
+          {!assetsLoading && whisperMissingMessage && (
             <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
-              {voskMissingMessage}
+              {whisperMissingMessage}
             </p>
           )}
-          {!assetsLoading && !assetStatus?.vosk_model && (
+          {!assetsLoading && !assetStatus?.whisper_model && (
             <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
-              models\vosk\vosk-model-en-us-0.22-lgraph
+              models\whisper\ggml-tiny.en.bin
             </p>
           )}
 

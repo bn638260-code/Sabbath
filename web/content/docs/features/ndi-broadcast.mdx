@@ -86,7 +86,7 @@ when you want a solid backdrop with no key.
 The end-to-end latency from "pastor speaks the verse" to "overlay on
 screen" comes from three contributors:
 
-1. STT processing (Vosk runs locally; Deepgram streams within the WebSocket).
+1. STT processing (Whisper runs locally by default; Deepgram streams within the WebSocket).
 2. Detection pipeline (the brute-force cosine scan over ~31k vectors
    completes in milliseconds on a modern CPU).
 3. NDI hop and downstream switcher buffering.

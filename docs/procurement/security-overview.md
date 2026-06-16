@@ -16,7 +16,7 @@ Rust side rather than browser-side JavaScript.
 | Property            | Implementation                                                                           |
 | ------------------- | ---------------------------------------------------------------------------------------- |
 | No telemetry        | No analytics, crash reporting, or usage tracking pipeline                                |
-| Local-first STT     | Vosk runs as a local Python worker process; audio stays on the machine                   |
+| Local-first STT     | Whisper runs locally in-process (default); audio stays on the machine                    |
 | Bundled SQLite      | `rusqlite` with the `bundled` feature avoids system SQLite dependency drift              |
 | Remote control      | Loopback-only by default (`127.0.0.1`); HTTP control endpoints require bearer token auth |
 | CSP enforcement     | `script-src 'self'` only; no inline scripts or eval                                      |

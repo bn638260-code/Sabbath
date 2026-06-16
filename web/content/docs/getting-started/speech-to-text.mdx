@@ -1,6 +1,6 @@
 ---
 title: Speech-to-Text Engines
-description: Choose between local Vosk and cloud Deepgram, and configure either with the right environment variables.
+description: Choose between local Whisper and cloud Deepgram, and configure either with the right environment variables.
 icon: Mic
 ---
 
@@ -14,8 +14,8 @@ streaming.
 
 <Cards>
   <Card
-    title="Vosk (local, free, verse-focused)"
-    description="Runs the Vosk speech recognition toolkit on your machine — no API key, no internet, no per-minute billing. Uses a constrained verse-reference grammar for fast Bible reference detection."
+    title="Whisper (local, free, default)"
+    description="Runs the lightweight Whisper tiny.en model on your machine — no API key, no internet, no per-minute billing. Fully offline general-speech transcription tuned with a Bible-reference prompt."
   />
   <Card
     title="Deepgram (cloud, paid)"
@@ -23,21 +23,28 @@ streaming.
   />
 </Cards>
 
-## Option 1: Vosk (local, default)
+## Option 1: Whisper (local, default)
 
-Vosk is an offline speech recognition toolkit that transcribes audio in
-real time using a verse-focused constrained grammar. It recognizes Bible
-book names, chapter and verse numbers, and navigation keywords. For
-full-sermon transcript coverage with general vocabulary, use Deepgram.
+Whisper is an offline speech recognition model that transcribes audio in
+real time on your machine. SabbathCue ships with the smallest, lightest
+model — `ggml-tiny.en.bin` — so it runs comfortably without a GPU. A
+Bible-reference prompt biases recognition toward book names, chapter and
+verse numbers, and common scripture vocabulary.
 
-To install the Vosk model:
+To install the Whisper model:
 
-1. Download a model from [alphacephei.com/vosk/models](https://alphacephei.com/vosk/models)
-2. Place it in `models/vosk/` (the app expects `vosk-model-small-en-us` by default)
-3. Or set `SABBATHCUE_VOSK_MODEL_DIR` to point to your model folder
+1. Run `bun run download:whisper` to fetch `ggml-tiny.en.bin` into
+   `models/whisper/`
+2. Or set `SABBATHCUE_WHISPER_MODEL` to point to an existing GGML model file
 
-The model is required before Vosk transcription starts. The app shows
+The model is required before Whisper transcription starts. The app shows
 model installation status in Settings → Speech Recognition.
+
+<Callout title="Vosk compatibility" type="info">
+Earlier builds used Vosk as the local engine. Vosk remains available for
+backward compatibility, but Whisper is now the default local provider and
+existing Vosk selections migrate to Whisper automatically.
+</Callout>
 
 ## Option 2: Deepgram
 
@@ -65,9 +72,9 @@ Open Settings → STT and choose **Deepgram**. The status indicator shows
 WebSocket health in real time; if it falls back to REST, you'll see that
 labeled too.
 
-![Settings dialog with the STT engine picker showing Vosk and Deepgram options](/docs/screenshots/settings-stt-picker.png)
+![Settings dialog with the STT engine picker showing Whisper and Deepgram options](/docs/screenshots/settings-stt-picker.png)
 
-*Settings → STT lets you flip between local Vosk and cloud Deepgram at runtime. The connection status indicator under the picker turns green when Deepgram's WebSocket is healthy and amber when it falls back to REST. **Click to expand.***
+*Settings → STT lets you flip between local Whisper and cloud Deepgram at runtime. The connection status indicator under the picker turns green when Deepgram's WebSocket is healthy and amber when it falls back to REST. **Click to expand.***
 
 ## Switching engines at runtime
 
@@ -77,18 +84,16 @@ and queue state are preserved across the swap.
 
 ## Comparing the two
 
-| | Vosk (local) | Deepgram (cloud) |
+| | Whisper (local) | Deepgram (cloud) |
 | --- | --- | --- |
 | API cost | Free | Per-minute billing |
 | Internet required | No, after the model is installed | Yes (WebSocket) |
-| Recognition mode | Verse-focused grammar | Keyword-boosted streaming |
-| Transcript coverage | Bible references + navigation | Full general speech |
-| Punctuation | None (plain text) | Excellent |
+| Recognition mode | Offline neural model + Bible prompt | Keyword-boosted streaming |
+| Transcript coverage | General speech | Full general speech |
+| Punctuation | Basic | Excellent |
 | Works offline | Yes | No |
 
-Vosk uses a constrained grammar tuned for Bible verse references, so it
-excels at picking out book names and numbers during a sermon. For full
-transcript fidelity of the entire message, Deepgram is the recommended
-option. Pick Vosk for the no-cost offline verse-detection path,
-Deepgram for the best full-sermon transcription quality on a reliable
-network.
+Whisper runs the tiny.en model entirely on your machine, so it works
+offline with no per-minute cost. For the best full-sermon transcription
+quality on a reliable network, Deepgram remains the recommended option.
+Pick Whisper for the no-cost offline path, Deepgram for maximum accuracy.

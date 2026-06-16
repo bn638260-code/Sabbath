@@ -4,6 +4,8 @@ import { invokeTauri } from "@/lib/tauri-runtime"
 
 export interface AssetStatus {
   bible_db: boolean
+  whisper_model: boolean
+  whisper_model_name?: string | null
   vosk_model: boolean
   vosk_model_name?: string | null
   vosk_model_quality?: string | null

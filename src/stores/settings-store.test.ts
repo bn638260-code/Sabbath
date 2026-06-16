@@ -60,7 +60,7 @@ describe("settings store", () => {
   it("hydrate merges persisted values over defaults", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "gain") return 2.5
-      if (key === "sttProvider") return "vosk"
+      if (key === "sttProvider") return "deepgram"
       return null
     })
 
@@ -69,7 +69,7 @@ describe("settings store", () => {
 
     const state = useSettingsStore.getState()
     expect(state.gain).toBe(2.5)
-    expect(state.sttProvider).toBe("vosk")
+    expect(state.sttProvider).toBe("deepgram")
     // Defaults remain for keys with null
     expect(state.autoMode).toBe(false)
     expect(state.confidenceThreshold).toBe(0.8)
@@ -83,7 +83,7 @@ describe("settings store", () => {
     const after = useSettingsStore.getState()
 
     expect(after.gain).toBe(1.0)
-    expect(after.sttProvider).toBe("vosk")
+    expect(after.sttProvider).toBe("whisper")
     expect(after.autoMode).toBe(false)
   })
 
@@ -125,7 +125,7 @@ describe("settings store", () => {
     expect(useSettingsStore.getState().sttProvider).toBe("gladia")
   })
 
-  it("hydrate maps removed Sherpa provider to local Vosk", async () => {
+  it("hydrate maps removed Sherpa provider to local Whisper", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "sttProvider") return "sherpa"
       return null
@@ -134,10 +134,10 @@ describe("settings store", () => {
     const { hydrateSettings, useSettingsStore } = await import("./settings-store")
     await hydrateSettings()
 
-    expect(useSettingsStore.getState().sttProvider).toBe("vosk")
+    expect(useSettingsStore.getState().sttProvider).toBe("whisper")
   })
 
-  it("hydrate maps removed faster-whisper provider to local Vosk", async () => {
+  it("hydrate maps removed faster-whisper provider to local Whisper", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "sttProvider") return "faster-whisper"
       return null
@@ -146,7 +146,19 @@ describe("settings store", () => {
     const { hydrateSettings, useSettingsStore } = await import("./settings-store")
     await hydrateSettings()
 
-    expect(useSettingsStore.getState().sttProvider).toBe("vosk")
+    expect(useSettingsStore.getState().sttProvider).toBe("whisper")
+  })
+
+  it("hydrate migrates the previous Vosk default to local Whisper", async () => {
+    mockGet.mockImplementation(async (key: string) => {
+      if (key === "sttProvider") return "vosk"
+      return null
+    })
+
+    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    await hydrateSettings()
+
+    expect(useSettingsStore.getState().sttProvider).toBe("whisper")
   })
 
   it("a setter call after hydration writes the full snapshot to disk", async () => {
@@ -265,7 +277,7 @@ describe("settings store", () => {
     expect(state.confidenceThreshold).toBe(0)
     expect(state.cooldownMs).toBe(0)
     // Non-zero-keyed fields stay at defaults
-    expect(state.sttProvider).toBe("vosk")
+    expect(state.sttProvider).toBe("whisper")
   })
 
   it("persist handles save rejection gracefully", async () => {

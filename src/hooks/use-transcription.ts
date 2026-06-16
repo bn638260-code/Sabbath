@@ -58,6 +58,9 @@ export const transcriptionActions = {
         gain: settings.gain,
         provider: settings.sttProvider,
         lowPower: settings.lowPowerMode,
+        // Low-power machines use the lighter Whisper "fast" profile; otherwise
+        // the more accurate "balanced" profile. Ignored by cloud providers.
+        whisperProfile: settings.lowPowerMode ? "fast" : "balanced",
       })
       transcript.setTranscribing(true)
     } catch (e) {

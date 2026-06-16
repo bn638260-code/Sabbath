@@ -8,8 +8,19 @@ import {
   loadServiceAttachmentLimits,
 } from "@/lib/attachment-limits"
 import { invokeTauri } from "@/lib/tauri-runtime"
+import {
+  importPowerPointSlides,
+  POWERPOINT_EXTENSIONS,
+  slidesToAttachments,
+} from "@/lib/powerpoint-import"
 import type { ServiceAttachment } from "@/types/service-plan"
-import { ChevronDownIcon, ChevronUpIcon, UploadIcon, XIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  PresentationIcon,
+  UploadIcon,
+  XIcon,
+} from "lucide-react"
 import { useEffect, useState } from "react"
 
 const SERMON_SLIDE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif"]
@@ -73,6 +84,7 @@ export function SermonSlidesEditor({
 }: SermonSlidesEditorProps) {
   const slides = orderedSlides(attachments)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [importingDeck, setImportingDeck] = useState(false)
   const [slideLimitLabel, setSlideLimitLabel] = useState(() =>
     formatAttachmentLimit("slide", FALLBACK_ATTACHMENT_LIMITS),
   )
@@ -131,6 +143,47 @@ export function SermonSlidesEditor({
     }
   }
 
+  const importPowerPoint = async () => {
+    setErrorMessage(null)
+    let selected: string | string[] | null
+    try {
+      selected = await open({
+        multiple: false,
+        filters: [
+          { name: "PowerPoint presentations", extensions: POWERPOINT_EXTENSIONS },
+        ],
+      })
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not open the PowerPoint picker."
+      )
+      return
+    }
+
+    if (!selected || Array.isArray(selected)) return
+
+    setImportingDeck(true)
+    try {
+      const imported = await importPowerPointSlides(selected)
+      if (imported.length === 0) {
+        setErrorMessage("No slides were found in that presentation.")
+        return
+      }
+      const appended = slidesToAttachments(imported, nextOrder(attachments))
+      onChange([...attachments, ...appended])
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not import the PowerPoint file."
+      )
+    } finally {
+      setImportingDeck(false)
+    }
+  }
+
   const updateSlide = (id: string, patch: Partial<ServiceAttachment>) => {
     onChange(
       attachments.map((attachment) =>
@@ -178,6 +231,16 @@ export function SermonSlidesEditor({
           >
             <UploadIcon className="size-3" />
             Upload PNG / images
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            disabled={importingDeck}
+            onClick={() => void importPowerPoint()}
+          >
+            <PresentationIcon className="size-3" />
+            {importingDeck ? "Importing…" : "Import PowerPoint"}
           </Button>
         </div>
       </div>

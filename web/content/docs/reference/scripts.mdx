@@ -37,7 +37,7 @@ repository's top-level `package.json`.
 | `precompute:embeddings-onnx` | Same, but via Python ONNX Runtime |
 | `precompute:embeddings-py` | Same, but via Python sentence-transformers (GPU path) |
 | `quantize:model` | Re-run the Qwen3 ONNX export and INT8 quantization |
-| `download:whisper` | Download `ggml-tiny.en.bin` for the optional legacy Whisper STT feature |
+| `download:whisper` | Download `ggml-tiny.en.bin`, the default local Whisper STT model |
 | `download:ndi-sdk` | Download NDI 6 SDK headers and platform libraries |
 
 ## Web subsite scripts
@@ -75,7 +75,7 @@ dependency weight:
 | Translation source changed | `bun run download:bible-data && bun run build:bible` |
 | Embedding model bumped | `bun run download:model && bun run precompute:embeddings` |
 | Need NDI broadcast | `bun run download:ndi-sdk` |
-| Reinstall the optional legacy Whisper model | `bun run download:whisper` |
+| Reinstall the default local Whisper model | `bun run download:whisper` |
 | Just want to see the UI | `bun run tauri dev` |
 | Cutting a release | `bun run tauri build` |
 

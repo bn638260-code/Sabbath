@@ -13,7 +13,7 @@ import { Card, Cards } from "fumadocs-ui/components/card";
 | **AI / ML** | ONNX Runtime (Qwen3-0.6B embeddings), Aho-Corasick, Fuse.js |
 | **Database** | SQLite via `rusqlite` (bundled) with FTS5 |
 | **Broadcast** | NDI 6 SDK via dynamic loading (`libloading` FFI) |
-| **STT** | Local Vosk (verse-focused grammar), or Deepgram WebSocket + REST (`tokio-tungstenite`) |
+| **STT** | Local Whisper (`whisper-rs`, default), or Deepgram WebSocket + REST (`tokio-tungstenite`); Vosk retained for compatibility |
 
 ![Layered architecture diagram — React frontend over Tauri IPC, Rust workspace below, with NDI / STT / SQLite as external surfaces](/docs/diagrams/diagram-stack-layers.svg)
 
@@ -82,8 +82,10 @@ surface just doesn't appear).
 
 Two engines, one transport:
 
-- **Vosk** runs locally via a Python worker process with a verse-focused
-  constrained grammar for fast Bible reference detection.
+- **Whisper** runs locally in-process via `whisper-rs`, using the
+  lightweight `ggml-tiny.en.bin` model with a Bible-reference prompt. It
+  is the default local engine. (Vosk remains available for compatibility
+  via a Python worker process.)
 - **Deepgram** streams over a WebSocket using `tokio-tungstenite`, with
   a REST fallback that uploads short windows when the socket drops.
   Deepgram is the recommended option for full-sermon transcript fidelity.

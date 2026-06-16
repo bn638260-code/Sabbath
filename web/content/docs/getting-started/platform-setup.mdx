@@ -88,6 +88,11 @@ clang --version
 If any command isn't found, jump back to [Prerequisites](/docs/getting-started/prerequisites)
 and reinstall.
 
+To import PowerPoint decks (sermon slides or theme backgrounds), also install
+[LibreOffice](https://www.libreoffice.org/). SabbathCue locates `soffice` on
+your `PATH` or the default install directory; set `SABBATHCUE_SOFFICE_PATH` to
+override the location. Verify it with `soffice --version`.
+
 ![Terminal output of bun, rustc, python3, cmake, and clang version checks all returning their installed versions](/docs/screenshots/terminal-toolchain-versions.png)
 
 *A successful platform check prints a version string for each command in turn. If any of them prints "command not found", install the missing tool before running `setup:all`. **Click to expand.***

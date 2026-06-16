@@ -35,7 +35,8 @@ verification remains required for claims that cannot be proven by a test runner.
 - [ ] No new outbound network calls from Rust except documented setup/STT flows
 - [ ] Remote control defaults remain loopback-only with token auth for HTTP control endpoints
 - [ ] No new GPL or AGPL dependencies without explicit legal review
-- [ ] Vosk default mode is verse-focused constrained grammar (verified via `--grammar-json` in spawn)
+- [ ] Default STT is local Whisper (`ggml-tiny.en.bin`) running in-process; audio stays on the machine
+- [ ] PowerPoint import shells out only to a validated local LibreOffice (`soffice`) with sandboxed path checks
 - [ ] Deepgram API key handling remains OS-keychain backed and not logged
 
 ## Procurement artifact bundle
