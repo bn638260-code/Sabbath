@@ -117,7 +117,7 @@ pub async fn start_transcription(
         return Err("Transcription is already running".into());
     }
 
-    let provider_name = provider.as_deref().unwrap_or("whisper");
+    let provider_name = provider.as_deref().unwrap_or("sherpa");
 
     // Build the STT provider.
     let stt_provider = match build_stt_provider(
@@ -129,15 +129,15 @@ pub async fn start_transcription(
     )
     .await
     {
-            Ok(provider) => provider,
-            Err(error) => {
-                log::error!(
-                    "[STT] start_transcription failed to build provider {provider_name}: {error}"
-                );
-                stt_active.store(false, Ordering::SeqCst);
-                return Err(error);
-            }
-        };
+        Ok(provider) => provider,
+        Err(error) => {
+            log::error!(
+                "[STT] start_transcription failed to build provider {provider_name}: {error}"
+            );
+            stt_active.store(false, Ordering::SeqCst);
+            return Err(error);
+        }
+    };
 
     audio_active.store(true, Ordering::SeqCst);
 

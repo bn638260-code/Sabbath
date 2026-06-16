@@ -58,8 +58,7 @@ export const transcriptionActions = {
         gain: settings.gain,
         provider: settings.sttProvider,
         lowPower: settings.lowPowerMode,
-        // Low-power machines use the lighter Whisper "fast" profile; otherwise
-        // the more accurate "balanced" profile. Ignored by cloud providers.
+        // Kept for legacy Whisper only. Sherpa/Vosk/cloud providers ignore it.
         whisperProfile: settings.lowPowerMode ? "fast" : "balanced",
       })
       transcript.setTranscribing(true)

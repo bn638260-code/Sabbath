@@ -64,7 +64,8 @@ describe("settings store", () => {
       return null
     })
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
     const state = useSettingsStore.getState()
@@ -78,12 +79,13 @@ describe("settings store", () => {
   it("hydrate with no persisted values falls back to defaults", async () => {
     mockGet.mockResolvedValue(null)
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
     const after = useSettingsStore.getState()
 
     expect(after.gain).toBe(1.0)
-    expect(after.sttProvider).toBe("whisper")
+    expect(after.sttProvider).toBe("sherpa")
     expect(after.autoMode).toBe(false)
   })
 
@@ -93,7 +95,8 @@ describe("settings store", () => {
       return null
     })
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
     expect(useSettingsStore.getState().hasDeepgramApiKey).toBe(false)
@@ -106,7 +109,8 @@ describe("settings store", () => {
       return null
     })
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
     expect(useSettingsStore.getState().hasGladiaApiKey).toBe(false)
@@ -119,52 +123,70 @@ describe("settings store", () => {
       return null
     })
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
     expect(useSettingsStore.getState().sttProvider).toBe("gladia")
   })
 
-  it("hydrate maps removed Sherpa provider to local Whisper", async () => {
+  it("hydrates persisted Sherpa provider", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "sttProvider") return "sherpa"
       return null
     })
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
-    expect(useSettingsStore.getState().sttProvider).toBe("whisper")
+    expect(useSettingsStore.getState().sttProvider).toBe("sherpa")
   })
 
-  it("hydrate maps removed faster-whisper provider to local Whisper", async () => {
+  it("hydrate maps persisted Whisper provider to local Sherpa", async () => {
+    mockGet.mockImplementation(async (key: string) => {
+      if (key === "sttProvider") return "whisper"
+      return null
+    })
+
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
+    await hydrateSettings()
+
+    expect(useSettingsStore.getState().sttProvider).toBe("sherpa")
+  })
+
+  it("hydrate maps removed faster-whisper provider to local Sherpa", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "sttProvider") return "faster-whisper"
       return null
     })
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
-    expect(useSettingsStore.getState().sttProvider).toBe("whisper")
+    expect(useSettingsStore.getState().sttProvider).toBe("sherpa")
   })
 
-  it("hydrate migrates the previous Vosk default to local Whisper", async () => {
+  it("hydrates persisted Vosk provider", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "sttProvider") return "vosk"
       return null
     })
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
-    expect(useSettingsStore.getState().sttProvider).toBe("whisper")
+    expect(useSettingsStore.getState().sttProvider).toBe("vosk")
   })
 
   it("a setter call after hydration writes the full snapshot to disk", async () => {
     mockGet.mockResolvedValue(null)
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
     useSettingsStore.getState().setGain(1.75)
@@ -182,7 +204,8 @@ describe("settings store", () => {
   it("rapid setter calls coalesce into a single save", async () => {
     mockGet.mockResolvedValue(null)
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
     const { setGain } = useSettingsStore.getState()
@@ -199,7 +222,8 @@ describe("settings store", () => {
   it("concurrent hydrate calls attach only one subscription", async () => {
     mockGet.mockResolvedValue(null)
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     // Kick off two concurrent hydrations — a second caller must not
     // attach a duplicate subscription that would double every write.
     await Promise.all([hydrateSettings(), hydrateSettings()])
@@ -213,7 +237,8 @@ describe("settings store", () => {
   it("repeated hydrate calls after completion still attach only one subscription", async () => {
     mockGet.mockResolvedValue(null)
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
     await hydrateSettings()
 
@@ -227,7 +252,8 @@ describe("settings store", () => {
     mockLoad.mockRejectedValue(new Error("store not available"))
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await expect(hydrateSettings()).resolves.toBeUndefined()
 
     // Defaults preserved
@@ -240,7 +266,7 @@ describe("settings store", () => {
         outputId: "global",
         kind: "persistence",
         title: "Settings load failed",
-      }),
+      })
     )
     warnSpy.mockRestore()
   })
@@ -269,7 +295,8 @@ describe("settings store", () => {
       return null
     })
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
     const state = useSettingsStore.getState()
@@ -277,7 +304,7 @@ describe("settings store", () => {
     expect(state.confidenceThreshold).toBe(0)
     expect(state.cooldownMs).toBe(0)
     // Non-zero-keyed fields stay at defaults
-    expect(state.sttProvider).toBe("whisper")
+    expect(state.sttProvider).toBe("sherpa")
   })
 
   it("persist handles save rejection gracefully", async () => {
@@ -285,19 +312,22 @@ describe("settings store", () => {
     mockSave.mockRejectedValue(new Error("disk error"))
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
-    const { hydrateSettings, useSettingsStore } = await import("./settings-store")
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
     await hydrateSettings()
 
     useSettingsStore.getState().setAutoMode(true)
     await flushSave()
 
-    expect(warnSpy).toHaveBeenCalledWith("[settings] Failed to persist settings")
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[settings] Failed to persist settings"
+    )
     expect(reportOutputIssueMock).toHaveBeenCalledWith(
       expect.objectContaining({
         outputId: "global",
         kind: "persistence",
         title: "Settings save failed",
-      }),
+      })
     )
     warnSpy.mockRestore()
   })

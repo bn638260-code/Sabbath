@@ -3,9 +3,7 @@ import { load, type Store } from "@tauri-apps/plugin-store"
 import { isTauriRuntime, invokeTauri } from "@/lib/tauri-runtime"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 
-// "vosk" is retained as hidden compatibility only; "whisper" is the default
-// local provider. Persisted "vosk" values migrate to "whisper" on hydration.
-export type SttProvider = "deepgram" | "gladia" | "vosk" | "whisper"
+export type SttProvider = "deepgram" | "gladia" | "sherpa" | "vosk"
 
 interface SettingsState {
   hasDeepgramApiKey: boolean
@@ -42,7 +40,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   confidenceThreshold: 0.8,
   cooldownMs: 2500,
   onboardingComplete: false,
-  sttProvider: "whisper",
+  sttProvider: "sherpa",
   lowPowerMode: false,
 
   setHasDeepgramApiKey: (hasDeepgramApiKey) => set({ hasDeepgramApiKey }),
@@ -69,12 +67,17 @@ const PERSISTED_KEYS = [
 ] as const satisfies readonly (keyof SettingsState)[]
 
 function parseSttProvider(value: unknown): SttProvider {
-  if (value === "deepgram" || value === "gladia" || value === "whisper") {
+  if (
+    value === "deepgram" ||
+    value === "gladia" ||
+    value === "sherpa" ||
+    value === "vosk"
+  ) {
     return value
   }
-  // Migrate removed/legacy local providers (sherpa, faster-whisper,
-  // legacy-whisper) and the previous Vosk default to the Whisper local model.
-  return "whisper"
+  // Migrate removed/legacy local providers (whisper, faster-whisper,
+  // legacy-whisper) to the faster streaming local model.
+  return "sherpa"
 }
 
 let tauriStore: Store | null = null

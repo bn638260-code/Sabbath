@@ -45,6 +45,11 @@ pub struct ServiceAttachmentValidation {
 )]
 pub struct AssetStatus {
     pub bible_db: bool,
+    pub sherpa_model: bool,
+    pub sherpa_model_name: Option<String>,
+    pub sherpa_worker: bool,
+    pub sherpa_runtime: bool,
+    pub sherpa_runtime_error: Option<String>,
     pub whisper_model: bool,
     pub whisper_model_name: Option<String>,
     pub vosk_model: bool,
@@ -69,6 +74,11 @@ pub async fn asset_status(app: AppHandle) -> AssetStatus {
             log::error!("[ASSETS] asset_status task failed: {error}");
             AssetStatus {
                 bible_db: false,
+                sherpa_model: false,
+                sherpa_model_name: None,
+                sherpa_worker: false,
+                sherpa_runtime: false,
+                sherpa_runtime_error: Some(format!("Asset status check failed: {error}")),
                 whisper_model: false,
                 whisper_model_name: None,
                 vosk_model: false,
@@ -90,6 +100,19 @@ pub async fn asset_status(app: AppHandle) -> AssetStatus {
 
 fn build_asset_status(app: &AppHandle) -> AssetStatus {
     let bible_db = asset_paths::bible_db_path(app).exists();
+    let sherpa_model_path = asset_paths::sherpa_model_path(app);
+    let sherpa_model = sherpa_model_path.exists();
+    let sherpa_model_name = sherpa_model
+        .then(|| {
+            sherpa_model_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+        })
+        .flatten();
+    let sherpa_worker_path = asset_paths::sherpa_worker_path(app);
+    let sherpa_worker = sherpa_worker_path.exists();
+    let (sherpa_runtime, sherpa_runtime_error) = sherpa_runtime_status(&sherpa_worker_path);
     let whisper_model_path = asset_paths::whisper_model_path(app);
     let whisper_model = whisper_model_path.exists();
     let whisper_model_name = whisper_model
@@ -125,6 +148,11 @@ fn build_asset_status(app: &AppHandle) -> AssetStatus {
 
     AssetStatus {
         bible_db,
+        sherpa_model,
+        sherpa_model_name,
+        sherpa_worker,
+        sherpa_runtime,
+        sherpa_runtime_error,
         whisper_model,
         whisper_model_name,
         vosk_model,
@@ -222,6 +250,10 @@ fn python_package_runtime_status(
 
 fn vosk_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
     python_package_runtime_status("Vosk", "vosk", worker_path)
+}
+
+fn sherpa_runtime_status(worker_path: &Path) -> (bool, Option<String>) {
+    python_package_runtime_status("sherpa-onnx", "sherpa_onnx", worker_path)
 }
 
 #[cfg(windows)]

@@ -4,6 +4,11 @@ import { invokeTauri } from "@/lib/tauri-runtime"
 
 export interface AssetStatus {
   bible_db: boolean
+  sherpa_model: boolean
+  sherpa_model_name?: string | null
+  sherpa_worker: boolean
+  sherpa_runtime: boolean
+  sherpa_runtime_error: string | null
   whisper_model: boolean
   whisper_model_name?: string | null
   vosk_model: boolean
