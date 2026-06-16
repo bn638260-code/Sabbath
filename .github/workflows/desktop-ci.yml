@@ -88,6 +88,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Setup Python for Vosk sidecar
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -128,6 +133,9 @@ jobs:
 
       - name: Download Vosk model
         run: bun run download:vosk
+
+      - name: Build self-contained Vosk worker
+        run: bun run build:vosk-sidecar
 
       - name: Cache Whisper model
         uses: actions/cache@v4
