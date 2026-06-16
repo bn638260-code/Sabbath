@@ -54,6 +54,15 @@ jobs:
       - name: Build self-contained Vosk worker
         run: bun run build:vosk-sidecar
 
+      - name: Cache Whisper model
+        uses: actions/cache@v4
+        with:
+          path: models/whisper/ggml-tiny.en.bin
+          key: whisper-ggml-tiny-en
+
+      - name: Download Whisper model
+        run: bun run download:whisper
+
       - name: Cache MiniLM models
         uses: actions/cache@v4
         with:
