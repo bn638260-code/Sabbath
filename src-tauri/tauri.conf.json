@@ -34,7 +34,6 @@
       "../data/rhema.db": "rhema.db",
       "../sidecars/vosk_worker.*": "scripts/",
       "../sidecars/sherpa_worker": "scripts/sherpa_worker",
-      "../sidecars/sherpa_worker.*": "scripts/",
       "../scripts/vosk_worker.py": "scripts/vosk_worker.py",
       "../scripts/sherpa_worker.py": "scripts/sherpa_worker.py",
       "../models/whisper/ggml-tiny.en.bin": "models/whisper/ggml-tiny.en.bin",

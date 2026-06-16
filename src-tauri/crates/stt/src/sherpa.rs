@@ -197,7 +197,10 @@ mod tests {
             .join("models")
             .join("sherpa")
             .join("sherpa-onnx-streaming-zipformer-en-2023-06-26");
-        let worker_path = project_root().join("sidecars").join("sherpa_worker.exe");
+        let worker_path = project_root()
+            .join("sidecars")
+            .join("sherpa_worker")
+            .join("sherpa_worker.exe");
 
         if !model_path.exists() || !worker_path.exists() {
             eprintln!(
