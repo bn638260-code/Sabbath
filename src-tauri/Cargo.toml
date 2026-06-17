@@ -71,11 +71,6 @@ keyring = { version = "3", features = ["windows-native"] }
 rand = "0.8.6"
 tempfile = "3"
 
-[features]
-default = ["whisper"]
-whisper = ["rhema-stt/whisper"]
-faster-whisper = ["rhema-stt/faster-whisper"]
-
 [dev-dependencies]
 rusqlite = { version = "0.34", features = ["bundled"] }
 

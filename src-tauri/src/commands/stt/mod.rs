@@ -102,7 +102,6 @@ pub async fn start_transcription(
     gain: Option<f32>,
     provider: Option<String>,
     low_power: Option<bool>,
-    whisper_profile: Option<String>,
 ) -> Result<(), String> {
     // Guard: already running?
     let (stt_active, audio_active) = {
@@ -120,24 +119,17 @@ pub async fn start_transcription(
     let provider_name = provider.as_deref().unwrap_or("vosk");
 
     // Build the STT provider.
-    let stt_provider = match build_stt_provider(
-        provider_name,
-        &app,
-        device_id.as_deref(),
-        gain,
-        whisper_profile.as_deref(),
-    )
-    .await
-    {
-        Ok(provider) => provider,
-        Err(error) => {
-            log::error!(
-                "[STT] start_transcription failed to build provider {provider_name}: {error}"
-            );
-            stt_active.store(false, Ordering::SeqCst);
-            return Err(error);
-        }
-    };
+    let stt_provider =
+        match build_stt_provider(provider_name, &app, device_id.as_deref(), gain).await {
+            Ok(provider) => provider,
+            Err(error) => {
+                log::error!(
+                    "[STT] start_transcription failed to build provider {provider_name}: {error}"
+                );
+                stt_active.store(false, Ordering::SeqCst);
+                return Err(error);
+            }
+        };
 
     audio_active.store(true, Ordering::SeqCst);
 

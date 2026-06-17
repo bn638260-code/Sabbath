@@ -4,7 +4,7 @@ description: Send SabbathCue's verse overlays into your live production switcher
 icon: Radio
 ---
 
-import { Callout } from "fumadocs-ui/components/callout";
+import { Callout } from "fumadocs-ui/components/callout"
 
 SabbathCue doesn't replace your live production tooling — it plugs into it.
 The broadcast pipeline emits verse overlays as a standard
@@ -56,8 +56,7 @@ names.
 
 ![Broadcast settings panel with controls for resolution, frame rate, and alpha mode](/docs/screenshots/settings-broadcast.png)
 
-*Settings → Broadcast exposes the source name, output resolution, frame rate (24/30/60), and alpha mode (none, straight, premultiplied). Changes apply on the next session start. **Click to expand.***
-
+\*Settings → Broadcast exposes the source name, output resolution, frame rate (24/30/60), and alpha mode (none, straight, premultiplied). Changes apply on the next session start. **Click to expand.\***
 
 SabbathCue's NDI sender (`crates/broadcast/src/ndi.rs`) emits BGRA frames
 with configurable resolution, frame rate, and alpha mode:
@@ -74,11 +73,10 @@ with configurable resolution, frame rate, and alpha mode:
 - **Audio**: not transmitted — SabbathCue is a graphics source only.
 
 <Callout title="Picking an alpha mode" type="info">
-Use `StraightAlpha` when your switcher composites with straight
-alpha (vMix and most modern switchers). Use `PremultipliedAlpha`
-when the downstream tool expects pre-blended color channels.
-`NoneOpaque` ignores transparency entirely and is the right choice
-when you want a solid backdrop with no key.
+  Use `StraightAlpha` when your switcher composites with straight alpha (vMix
+  and most modern switchers). Use `PremultipliedAlpha` when the downstream tool
+  expects pre-blended color channels. `NoneOpaque` ignores transparency entirely
+  and is the right choice when you want a solid backdrop with no key.
 </Callout>
 
 ## Latency profile
@@ -86,7 +84,7 @@ when you want a solid backdrop with no key.
 The end-to-end latency from "pastor speaks the verse" to "overlay on
 screen" comes from three contributors:
 
-1. STT processing (Whisper runs locally by default; Deepgram streams within the WebSocket).
+1. STT processing (Vosk runs locally by default; Deepgram and Gladia stream through cloud APIs).
 2. Detection pipeline (the brute-force cosine scan over ~31k vectors
    completes in milliseconds on a modern CPU).
 3. NDI hop and downstream switcher buffering.

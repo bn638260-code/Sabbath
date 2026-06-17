@@ -4,8 +4,6 @@ use tauri::{AppHandle, Manager};
 
 pub const VOSK_ACCURATE_MODEL_DIRNAME: &str = "vosk-model-en-us-0.22-lgraph";
 pub const VOSK_MODEL_DIRNAME: &str = VOSK_ACCURATE_MODEL_DIRNAME;
-/// Smallest/lightest legacy Whisper model.
-pub const WHISPER_MODEL_FILENAME: &str = "ggml-tiny.en.bin";
 /// Well-known LibreOffice install locations probed after env and PATH lookups.
 const SOFFICE_FIXED_CANDIDATES: &[&str] = &[
     r"C:\Program Files\LibreOffice\program\soffice.exe",
@@ -167,46 +165,6 @@ pub fn vosk_worker_path(app: &AppHandle) -> PathBuf {
         )
         .unwrap_or_else(|| dev_root().join("scripts").join("vosk_worker.py")),
     )
-}
-
-/// Resolve the Whisper GGML model file (`ggml-tiny.en.bin`).
-///
-/// Search order: `SABBATHCUE_WHISPER_MODEL` override, app data dir, bundled
-/// resource dir, then the dev-tree `models/whisper`. Falls back to the app
-/// data location (which may not exist yet) so callers can report a stable path.
-pub fn whisper_model_path(app: &AppHandle) -> PathBuf {
-    let mut candidates = Vec::new();
-    if let Ok(path) = std::env::var("SABBATHCUE_WHISPER_MODEL") {
-        if !path.trim().is_empty() {
-            candidates.push(PathBuf::from(path));
-        }
-    }
-
-    let roots = [
-        app_data_dir(app)
-            .ok()
-            .map(|p| p.join("models").join("whisper")),
-        app.path()
-            .resource_dir()
-            .ok()
-            .map(|p| p.join("models").join("whisper")),
-        Some(dev_root().join("models").join("whisper")),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>();
-
-    for root in &roots {
-        candidates.push(root.join(WHISPER_MODEL_FILENAME));
-    }
-
-    simplify_windows_path(first_existing(candidates).unwrap_or_else(|| {
-        app_data_dir(app)
-            .unwrap_or_else(|_| dev_root())
-            .join("models")
-            .join("whisper")
-            .join(WHISPER_MODEL_FILENAME)
-    }))
 }
 
 /// Executable names for the LibreOffice CLI, per platform.
@@ -518,11 +476,6 @@ mod tests {
     fn soffice_candidate_paths_skip_blank_override_and_missing_path() {
         let candidates = soffice_candidate_paths(Some("   "), None, &["soffice"], &["soffice"]);
         assert_eq!(candidates, vec![PathBuf::from("soffice")]);
-    }
-
-    #[test]
-    fn whisper_model_filename_is_the_tiny_english_model() {
-        assert_eq!(WHISPER_MODEL_FILENAME, "ggml-tiny.en.bin");
     }
 
     #[test]

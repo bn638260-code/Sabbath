@@ -45,8 +45,6 @@ pub struct ServiceAttachmentValidation {
 )]
 pub struct AssetStatus {
     pub bible_db: bool,
-    pub whisper_model: bool,
-    pub whisper_model_name: Option<String>,
     pub vosk_model: bool,
     pub vosk_model_name: Option<String>,
     pub vosk_model_quality: Option<String>,
@@ -69,8 +67,6 @@ pub async fn asset_status(app: AppHandle) -> AssetStatus {
             log::error!("[ASSETS] asset_status task failed: {error}");
             AssetStatus {
                 bible_db: false,
-                whisper_model: false,
-                whisper_model_name: None,
                 vosk_model: false,
                 vosk_model_name: None,
                 vosk_model_quality: None,
@@ -90,16 +86,6 @@ pub async fn asset_status(app: AppHandle) -> AssetStatus {
 
 fn build_asset_status(app: &AppHandle) -> AssetStatus {
     let bible_db = asset_paths::bible_db_path(app).exists();
-    let whisper_model_path = asset_paths::whisper_model_path(app);
-    let whisper_model = whisper_model_path.exists();
-    let whisper_model_name = whisper_model
-        .then(|| {
-            whisper_model_path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .map(str::to_string)
-        })
-        .flatten();
     let vosk_model_path = asset_paths::vosk_model_path(app);
     let vosk_model = vosk_model_path.exists();
     let vosk_model_name = vosk_model
@@ -125,8 +111,6 @@ fn build_asset_status(app: &AppHandle) -> AssetStatus {
 
     AssetStatus {
         bible_db,
-        whisper_model,
-        whisper_model_name,
         vosk_model,
         vosk_model_name,
         vosk_model_quality,

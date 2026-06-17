@@ -126,12 +126,6 @@ pub fn run() {
                 app.package_info().version,
                 std::process::id()
             );
-            let whisper_model = asset_paths::whisper_model_path(app.handle());
-            log::info!(
-                "Resolved legacy Whisper model path: {} (exists={})",
-                whisper_model.display(),
-                whisper_model.exists()
-            );
             let vosk_model = asset_paths::vosk_model_path(app.handle());
             let vosk_worker = asset_paths::vosk_worker_path(app.handle());
             log::info!(

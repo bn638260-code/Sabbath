@@ -58,8 +58,6 @@ export const transcriptionActions = {
         gain: settings.gain,
         provider: settings.sttProvider,
         lowPower: settings.lowPowerMode,
-        // Kept for legacy Whisper only. Vosk/cloud providers ignore it.
-        whisperProfile: settings.lowPowerMode ? "fast" : "balanced",
       })
       transcript.setTranscribing(true)
       return true

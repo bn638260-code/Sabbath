@@ -18,7 +18,6 @@
 //!
 //! - `rest-fallback`: enables REST API fallback client
 //! - `gladia`: enables the Gladia live API provider
-//! - `whisper`: enables local Whisper STT provider
 
 pub mod bench;
 pub mod deepgram;
@@ -32,11 +31,6 @@ pub mod types;
 pub mod vosk;
 pub mod worker;
 
-#[cfg(feature = "faster-whisper")]
-pub mod faster_whisper;
-#[cfg(feature = "whisper")]
-pub mod whisper;
-
 pub use deepgram::DeepgramClient;
 pub use error::SttError;
 #[cfg(feature = "gladia")]
@@ -45,8 +39,3 @@ pub use keyterms::bible_keyterms;
 pub use provider::SttProvider;
 pub use types::{SttConfig, TranscriptEvent, Word};
 pub use vosk::VoskProvider;
-
-#[cfg(feature = "faster-whisper")]
-pub use faster_whisper::FasterWhisperProvider;
-#[cfg(feature = "whisper")]
-pub use whisper::WhisperProvider;
