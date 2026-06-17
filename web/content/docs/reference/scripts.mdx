@@ -38,6 +38,7 @@ repository's top-level `package.json`.
 | `precompute:embeddings-py`   | Same, but via Python sentence-transformers (GPU path)                          |
 | `quantize:model`             | Re-run the Qwen3 ONNX export and INT8 quantization                             |
 | `download:vosk`              | Download the default local Vosk STT model                                      |
+| `download:whisper`           | Download the Whisper tiny English ggml model used by CI/release builds         |
 | `build:vosk-sidecar`         | Build the self-contained Vosk worker used by release builds                    |
 | `download:ndi-sdk`           | Download NDI 6 SDK headers and platform libraries                              |
 
@@ -66,7 +67,7 @@ dependency weight:
 - **`precompute:embeddings-py`** — sentence-transformers + PyTorch
   on GPU when one is available; this is the fastest end-to-end on
   Apple Silicon and CUDA.
-  </Callout>
+</Callout>
 
 ## When to run what
 
@@ -77,6 +78,7 @@ dependency weight:
 | Embedding model bumped                 | `bun run download:model && bun run precompute:embeddings` |
 | Need NDI broadcast                     | `bun run download:ndi-sdk`                                |
 | Reinstall the default local Vosk model | `bun run download:vosk`                                   |
+| Reinstall the CI Whisper model         | `bun run download:whisper`                                |
 | Just want to see the UI                | `bun run tauri dev`                                       |
 | Cutting a release                      | `bun run tauri build`                                     |
 
