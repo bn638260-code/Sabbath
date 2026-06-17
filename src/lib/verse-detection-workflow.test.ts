@@ -196,6 +196,83 @@ describe("verse detection workflow", () => {
     ])
   })
 
+  it("previews a direct hit over a stronger semantic suggestion", async () => {
+    await handleVerseDetections([
+      makeDetection({
+        source: "semantic",
+        verse_ref: "Romans 8:28",
+        verse_text: "All things work together for good",
+        book_name: "Romans",
+        book_number: 45,
+        chapter: 8,
+        verse: 28,
+        confidence: 0.99,
+        transcript_snippet: "all things work together for good",
+      }),
+      makeDetection({
+        auto_queued: false,
+        confidence: 0.64,
+      }),
+    ])
+
+    expect(useBibleStore.getState().selectedVerse).toMatchObject({
+      book_number: 43,
+      chapter: 3,
+      verse: 16,
+    })
+    expect(useQueueStore.getState().items).toEqual([
+      expect.objectContaining({
+        source: "ai-semantic",
+        confidence: 0.99,
+        presentation: expect.objectContaining({
+          reference: "Romans 8:28",
+        }),
+      }),
+    ])
+  })
+
+  it("keeps non-auto-queued semantic detections out of the queue", async () => {
+    await handleVerseDetections([
+      makeDetection({
+        source: "semantic",
+        auto_queued: false,
+        confidence: 0.79,
+      }),
+    ])
+
+    expect(useDetectionStore.getState().detections).toHaveLength(1)
+    expect(useBibleStore.getState().selectedVerse).toBeNull()
+    expect(useQueueStore.getState().items).toHaveLength(0)
+  })
+
+  it("queues chapter-only direct detections without selecting preview", async () => {
+    await handleVerseDetections([
+      makeDetection({
+        verse_ref: "John 3",
+        verse: 1,
+        verse_text: "Chapter start",
+        transcript_snippet: "John chapter three",
+        is_chapter_only: true,
+      }),
+    ])
+
+    expect(useBibleStore.getState().selectedVerse).toBeNull()
+    expect(useQueueStore.getState().items).toEqual([
+      expect.objectContaining({
+        source: "ai-direct",
+        is_chapter_only: true,
+        presentation: expect.objectContaining({
+          reference: "John 3",
+          verse: expect.objectContaining({
+            book_number: 43,
+            chapter: 3,
+            verse: 1,
+          }),
+        }),
+      }),
+    ])
+  })
+
   it("refines a chapter-only queue item instead of adding a duplicate verse", async () => {
     useQueueStore.setState({
       items: [makeQueueItem()],

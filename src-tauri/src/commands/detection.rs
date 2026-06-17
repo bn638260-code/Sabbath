@@ -792,6 +792,27 @@ mod tests {
         }
     }
 
+    fn direct_merged_with_reference(book_number: i32, chapter: i32, verse: i32) -> MergedDetection {
+        MergedDetection {
+            detection: Detection {
+                verse_ref: VerseRef {
+                    book_number,
+                    book_name: "John".to_string(),
+                    chapter,
+                    verse_start: verse,
+                    verse_end: None,
+                },
+                verse_id: None,
+                confidence: 0.98,
+                source: DetectionSource::DirectReference,
+                transcript_snippet: format!("John {chapter}:{verse}"),
+                detected_at: 0,
+                is_chapter_only: false,
+            },
+            auto_queued: true,
+        }
+    }
+
     fn fixture_state(active_translation_id: i64) -> DetectionFixture {
         let dir = tempfile::tempdir().expect("temp dir");
         let db_path = dir.path().join("rhema.db");
@@ -871,6 +892,19 @@ mod tests {
         assert_eq!(result.verse_ref, "John 3:16");
         assert_eq!(result.verse_text, "NLT John 3:16 text.");
         assert_eq!(result.source, "semantic");
+    }
+
+    #[test]
+    fn to_result_resolves_direct_reference_to_active_translation() {
+        let fixture = fixture_state(2);
+        let merged = direct_merged_with_reference(43, 3, 16);
+
+        let result = to_result(&fixture.state, &merged);
+
+        assert_eq!(result.verse_ref, "John 3:16");
+        assert_eq!(result.verse_text, "NKJV John 3:16 text.");
+        assert_eq!(result.source, "direct");
+        assert!(result.auto_queued);
     }
 
     #[test]

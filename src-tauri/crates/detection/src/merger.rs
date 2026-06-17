@@ -173,9 +173,23 @@ impl Default for DetectionMerger {
 }
 
 fn same_verse(a: &Detection, b: &Detection) -> bool {
-    a.verse_ref.book_number == b.verse_ref.book_number
-        && a.verse_ref.chapter == b.verse_ref.chapter
-        && a.verse_ref.verse_start == b.verse_ref.verse_start
+    if let (Some(a_id), Some(b_id)) = (a.verse_id, b.verse_id) {
+        return a_id == b_id;
+    }
+
+    match (verse_ref_key(a), verse_ref_key(b)) {
+        (Some(a_key), Some(b_key)) => a_key == b_key,
+        _ => false,
+    }
+}
+
+fn verse_ref_key(detection: &Detection) -> Option<(i32, i32, i32)> {
+    let ref_ = &detection.verse_ref;
+    (ref_.book_number > 0 && ref_.chapter > 0 && ref_.verse_start > 0).then_some((
+        ref_.book_number,
+        ref_.chapter,
+        ref_.verse_start,
+    ))
 }
 
 fn should_replace(existing: &Detection, incoming: &Detection) -> bool {
@@ -218,6 +232,26 @@ mod tests {
             confidence,
             source,
             transcript_snippet: format!("{book_name} {chapter}:{verse_start}"),
+            detected_at: 0,
+            is_chapter_only: false,
+        }
+    }
+
+    fn make_semantic_id_detection(verse_id: i64, confidence: f64) -> Detection {
+        Detection {
+            verse_ref: VerseRef {
+                book_number: 0,
+                book_name: String::new(),
+                chapter: 0,
+                verse_start: 0,
+                verse_end: None,
+            },
+            verse_id: Some(verse_id),
+            confidence,
+            source: DetectionSource::Semantic {
+                similarity: confidence,
+            },
+            transcript_snippet: format!("semantic hit {verse_id}"),
             detected_at: 0,
             is_chapter_only: false,
         }
@@ -279,6 +313,39 @@ mod tests {
         let results = merger.merge(vec![], semantic);
         assert_eq!(results.len(), 1);
         assert!((results[0].detection.confidence - 0.78).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_merger_keeps_unresolved_semantic_verse_ids_distinct() {
+        let mut merger = DetectionMerger::new();
+
+        let semantic = vec![
+            make_semantic_id_detection(1001, 0.72),
+            make_semantic_id_detection(1002, 0.81),
+            make_semantic_id_detection(1003, 0.64),
+        ];
+
+        let results = merger.merge(vec![], semantic);
+
+        assert_eq!(results.len(), 3);
+        let ids: Vec<Option<i64>> = results.iter().map(|r| r.detection.verse_id).collect();
+        assert_eq!(ids, vec![Some(1002), Some(1001), Some(1003)]);
+    }
+
+    #[test]
+    fn test_merger_dedups_matching_semantic_verse_ids() {
+        let mut merger = DetectionMerger::new();
+
+        let semantic = vec![
+            make_semantic_id_detection(1001, 0.72),
+            make_semantic_id_detection(1001, 0.81),
+        ];
+
+        let results = merger.merge(vec![], semantic);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].detection.verse_id, Some(1001));
+        assert!((results[0].detection.confidence - 0.81).abs() < f64::EPSILON);
     }
 
     #[test]

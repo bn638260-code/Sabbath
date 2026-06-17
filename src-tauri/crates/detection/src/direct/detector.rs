@@ -1187,6 +1187,22 @@ mod tests {
     }
 
     #[test]
+    fn test_impossible_reference_does_not_leave_stale_continuation_state() {
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("Mark 30:1");
+        assert!(results.is_empty());
+
+        let results = detector.detect("verse two");
+        assert!(
+            results.is_empty(),
+            "invalid explicit refs must not seed a pending reference"
+        );
+        assert!(detector.incomplete.is_none());
+        assert!(detector.recent_detections().is_empty());
+    }
+
+    #[test]
     fn test_multiple_references() {
         let mut detector = DirectDetector::new();
         let results =
