@@ -7,32 +7,34 @@
 
 | Data type         | Storage location                                            | Network transmission                                                   | Notes                                                           |
 | ----------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Audio input       | RAM only                                                    | None in local Whisper mode / Deepgram WebSocket in Deepgram mode       | Not intentionally written to disk by the app                    |
-| Transcripts       | RAM and UI state during the active session                  | None in local Whisper mode / Deepgram response stream in Deepgram mode | Cleared through transcript/session controls or app close        |
+| Audio input       | RAM only                                                    | None in local Vosk mode / Deepgram or Gladia cloud mode                | Not intentionally written to disk by the app                    |
+| Transcripts       | RAM and UI state during the active session                  | None in local Vosk mode / cloud STT response stream                    | Cleared through transcript/session controls or app close        |
 | Bible database    | Bundled `rhema.db` resource, or development `data/rhema.db` | None during normal app operation                                       | Built during setup/release from source data                     |
 | Deepgram API key  | OS keychain                                                 | Sent to Deepgram only when Deepgram mode is used                       | Never intentionally stored in plaintext app settings            |
 | HTTP bearer token | OS keychain                                                 | Sent by local clients in the `Authorization` header over loopback HTTP | Generated locally; used to authenticate remote-control requests |
 | Service plans     | Local app data/settings storage                             | None                                                                   | User-created local files/data                                   |
 | Settings          | Local app data/settings storage                             | None                                                                   | Includes non-secret preferences                                 |
-| Detection models  | App resources or local `models/` directory                  | None during normal operation                                           | ONNX and Whisper model files run locally                        |
+| Detection models  | App resources or local `models/` directory                  | None during normal operation                                           | ONNX and Vosk model files run locally                           |
 | Embeddings        | App resources or local `embeddings/` directory              | None during normal operation                                           | Pre-computed verse vectors                                      |
 
 ## Network flows
 
-### No network (local Whisper mode, default)
+### No network (local Vosk mode, default)
 
-- Audio -> local in-process Whisper inference -> transcript -> UI
+- Audio -> local Vosk worker -> transcript -> UI
 - No outbound STT traffic
 
-### Deepgram mode (opt-in cloud)
+### Cloud STT modes (opt-in)
 
 - Audio -> Deepgram WebSocket (`wss://api.deepgram.com`) -> transcript -> UI
 - REST fallback may upload buffered audio windows if WebSocket transcription fails
 - Requires a Deepgram API key stored in the OS keychain
+- Audio -> Gladia live session (`https://api.gladia.io`) -> transcript -> UI
+- Requires a Gladia API key stored in the OS keychain
 
 ### Setup-time downloads
 
-- Bible source data, ML models, the Whisper STT model, and the optional NDI SDK may be downloaded during setup or release preparation.
+- Bible source data, ML models, the Vosk STT model, and the optional NDI SDK may be downloaded during setup or release preparation.
 - These downloads are not part of normal local operation after assets are installed.
 
 ### Remote control (loopback only by default)
@@ -51,14 +53,15 @@
 
 ## Third-party dependencies
 
-| Dependency   | Purpose                  | Data shared                                              |
-| ------------ | ------------------------ | -------------------------------------------------------- |
-| Whisper      | Local in-process STT     | Audio stays on the local machine                         |
-| Deepgram     | Optional cloud STT       | Audio stream and API key when enabled                    |
-| LibreOffice  | Optional PPTX-to-PDF     | Deck file stays on the local machine                     |
-| ONNX Runtime | Local ML inference       | None                                                     |
-| SQLite       | Local Bible database     | None                                                     |
-| NDI SDK      | Video broadcast output   | Video frames to configured local/broadcast NDI consumers |
+| Dependency   | Purpose                | Data shared                                              |
+| ------------ | ---------------------- | -------------------------------------------------------- |
+| Vosk         | Local worker STT       | Audio stays on the local machine                         |
+| Deepgram     | Optional cloud STT     | Audio stream and API key when enabled                    |
+| Gladia       | Optional cloud STT     | Audio stream and API key when enabled                    |
+| LibreOffice  | Optional PPTX-to-PDF   | Deck file stays on the local machine                     |
+| ONNX Runtime | Local ML inference     | None                                                     |
+| SQLite       | Local Bible database   | None                                                     |
+| NDI SDK      | Video broadcast output | Video frames to configured local/broadcast NDI consumers |
 
 ## Compliance notes
 

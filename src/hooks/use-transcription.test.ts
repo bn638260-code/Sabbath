@@ -46,12 +46,12 @@ describe("use-transcription", () => {
   })
 
   describe("transcriptionActions.start", () => {
-    it("invokes start_transcription with settings-derived params for sherpa", async () => {
+    it("invokes start_transcription with settings-derived params for vosk", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()
 
       useSettingsStore.setState({
-        sttProvider: "sherpa",
+        sttProvider: "vosk",
         audioDeviceId: "dev-42",
         gain: 1.5,
       })
@@ -61,18 +61,17 @@ describe("use-transcription", () => {
       expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
         deviceId: "dev-42",
         gain: 1.5,
-        provider: "sherpa",
+        provider: "vosk",
         lowPower: false,
-        whisperProfile: "balanced",
       })
     })
 
-    it("keeps local transcription on Sherpa for settings-derived params", async () => {
+    it("keeps local transcription on Vosk for settings-derived params", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()
 
       useSettingsStore.setState({
-        sttProvider: "sherpa",
+        sttProvider: "vosk",
         audioDeviceId: "dev-43",
         gain: 1.25,
       })
@@ -82,18 +81,17 @@ describe("use-transcription", () => {
       expect(mockInvoke).toHaveBeenCalledWith("start_transcription", {
         deviceId: "dev-43",
         gain: 1.25,
-        provider: "sherpa",
+        provider: "vosk",
         lowPower: false,
-        whisperProfile: "balanced",
       })
     })
 
-    it("forwards low power mode and the fast Whisper profile", async () => {
+    it("forwards low power mode", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()
 
       useSettingsStore.setState({
-        sttProvider: "sherpa",
+        sttProvider: "vosk",
         lowPowerMode: true,
       })
 
@@ -101,7 +99,7 @@ describe("use-transcription", () => {
 
       expect(mockInvoke).toHaveBeenCalledWith(
         "start_transcription",
-        expect.objectContaining({ lowPower: true, whisperProfile: "fast" })
+        expect.objectContaining({ lowPower: true })
       )
     })
 
@@ -217,7 +215,7 @@ describe("use-transcription", () => {
     })
 
     it("surfaces any other start error as a toast", async () => {
-      mockInvoke.mockRejectedValue("Whisper model not found")
+      mockInvoke.mockRejectedValue("Vosk model not found")
       const { useTranscriptStore, transcriptionActions } = await loadModules()
       const onMissingApiKey = vi.fn()
 
@@ -226,7 +224,7 @@ describe("use-transcription", () => {
       expect(onMissingApiKey).not.toHaveBeenCalled()
       expect(mockToastError).toHaveBeenCalledWith(
         "Could not start transcription",
-        { description: "Whisper model not found" }
+        { description: "Vosk model not found" }
       )
       expect(useTranscriptStore.getState().connectionStatus).toBe("error")
     })
@@ -372,10 +370,12 @@ describe("use-transcription", () => {
       expect(mockInvoke).toHaveBeenNthCalledWith(
         2,
         "start_transcription",
-        expect.any(Object),
+        expect.any(Object)
       )
       expect(useTranscriptStore.getState().segments).toEqual(existingSegments)
-      expect(useTranscriptStore.getState().currentPartial).toBe("unfinished thought")
+      expect(useTranscriptStore.getState().currentPartial).toBe(
+        "unfinished thought"
+      )
       expect(useTranscriptStore.getState().connectionStatus).toBe("error")
     })
   })

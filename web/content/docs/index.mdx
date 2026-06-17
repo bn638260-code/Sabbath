@@ -4,8 +4,8 @@ description: Real-time AI Bible verse detection for live sermons and broadcasts 
 icon: Sparkles
 ---
 
-import { Card, Cards } from "fumadocs-ui/components/card";
-import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card"
+import { Callout } from "fumadocs-ui/components/callout"
 import {
   Mic,
   Radio,
@@ -16,7 +16,7 @@ import {
   Cpu,
   Database,
   Rocket,
-} from "lucide-react";
+} from "lucide-react"
 
 SabbathCue listens to a live sermon audio feed, transcribes speech in real time,
 detects Bible verse references — both explicit citations and quoted
@@ -25,7 +25,7 @@ production.
 
 ![SabbathCue desktop app — live transcript on the left, detections in the centre, queue and live preview on the right](/docs/screenshots/dashboard-overview.png)
 
-*The SabbathCue dashboard during a service: live transcript on the left, detected verses in the centre column, and the verse queue plus broadcast preview on the right. **Click to expand.***
+\*The SabbathCue dashboard during a service: live transcript on the left, detected verses in the centre column, and the verse queue plus broadcast preview on the right. **Click to expand.\***
 
 ## What you can do with SabbathCue
 
@@ -55,11 +55,10 @@ production.
 ## Get started in two commands
 
 <Callout title="Prerequisites" type="info">
-You'll need [Bun](https://bun.sh), the [Rust toolchain](https://rustup.rs),
-[Python 3](https://www.python.org/), and your platform's
-[Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/) installed
-first. See [Prerequisites](/docs/getting-started/prerequisites) for the full
-list.
+  You'll need [Bun](https://bun.sh), the [Rust toolchain](https://rustup.rs),
+  [Python 3](https://www.python.org/), and your platform's [Tauri v2
+  prerequisites](https://v2.tauri.app/start/prerequisites/) installed first. See
+  [Prerequisites](/docs/getting-started/prerequisites) for the full list.
 </Callout>
 
 ```bash
@@ -68,17 +67,16 @@ bun install && bun run setup:all
 bun run tauri dev
 ```
 
-That's it. `setup:all` runs seven idempotent phases — Python venv, Bible
-downloads, SQLite build, ONNX export, embeddings — and `tauri dev` boots the
-desktop app. See the [installation guide](/docs/getting-started/installation)
+That's it. `setup:all` runs the idempotent setup phases - Python venv, Bible
+downloads, SQLite build, ONNX export, embeddings, and Vosk assets - and
+`tauri dev` boots the desktop app. See the [installation guide](/docs/getting-started/installation)
 for a guided walkthrough.
 
 ## How it's built
 
 ![SabbathCue pipeline — audio capture flows through speech-to-text, the detection pipeline, the queue, and finally the NDI sender that downstream switchers consume](/docs/diagrams/diagram-pipeline-flow.svg)
 
-*The five stages, in order: capture → transcribe → detect → curate → broadcast. The detection stage is the one that runs all four strategies in parallel and merges them. **Click to expand.***
-
+\*The five stages, in order: capture → transcribe → detect → curate → broadcast. The detection stage is the one that runs all four strategies in parallel and merges them. **Click to expand.\***
 
 <Cards>
   <Card

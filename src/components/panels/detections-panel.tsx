@@ -4,7 +4,13 @@ import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { ConfidenceDot } from "@/components/ui/confidence-dot"
 import { Button } from "@/components/ui/button"
-import { BrainCircuitIcon, EyeIcon, PlayIcon, PlusIcon, RadarIcon } from "lucide-react"
+import {
+  BrainCircuitIcon,
+  EyeIcon,
+  PlayIcon,
+  PlusIcon,
+  RadarIcon,
+} from "lucide-react"
 import { useDetection, detectionActions } from "@/hooks/use-detection"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useQueueStore } from "@/stores/queue-store"
@@ -13,32 +19,65 @@ import {
   presentVerse,
   selectPreviewVerse,
   createScriptureQueueItem,
+  previewEgwParagraph,
+  presentEgwParagraph,
+  createEgwQueueItem,
 } from "@/lib/presentation-workflow"
-import type { DetectionResult } from "@/types"
+import type { DetectionResult, EgwParagraph, Verse } from "@/types"
 
-const SOURCE_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+const SOURCE_COLORS: Record<
+  string,
+  { bg: string; text: string; label: string }
+> = {
   direct: { bg: "bg-green-500/15", text: "text-green-600", label: "Direct" },
-  semantic: { bg: "bg-indigo-500/15", text: "text-indigo-300", label: "Semantic" },
+  semantic: {
+    bg: "bg-indigo-500/15",
+    text: "text-indigo-300",
+    label: "Semantic",
+  },
 }
 
 function SourceBadge({ source }: { source: string }) {
-  const style = SOURCE_COLORS[source] ?? { bg: "bg-white/10", text: "text-muted-foreground", label: source }
+  const style = SOURCE_COLORS[source] ?? {
+    bg: "bg-white/10",
+    text: "text-muted-foreground",
+    label: source,
+  }
   return (
-    <span className={`rounded px-1.5 py-0.5 text-[0.5625rem] font-medium uppercase tracking-wider ${style.bg} ${style.text}`}>
+    <span
+      className={`rounded px-1.5 py-0.5 text-[0.5625rem] font-medium tracking-wider uppercase ${style.bg} ${style.text}`}
+    >
       {style.label}
     </span>
   )
 }
 
+function isEgwDetection(
+  detection: DetectionResult
+): detection is DetectionResult & { egw_paragraph: EgwParagraph } {
+  return detection.content_type === "egw" && Boolean(detection.egw_paragraph)
+}
+
 function DetectionCard({ detection }: { detection: DetectionResult }) {
-  const verse = detectionToVerse(detection)
+  const egwParagraph = isEgwDetection(detection)
+    ? detection.egw_paragraph
+    : null
+  const verse: Verse | null = egwParagraph ? null : detectionToVerse(detection)
 
   const handlePreview = () => {
-    selectPreviewVerse(verse)
+    if (egwParagraph) {
+      previewEgwParagraph(egwParagraph)
+    } else if (verse) {
+      selectPreviewVerse(verse)
+    }
   }
 
   const handlePresent = () => {
-    presentVerse(verse)
+    if (egwParagraph) {
+      presentEgwParagraph(egwParagraph)
+    } else if (verse) {
+      presentVerse(verse)
+    }
   }
 
   return (
@@ -61,7 +100,12 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
       )}
 
       <div className="mt-2 flex gap-2">
-        <Button size="sm" variant="outline" className="gap-1" onClick={handlePreview}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1"
+          onClick={handlePreview}
+        >
           <EyeIcon className="size-3" />
           Preview
         </Button>
@@ -74,13 +118,25 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
           size="sm"
           className="gap-1"
           onClick={() => {
-            useQueueStore.getState().addOrFlashItem(
-              createScriptureQueueItem(verse, {
-                reference: detection.verse_ref,
-                confidence: detection.confidence,
-                source: detection.source === "direct" ? "ai-direct" : "ai-semantic",
-              })
-            )
+            if (egwParagraph) {
+              useQueueStore.getState().addOrFlashItem(
+                createEgwQueueItem(egwParagraph, {
+                  confidence: detection.confidence,
+                  source: "ai-direct",
+                })
+              )
+              return
+            }
+            if (verse) {
+              useQueueStore.getState().addOrFlashItem(
+                createScriptureQueueItem(verse, {
+                  reference: detection.verse_ref,
+                  confidence: detection.confidence,
+                  source:
+                    detection.source === "direct" ? "ai-direct" : "ai-semantic",
+                })
+              )
+            }
           }}
         >
           <PlusIcon className="size-3" />
@@ -122,20 +178,24 @@ export function DetectionsPanel({ className }: { className?: string }) {
       data-slot="detections-panel"
       className={cn(
         "glass-panel relative flex min-h-0 flex-col overflow-hidden",
-        className,
+        className
       )}
     >
-      <PanelHeader title="Recent detections" icon={<RadarIcon className="size-3" />} step={6}>
+      <PanelHeader
+        title="Recent detections"
+        icon={<RadarIcon className="size-3" />}
+        step={6}
+      >
         <div className="flex items-center gap-2">
           <span
-            className="inline-flex items-center gap-1 rounded border border-white/5 px-1.5 py-0.5 text-[0.5625rem] uppercase text-muted-foreground"
+            className="inline-flex items-center gap-1 rounded border border-white/5 px-1.5 py-0.5 text-[0.5625rem] text-muted-foreground uppercase"
             title="Semantic detections remain visible from 42%; the threshold controls automatic output only."
           >
             <BrainCircuitIcon className="size-2.5" />
             {semanticStatus?.has_semantic ? "Semantic" : "Keyword"}
-            {semanticStatus?.paraphrase_enabled ? " + paraphrase" : ""}
-            {" "}
-            auto {Math.round(confidenceThreshold * 100)}%
+            {semanticStatus?.paraphrase_enabled
+              ? " + paraphrase"
+              : ""} auto {Math.round(confidenceThreshold * 100)}%
           </span>
           <button
             onClick={() => detectionActions.clearDetections()}
@@ -158,7 +218,10 @@ export function DetectionsPanel({ className }: { className?: string }) {
             </div>
           )}
           {detections.map((detection, i) => (
-            <DetectionCard key={`${detection.verse_ref}-${i}`} detection={detection} />
+            <DetectionCard
+              key={`${detection.verse_ref}-${i}`}
+              detection={detection}
+            />
           ))}
         </div>
       </div>

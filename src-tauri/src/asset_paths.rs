@@ -4,9 +4,6 @@ use tauri::{AppHandle, Manager};
 
 pub const VOSK_ACCURATE_MODEL_DIRNAME: &str = "vosk-model-en-us-0.22-lgraph";
 pub const VOSK_MODEL_DIRNAME: &str = VOSK_ACCURATE_MODEL_DIRNAME;
-pub const SHERPA_MODEL_DIRNAME: &str = "sherpa-onnx-streaming-zipformer-en-2023-06-26";
-/// Smallest/lightest legacy Whisper model.
-pub const WHISPER_MODEL_FILENAME: &str = "ggml-tiny.en.bin";
 /// Well-known LibreOffice install locations probed after env and PATH lookups.
 const SOFFICE_FIXED_CANDIDATES: &[&str] = &[
     r"C:\Program Files\LibreOffice\program\soffice.exe",
@@ -25,10 +22,6 @@ const VOSK_MODEL_DIRNAMES: &[&str] = &[
     "vosk-model-en-us-0.22",
     "vosk-model-en-us-0.42-gigaspeech",
     "vosk-model-en-us-daanzu-20200905",
-];
-const SHERPA_MODEL_DIRNAMES: &[&str] = &[
-    "sherpa-onnx-streaming-zipformer-en-2023-06-26",
-    "sherpa-onnx-streaming-zipformer-en-2023-06-26-int8",
 ];
 
 fn dev_root() -> PathBuf {
@@ -74,28 +67,6 @@ fn is_vosk_model_dir(path: &Path) -> bool {
         && path.join("graph").exists()
 }
 
-fn has_file_matching(path: &Path, prefix: &str, suffix: &str) -> bool {
-    let Ok(entries) = std::fs::read_dir(path) else {
-        return false;
-    };
-    entries.flatten().any(|entry| {
-        let file_name = entry.file_name();
-        let Some(file_name) = file_name.to_str() else {
-            return false;
-        };
-        entry.file_type().is_ok_and(|file_type| file_type.is_file())
-            && file_name.starts_with(prefix)
-            && file_name.ends_with(suffix)
-    })
-}
-
-fn is_sherpa_model_dir(path: &Path) -> bool {
-    path.join("tokens.txt").exists()
-        && has_file_matching(path, "encoder", ".onnx")
-        && has_file_matching(path, "decoder", ".onnx")
-        && has_file_matching(path, "joiner", ".onnx")
-}
-
 fn resolve_vosk_model_dir(path: PathBuf) -> Option<PathBuf> {
     if is_vosk_model_dir(&path) {
         return Some(path);
@@ -104,21 +75,6 @@ fn resolve_vosk_model_dir(path: PathBuf) -> Option<PathBuf> {
     for dirname in VOSK_MODEL_DIRNAMES {
         let nested = path.join(dirname);
         if is_vosk_model_dir(&nested) {
-            return Some(nested);
-        }
-    }
-
-    None
-}
-
-fn resolve_sherpa_model_dir(path: PathBuf) -> Option<PathBuf> {
-    if is_sherpa_model_dir(&path) {
-        return Some(path);
-    }
-
-    for dirname in SHERPA_MODEL_DIRNAMES {
-        let nested = path.join(dirname);
-        if is_sherpa_model_dir(&nested) {
             return Some(nested);
         }
     }
@@ -209,122 +165,6 @@ pub fn vosk_worker_path(app: &AppHandle) -> PathBuf {
         )
         .unwrap_or_else(|| dev_root().join("scripts").join("vosk_worker.py")),
     )
-}
-
-pub fn sherpa_model_path(app: &AppHandle) -> PathBuf {
-    let mut candidates = Vec::new();
-    if let Ok(path) = std::env::var("SABBATHCUE_SHERPA_MODEL_DIR") {
-        if !path.trim().is_empty() {
-            candidates.push(PathBuf::from(path));
-        }
-    }
-
-    let roots = [
-        app_data_dir(app)
-            .ok()
-            .map(|p| p.join("models").join("sherpa")),
-        app.path()
-            .resource_dir()
-            .ok()
-            .map(|p| p.join("models").join("sherpa")),
-        Some(dev_root().join("models").join("sherpa")),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>();
-
-    for root in roots {
-        candidates.push(root.join(SHERPA_MODEL_DIRNAME));
-        for dirname in SHERPA_MODEL_DIRNAMES {
-            candidates.push(root.join(dirname));
-        }
-    }
-
-    simplify_windows_path(
-        candidates
-            .into_iter()
-            .find_map(resolve_sherpa_model_dir)
-            .unwrap_or_else(|| {
-                app_data_dir(app)
-                    .unwrap_or_else(|_| dev_root())
-                    .join("models")
-                    .join("sherpa")
-                    .join(SHERPA_MODEL_DIRNAME)
-            }),
-    )
-}
-
-pub fn sherpa_worker_path(app: &AppHandle) -> PathBuf {
-    simplify_windows_path(
-        first_existing(
-            [
-                app.path().resource_dir().ok().map(|p| {
-                    p.join("scripts")
-                        .join("sherpa_worker")
-                        .join("sherpa_worker.exe")
-                }),
-                Some(
-                    dev_root()
-                        .join("sidecars")
-                        .join("sherpa_worker")
-                        .join("sherpa_worker.exe"),
-                ),
-                app.path()
-                    .resource_dir()
-                    .ok()
-                    .map(|p| p.join("scripts").join("sherpa_worker.exe")),
-                Some(dev_root().join("sidecars").join("sherpa_worker.exe")),
-                app.path()
-                    .resource_dir()
-                    .ok()
-                    .map(|p| p.join("scripts").join("sherpa_worker.py")),
-                Some(dev_root().join("scripts").join("sherpa_worker.py")),
-            ]
-            .into_iter()
-            .flatten(),
-        )
-        .unwrap_or_else(|| dev_root().join("scripts").join("sherpa_worker.py")),
-    )
-}
-
-/// Resolve the Whisper GGML model file (`ggml-tiny.en.bin`).
-///
-/// Search order: `SABBATHCUE_WHISPER_MODEL` override, app data dir, bundled
-/// resource dir, then the dev-tree `models/whisper`. Falls back to the app
-/// data location (which may not exist yet) so callers can report a stable path.
-pub fn whisper_model_path(app: &AppHandle) -> PathBuf {
-    let mut candidates = Vec::new();
-    if let Ok(path) = std::env::var("SABBATHCUE_WHISPER_MODEL") {
-        if !path.trim().is_empty() {
-            candidates.push(PathBuf::from(path));
-        }
-    }
-
-    let roots = [
-        app_data_dir(app)
-            .ok()
-            .map(|p| p.join("models").join("whisper")),
-        app.path()
-            .resource_dir()
-            .ok()
-            .map(|p| p.join("models").join("whisper")),
-        Some(dev_root().join("models").join("whisper")),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>();
-
-    for root in &roots {
-        candidates.push(root.join(WHISPER_MODEL_FILENAME));
-    }
-
-    simplify_windows_path(first_existing(candidates).unwrap_or_else(|| {
-        app_data_dir(app)
-            .unwrap_or_else(|_| dev_root())
-            .join("models")
-            .join("whisper")
-            .join(WHISPER_MODEL_FILENAME)
-    }))
 }
 
 /// Executable names for the LibreOffice CLI, per platform.
@@ -526,26 +366,6 @@ mod tests {
         std::fs::create_dir_all(root.join("graph")).expect("graph dir");
     }
 
-    fn make_fake_sherpa_model(root: &Path) {
-        std::fs::create_dir_all(root).expect("model dir");
-        std::fs::write(root.join("tokens.txt"), b"").expect("tokens");
-        std::fs::write(
-            root.join("encoder-epoch-99-avg-1-chunk-16-left-64.onnx"),
-            b"",
-        )
-        .expect("encoder");
-        std::fs::write(
-            root.join("decoder-epoch-99-avg-1-chunk-16-left-64.onnx"),
-            b"",
-        )
-        .expect("decoder");
-        std::fs::write(
-            root.join("joiner-epoch-99-avg-1-chunk-16-left-64.onnx"),
-            b"",
-        )
-        .expect("joiner");
-    }
-
     #[test]
     fn is_vosk_model_dir_requires_all_markers() {
         let temp = tempfile::tempdir().expect("temp dir");
@@ -609,49 +429,6 @@ mod tests {
     }
 
     #[test]
-    fn is_sherpa_model_dir_requires_tokens_and_transducer_files() {
-        let temp = tempfile::tempdir().expect("temp dir");
-        let model = temp.path().join("model");
-
-        assert!(
-            !is_sherpa_model_dir(&model),
-            "empty dir is not a Sherpa model"
-        );
-
-        make_fake_sherpa_model(&model);
-        assert!(
-            is_sherpa_model_dir(&model),
-            "complete transducer layout is a Sherpa model"
-        );
-
-        std::fs::remove_file(model.join("tokens.txt")).expect("remove tokens");
-        assert!(
-            !is_sherpa_model_dir(&model),
-            "missing tokens file must be rejected"
-        );
-    }
-
-    #[test]
-    fn resolve_sherpa_model_dir_descends_into_known_dirnames() {
-        let temp = tempfile::tempdir().expect("temp dir");
-        let nested = temp.path().join(SHERPA_MODEL_DIRNAME);
-        make_fake_sherpa_model(&nested);
-
-        assert_eq!(
-            resolve_sherpa_model_dir(temp.path().to_path_buf()),
-            Some(nested)
-        );
-    }
-
-    #[test]
-    fn resolve_sherpa_model_dir_rejects_unrelated_dirs() {
-        let temp = tempfile::tempdir().expect("temp dir");
-        std::fs::create_dir_all(temp.path().join("random")).expect("random dir");
-
-        assert_eq!(resolve_sherpa_model_dir(temp.path().to_path_buf()), None);
-    }
-
-    #[test]
     fn simplify_windows_path_strips_extended_length_prefix() {
         // Regression: Tauri's resource_dir() returns `\\?\C:\...` paths; the
         // Vosk worker cannot load a model from them (forward-slash joins are
@@ -699,11 +476,6 @@ mod tests {
     fn soffice_candidate_paths_skip_blank_override_and_missing_path() {
         let candidates = soffice_candidate_paths(Some("   "), None, &["soffice"], &["soffice"]);
         assert_eq!(candidates, vec![PathBuf::from("soffice")]);
-    }
-
-    #[test]
-    fn whisper_model_filename_is_the_tiny_english_model() {
-        assert_eq!(WHISPER_MODEL_FILENAME, "ggml-tiny.en.bin");
     }
 
     #[test]

@@ -10,14 +10,14 @@ dependencies follow a strict downward fan-out from the API layer.
 
 ## Crate overview
 
-| Crate | Responsibility |
-| --- | --- |
-| `rhema-audio` | Audio device enumeration, capture, voice activity detection (cpal) |
-| `rhema-stt` | Deepgram STT WebSocket + REST fallback; local Whisper engine (Vosk retained for compatibility) |
-| `rhema-bible` | SQLite Bible database, FTS5 search, cross-references |
+| Crate             | Responsibility                                                                                                        |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `rhema-audio`     | Audio device enumeration, capture, voice activity detection (cpal)                                                    |
+| `rhema-stt`       | Local Vosk STT plus Deepgram/Gladia cloud streaming                                                                   |
+| `rhema-bible`     | SQLite Bible database, FTS5 search, cross-references                                                                  |
 | `rhema-detection` | Verse detection pipeline: direct, semantic, quotation, ensemble merger, sentence buffer, sermon context, reading mode |
-| `rhema-broadcast` | NDI video frame output via FFI |
-| `rhema-api` | Tauri command API layer — the only crate that touches Tauri |
+| `rhema-broadcast` | NDI video frame output via FFI                                                                                        |
+| `rhema-api`       | Tauri command API layer — the only crate that touches Tauri                                                           |
 
 ## Why split this way
 
@@ -27,9 +27,9 @@ Each crate maps to a clear external responsibility:
   enumeration, capture buffers, sample-rate conversion, VAD — lives
   here so the rest of the workspace can pretend audio is just bytes.
 
-- **`rhema-stt`** owns network and local STT. Whisper (default local),
-  Vosk (compatibility), and Deepgram all emit the same transcript event
-  type, so the consumer doesn't know (or care) which engine is wired in.
+- **`rhema-stt`** owns network and local STT. Vosk, Deepgram, and
+  Gladia all emit the same transcript event type, so the consumer doesn't
+  know (or care) which engine is wired in.
 
 - **`rhema-bible`** owns the database. FTS5 query construction,
   cross-reference joins, BM25 ranking — all of it is encapsulated
@@ -51,7 +51,7 @@ Each crate maps to a clear external responsibility:
 
 ![Dependency graph of the six Rust crates fanning out from rhema-api with two internal cross-deps](/docs/diagrams/diagram-crate-dependencies.svg)
 
-*The fan-out from `rhema-api` down through audio, stt, bible, detection, and broadcast. Edges are strictly downward; no cycles. **Click to expand.***
+\*The fan-out from `rhema-api` down through audio, stt, bible, detection, and broadcast. Edges are strictly downward; no cycles. **Click to expand.\***
 
 ```
 rhema-api
@@ -69,12 +69,9 @@ testable.
 
 ## Feature flags
 
-Two crates are gated behind Cargo features so the workspace stays
+The detection crate is gated behind Cargo features so the workspace stays
 buildable on minimal toolchains:
 
-- `rhema-stt` exposes a `whisper` feature (`whisper-rs = "0.16"`,
-  `optional = true`) for the local Whisper engine, enabled by default.
-  The Vosk and Deepgram paths are always available.
 - `rhema-detection` exposes `onnx` (turns on `ort = "2.0.0-rc.12"`)
   and `vector-search` features.
 

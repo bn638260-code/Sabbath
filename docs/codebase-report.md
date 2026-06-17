@@ -78,7 +78,7 @@ the active change on the `whisper-stt-powerpoint` branch and the docs have not f
 
 Monolithic desktop application: a single Tauri process hosts a Rust core (6-crate Cargo workspace)
 and a React webview, bridged exclusively by Tauri IPC commands. Three out-of-process sidecars
-(`vosk_worker`, `sherpa_worker`, plus a Python `faster_whisper_worker`) handle local STT;
+(`vosk_worker`, plus legacy Whisper support) handle local STT;
 LibreOffice (`soffice`) is shelled out to for PowerPoint→PDF conversion.
 
 ```mermaid

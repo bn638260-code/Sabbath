@@ -1,99 +1,84 @@
 ---
 title: Speech-to-Text Engines
-description: Choose between local Whisper and cloud Deepgram, and configure either with the right environment variables.
+description: Choose between local Vosk and cloud Deepgram or Gladia.
 icon: Mic
 ---
 
-import { Callout } from "fumadocs-ui/components/callout";
-import { Card, Cards } from "fumadocs-ui/components/card";
+import { Card, Cards } from "fumadocs-ui/components/card"
 
-SabbathCue supports two STT engines, and you can swap between them at runtime
-from the settings dialog. They map cleanly to two different operating
-modes: zero-marginal-cost local inference, or offload-to-the-cloud
-streaming.
+SabbathCue supports three STT engines, and you can swap between them at
+runtime from the settings dialog. They map to two operating modes:
+zero-marginal-cost local recognition, or cloud streaming when you want a
+managed STT service.
 
 <Cards>
   <Card
-    title="Whisper (local, free, default)"
-    description="Runs the lightweight Whisper tiny.en model on your machine — no API key, no internet, no per-minute billing. Fully offline general-speech transcription tuned with a Bible-reference prompt."
+    title="Vosk (local, free, default)"
+    description="Runs a bundled local worker with a verse-focused grammar. No API key, no internet, no per-minute billing."
   />
   <Card
     title="Deepgram (cloud, paid)"
-    description="Streams audio to Deepgram's WebSocket endpoint with a REST fallback. Lower latency and higher accuracy on long-form sermons; needs a paid API key."
+    description="Streams audio to Deepgram Nova-3 with Bible keyterm boosting and a REST fallback."
+  />
+  <Card
+    title="Gladia (cloud, paid)"
+    description="Streams audio through Gladia Solaria-1 and feeds the same live verse detection pipeline."
   />
 </Cards>
 
-## Option 1: Whisper (local, default)
+## Option 1: Vosk
 
-Whisper is an offline speech recognition model that transcribes audio in
-real time on your machine. SabbathCue ships with the smallest, lightest
-model — `ggml-tiny.en.bin` — so it runs comfortably without a GPU. A
-Bible-reference prompt biases recognition toward book names, chapter and
-verse numbers, and common scripture vocabulary.
+Vosk is the default local speech recognition engine. Audio stays on the
+operator machine and the worker emits transcript events into the same detection
+pipeline as the cloud providers.
 
-To install the Whisper model:
+To install the local model for development:
 
-1. Run `bun run download:whisper` to fetch `ggml-tiny.en.bin` into
-   `models/whisper/`
-2. Or set `SABBATHCUE_WHISPER_MODEL` to point to an existing GGML model file
+```bash
+bun run download:vosk
+```
 
-The model is required before Whisper transcription starts. The app shows
-model installation status in Settings → Speech Recognition.
+Release builds can bundle a self-contained worker:
 
-<Callout title="Vosk compatibility" type="info">
-Earlier builds used Vosk as the local engine. Vosk remains available for
-backward compatibility, but Whisper is now the default local provider and
-existing Vosk selections migrate to Whisper automatically.
-</Callout>
+```bash
+bun run build:vosk-sidecar
+```
+
+The app checks the Vosk model, worker, and runtime from Settings -> Speech.
 
 ## Option 2: Deepgram
 
-Deepgram is a cloud speech-to-text service that streams audio over a
-WebSocket. SabbathCue also has a REST fallback that re-uploads short windows if
-the WebSocket disconnects.
+Deepgram is a cloud speech-to-text service that streams audio over a WebSocket.
+SabbathCue also has a REST fallback that uploads short windows if the WebSocket
+disconnects.
 
-### 1. Get an API key
+1. Get an API key at [deepgram.com](https://deepgram.com/).
+2. Open Settings -> Speech.
+3. Choose **Deepgram** and save the key.
 
-Sign up at [deepgram.com](https://deepgram.com/) and copy your API key.
+The key is stored in the OS keychain.
 
-### 2. Add it to `.env`
+## Option 3: Gladia
 
-Create a `.env` file in the project root:
+Gladia is another cloud STT option using the Gladia live API.
 
-```bash
-DEEPGRAM_API_KEY=dg_your_key_here
-```
+1. Get an API key at [gladia.io](https://www.gladia.io/).
+2. Open Settings -> Speech.
+3. Choose **Gladia** and save the key.
 
-Restart `bun run tauri dev` so the new key is picked up.
+The key is stored in the OS keychain.
 
-### 3. Switch to Deepgram in the app
+![Settings dialog with the STT engine picker showing Vosk, Deepgram, and Gladia options](/docs/screenshots/settings-stt-picker.png)
 
-Open Settings → STT and choose **Deepgram**. The status indicator shows
-WebSocket health in real time; if it falls back to REST, you'll see that
-labeled too.
+## Comparing Providers
 
-![Settings dialog with the STT engine picker showing Whisper and Deepgram options](/docs/screenshots/settings-stt-picker.png)
+|                     | Vosk (local)                       | Deepgram (cloud)          | Gladia (cloud)      |
+| ------------------- | ---------------------------------- | ------------------------- | ------------------- |
+| API cost            | Free                               | Per-minute billing        | Per-minute billing  |
+| Internet required   | No                                 | Yes                       | Yes                 |
+| Recognition mode    | Local worker + constrained grammar | Keyword-boosted streaming | Live streaming      |
+| Transcript coverage | Best for verse/reference cues      | Full general speech       | Full general speech |
+| Works offline       | Yes                                | No                        | No                  |
 
-*Settings → STT lets you flip between local Whisper and cloud Deepgram at runtime. The connection status indicator under the picker turns green when Deepgram's WebSocket is healthy and amber when it falls back to REST. **Click to expand.***
-
-## Switching engines at runtime
-
-Both engines are wired into the same transcript stream, so you can switch
-without restarting the session. The active translation, sermon context,
-and queue state are preserved across the swap.
-
-## Comparing the two
-
-| | Whisper (local) | Deepgram (cloud) |
-| --- | --- | --- |
-| API cost | Free | Per-minute billing |
-| Internet required | No, after the model is installed | Yes (WebSocket) |
-| Recognition mode | Offline neural model + Bible prompt | Keyword-boosted streaming |
-| Transcript coverage | General speech | Full general speech |
-| Punctuation | Basic | Excellent |
-| Works offline | Yes | No |
-
-Whisper runs the tiny.en model entirely on your machine, so it works
-offline with no per-minute cost. For the best full-sermon transcription
-quality on a reliable network, Deepgram remains the recommended option.
-Pick Whisper for the no-cost offline path, Deepgram for maximum accuracy.
+Pick Vosk for the no-cost offline path. Pick Deepgram or Gladia when you have
+a reliable network and want cloud transcription quality.

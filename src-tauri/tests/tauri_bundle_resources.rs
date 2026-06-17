@@ -11,23 +11,14 @@ fn tauri_bundle_resources() -> serde_json::Map<String, Value> {
 }
 
 #[test]
-fn resources_include_sherpa_onedir_sidecar() {
-    let resources = tauri_bundle_resources();
-
-    assert_eq!(
-        resources
-            .get("../sidecars/sherpa_worker")
-            .and_then(Value::as_str),
-        Some("scripts/sherpa_worker")
-    );
-}
-
-#[test]
-fn resources_do_not_require_legacy_sherpa_file_glob() {
+fn resources_do_not_include_removed_sherpa_assets() {
     let resources = tauri_bundle_resources();
 
     assert!(
-        !resources.contains_key("../sidecars/sherpa_worker.*"),
-        "the legacy top-level Sherpa sidecar glob breaks clean CI checkouts"
+        resources.iter().all(|(key, value)| !key.contains("sherpa")
+            && !value
+                .as_str()
+                .is_some_and(|target| target.contains("sherpa"))),
+        "Sherpa assets must not be bundled after provider removal"
     );
 }

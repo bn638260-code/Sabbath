@@ -10,7 +10,7 @@ use std::time::Instant;
 use serde::Serialize;
 use tauri::State;
 
-use rhema_bible::Verse;
+use rhema_bible::{EgwBook, EgwParagraph, Verse};
 use rhema_detection::{DetectionPipeline, MergedDetection, ReadingMode};
 
 use super::validation::{
@@ -36,6 +36,7 @@ const AUTO_QUEUE_DISABLED_THRESHOLD: f64 = f64::INFINITY;
 /// Serializable detection result for the frontend
 #[derive(Clone, Serialize)]
 pub struct DetectionResult {
+    pub content_type: String,
     pub verse_ref: String,
     pub verse_text: String,
     pub book_name: String,
@@ -48,6 +49,7 @@ pub struct DetectionResult {
     pub transcript_snippet: String,
     /// True when detected from a chapter-only reference (verse defaults to 1, may be refined).
     pub is_chapter_only: bool,
+    pub egw_paragraph: Option<EgwParagraph>,
 }
 
 fn source_to_string(source: &rhema_detection::DetectionSource) -> String {
@@ -104,6 +106,7 @@ pub fn to_result(state: &AppState, merged: &MergedDetection) -> DetectionResult 
     };
 
     DetectionResult {
+        content_type: "bible".to_string(),
         verse_ref: reference,
         verse_text,
         book_name,
@@ -115,6 +118,34 @@ pub fn to_result(state: &AppState, merged: &MergedDetection) -> DetectionResult 
         auto_queued: merged.auto_queued,
         transcript_snippet: merged.detection.transcript_snippet.clone(),
         is_chapter_only: merged.detection.is_chapter_only,
+        egw_paragraph: None,
+    }
+}
+
+fn egw_to_result(
+    paragraph: EgwParagraph,
+    confidence: f64,
+    transcript_snippet: &str,
+) -> DetectionResult {
+    let reference = format!(
+        "{} {}:{}",
+        paragraph.book_title, paragraph.chapter, paragraph.paragraph
+    );
+
+    DetectionResult {
+        content_type: "egw".to_string(),
+        verse_ref: reference,
+        verse_text: paragraph.text.clone(),
+        book_name: paragraph.book_title.clone(),
+        book_number: paragraph.book_number,
+        chapter: paragraph.chapter,
+        verse: paragraph.paragraph,
+        confidence,
+        source: "direct".to_string(),
+        auto_queued: false,
+        transcript_snippet: transcript_snippet.to_string(),
+        is_chapter_only: false,
+        egw_paragraph: Some(paragraph),
     }
 }
 
@@ -153,6 +184,295 @@ fn resolve_semantic_verse_id(state: &AppState, verse_id: i64) -> Option<Verse> {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ParsedNumber {
+    value: i32,
+    next_index: usize,
+}
+
+fn normalize_reference_text(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn integer_token(token: &str) -> Option<i32> {
+    if token.chars().all(|ch| ch.is_ascii_digit()) {
+        return token.parse::<i32>().ok().filter(|value| *value > 0);
+    }
+    None
+}
+
+fn unit_word(token: &str) -> Option<i32> {
+    match token {
+        "one" | "first" => Some(1),
+        "two" | "second" => Some(2),
+        "three" | "third" => Some(3),
+        "four" | "fourth" => Some(4),
+        "five" | "fifth" => Some(5),
+        "six" | "sixth" => Some(6),
+        "seven" | "seventh" => Some(7),
+        "eight" | "eighth" => Some(8),
+        "nine" | "ninth" => Some(9),
+        _ => None,
+    }
+}
+
+fn teen_word(token: &str) -> Option<i32> {
+    match token {
+        "ten" | "tenth" => Some(10),
+        "eleven" | "eleventh" => Some(11),
+        "twelve" | "twelfth" => Some(12),
+        "thirteen" | "thirteenth" => Some(13),
+        "fourteen" | "fourteenth" => Some(14),
+        "fifteen" | "fifteenth" => Some(15),
+        "sixteen" | "sixteenth" => Some(16),
+        "seventeen" | "seventeenth" => Some(17),
+        "eighteen" | "eighteenth" => Some(18),
+        "nineteen" | "nineteenth" => Some(19),
+        _ => None,
+    }
+}
+
+fn tens_word(token: &str) -> Option<i32> {
+    match token {
+        "twenty" | "twentieth" => Some(20),
+        "thirty" | "thirtieth" => Some(30),
+        "forty" | "fortieth" => Some(40),
+        "fifty" | "fiftieth" => Some(50),
+        "sixty" | "sixtieth" => Some(60),
+        "seventy" | "seventieth" => Some(70),
+        "eighty" | "eightieth" => Some(80),
+        "ninety" | "ninetieth" => Some(90),
+        _ => None,
+    }
+}
+
+fn parse_under_hundred(tokens: &[&str], index: usize) -> Option<ParsedNumber> {
+    let token = tokens.get(index)?;
+    if let Some(value) = integer_token(token) {
+        return Some(ParsedNumber {
+            value,
+            next_index: index + 1,
+        });
+    }
+    if let Some(value) = teen_word(token).or_else(|| unit_word(token)) {
+        return Some(ParsedNumber {
+            value,
+            next_index: index + 1,
+        });
+    }
+    let value = tens_word(token)?;
+    let mut next_index = index + 1;
+    let mut total = value;
+    if let Some(next) = tokens.get(next_index).and_then(|next| unit_word(next)) {
+        total += next;
+        next_index += 1;
+    }
+    Some(ParsedNumber {
+        value: total,
+        next_index,
+    })
+}
+
+fn parse_number_at(tokens: &[&str], index: usize) -> Option<ParsedNumber> {
+    let first = parse_under_hundred(tokens, index)?;
+    if tokens.get(first.next_index) != Some(&"hundred") {
+        return Some(first);
+    }
+
+    let mut value = first.value * 100;
+    let mut next_index = first.next_index + 1;
+    if let Some(remainder) = parse_under_hundred(tokens, next_index) {
+        value += remainder.value;
+        next_index = remainder.next_index;
+    }
+    Some(ParsedNumber { value, next_index })
+}
+
+fn is_reference_filler(token: &str) -> bool {
+    matches!(
+        token,
+        "book"
+            | "of"
+            | "the"
+            | "chapter"
+            | "chapters"
+            | "paragraph"
+            | "paragraphs"
+            | "para"
+            | "par"
+            | "number"
+            | "no"
+            | "ellen"
+            | "white"
+            | "egw"
+            | "read"
+            | "from"
+            | "go"
+            | "to"
+    )
+}
+
+fn parse_next_number(tokens: &[&str], start_index: usize) -> Option<ParsedNumber> {
+    let mut index = start_index;
+    while index < tokens.len() {
+        if let Some(parsed) = parse_number_at(tokens, index) {
+            return Some(parsed);
+        }
+        if !is_reference_filler(tokens[index]) {
+            return None;
+        }
+        index += 1;
+    }
+    None
+}
+
+fn parse_number_after_label(tokens: &[&str], labels: &[&str]) -> Option<ParsedNumber> {
+    for (index, token) in tokens.iter().enumerate() {
+        if labels.contains(token) {
+            if let Some(parsed) = parse_next_number(tokens, index + 1) {
+                return Some(parsed);
+            }
+        }
+    }
+    None
+}
+
+fn parse_egw_chapter_paragraph(tail: &str) -> Option<(i32, i32)> {
+    let tokens: Vec<&str> = tail.split_whitespace().collect();
+    if tokens.is_empty() {
+        return None;
+    }
+
+    let chapter = parse_number_after_label(&tokens, &["chapter", "chapters"]);
+    let paragraph = parse_number_after_label(&tokens, &["paragraph", "paragraphs", "para", "par"]);
+    if let (Some(chapter), Some(paragraph)) = (chapter, paragraph) {
+        return Some((chapter.value, paragraph.value));
+    }
+
+    if let Some(chapter) = chapter {
+        let paragraph = parse_next_number(&tokens, chapter.next_index)?;
+        return Some((chapter.value, paragraph.value));
+    }
+
+    let chapter = parse_next_number(&tokens, 0)?;
+    let paragraph = parse_next_number(&tokens, chapter.next_index)?;
+    Some((chapter.value, paragraph.value))
+}
+
+fn alias_match_end(text: &str, alias: &str) -> Option<usize> {
+    if alias.is_empty() {
+        return None;
+    }
+    for (index, _) in text.match_indices(alias) {
+        let before_ok = index == 0 || text.as_bytes().get(index - 1) == Some(&b' ');
+        let end = index + alias.len();
+        let after_ok = end == text.len() || text.as_bytes().get(end) == Some(&b' ');
+        if before_ok && after_ok {
+            return Some(end);
+        }
+    }
+    None
+}
+
+fn egw_aliases(book: &EgwBook) -> Vec<String> {
+    let mut aliases = Vec::new();
+    for value in [&book.title, &book.abbreviation] {
+        let alias = normalize_reference_text(value);
+        if !alias.is_empty() && !aliases.contains(&alias) {
+            aliases.push(alias.clone());
+        }
+        if let Some(without_the) = alias.strip_prefix("the ") {
+            if !without_the.is_empty() && !aliases.iter().any(|item| item == without_the) {
+                aliases.push(without_the.to_string());
+            }
+        }
+    }
+    aliases
+}
+
+fn best_egw_alias_match<'a>(
+    normalized_text: &str,
+    books: &'a [EgwBook],
+) -> Vec<(&'a EgwBook, usize, usize)> {
+    let mut matches = books
+        .iter()
+        .flat_map(|book| {
+            egw_aliases(book).into_iter().filter_map(move |alias| {
+                alias_match_end(normalized_text, &alias).map(|end| (book, end, alias.len()))
+            })
+        })
+        .collect::<Vec<_>>();
+
+    matches.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.1.cmp(&b.1)));
+    matches
+}
+
+/// Detect explicit Ellen G. White paragraph references like `PP 1:2` or
+/// `Patriarchs and Prophets chapter one paragraph two`.
+pub(crate) fn detect_egw_references(state: &AppState, text: &str) -> Vec<DetectionResult> {
+    let Some(db) = state.bible_db.as_ref() else {
+        return Vec::new();
+    };
+    let books = match db.list_egw_books() {
+        Ok(books) => books,
+        Err(error) => {
+            log::warn!("[DET-EGW] Failed to load EGW books for direct detection: {error}");
+            return Vec::new();
+        }
+    };
+    if books.is_empty() {
+        return Vec::new();
+    }
+
+    let normalized = normalize_reference_text(text);
+    if normalized.is_empty() {
+        return Vec::new();
+    }
+
+    let mut seen = HashSet::new();
+    let mut results = Vec::new();
+    for (book, alias_end, _) in best_egw_alias_match(&normalized, &books) {
+        let tail = normalized.get(alias_end..).unwrap_or_default().trim();
+        let Some((chapter, paragraph_number)) = parse_egw_chapter_paragraph(tail) else {
+            continue;
+        };
+        if chapter <= 0 || paragraph_number <= 0 {
+            continue;
+        }
+        if !seen.insert((book.book_number, chapter, paragraph_number)) {
+            continue;
+        }
+
+        match db.get_egw_paragraph(book.book_number, chapter, paragraph_number) {
+            Ok(Some(paragraph)) => {
+                results.push(egw_to_result(paragraph, 0.94, text));
+            }
+            Ok(None) => {}
+            Err(error) => {
+                log::warn!(
+                    "[DET-EGW] Failed to resolve {} {}:{}: {error}",
+                    book.title,
+                    chapter,
+                    paragraph_number
+                );
+            }
+        }
+    }
+    results
+}
+
 /// Run the detection pipeline on a piece of transcript text
 #[tauri::command]
 pub fn detect_verses(
@@ -166,7 +486,9 @@ pub fn detect_verses(
         pipeline.process(&text)
     };
     let app_state = state.lock().map_err(|e| e.to_string())?;
-    let results: Vec<DetectionResult> = merged.iter().map(|m| to_result(&app_state, m)).collect();
+    let mut results: Vec<DetectionResult> =
+        merged.iter().map(|m| to_result(&app_state, m)).collect();
+    results.extend(detect_egw_references(&app_state, &text));
     Ok(results)
 }
 
@@ -470,6 +792,27 @@ mod tests {
         }
     }
 
+    fn direct_merged_with_reference(book_number: i32, chapter: i32, verse: i32) -> MergedDetection {
+        MergedDetection {
+            detection: Detection {
+                verse_ref: VerseRef {
+                    book_number,
+                    book_name: "John".to_string(),
+                    chapter,
+                    verse_start: verse,
+                    verse_end: None,
+                },
+                verse_id: None,
+                confidence: 0.98,
+                source: DetectionSource::DirectReference,
+                transcript_snippet: format!("John {chapter}:{verse}"),
+                detected_at: 0,
+                is_chapter_only: false,
+            },
+            auto_queued: true,
+        }
+    }
+
     fn fixture_state(active_translation_id: i64) -> DetectionFixture {
         let dir = tempfile::tempdir().expect("temp dir");
         let db_path = dir.path().join("rhema.db");
@@ -478,6 +821,8 @@ mod tests {
             "CREATE TABLE translations (id INTEGER PRIMARY KEY, abbreviation TEXT, title TEXT, language TEXT, is_copyrighted INTEGER, is_downloaded INTEGER);
              CREATE TABLE books (id INTEGER PRIMARY KEY, translation_id INTEGER, book_number INTEGER, name TEXT, abbreviation TEXT, testament TEXT);
              CREATE TABLE verses (id INTEGER PRIMARY KEY, translation_id INTEGER, book_number INTEGER, book_name TEXT, book_abbreviation TEXT, chapter INTEGER, verse INTEGER, text TEXT);
+             CREATE TABLE egw_books (id INTEGER PRIMARY KEY AUTOINCREMENT, book_number INTEGER NOT NULL UNIQUE, title TEXT NOT NULL, abbreviation TEXT NOT NULL, chapter_count INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE egw_paragraphs (id INTEGER PRIMARY KEY AUTOINCREMENT, book_id INTEGER NOT NULL, book_number INTEGER NOT NULL, book_title TEXT NOT NULL, chapter INTEGER NOT NULL, chapter_title TEXT NOT NULL, paragraph INTEGER NOT NULL, text TEXT NOT NULL);
              INSERT INTO translations VALUES
                (1, 'KJV', 'King James', 'en', 0, 1),
                (2, 'NKJV', 'New King James', 'en', 1, 1),
@@ -490,7 +835,13 @@ mod tests {
                (100, 1, 43, 'John', 'Jn', 3, 16, 'KJV John 3:16 text.'),
                (101, 1, 43, 'John', 'Jn', 3, 17, 'KJV John 3:17 text.'),
                (200, 2, 43, 'John', 'Jn', 3, 16, 'NKJV John 3:16 text.'),
-               (300, 3, 43, 'John', 'Jn', 3, 16, 'NLT John 3:16 text.');",
+               (300, 3, 43, 'John', 'Jn', 3, 16, 'NLT John 3:16 text.');
+             INSERT INTO egw_books (book_number, title, abbreviation, chapter_count) VALUES
+               (1, 'Patriarchs and Prophets', 'PP', 2),
+               (2, 'The Desire of Ages', 'DA', 1);
+             INSERT INTO egw_paragraphs (book_id, book_number, book_title, chapter, chapter_title, paragraph, text) VALUES
+               (1, 1, 'Patriarchs and Prophets', 1, 'Why Was Sin Permitted?', 2, 'The history of the great conflict.'),
+               (2, 2, 'The Desire of Ages', 14, 'We Have Found the Messias', 3, 'Jesus had bidden Peter and his companions follow Him.');",
         )
         .expect("fixture schema");
         drop(conn);
@@ -544,6 +895,19 @@ mod tests {
     }
 
     #[test]
+    fn to_result_resolves_direct_reference_to_active_translation() {
+        let fixture = fixture_state(2);
+        let merged = direct_merged_with_reference(43, 3, 16);
+
+        let result = to_result(&fixture.state, &merged);
+
+        assert_eq!(result.verse_ref, "John 3:16");
+        assert_eq!(result.verse_text, "NKJV John 3:16 text.");
+        assert_eq!(result.source, "direct");
+        assert!(result.auto_queued);
+    }
+
+    #[test]
     fn to_result_falls_back_to_source_translation_when_active_reference_missing() {
         let fixture = fixture_state(2);
         let merged = semantic_merged_with_verse_id(101);
@@ -552,5 +916,45 @@ mod tests {
 
         assert_eq!(result.verse_ref, "John 3:17");
         assert_eq!(result.verse_text, "KJV John 3:17 text.");
+    }
+
+    #[test]
+    fn detect_egw_references_finds_title_chapter_paragraph() {
+        let fixture = fixture_state(1);
+
+        let results = detect_egw_references(
+            &fixture.state,
+            "please read Patriarchs and Prophets chapter one paragraph two",
+        );
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].content_type, "egw");
+        assert_eq!(results[0].verse_ref, "Patriarchs and Prophets 1:2");
+        assert_eq!(
+            results[0].egw_paragraph.as_ref().map(|p| p.text.as_str()),
+            Some("The history of the great conflict.")
+        );
+    }
+
+    #[test]
+    fn detect_egw_references_finds_abbreviation_colon_style_reference() {
+        let fixture = fixture_state(1);
+
+        let results = detect_egw_references(&fixture.state, "DA 14:3");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].content_type, "egw");
+        assert_eq!(results[0].verse_ref, "The Desire of Ages 14:3");
+        assert_eq!(results[0].chapter, 14);
+        assert_eq!(results[0].verse, 3);
+    }
+
+    #[test]
+    fn detect_egw_references_requires_existing_paragraph() {
+        let fixture = fixture_state(1);
+
+        let results = detect_egw_references(&fixture.state, "PP 1:99");
+
+        assert!(results.is_empty());
     }
 }

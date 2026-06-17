@@ -4,37 +4,30 @@ description: System packages and build tools required on macOS, Linux, and Windo
 icon: Settings2
 ---
 
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs"
+import { Callout } from "fumadocs-ui/components/callout"
 
-SabbathCue is a Tauri v2 app with native Rust dependencies. Some optional
-features, including the legacy Whisper provider, require CMake plus `libclang`.
-Pick the block for your operating system below.
+SabbathCue is a Tauri v2 app with native Rust dependencies. Pick the block for
+your operating system below.
 
 ## macOS
 
-```bash
-brew install cmake
-```
-
-Apple ships LLVM with the Xcode Command Line Tools, so `libclang` is
-already on your machine. Run `xcode-select --install` if you haven't.
+Run `xcode-select --install` if you have not installed the Xcode Command Line
+Tools yet.
 
 ## Linux
 
 <Tabs items={["Debian / Ubuntu", "Arch / Manjaro"]}>
   <Tab value="Debian / Ubuntu">
 
-```bash
-sudo apt install cmake clang libclang-dev
-```
+Follow the [Tauri v2 Linux prerequisites](https://v2.tauri.app/start/prerequisites/?utm_source=rhema-docs#linux)
+for your distribution.
 
   </Tab>
   <Tab value="Arch / Manjaro">
 
-```bash
-sudo pacman -S llvm clang cmake
-```
+Follow the [Tauri v2 Linux prerequisites](https://v2.tauri.app/start/prerequisites/?utm_source=rhema-docs#linux)
+for your distribution.
 
   </Tab>
 </Tabs>
@@ -45,13 +38,11 @@ commands for your distribution.
 
 ## Windows
 
-Windows needs an extra build-tools bootstrap before the shared setup
-pipeline — LLVM/libclang and CMake aren't available out of the box.
+Windows needs the MSVC C++ build tools before the shared setup pipeline.
 
 <Callout title="Restart the terminal" type="warn">
-After `setup:windows` runs, you **must** close the terminal and open a new
-one so `LIBCLANG_PATH` is inherited. Skipping this step is the most common
-build failure on Windows.
+  After installing new build tools, close the terminal and open a new one so
+  PATH changes are inherited.
 </Callout>
 
 1. Install [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/)
@@ -63,9 +54,9 @@ build failure on Windows.
    bun run setup:windows
    ```
 
-   This installs LLVM + CMake via `winget` and persists `LIBCLANG_PATH` to
-   your user environment.
-3. **Close the terminal and open a new one.**
+   This checks for MSVC and prints install guidance if the toolchain is missing.
+
+3. **Close the terminal and open a new one** if you installed new build tools.
 4. Continue with the [installation guide](/docs/getting-started/installation):
 
    ```powershell
@@ -81,8 +72,6 @@ A quick way to confirm everything is wired before kicking off `setup:all`:
 bun --version
 rustc --version
 python3 --version
-cmake --version
-clang --version
 ```
 
 If any command isn't found, jump back to [Prerequisites](/docs/getting-started/prerequisites)
@@ -93,6 +82,6 @@ To import PowerPoint decks (sermon slides or theme backgrounds), also install
 your `PATH` or the default install directory; set `SABBATHCUE_SOFFICE_PATH` to
 override the location. Verify it with `soffice --version`.
 
-![Terminal output of bun, rustc, python3, cmake, and clang version checks all returning their installed versions](/docs/screenshots/terminal-toolchain-versions.png)
+![Terminal output of bun, rustc, and python3 version checks all returning their installed versions](/docs/screenshots/terminal-toolchain-versions.png)
 
-*A successful platform check prints a version string for each command in turn. If any of them prints "command not found", install the missing tool before running `setup:all`. **Click to expand.***
+\*A successful platform check prints a version string for each command in turn. If any of them prints "command not found", install the missing tool before running `setup:all`. **Click to expand.\***

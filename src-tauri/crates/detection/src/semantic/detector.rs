@@ -340,4 +340,112 @@ mod tests {
             detector.detect("whoever believes in him shall not perish but have everlasting life");
         assert!(detections.is_empty());
     }
+
+    #[test]
+    fn test_direct_embedding_mode_sorts_and_caps_model_hits() {
+        let fake_results = vec![
+            SearchResult {
+                verse_id: 1001,
+                similarity: 0.50,
+            },
+            SearchResult {
+                verse_id: 1002,
+                similarity: 0.90,
+            },
+            SearchResult {
+                verse_id: 1003,
+                similarity: 0.60,
+            },
+            SearchResult {
+                verse_id: 1004,
+                similarity: 0.80,
+            },
+            SearchResult {
+                verse_id: 1005,
+                similarity: 0.70,
+            },
+            SearchResult {
+                verse_id: 1006,
+                similarity: 0.75,
+            },
+        ];
+
+        let mut detector = SemanticDetector::new(
+            Box::new(StubEmbedder::new(128)),
+            Box::new(FakeIndex {
+                results: fake_results,
+            }),
+        );
+        detector.set_use_synonyms(false);
+
+        let detections =
+            detector.detect("for God so loved the world that he gave his son to save us");
+
+        assert_eq!(detections.len(), MAX_SEMANTIC_DETECTIONS);
+        let ids: Vec<Option<i64>> = detections.iter().map(|d| d.verse_id).collect();
+        assert_eq!(
+            ids,
+            vec![Some(1002), Some(1004), Some(1006), Some(1005), Some(1003)]
+        );
+        for detection in detections {
+            assert!(matches!(detection.source, DetectionSource::Semantic { .. }));
+            assert_eq!(detection.verse_ref.book_number, 0);
+            assert_eq!(detection.verse_ref.chapter, 0);
+            assert!(!detection.transcript_snippet.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_direct_embedding_mode_dedupes_repeated_hits_across_chunks() {
+        let fake_results = vec![
+            SearchResult {
+                verse_id: 1001,
+                similarity: 0.88,
+            },
+            SearchResult {
+                verse_id: 1002,
+                similarity: 0.72,
+            },
+        ];
+
+        let mut detector = SemanticDetector::new(
+            Box::new(StubEmbedder::new(128)),
+            Box::new(FakeIndex {
+                results: fake_results,
+            }),
+        );
+        detector.set_use_synonyms(false);
+
+        let detections = detector.detect(
+            "God loved the world enough to give his son. Whoever believes receives eternal life.",
+        );
+
+        let ids: Vec<Option<i64>> = detections.iter().map(|d| d.verse_id).collect();
+        assert_eq!(ids, vec![Some(1001), Some(1002)]);
+    }
+
+    #[test]
+    fn test_search_query_returns_raw_model_hits_without_detection_threshold() {
+        let fake_results = vec![
+            SearchResult {
+                verse_id: 1001,
+                similarity: 0.20,
+            },
+            SearchResult {
+                verse_id: 1002,
+                similarity: 0.90,
+            },
+        ];
+
+        let mut detector = SemanticDetector::new(
+            Box::new(StubEmbedder::new(128)),
+            Box::new(FakeIndex {
+                results: fake_results,
+            }),
+        );
+
+        let results = detector.search_query("manual semantic search text", 2);
+
+        assert_eq!(results, vec![(1001, 0.20), (1002, 0.90)]);
+    }
 }

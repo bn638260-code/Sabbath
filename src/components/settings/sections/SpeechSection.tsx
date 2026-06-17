@@ -35,20 +35,6 @@ export function SpeechSection() {
     refresh: refreshAssets,
   } = useAssets()
 
-  const sherpaReady = Boolean(
-    assetStatus?.sherpa_model &&
-    assetStatus?.sherpa_worker &&
-    assetStatus?.sherpa_runtime
-  )
-  const sherpaModelName = assetStatus?.sherpa_model_name ?? null
-  const sherpaMissingMessage = !assetStatus?.sherpa_model
-    ? "Sherpa model files are missing from the app resources or configured model path."
-    : !assetStatus?.sherpa_worker
-      ? "Sherpa worker script is missing from the app resources."
-      : !assetStatus?.sherpa_runtime
-        ? assetStatus?.sherpa_runtime_error ||
-          "Python is available, but the sherpa-onnx package could not be loaded."
-        : null
   const voskReady = Boolean(
     assetStatus?.vosk_model &&
     assetStatus?.vosk_worker &&
@@ -118,23 +104,6 @@ export function SpeechSection() {
 
           <label
             className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-data-[state=checked]:border-primary/50 has-data-[state=checked]:bg-primary/5 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary/20 ${
-              sttProvider !== "sherpa" ? "hover:border-muted-foreground/25" : ""
-            }`}
-          >
-            <RadioGroupItem value="sherpa" className="mt-0.5" />
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-foreground">
-                Local (Sherpa)
-              </span>
-              <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-                Uses streaming sherpa-onnx Zipformer transcription. Free after
-                the model is installed, and audio never leaves your machine.
-              </p>
-            </div>
-          </label>
-
-          <label
-            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-data-[state=checked]:border-primary/50 has-data-[state=checked]:bg-primary/5 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary/20 ${
               sttProvider !== "vosk" ? "hover:border-muted-foreground/25" : ""
             }`}
           >
@@ -153,66 +122,6 @@ export function SpeechSection() {
           </label>
         </RadioGroup>
       </div>
-
-      {sttProvider === "sherpa" && (
-        <div className="flex flex-col gap-3 rounded-lg border border-white/5 bg-white/5 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <HardDriveIcon className="size-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-foreground">
-                Local model status
-              </span>
-            </div>
-            <Badge variant="outline" className="text-[0.5rem]">
-              {assetsLoading
-                ? "Checking"
-                : sherpaReady
-                  ? "Installed"
-                  : "Missing"}
-            </Badge>
-          </div>
-
-          <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-            Sherpa uses the streaming Zipformer English model for offline
-            transcription. Install{" "}
-            <code className="text-[0.5625rem]">
-              sherpa-onnx-streaming-zipformer-en-2023-06-26
-            </code>
-            . Development builds using the Python worker also need the{" "}
-            <code className="text-[0.5625rem]">sherpa-onnx</code> package
-            installed. Place the model folder here or set{" "}
-            <code className="text-[0.5625rem]">
-              SABBATHCUE_SHERPA_MODEL_DIR
-            </code>
-            .
-          </p>
-          {!assetsLoading && sherpaModelName && (
-            <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
-              Active model: {sherpaModelName}
-            </p>
-          )}
-          {!assetsLoading && sherpaMissingMessage && (
-            <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
-              {sherpaMissingMessage}
-            </p>
-          )}
-          {!assetsLoading && !assetStatus?.sherpa_model && (
-            <p className="rounded-md bg-black/40 px-2 py-1.5 font-mono text-[0.625rem] text-muted-foreground">
-              models\sherpa\sherpa-onnx-streaming-zipformer-en-2023-06-26
-            </p>
-          )}
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void refreshAssets()}
-            className="w-fit text-xs"
-          >
-            <DownloadIcon className="size-3" />
-            Refresh asset status
-          </Button>
-        </div>
-      )}
 
       {sttProvider === "vosk" && (
         <div className="flex flex-col gap-3 rounded-lg border border-white/5 bg-white/5 p-3">

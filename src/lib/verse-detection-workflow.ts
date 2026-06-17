@@ -2,13 +2,20 @@ import {
   previewVerseAndMaybeAutoLive,
   selectPreviewVerse,
   createScriptureQueueItem,
+  previewEgwParagraph,
+  createEgwQueueItem,
 } from "@/lib/presentation-workflow"
 import { bibleActions } from "@/hooks/use-bible"
 import { useBibleStore } from "@/stores/bible-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useDetectionStore } from "@/stores/detection-store"
 import { useQueueStore } from "@/stores/queue-store"
-import type { DetectionResult, ReadingAdvance, Verse } from "@/types"
+import type {
+  DetectionResult,
+  EgwParagraph,
+  ReadingAdvance,
+  Verse,
+} from "@/types"
 
 function detectionLikeToVerse({
   book_number,
@@ -54,9 +61,15 @@ function findCurrentChapterVerse(detection: DetectionResult): Verse | null {
         verse.translation_id === activeTranslationId &&
         verse.book_number === detection.book_number &&
         verse.chapter === detection.chapter &&
-        verse.verse === detection.verse,
+        verse.verse === detection.verse
     ) ?? null
   )
+}
+
+function isEgwDetection(
+  detection: DetectionResult
+): detection is DetectionResult & { egw_paragraph: EgwParagraph } {
+  return detection.content_type === "egw" && Boolean(detection.egw_paragraph)
 }
 
 interface ResolvedDetectionVerse {
@@ -66,14 +79,18 @@ interface ResolvedDetectionVerse {
 }
 
 async function resolveDetectionVerse(
-  detection: DetectionResult,
+  detection: DetectionResult
 ): Promise<ResolvedDetectionVerse> {
-  if (detection.book_number > 0 && detection.chapter > 0 && detection.verse > 0) {
+  if (
+    detection.book_number > 0 &&
+    detection.chapter > 0 &&
+    detection.verse > 0
+  ) {
     try {
       const verse = await bibleActions.fetchVerse(
         detection.book_number,
         detection.chapter,
-        detection.verse,
+        detection.verse
       )
       if (verse) {
         return { verse, usedFallback: false }
@@ -119,12 +136,14 @@ async function resolveDetectionVerse(
   }
 }
 
-function selectPreviewDirectHit(detections: DetectionResult[]): DetectionResult | null {
+function selectPreviewDirectHit(
+  detections: DetectionResult[]
+): DetectionResult | null {
   const directHits = detections.filter(
     (d) =>
       d.source === "direct" &&
       !d.is_chapter_only &&
-      d.book_number > 0,
+      (isEgwDetection(d) || d.book_number > 0)
   )
   if (directHits.length === 0) return null
 
@@ -139,6 +158,18 @@ function selectPreviewDirectHit(detections: DetectionResult[]): DetectionResult 
 }
 
 async function queueDetectedVerse(detection: DetectionResult): Promise<void> {
+  if (isEgwDetection(detection)) {
+    if (!detection.auto_queued) return
+
+    useQueueStore.getState().addOrFlashItem(
+      createEgwQueueItem(detection.egw_paragraph, {
+        confidence: detection.confidence,
+        source: "ai-direct",
+      })
+    )
+    return
+  }
+
   const { verse } = await resolveDetectionVerse(detection)
   if (
     !detection.is_chapter_only &&
@@ -150,7 +181,7 @@ async function queueDetectedVerse(detection: DetectionResult): Promise<void> {
         verse.chapter,
         verse.verse,
         detection.verse_ref,
-        verse.text,
+        verse.text
       )
   ) {
     return
@@ -164,7 +195,7 @@ async function queueDetectedVerse(detection: DetectionResult): Promise<void> {
       confidence: detection.confidence,
       source: detection.source === "direct" ? "ai-direct" : "ai-semantic",
       is_chapter_only: detection.is_chapter_only,
-    }),
+    })
   )
 }
 
@@ -184,7 +215,11 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
 
   const directHit = selectPreviewDirectHit(detections)
   if (directHit) {
-    selectDetectedVerse(directHit)
+    if (isEgwDetection(directHit)) {
+      previewEgwParagraph(directHit.egw_paragraph)
+    } else {
+      selectDetectedVerse(directHit)
+    }
   }
 
   for (const detection of detections) {

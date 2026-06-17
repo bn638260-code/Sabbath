@@ -40,16 +40,20 @@ describe("detection store", () => {
 
   it("higher-confidence detection stays above a newer weaker detection", () => {
     const store = useDetectionStore.getState()
-    
+
     // Add older high-confidence detection
-    store.addDetection(makeDetection({ verse_ref: "Romans 8:1", confidence: 0.99 }))
-    
+    store.addDetection(
+      makeDetection({ verse_ref: "Romans 8:1", confidence: 0.99 })
+    )
+
     // Advance time
     now = new Date("2026-05-19T00:00:01Z").getTime()
-    
+
     // Add newer lower-confidence detection
-    store.addDetection(makeDetection({ verse_ref: "John 3:16", confidence: 0.85 }))
-    
+    store.addDetection(
+      makeDetection({ verse_ref: "John 3:16", confidence: 0.85 })
+    )
+
     const detections = useDetectionStore.getState().detections
     expect(detections[0].verse_ref).toBe("Romans 8:1")
     expect(detections[1].verse_ref).toBe("John 3:16")
@@ -58,18 +62,22 @@ describe("detection store", () => {
   it("direct hit outranks stronger semantic hit", () => {
     const store = useDetectionStore.getState()
 
-    store.addDetection(makeDetection({
-      verse_ref: "Strong Semantic",
-      confidence: 0.91,
-      source: "semantic",
-    }))
+    store.addDetection(
+      makeDetection({
+        verse_ref: "Strong Semantic",
+        confidence: 0.91,
+        source: "semantic",
+      })
+    )
 
     now = new Date("2026-05-19T00:00:01Z").getTime()
-    store.addDetection(makeDetection({
-      verse_ref: "Weak Direct",
-      confidence: 0.84,
-      source: "direct",
-    }))
+    store.addDetection(
+      makeDetection({
+        verse_ref: "Weak Direct",
+        confidence: 0.84,
+        source: "direct",
+      })
+    )
 
     const detections = useDetectionStore.getState().detections
     expect(detections[0].verse_ref).toBe("Weak Direct")
@@ -79,18 +87,22 @@ describe("detection store", () => {
   it("near-tied direct hit wins over semantic", () => {
     const store = useDetectionStore.getState()
 
-    store.addDetection(makeDetection({
-      verse_ref: "Near Semantic",
-      confidence: 0.90,
-      source: "semantic",
-    }))
+    store.addDetection(
+      makeDetection({
+        verse_ref: "Near Semantic",
+        confidence: 0.9,
+        source: "semantic",
+      })
+    )
 
     now = new Date("2026-05-19T00:00:01Z").getTime()
-    store.addDetection(makeDetection({
-      verse_ref: "Near Direct",
-      confidence: 0.87,
-      source: "direct",
-    }))
+    store.addDetection(
+      makeDetection({
+        verse_ref: "Near Direct",
+        confidence: 0.87,
+        source: "direct",
+      })
+    )
 
     const detections = useDetectionStore.getState().detections
     expect(detections[0].verse_ref).toBe("Near Direct")
@@ -99,14 +111,18 @@ describe("detection store", () => {
 
   it("duplicate verse refreshes recency and keeps best confidence", () => {
     const store = useDetectionStore.getState()
-    
+
     // Add first detection with lower confidence
-    store.addDetection(makeDetection({ verse_ref: "John 3:16", confidence: 0.85 }))
-    
+    store.addDetection(
+      makeDetection({ verse_ref: "John 3:16", confidence: 0.85 })
+    )
+
     // Add duplicate with higher confidence
     now = new Date("2026-05-19T00:00:01Z").getTime()
-    store.addDetection(makeDetection({ verse_ref: "John 3:16", confidence: 0.96 }))
-    
+    store.addDetection(
+      makeDetection({ verse_ref: "John 3:16", confidence: 0.96 })
+    )
+
     const detections = useDetectionStore.getState().detections
     expect(detections).toHaveLength(1)
     expect(detections[0].confidence).toBe(0.96)
@@ -114,14 +130,25 @@ describe("detection store", () => {
 
   it("duplicate verse preserves text when new detection has empty text", () => {
     const store = useDetectionStore.getState()
-    
+
     // Add first detection with text
-    store.addDetection(makeDetection({ verse_ref: "John 3:16", verse_text: "For God so loved the world" }))
-    
+    store.addDetection(
+      makeDetection({
+        verse_ref: "John 3:16",
+        verse_text: "For God so loved the world",
+      })
+    )
+
     // Add duplicate with empty text
     now = new Date("2026-05-19T00:00:01Z").getTime()
-    store.addDetection(makeDetection({ verse_ref: "John 3:16", verse_text: "", confidence: 0.97 }))
-    
+    store.addDetection(
+      makeDetection({
+        verse_ref: "John 3:16",
+        verse_text: "",
+        confidence: 0.97,
+      })
+    )
+
     const detections = useDetectionStore.getState().detections
     expect(detections).toHaveLength(1)
     expect(detections[0].verse_text).toBe("For God so loved the world")
@@ -130,15 +157,15 @@ describe("detection store", () => {
 
   it("sorts by relevance score before recency", () => {
     const store = useDetectionStore.getState()
-    
+
     store.addDetection(makeDetection({ verse_ref: "A", confidence: 0.9 }))
-    
+
     now = new Date("2026-05-19T00:00:01Z").getTime()
     store.addDetection(makeDetection({ verse_ref: "B", confidence: 0.8 }))
-    
+
     now = new Date("2026-05-19T00:00:01Z").getTime()
     store.addDetection(makeDetection({ verse_ref: "C", confidence: 0.85 }))
-    
+
     const detections = useDetectionStore.getState().detections
     expect(detections[0].verse_ref).toBe("A")
     expect(detections[1].verse_ref).toBe("C")
@@ -148,18 +175,22 @@ describe("detection store", () => {
   it("duplicate semantic hit cannot replace a direct source label", () => {
     const store = useDetectionStore.getState()
 
-    store.addDetection(makeDetection({
-      verse_ref: "John 3:16",
-      confidence: 0.9,
-      source: "direct",
-    }))
+    store.addDetection(
+      makeDetection({
+        verse_ref: "John 3:16",
+        confidence: 0.9,
+        source: "direct",
+      })
+    )
 
     now = new Date("2026-05-19T00:00:01Z").getTime()
-    store.addDetection(makeDetection({
-      verse_ref: "John 3:16",
-      confidence: 0.95,
-      source: "semantic",
-    }))
+    store.addDetection(
+      makeDetection({
+        verse_ref: "John 3:16",
+        confidence: 0.95,
+        source: "semantic",
+      })
+    )
 
     const detections = useDetectionStore.getState().detections
     expect(detections).toHaveLength(1)
@@ -170,26 +201,30 @@ describe("detection store", () => {
   it("unresolved zero sentinels do not overwrite resolved verse coordinates", () => {
     const store = useDetectionStore.getState()
 
-    store.addDetection(makeDetection({
-      verse_ref: "John 3:16",
-      book_number: 43,
-      chapter: 3,
-      verse: 16,
-      source: "direct",
-      confidence: 0.9,
-    }))
+    store.addDetection(
+      makeDetection({
+        verse_ref: "John 3:16",
+        book_number: 43,
+        chapter: 3,
+        verse: 16,
+        source: "direct",
+        confidence: 0.9,
+      })
+    )
 
     now = new Date("2026-05-19T00:00:01Z").getTime()
-    store.addDetection(makeDetection({
-      verse_ref: "John 3:16",
-      book_number: 0,
-      chapter: 0,
-      verse: 0,
-      book_name: "",
-      verse_text: "",
-      source: "semantic",
-      confidence: 0.85,
-    }))
+    store.addDetection(
+      makeDetection({
+        verse_ref: "John 3:16",
+        book_number: 0,
+        chapter: 0,
+        verse: 0,
+        book_name: "",
+        verse_text: "",
+        source: "semantic",
+        confidence: 0.85,
+      })
+    )
 
     const detections = useDetectionStore.getState().detections
     expect(detections).toHaveLength(1)
@@ -207,16 +242,18 @@ describe("detection store", () => {
     // detection, even when the incoming confidence is higher.
     const store = useDetectionStore.getState()
 
-    store.addDetection(makeDetection({
-      verse_ref: "John 3:16",
-      book_number: 43,
-      chapter: 3,
-      verse: 16,
-      book_name: "Jn",
-      verse_text: "old text",
-      source: "semantic",
-      confidence: 0.85,
-    }))
+    store.addDetection(
+      makeDetection({
+        verse_ref: "John 3:16",
+        book_number: 43,
+        chapter: 3,
+        verse: 16,
+        book_name: "Jn",
+        verse_text: "old text",
+        source: "semantic",
+        confidence: 0.85,
+      })
+    )
 
     now = new Date("2026-05-19T00:00:01Z").getTime()
 
@@ -253,7 +290,9 @@ describe("detection store", () => {
 
     for (let i = 0; i < 9; i += 1) {
       now = new Date("2026-05-19T00:00:00Z").getTime() + i
-      store.addDetection(makeDetection({ verse_ref: `Ref ${i}`, confidence: 0.8 }))
+      store.addDetection(
+        makeDetection({ verse_ref: `Ref ${i}`, confidence: 0.8 })
+      )
     }
 
     const detections = useDetectionStore.getState().detections
@@ -269,12 +308,16 @@ describe("detection store", () => {
     useDetectionStore.getState().clearDetections()
 
     const store = useDetectionStore.getState()
-    store.addDetections([makeDetection({ verse_ref: "John 3:16", confidence: 0.85 })])
+    store.addDetections([
+      makeDetection({ verse_ref: "John 3:16", confidence: 0.85 }),
+    ])
 
     vi.advanceTimersByTime(60_000)
     expect(useDetectionStore.getState().detections).toHaveLength(1)
 
-    store.addDetections([makeDetection({ verse_ref: "John 3:16", confidence: 0.96 })])
+    store.addDetections([
+      makeDetection({ verse_ref: "John 3:16", confidence: 0.96 }),
+    ])
     vi.advanceTimersByTime(60_000)
     expect(useDetectionStore.getState().detections).toHaveLength(1)
     expect(useDetectionStore.getState().detections[0].confidence).toBe(0.96)
@@ -398,6 +441,44 @@ describe("detection store", () => {
 
     const detections = useDetectionStore.getState().detections
     expect(detections).toHaveLength(2)
-    expect(detections.map((d) => d.verse_ref).sort()).toEqual(["John 13", "John 3"])
+    expect(detections.map((d) => d.verse_ref).sort()).toEqual([
+      "John 13",
+      "John 3",
+    ])
+  })
+
+  it("deduplicates EGW detections by book chapter and paragraph", () => {
+    const store = useDetectionStore.getState()
+    const egwDetection = makeDetection({
+      content_type: "egw",
+      verse_ref: "Patriarchs and Prophets 1:2",
+      book_name: "Patriarchs and Prophets",
+      book_number: 1,
+      chapter: 1,
+      verse: 2,
+      verse_text: "The history of the great conflict.",
+      egw_paragraph: {
+        id: 12,
+        book_number: 1,
+        book_title: "Patriarchs and Prophets",
+        chapter: 1,
+        chapter_title: "Why Was Sin Permitted?",
+        paragraph: 2,
+        text: "The history of the great conflict.",
+      },
+    })
+
+    store.addDetection(egwDetection)
+    now = new Date("2026-05-19T00:00:01Z").getTime()
+    store.addDetection({
+      ...egwDetection,
+      verse_ref: "PP 1:2",
+      confidence: 0.99,
+    })
+
+    const detections = useDetectionStore.getState().detections
+    expect(detections).toHaveLength(1)
+    expect(detections[0].content_type).toBe("egw")
+    expect(detections[0].confidence).toBe(0.99)
   })
 })

@@ -222,7 +222,25 @@ impl Default for DetectionPipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::semantic::detector::SemanticDetector;
+    use crate::semantic::embedder::StubEmbedder;
+    use crate::semantic::index::{SearchResult, VectorIndex};
+    use crate::DetectionError;
     use rhema_bible::Bm25Result;
+
+    struct FakeIndex {
+        results: Vec<SearchResult>,
+    }
+
+    impl VectorIndex for FakeIndex {
+        fn search(&self, _query: &[f32], k: usize) -> Result<Vec<SearchResult>, DetectionError> {
+            Ok(self.results.iter().take(k).cloned().collect())
+        }
+
+        fn len(&self) -> usize {
+            self.results.len()
+        }
+    }
 
     #[test]
     fn test_pipeline_direct_only() {
@@ -253,6 +271,42 @@ mod tests {
     fn test_pipeline_semantic_not_ready_by_default() {
         let pipeline = DetectionPipeline::new();
         assert!(!pipeline.has_semantic());
+    }
+
+    #[test]
+    fn test_pipeline_semantic_keeps_distinct_vector_hits_after_merge() {
+        let mut pipeline = DetectionPipeline::new();
+        let mut semantic = SemanticDetector::new(
+            Box::new(StubEmbedder::new(128)),
+            Box::new(FakeIndex {
+                results: vec![
+                    SearchResult {
+                        verse_id: 1001,
+                        similarity: 0.86,
+                    },
+                    SearchResult {
+                        verse_id: 1002,
+                        similarity: 0.79,
+                    },
+                    SearchResult {
+                        verse_id: 1003,
+                        similarity: 0.72,
+                    },
+                ],
+            }),
+        );
+        semantic.set_use_synonyms(false);
+        pipeline.set_semantic(semantic);
+
+        let results =
+            pipeline.process_semantic("God loved the world enough to give his only son for us");
+
+        assert_eq!(results.len(), 3);
+        let ids: Vec<Option<i64>> = results.iter().map(|r| r.detection.verse_id).collect();
+        assert_eq!(ids, vec![Some(1001), Some(1002), Some(1003)]);
+        assert!(results
+            .iter()
+            .all(|r| matches!(r.detection.source, DetectionSource::Semantic { .. })));
     }
 
     #[test]

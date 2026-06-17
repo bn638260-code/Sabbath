@@ -3,7 +3,7 @@ import { load, type Store } from "@tauri-apps/plugin-store"
 import { isTauriRuntime, invokeTauri } from "@/lib/tauri-runtime"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 
-export type SttProvider = "deepgram" | "gladia" | "sherpa" | "vosk"
+export type SttProvider = "deepgram" | "gladia" | "vosk"
 
 interface SettingsState {
   hasDeepgramApiKey: boolean
@@ -40,7 +40,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   confidenceThreshold: 0.8,
   cooldownMs: 2500,
   onboardingComplete: false,
-  sttProvider: "sherpa",
+  sttProvider: "vosk",
   lowPowerMode: false,
 
   setHasDeepgramApiKey: (hasDeepgramApiKey) => set({ hasDeepgramApiKey }),
@@ -67,17 +67,12 @@ const PERSISTED_KEYS = [
 ] as const satisfies readonly (keyof SettingsState)[]
 
 function parseSttProvider(value: unknown): SttProvider {
-  if (
-    value === "deepgram" ||
-    value === "gladia" ||
-    value === "sherpa" ||
-    value === "vosk"
-  ) {
+  if (value === "deepgram" || value === "gladia" || value === "vosk") {
     return value
   }
   // Migrate removed/legacy local providers (whisper, faster-whisper,
-  // legacy-whisper) to the faster streaming local model.
-  return "sherpa"
+  // legacy-whisper, sherpa) to the supported local model.
+  return "vosk"
 }
 
 let tauriStore: Store | null = null

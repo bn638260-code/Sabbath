@@ -4,7 +4,7 @@ description: How the repo is laid out and where to look for what.
 icon: FolderTree
 ---
 
-import { File, Files, Folder } from "fumadocs-ui/components/files";
+import { File, Files, Folder } from "fumadocs-ui/components/files"
 
 The repo is a polyglot monorepo with a React frontend, a Rust workspace
 backend, a Bun-driven data pipeline, and a Next.js marketing/docs site.
@@ -32,7 +32,7 @@ backend, a Bun-driven data pipeline, and a Next.js marketing/docs site.
     <Folder name="src-tauri">
       <Folder name="crates" defaultOpen>
         <File name="audio/       — Audio capture & metering (cpal)" />
-        <File name="stt/         - Whisper local STT (default), Deepgram cloud STT, Vosk compatibility modules" />
+        <File name="stt/         - Vosk local STT, Deepgram/Gladia cloud STT" />
         <File name="bible/       — SQLite Bible DB, search, cross-references" />
         <Folder name="detection">
           <File name="direct/    — Aho-Corasick + fuzzy reference parsing" />
@@ -73,6 +73,7 @@ backend, a Bun-driven data pipeline, and a Next.js marketing/docs site.
     <Folder name="build">
       <File name="Vite build output" />
     </Folder>
+
   </Folder>
 </Files>
 

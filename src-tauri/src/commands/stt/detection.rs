@@ -200,6 +200,12 @@ impl DeepgramSemanticBuffer {
 }
 
 fn semantic_result_key(result: &crate::commands::detection::DetectionResult) -> String {
+    if result.content_type == "egw" {
+        return format!(
+            "egw:{}:{}:{}",
+            result.book_number, result.chapter, result.verse
+        );
+    }
     if result.book_number > 0 && result.chapter > 0 && result.verse > 0 {
         format!("{}:{}:{}", result.book_number, result.chapter, result.verse)
     } else {
@@ -343,6 +349,36 @@ pub(crate) fn run_partial_direct_preview_detection(
     }
 }
 
+fn emit_egw_direct_detections(
+    app: &AppHandle,
+    seq: u64,
+    latest_seq: &Arc<AtomicU64>,
+    transcript: &str,
+) {
+    let app_managed: State<'_, Mutex<AppState>> = app.state();
+    let Ok(app_state) = app_managed.lock() else {
+        if transcript_logging_enabled() {
+            log::debug!("[DET-EGW] AppState busy; skipping direct EGW detection");
+        }
+        return;
+    };
+    let results = crate::commands::detection::detect_egw_references(&app_state, transcript);
+    drop(app_state);
+
+    if results.is_empty() || seq < latest_seq.load(Ordering::Acquire) {
+        return;
+    }
+
+    for result in &results {
+        log::info!(
+            "[DET-EGW] Found: {} ({:.0}%)",
+            result.verse_ref,
+            result.confidence * 100.0
+        );
+    }
+    let _ = app.emit("verse_detections", &results);
+}
+
 /// Run direct (regex/pattern) detection only. Instant, no ONNX.
 /// Uses SEPARATE Mutex<DirectDetector> and Mutex<DetectionMerger> so it
 /// never blocks on the semantic worker, and cooldown state persists across calls.
@@ -381,6 +417,7 @@ pub(crate) fn run_direct_detection(
     drop(detector); // Release immediately
 
     if direct_results.is_empty() {
+        emit_egw_direct_detections(app, seq, latest_seq, transcript);
         return false;
     }
 
@@ -400,6 +437,7 @@ pub(crate) fn run_direct_detection(
     let merged = merger.merge(direct_results, vec![]);
     drop(merger);
     if merged.is_empty() {
+        emit_egw_direct_detections(app, seq, latest_seq, transcript);
         return false;
     }
 
@@ -422,6 +460,7 @@ pub(crate) fn run_direct_detection(
             .map(|m| {
                 let vr = &m.detection.verse_ref;
                 crate::commands::detection::DetectionResult {
+                    content_type: "bible".to_string(),
                     verse_ref: format!("{} {}:{}", vr.book_name, vr.chapter, vr.verse_start),
                     verse_text: String::new(),
                     book_name: vr.book_name.clone(),
@@ -433,6 +472,7 @@ pub(crate) fn run_direct_detection(
                     auto_queued: m.auto_queued,
                     transcript_snippet: m.detection.transcript_snippet.clone(),
                     is_chapter_only: m.detection.is_chapter_only,
+                    egw_paragraph: None,
                 }
             })
             .collect();
@@ -451,10 +491,13 @@ pub(crate) fn run_direct_detection(
         let bad = LOCK_CONTENDED.load(Ordering::Relaxed);
         log::info!("[DET-DIRECT] AppState lock stats ok={ok} contended={bad}");
     }
-    let results: Vec<crate::commands::detection::DetectionResult> = merged
+    let mut results: Vec<crate::commands::detection::DetectionResult> = merged
         .iter()
         .map(|m| crate::commands::detection::to_result(&app_state, m))
         .collect();
+    results.extend(crate::commands::detection::detect_egw_references(
+        &app_state, transcript,
+    ));
 
     for r in &results {
         log::info!(
@@ -850,6 +893,7 @@ mod tests {
         confidence: f64,
     ) -> crate::commands::detection::DetectionResult {
         crate::commands::detection::DetectionResult {
+            content_type: "bible".to_string(),
             verse_ref: verse_ref.to_string(),
             verse_text: "verse text".to_string(),
             book_name: "Book".to_string(),
@@ -861,6 +905,7 @@ mod tests {
             auto_queued: false,
             transcript_snippet: "snippet".to_string(),
             is_chapter_only: false,
+            egw_paragraph: None,
         }
     }
 

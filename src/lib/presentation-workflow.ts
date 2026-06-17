@@ -12,10 +12,7 @@ import type {
   EgwParagraph,
   EgwPresentationItemData,
 } from "@/types"
-import {
-  getPresentationRenderData,
-  getScriptureVerse,
-} from "@/types"
+import { getPresentationRenderData, getScriptureVerse } from "@/types"
 import { splitTextForReadableSlides } from "@/lib/text-slide-chunking"
 import { useEgwSlideStore } from "@/stores/egw-slide-store"
 
@@ -40,11 +37,15 @@ export function detectionToVerse(detection: DetectionResult): Verse {
   }
 }
 
-export function createPresentationItem(verse: Verse, reference?: string): ScripturePresentationItemData {
+export function createPresentationItem(
+  verse: Verse,
+  reference?: string
+): ScripturePresentationItemData {
   return {
     kind: "scripture",
     verse,
-    reference: reference ?? `${verse.book_name} ${verse.chapter}:${verse.verse}`,
+    reference:
+      reference ?? `${verse.book_name} ${verse.chapter}:${verse.verse}`,
   }
 }
 
@@ -55,7 +56,7 @@ export function createScriptureQueueItem(
     confidence?: number
     source?: QueueItem["source"]
     is_chapter_only?: boolean
-  },
+  }
 ): QueueItem {
   return {
     id: crypto.randomUUID(),
@@ -67,22 +68,24 @@ export function createScriptureQueueItem(
   }
 }
 
-export function selectPreviewVerse(verse: Verse, options?: { navigate?: boolean }) {
+export function selectPreviewVerse(
+  verse: Verse,
+  options?: { navigate?: boolean }
+) {
   const item = createPresentationItem(verse)
   const renderData = toScriptureRenderData(item)
   useBroadcastStore.getState().setPreviewItem(renderData)
   bibleActions.selectVerse(verse)
 
   if (options?.navigate && verse.book_number > 0) {
-    bibleActions.navigateToVerse(
-      verse.book_number,
-      verse.chapter,
-      verse.verse,
-    )
+    bibleActions.navigateToVerse(verse.book_number, verse.chapter, verse.verse)
   }
 }
 
-export function selectPreviewItem(item: PresentationItem, options?: { navigate?: boolean }) {
+export function selectPreviewItem(
+  item: PresentationItem,
+  options?: { navigate?: boolean }
+) {
   const verse = getScriptureVerse(item)
   useBroadcastStore.getState().setPreviewItem(toPresentationRenderData(item))
 
@@ -92,30 +95,37 @@ export function selectPreviewItem(item: PresentationItem, options?: { navigate?:
       bibleActions.navigateToVerse(
         verse.book_number,
         verse.chapter,
-        verse.verse,
+        verse.verse
       )
     }
   }
 }
 
-function toScriptureRenderData(item: ScripturePresentationItemData): PresentationRenderData {
+function toScriptureRenderData(
+  item: ScripturePresentationItemData
+): PresentationRenderData {
   return toVerseRenderData(item.verse, activeTranslationLabel())
 }
 
-function toPresentationRenderData(item: PresentationItem): PresentationRenderData {
+function toPresentationRenderData(
+  item: PresentationItem
+): PresentationRenderData {
   if (item.kind === "scripture") return toScriptureRenderData(item)
   return getPresentationRenderData(item)
 }
 
 function commitRenderDataToLive(
   renderData: PresentationRenderData,
-  options?: { makeLive?: boolean },
+  options?: { makeLive?: boolean }
 ) {
   console.info("[pipeline] commit_live", { reference: renderData.reference })
   useBroadcastStore.getState().commitLiveItem(renderData, options)
 }
 
-export function commitVerseToLive(verse: Verse, options?: { makeLive?: boolean }) {
+export function commitVerseToLive(
+  verse: Verse,
+  options?: { makeLive?: boolean }
+) {
   const renderData = toPresentationRenderData(createPresentationItem(verse))
   commitRenderDataToLive(renderData, options)
 }
@@ -125,7 +135,9 @@ export function commitPreviewToLive(): boolean {
     useBroadcastStore.getState().previewItem ??
     (() => {
       const verse = useBibleStore.getState().selectedVerse
-      return verse ? toPresentationRenderData(createPresentationItem(verse)) : null
+      return verse
+        ? toPresentationRenderData(createPresentationItem(verse))
+        : null
     })()
   if (!previewItem) return false
 
@@ -133,7 +145,10 @@ export function commitPreviewToLive(): boolean {
   return true
 }
 
-export function presentItem(item: PresentationItem, options?: { navigate?: boolean }) {
+export function presentItem(
+  item: PresentationItem,
+  options?: { navigate?: boolean }
+) {
   selectPreviewItem(item, { navigate: options?.navigate })
   const renderData = toPresentationRenderData(item)
   commitRenderDataToLive(renderData)
@@ -149,7 +164,7 @@ export function previewVerseAndMaybeAutoLive(
   options?: {
     navigate?: boolean
     autoLiveWhenAlreadyOn?: boolean
-  },
+  }
 ) {
   const broadcast = useBroadcastStore.getState()
   const shouldAutoLive =
@@ -162,7 +177,9 @@ export function previewVerseAndMaybeAutoLive(
   }
 
   selectPreviewVerse(verse, { navigate: options?.navigate })
-  console.info("[pipeline] preview", { reference: `${verse.book_name} ${verse.chapter}:${verse.verse}` })
+  console.info("[pipeline] preview", {
+    reference: `${verse.book_name} ${verse.chapter}:${verse.verse}`,
+  })
 }
 
 export function egwReference(p: EgwParagraph): string {
@@ -194,7 +211,9 @@ export function createEgwDeckItems(p: EgwParagraph): EgwPresentationItemData[] {
   }))
 }
 
-export function createEgwPresentationItem(p: EgwParagraph): EgwPresentationItemData {
+export function createEgwPresentationItem(
+  p: EgwParagraph
+): EgwPresentationItemData {
   return createEgwDeckItems(p)[0]!
 }
 
@@ -204,12 +223,18 @@ function loadEgwDeck(p: EgwParagraph, activeIndex = 0) {
   return deck
 }
 
-export function createEgwQueueItem(p: EgwParagraph): QueueItem {
+export function createEgwQueueItem(
+  p: EgwParagraph,
+  options?: {
+    confidence?: number
+    source?: QueueItem["source"]
+  }
+): QueueItem {
   return {
     id: crypto.randomUUID(),
     presentation: createEgwPresentationItem(p),
-    confidence: 1,
-    source: "manual",
+    confidence: options?.confidence ?? 1,
+    source: options?.source ?? "manual",
     added_at: Date.now(),
   }
 }

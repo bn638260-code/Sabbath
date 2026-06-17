@@ -4,20 +4,20 @@ description: Frontend, backend, ML, database, broadcast, and STT layers — the 
 icon: Layers
 ---
 
-import { Card, Cards } from "fumadocs-ui/components/card";
+import { Card, Cards } from "fumadocs-ui/components/card"
 
-| Layer | Technologies |
-| --- | --- |
-| **Frontend** | React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Zustand, Vite 7 |
-| **Backend** | Tauri v2, Rust workspace with six crates |
-| **AI / ML** | ONNX Runtime (Qwen3-0.6B embeddings), Aho-Corasick, Fuse.js |
-| **Database** | SQLite via `rusqlite` (bundled) with FTS5 |
-| **Broadcast** | NDI 6 SDK via dynamic loading (`libloading` FFI) |
-| **STT** | Local Whisper (`whisper-rs`, default), or Deepgram WebSocket + REST (`tokio-tungstenite`); Vosk retained for compatibility |
+| Layer         | Technologies                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------ |
+| **Frontend**  | React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Zustand, Vite 7                                      |
+| **Backend**   | Tauri v2, Rust workspace with six crates                                                               |
+| **AI / ML**   | ONNX Runtime (Qwen3-0.6B embeddings), Aho-Corasick, Fuse.js                                            |
+| **Database**  | SQLite via `rusqlite` (bundled) with FTS5                                                              |
+| **Broadcast** | NDI 6 SDK via dynamic loading (`libloading` FFI)                                                       |
+| **STT**       | Local Vosk worker (default), Deepgram WebSocket + REST (`tokio-tungstenite`), or Gladia live streaming |
 
 ![Layered architecture diagram — React frontend over Tauri IPC, Rust workspace below, with NDI / STT / SQLite as external surfaces](/docs/diagrams/diagram-stack-layers.svg)
 
-*Layer-by-layer view of the stack: React + Tailwind on top, Tauri IPC bridge in the middle, the Rust workspace below, and the external surfaces (NDI sender, STT engines, SQLite-on-disk) at the edges. **Click to expand.***
+\*Layer-by-layer view of the stack: React + Tailwind on top, Tauri IPC bridge in the middle, the Rust workspace below, and the external surfaces (NDI sender, STT engines, SQLite-on-disk) at the edges. **Click to expand.\***
 
 ## Frontend
 
@@ -80,15 +80,15 @@ surface just doesn't appear).
 
 ## STT
 
-Two engines, one transport:
+Three engines, one transport:
 
-- **Whisper** runs locally in-process via `whisper-rs`, using the
-  lightweight `ggml-tiny.en.bin` model with a Bible-reference prompt. It
-  is the default local engine. (Vosk remains available for compatibility
-  via a Python worker process.)
+- **Vosk** runs locally through the bundled worker with a verse-focused
+  grammar. It is the default local engine and requires no API key.
 - **Deepgram** streams over a WebSocket using `tokio-tungstenite`, with
   a REST fallback that uploads short windows when the socket drops.
   Deepgram is the recommended option for full-sermon transcript fidelity.
+- **Gladia** creates a live session through the Gladia API and streams audio
+  into the same transcript event pipeline.
 
-Both feed a unified transcript stream so the rest of the pipeline
+All providers feed a unified transcript stream so the rest of the pipeline
 doesn't care which engine is active.

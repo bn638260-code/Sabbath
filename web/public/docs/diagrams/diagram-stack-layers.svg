@@ -100,7 +100,7 @@
         </g>
       </g>
 
-      <text x="32" y="158" font-size="13" fill="#9aa4b2">ort 2.0.0-rc.12 · whisper-rs 0.16 · libloading 0.8 · rusqlite (bundled) · aho-corasick 1</text>
+      <text x="32" y="158" font-size="13" fill="#9aa4b2">ort 2.0.0-rc.12 · tokio-tungstenite · libloading 0.8 · rusqlite (bundled) · aho-corasick 1</text>
     </g>
 
     <!-- Layer 4: External surfaces -->
@@ -119,7 +119,7 @@
       <g transform="translate(486 88)">
         <rect width="430" height="56" rx="10" fill="#0f1521" stroke="#1f2734"/>
         <text x="20" y="24" font-size="14" font-weight="600" fill="#ffffff">STT engines</text>
-        <text x="20" y="44" font-size="12" fill="#9aa4b2">whisper.cpp on disk · Deepgram WebSocket (tokio-tungstenite)</text>
+        <text x="20" y="44" font-size="12" fill="#9aa4b2">Vosk worker on disk · Deepgram/Gladia streaming APIs</text>
       </g>
       <g transform="translate(940 88)">
         <rect width="428" height="56" rx="10" fill="#0f1521" stroke="#1f2734"/>

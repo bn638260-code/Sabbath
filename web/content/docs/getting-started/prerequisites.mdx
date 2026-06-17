@@ -4,33 +4,32 @@ description: System requirements and toolchain you'll need before installing Sab
 icon: ListChecks
 ---
 
-import { Callout } from "fumadocs-ui/components/callout";
+import { Callout } from "fumadocs-ui/components/callout"
 
 SabbathCue is a Tauri v2 desktop app, so you'll need the standard Tauri toolchain
 plus a Python interpreter for the data-prep pipeline. The complete list:
 
-| Tool | Why you need it |
-| --- | --- |
-| [Bun](https://bun.sh) | JavaScript runtime + package manager for `web/`, build scripts, and the orchestrator |
-| [Rust](https://rustup.rs) (stable, 1.77.2+) | Compiles the Tauri backend and the seven workspace crates |
-| [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/) | Platform-specific system libraries (WebView2 on Windows, WebKit on Linux) |
-| [Python 3](https://www.python.org/) | Downloads copyrighted translations, exports the embedding model to ONNX, and runs the optional legacy Vosk worker |
-| CMake + LLVM/libclang | Required for the local Whisper feature and some native Rust dependencies |
-| [LibreOffice](https://www.libreoffice.org/) (optional) | Converts `.ppt`/`.pptx` decks to slides for service-plan and theme imports |
-| [Deepgram API key](https://deepgram.com/) (optional) | Cloud speech-to-text, only if you don't want to run local Whisper |
+| Tool                                                                                     | Why you need it                                                                                               |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [Bun](https://bun.sh)                                                                    | JavaScript runtime + package manager for `web/`, build scripts, and the orchestrator                          |
+| [Rust](https://rustup.rs) (stable, 1.77.2+)                                              | Compiles the Tauri backend and Rust workspace crates                                                          |
+| [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/)                      | Platform-specific system libraries (WebView2 on Windows, WebKit on Linux)                                     |
+| [Python 3](https://www.python.org/)                                                      | Downloads copyrighted translations, exports the embedding model to ONNX, and runs the development Vosk worker |
+| [LibreOffice](https://www.libreoffice.org/) (optional)                                   | Converts `.ppt`/`.pptx` decks to slides for service-plan and theme imports                                    |
+| [Deepgram](https://deepgram.com/) or [Gladia](https://www.gladia.io/) API key (optional) | Cloud speech-to-text, only if you don't want to run local Vosk                                                |
 
-<Callout title="Local vs Deepgram" type="info">
-You only need **one** speech-to-text engine. Whisper runs locally with no
-API costs and is the default. Deepgram streams via WebSocket and needs a
-paid API key. See [Speech-to-text](/docs/getting-started/speech-to-text)
-for tradeoffs.
+<Callout title="Local vs Cloud STT" type="info">
+  You only need **one** speech-to-text engine. Vosk runs locally with no API
+  costs and is the default. Deepgram and Gladia stream to cloud APIs and need
+  paid API keys. See [Speech-to-text](/docs/getting-started/speech-to-text) for
+  tradeoffs.
 </Callout>
 
 <Callout title="PowerPoint import" type="info">
-Importing PowerPoint decks (sermon slides or theme backgrounds) requires a
-local [LibreOffice](https://www.libreoffice.org/) install. SabbathCue finds
-`soffice` on your `PATH` or the default install location; set
-`SABBATHCUE_SOFFICE_PATH` to override it.
+  Importing PowerPoint decks (sermon slides or theme backgrounds) requires a
+  local [LibreOffice](https://www.libreoffice.org/) install. SabbathCue finds
+  `soffice` on your `PATH` or the default install location; set
+  `SABBATHCUE_SOFFICE_PATH` to override it.
 </Callout>
 
 ## Hardware
@@ -49,10 +48,10 @@ SabbathCue runs comfortably on modern laptops:
 
 ## Operating system
 
-| OS | Status |
-| --- | --- |
-| macOS 13+ (Apple Silicon and Intel) | First-class support |
-| Windows 10/11 (x86_64) | First-class support — see [Platform setup](/docs/getting-started/platform-setup#windows) for the LLVM bootstrap |
-| Linux (Debian/Ubuntu/Arch) | First-class support — needs the WebKitGTK and libclang packages |
+| OS                                  | Status                                                                                                     |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| macOS 13+ (Apple Silicon and Intel) | First-class support                                                                                        |
+| Windows 10/11 (x86_64)              | First-class support - see [Platform setup](/docs/getting-started/platform-setup#windows) for MSVC guidance |
+| Linux (Debian/Ubuntu/Arch)          | First-class support - needs the Tauri WebKitGTK system packages                                            |
 
 Once these are installed, head to the [installation guide](/docs/getting-started/installation).

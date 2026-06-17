@@ -1,7 +1,7 @@
 //! STT provider trait abstraction.
 //!
-//! Allows swapping between Deepgram (cloud) and Whisper (local) backends
-//! while keeping the same `TranscriptEvent` interface for the detection pipeline.
+//! Allows swapping between cloud and local backends while keeping the same
+//! `TranscriptEvent` interface for the detection pipeline.
 
 use crossbeam_channel::Receiver;
 use tokio::sync::mpsc;
@@ -11,9 +11,8 @@ use crate::types::TranscriptEvent;
 
 /// A speech-to-text provider that consumes audio and emits transcript events.
 ///
-/// Both Deepgram (cloud) and Whisper (local) implement this trait so the
-/// command layer can select a provider at runtime without changing the
-/// downstream detection pipeline.
+/// Providers implement this trait so the command layer can select a backend at
+/// runtime without changing the downstream detection pipeline.
 #[async_trait::async_trait]
 pub trait SttProvider: Send + Sync {
     /// Start the provider, consuming raw 16 kHz mono i16 audio from `audio_rx`

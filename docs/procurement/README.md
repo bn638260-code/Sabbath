@@ -24,7 +24,7 @@ SabbathCue is built on:
 
 - **Frontend**: React 19, Vite 7, Tailwind CSS, Zustand
 - **Backend**: Rust workspace of 6 crates, Tauri v2
-- **STT**: Local Whisper (default), optional Deepgram (Vosk retained for compatibility)
+- **STT**: Local Vosk (default), optional Deepgram/Gladia cloud STT
 - **ML**: ONNX Runtime, Qwen3-0.6B embeddings
 - **Database**: SQLite
 - **Broadcast**: NDI 6 SDK, dynamically loaded
@@ -35,15 +35,15 @@ Direct dependencies are checked per release with `cargo deny` and
 ## Deployment model
 
 - **Installation**: Single Windows installer (`.msi` or `.exe`)
-- **Network**: No internet required for core operation when using local Whisper STT and bundled local data
-- **Internet needed for**: Deepgram cloud STT (opt-in), setup-time downloads, and optional NDI SDK download
+- **Network**: No internet required for core operation when using local Vosk STT and bundled local data
+- **Internet needed for**: Deepgram/Gladia cloud STT (opt-in), setup-time downloads, and optional NDI SDK download
 - **Admin rights**: Not required for normal operation
 - **Updates**: Manual download of new installer; no auto-update mechanism
 
 ## Key security claims
 
 1. **No telemetry**: The app does not include analytics, crash reporting, or usage tracking.
-2. **Local-first**: Whisper speech recognition runs locally; the Bible database is local SQLite.
+2. **Local-first**: Vosk speech recognition runs locally; the Bible database is local SQLite.
 3. **Loopback-only remote control**: OSC and HTTP listeners bind `127.0.0.1` by default, with bearer-token auth on HTTP control endpoints.
 4. **Restrictive CSP**: WebView runs with `script-src 'self'` only; no inline scripts.
 5. **Keychain-backed secrets**: API keys and tokens are stored through the OS keychain, never plaintext on disk.

@@ -26,7 +26,10 @@ interface DetectionState {
   clearDetections: () => void
 }
 
-function detectionRank(detection: DetectionResultWithMeta, now: number): number {
+function detectionRank(
+  detection: DetectionResultWithMeta,
+  now: number
+): number {
   const receivedAt = detection.received_at ?? 0
   const ageMs = Math.max(0, now - receivedAt)
   const recencyBonus =
@@ -44,7 +47,7 @@ function sourcePriority(detection: DetectionResultWithMeta): number {
 function compareDetections(
   a: DetectionResultWithMeta,
   b: DetectionResultWithMeta,
-  now: number,
+  now: number
 ): number {
   const sourceDiff = sourcePriority(b) - sourcePriority(a)
   if (sourceDiff !== 0) return sourceDiff
@@ -61,16 +64,25 @@ function compareDetections(
 
 function mergeDetection(
   existing: DetectionResult,
-  incoming: DetectionResult,
+  incoming: DetectionResult
 ): DetectionResult {
-  const preferred = incoming.source === "direct" || existing.source !== "direct" ? incoming : existing
+  const preferred =
+    incoming.source === "direct" || existing.source !== "direct"
+      ? incoming
+      : existing
   const fallback = preferred === incoming ? existing : incoming
 
   return {
     ...preferred,
     confidence: Math.max(existing.confidence, incoming.confidence),
-    source: existing.source === "direct" || incoming.source === "direct" ? "direct" : "semantic",
-    verse_text: incoming.verse_text.length > 0 ? incoming.verse_text : existing.verse_text,
+    source:
+      existing.source === "direct" || incoming.source === "direct"
+        ? "direct"
+        : "semantic",
+    verse_text:
+      incoming.verse_text.length > 0
+        ? incoming.verse_text
+        : existing.verse_text,
     transcript_snippet:
       incoming.transcript_snippet.length > 0
         ? incoming.transcript_snippet
@@ -79,9 +91,14 @@ function mergeDetection(
     is_chapter_only: existing.is_chapter_only && incoming.is_chapter_only,
     book_name: preferred.book_name || fallback.book_name,
     // 0 is the "unresolved" sentinel — only use the preferred value when it is non-zero.
-    book_number: preferred.book_number !== 0 ? preferred.book_number : fallback.book_number,
+    book_number:
+      preferred.book_number !== 0
+        ? preferred.book_number
+        : fallback.book_number,
     chapter: preferred.chapter !== 0 ? preferred.chapter : fallback.chapter,
     verse: preferred.verse !== 0 ? preferred.verse : fallback.verse,
+    content_type: preferred.content_type ?? fallback.content_type,
+    egw_paragraph: preferred.egw_paragraph ?? fallback.egw_paragraph,
   }
 }
 
@@ -96,19 +113,28 @@ function normalizeVerseRef(verseRef: string): string {
 function numberTokenMatches(value: string, target: number): boolean {
   NUMBER_TOKEN_PATTERN.lastIndex = 0
   return [...value.matchAll(NUMBER_TOKEN_PATTERN)].some(
-    ([token]) => Number(token) === target,
+    ([token]) => Number(token) === target
   )
 }
 
-function verseRefMatches(value: string, chapter: number, verse: number): boolean {
+function verseRefMatches(
+  value: string,
+  chapter: number,
+  verse: number
+): boolean {
   VERSE_REF_PATTERN.lastIndex = 0
   return [...value.matchAll(VERSE_REF_PATTERN)].some(
     ([, refChapter, refVerse]) =>
-      Number(refChapter) === chapter && Number(refVerse) === verse,
+      Number(refChapter) === chapter && Number(refVerse) === verse
   )
 }
 
 function detectionKey(detection: DetectionResult): string {
+  if (detection.content_type === "egw" && detection.egw_paragraph) {
+    const paragraph = detection.egw_paragraph
+    return `egw:${paragraph.book_number}:${paragraph.chapter}:${paragraph.paragraph}`
+  }
+
   const normalizedRef = normalizeVerseRef(detection.verse_ref)
 
   if (
@@ -129,7 +155,10 @@ function detectionKey(detection: DetectionResult): string {
   return `ref:${normalizedRef}`
 }
 
-function detectionMatchesRemovalKey(detection: DetectionResult, key: string): boolean {
+function detectionMatchesRemovalKey(
+  detection: DetectionResult,
+  key: string
+): boolean {
   return (
     detectionKey(detection) === key ||
     detection.verse_ref === key ||
@@ -137,7 +166,10 @@ function detectionMatchesRemovalKey(detection: DetectionResult, key: string): bo
   )
 }
 
-function detectionsAreEquivalent(a: DetectionResult, b: DetectionResult): boolean {
+function detectionsAreEquivalent(
+  a: DetectionResult,
+  b: DetectionResult
+): boolean {
   return (
     detectionKey(a) === detectionKey(b) ||
     normalizeVerseRef(a.verse_ref) === normalizeVerseRef(b.verse_ref)
@@ -146,7 +178,7 @@ function detectionsAreEquivalent(a: DetectionResult, b: DetectionResult): boolea
 
 function findMapEntryKey(
   map: Map<string, DetectionWithMeta>,
-  detection: DetectionResult,
+  detection: DetectionResult
 ): string | undefined {
   for (const [key, item] of map) {
     if (detectionsAreEquivalent(item.detection, detection)) {
@@ -158,7 +190,7 @@ function findMapEntryKey(
 
 function withReceivedAt(
   detection: DetectionResult,
-  fallback = 0,
+  fallback = 0
 ): DetectionResultWithMeta {
   return {
     ...detection,
@@ -178,7 +210,7 @@ export const useDetectionStore = create<DetectionState>((set) => ({
       const existingIndex = state.detections.findIndex((d) =>
         detectionsAreEquivalent(d, detection)
       )
-      
+
       if (existingIndex >= 0) {
         const existing = withReceivedAt(state.detections[existingIndex])
         const updated: DetectionResultWithMeta = {
@@ -190,9 +222,12 @@ export const useDetectionStore = create<DetectionState>((set) => ({
         newDetections.sort((a, b) => compareDetections(a, b, now))
         return { detections: newDetections.slice(0, MAX_RECENT_DETECTIONS) }
       }
-      
+
       // New detection
-      const withMeta: DetectionResultWithMeta = { ...detection, received_at: now }
+      const withMeta: DetectionResultWithMeta = {
+        ...detection,
+        received_at: now,
+      }
       const newDetections = [withMeta, ...state.detections]
       newDetections.sort((a, b) => compareDetections(a, b, now))
       return { detections: newDetections.slice(0, MAX_RECENT_DETECTIONS) }
@@ -201,7 +236,7 @@ export const useDetectionStore = create<DetectionState>((set) => ({
     set((state) => {
       const now = Date.now()
       const map = new Map<string, DetectionWithMeta>()
-      
+
       // Add incoming with received_at
       for (const d of incoming) {
         const key = findMapEntryKey(map, d) ?? detectionKey(d)
@@ -215,7 +250,7 @@ export const useDetectionStore = create<DetectionState>((set) => ({
           })
         }
       }
-      
+
       // Merge existing detections
       for (const d of state.detections) {
         const key = findMapEntryKey(map, d) ?? detectionKey(d)
@@ -231,18 +266,18 @@ export const useDetectionStore = create<DetectionState>((set) => ({
           })
         }
       }
-      
+
       const sorted = [...map.values()]
         .sort((a, b) =>
           compareDetections(
             { ...a.detection, received_at: a.received_at },
             { ...b.detection, received_at: b.received_at },
-            now,
+            now
           )
         )
         .map((item) => ({ ...item.detection, received_at: item.received_at }))
         .slice(0, MAX_RECENT_DETECTIONS)
-      
+
       return { detections: sorted }
     }),
   setDetections: (detections) =>
@@ -252,7 +287,9 @@ export const useDetectionStore = create<DetectionState>((set) => ({
   removeDetection: (key) =>
     set((state) => {
       return {
-        detections: state.detections.filter((d) => !detectionMatchesRemovalKey(d, key)),
+        detections: state.detections.filter(
+          (d) => !detectionMatchesRemovalKey(d, key)
+        ),
       }
     }),
   clearDetections: () => set({ detections: [] }),

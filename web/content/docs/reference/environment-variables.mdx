@@ -4,19 +4,19 @@ description: The .env keys SabbathCue reads and what they unlock.
 icon: KeyRound
 ---
 
-import { Callout } from "fumadocs-ui/components/callout";
+import { Callout } from "fumadocs-ui/components/callout"
 
-SabbathCue runs without any environment variables; local Vosk STT, the
-bundled translations, and the entire detection pipeline all work
-out of the box. The `.env` file only matters when you want to plug in
-optional cloud services.
+Local Vosk STT and the detection pipeline do not require environment
+variables. Cloud STT keys are entered in Settings and stored in the OS
+keychain. The `.env` file is mainly for build-time app configuration.
 
 ## Reference
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `DEEPGRAM_API_KEY` | Optional | API key for [Deepgram](https://deepgram.com) speech-to-text. Not needed when running local Vosk. |
-| `GITHUB_TOKEN` | Optional | Used by the marketing site to fetch up-to-date star counts at build time without hitting the unauthenticated rate limit. |
+| Variable                 | Required                    | Description                                                                                                              |
+| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `VITE_SUPABASE_URL`      | Yes for verified app builds | Supabase project URL used by the desktop verification gate.                                                              |
+| `VITE_SUPABASE_ANON_KEY` | Yes for verified app builds | Supabase anon key used by the desktop verification gate.                                                                 |
+| `GITHUB_TOKEN`           | Optional                    | Used by the marketing site to fetch up-to-date star counts at build time without hitting the unauthenticated rate limit. |
 
 ## Where to put them
 
@@ -24,22 +24,23 @@ Create a file called `.env` in the project root (the same folder as
 `package.json`):
 
 ```bash
-DEEPGRAM_API_KEY=dg_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 Restart the dev server after editing `.env` so the new value is
 picked up.
 
 <Callout title=".env files are gitignored" type="info">
-The repo's `.gitignore` excludes any file matching `.env*` to keep
-keys out of source control. Don't commit a `.env.example` with a
-real key — use a placeholder like `your_key_here`.
+  The repo's `.gitignore` excludes any file matching `.env*` to keep keys out of
+  source control. Don't commit a `.env.example` with a real key — use a
+  placeholder like `your_key_here`.
 </Callout>
 
 ## Build-time vs runtime
 
-- **Tauri / Rust code** reads environment variables at runtime from
-  the host process. There's no compile-time embedding of secrets.
+- **Tauri / Rust code** reads non-secret runtime overrides from the host
+  process. Cloud STT secrets are stored through the OS keychain.
 - **Bun-driven build scripts** under `data/` read variables from the
   shell environment as you'd expect.
 - **The marketing/docs site** in `web/` is statically exported, so

@@ -20,28 +20,11 @@ futures-util = "0.3"
 crossbeam-channel = "0.5"
 async-trait = "0.1"
 tempfile = "3"
-base64 = { version = "0.22", optional = true }
-
-# Whisper local STT (optional)
-rhema-audio = { path = "../audio", optional = true }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-whisper-rs = { version = "0.16", features = ["metal"], optional = true }
-
-[target.'cfg(not(target_os = "macos"))'.dependencies]
-whisper-rs = { version = "0.16", optional = true }
 
 [features]
 default = ["rest-fallback", "gladia"]
 gladia = ["reqwest"]
 rest-fallback = ["reqwest"]
-whisper = ["dep:whisper-rs", "rhema-audio"]
-faster-whisper = ["dep:base64", "rhema-audio"]
-
-[[example]]
-name = "whisper_smoke"
-path = "examples/whisper_smoke.rs"
-required-features = ["whisper"]
 
 [[example]]
 name = "transcription_bench"

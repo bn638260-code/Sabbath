@@ -42,17 +42,8 @@ data/verses-for-embedding.json
 
 # ML models and embeddings (downloaded, not committed)
 models/*
-!models/sherpa/
-models/sherpa/*
-!models/sherpa/.gitkeep
-!models/sherpa/sherpa-onnx-streaming-zipformer-en-2023-06-26/
-models/sherpa/sherpa-onnx-streaming-zipformer-en-2023-06-26/*
-!models/sherpa/sherpa-onnx-streaming-zipformer-en-2023-06-26/.gitkeep
 sidecars/*
 !sidecars/.gitkeep
-!sidecars/sherpa_worker/
-sidecars/sherpa_worker/*
-!sidecars/sherpa_worker/.gitkeep
 .env
 .venv/
 .superpowers/

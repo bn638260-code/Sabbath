@@ -1,4 +1,7 @@
+import type { EgwParagraph } from "./egw"
+
 export interface DetectionResult {
+  content_type?: "bible" | "egw"
   verse_ref: string
   verse_text: string
   book_name: string
@@ -11,6 +14,7 @@ export interface DetectionResult {
   transcript_snippet: string
   /** True when detected from a chapter-only reference (verse defaults to 1, may be refined). */
   is_chapter_only: boolean
+  egw_paragraph?: EgwParagraph | null
 }
 
 export interface ReadingAdvance {

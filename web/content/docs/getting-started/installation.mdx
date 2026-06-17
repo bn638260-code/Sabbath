@@ -1,20 +1,21 @@
 ---
 title: Installation
-description: Clone, install dependencies, and run the seven-phase data setup so SabbathCue is ready for development.
+description: Clone, install dependencies, and run the eight-phase data setup so SabbathCue is ready for development.
 icon: Download
 ---
 
-import { Step, Steps } from "fumadocs-ui/components/steps";
-import { Callout } from "fumadocs-ui/components/callout";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Step, Steps } from "fumadocs-ui/components/steps"
+import { Callout } from "fumadocs-ui/components/callout"
+import { Tab, Tabs } from "fumadocs-ui/components/tabs"
 
 Once your toolchain is in place — see [Prerequisites](/docs/getting-started/prerequisites) —
 you can clone the repo and run a single setup command.
 
 <Callout title="Windows users" type="warn">
-Run `bun run setup:windows` *before* `setup:all` and restart your terminal.
-The Windows bootstrap installs LLVM and CMake via `winget` and persists
-`LIBCLANG_PATH` for `bindgen`. See [Platform setup](/docs/getting-started/platform-setup#windows).
+  Run `bun run setup:windows` *before* `setup:all` and restart your terminal.
+  The Windows bootstrap checks for the MSVC/Tauri build tools and prints install
+  guidance if they are missing. See [Platform
+  setup](/docs/getting-started/platform-setup#windows).
 </Callout>
 
 ## Quick setup
@@ -51,7 +52,7 @@ bun run setup:all
 output artifacts already exist, so it's safe to invoke after
 `git pull` or when something changed in `data/`. Pass `--force` to
 re-run every phase. The orchestrator (`data/prepare-embeddings.ts`)
-runs seven phases in this exact order:
+runs eight phases in this exact order:
 
 1. **Python environment** — creates `.venv` and installs the pip
    dependencies (`optimum-onnx[onnxruntime]`,
@@ -63,16 +64,15 @@ runs seven phases in this exact order:
    from openbible.info.
 3. **SQLite database** — assembles `data/rhema.db` with FTS5
    virtual tables and cross-reference tables.
-4. **ONNX model** — downloads `Qwen3/Qwen3-Embedding-0.6B`, exports
-   it with the sentence-transformers ONNX backend, and quantizes it to
-   INT8.
-5. **Verse export** — emits the KJV verses to JSON for the
+4. **EGW import** - imports EGW books into `data/rhema.db`.
+5. **ONNX model** - downloads the embedding model, exports it with
+   the sentence-transformers ONNX backend, and quantizes it to INT8.
+6. **Verse export** - emits KJV/NKJV/NLT verses to JSON for the
    embedding step.
-6. **Embedding precomputation** — runs the embeddings (auto-selects
-   GPU via PyTorch if available; falls back to ONNX Runtime on
-   CPU).
-7. **Local STT model** - prepares the local speech-to-text model files used by
-   the default offline Whisper provider (`bun run download:whisper`).
+7. **Embedding precomputation** - runs the embeddings (auto-selects
+   GPU via PyTorch if available; falls back to ONNX Runtime on CPU).
+8. **Local STT assets** - prepares the local Vosk model files used by
+   the default offline provider (`bun run download:vosk`).
 
   </Step>
   <Step>
@@ -85,9 +85,9 @@ bun run tauri dev
 The Tauri shell opens with hot-reload for the React frontend at port 3000
 and live-reloads the Rust backend on file changes.
 
-![Terminal showing setup:all running through its seven phases](/docs/screenshots/terminal-setup-all.png)
+![Terminal showing setup:all running through its eight phases](/docs/screenshots/terminal-setup-all.png)
 
-*Terminal output during `bun run setup:all` — each of the seven phases prints its own progress block, and `⏭ Skip` lines appear when an artifact is already present from a previous run. **Click to expand.***
+\*Terminal output during `bun run setup:all` - each phase prints its own progress block, and skip lines appear when an artifact is already present from a previous run. **Click to expand.\***
 
   </Step>
 </Steps>
@@ -132,7 +132,8 @@ bun run export:verses              # Export verses to JSON
 bun run precompute:embeddings      # Rust ONNX binary (recommended)
 bun run precompute:embeddings-onnx # Python ONNX Runtime path
 bun run precompute:embeddings-py   # Python sentence-transformers (GPU)
-bun run download:whisper           # Default local Whisper model (ggml-tiny.en.bin)
+bun run download:vosk              # Default local Vosk model
+bun run build:vosk-sidecar         # Self-contained Vosk worker for releases
 ```
 
   </Tab>
