@@ -13,6 +13,7 @@ export function RemoteControlSection() {
     oscStatus,
     httpStatus,
     httpTokenConfigured,
+    rotatedHttpToken,
     oscError,
     httpError,
     tokenError,
@@ -118,6 +119,13 @@ export function RemoteControlSection() {
             </Button>
           </div>
         </div>
+        {rotatedHttpToken && (
+          <div className="rounded-md border bg-muted/40 px-2 py-1.5">
+            <code className="block break-all text-[0.625rem] text-muted-foreground">
+              {rotatedHttpToken}
+            </code>
+          </div>
+        )}
         {tokenError && (
           <p className="text-[0.625rem] text-red-500">{tokenError}</p>
         )}

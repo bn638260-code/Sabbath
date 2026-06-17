@@ -13,6 +13,8 @@ interface DetectionResultWithMeta extends DetectionResult {
 const MAX_RECENT_DETECTIONS = 5
 const MAX_RECENCY_BONUS = 0.01
 const RECENCY_BONUS_WINDOW_MS = 30_000
+const NUMBER_TOKEN_PATTERN = /\d+/g
+const VERSE_REF_PATTERN = /(\d+)\s*:\s*(\d+)/g
 
 interface DetectionState {
   detections: DetectionResultWithMeta[]
@@ -91,15 +93,30 @@ function normalizeVerseRef(verseRef: string): string {
     .trim()
 }
 
+function numberTokenMatches(value: string, target: number): boolean {
+  NUMBER_TOKEN_PATTERN.lastIndex = 0
+  return [...value.matchAll(NUMBER_TOKEN_PATTERN)].some(
+    ([token]) => Number(token) === target,
+  )
+}
+
+function verseRefMatches(value: string, chapter: number, verse: number): boolean {
+  VERSE_REF_PATTERN.lastIndex = 0
+  return [...value.matchAll(VERSE_REF_PATTERN)].some(
+    ([, refChapter, refVerse]) =>
+      Number(refChapter) === chapter && Number(refVerse) === verse,
+  )
+}
+
 function detectionKey(detection: DetectionResult): string {
   const normalizedRef = normalizeVerseRef(detection.verse_ref)
-  const versePattern = new RegExp(`\\b${detection.chapter}\\s*:\\s*${detection.verse}\\b`)
-  const chapterPattern = new RegExp(`\\b${detection.chapter}\\b`)
 
   if (
     detection.book_number > 0 &&
     detection.chapter > 0 &&
-    (detection.is_chapter_only ? chapterPattern.test(normalizedRef) : versePattern.test(normalizedRef))
+    (detection.is_chapter_only
+      ? numberTokenMatches(normalizedRef, detection.chapter)
+      : verseRefMatches(normalizedRef, detection.chapter, detection.verse))
   ) {
     if (detection.is_chapter_only) {
       return `chapter:${detection.book_number}:${detection.chapter}`
@@ -208,24 +225,10 @@ export const useDetectionStore = create<DetectionState>((set) => ({
         if (!existing) {
           map.set(key, { detection: dWithMeta, received_at: dReceivedAt })
         } else {
-          if (d.confidence > existing.detection.confidence || d.source === "direct") {
-            map.set(key, {
-              detection: mergeDetection(existing.detection, d),
-              received_at: Math.max(existing.received_at, dReceivedAt),
-            })
-          } else if (dReceivedAt > existing.received_at) {
-            map.set(key, {
-              detection: mergeDetection(d, existing.detection),
-              received_at: dReceivedAt,
-            })
-          } else {
-            // Incoming map entry remains preferred while stale existing state
-            // contributes non-zero coordinates and text fallback via mergeDetection.
-            map.set(key, {
-              detection: mergeDetection(d, existing.detection),
-              received_at: Math.max(existing.received_at, dReceivedAt),
-            })
-          }
+          map.set(key, {
+            detection: mergeDetection(d, existing.detection),
+            received_at: Math.max(existing.received_at, dReceivedAt),
+          })
         }
       }
       

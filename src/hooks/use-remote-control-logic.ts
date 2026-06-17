@@ -78,3 +78,18 @@ export function dispatchRemoteNavigation(
   setActive(index)
   void present(index)
 }
+
+export function createRemotePresentationQueue(
+  present: (index: number) => void | Promise<void>,
+): (index: number) => Promise<void> {
+  let chain: Promise<void> = Promise.resolve()
+
+  return (index: number) => {
+    const run = chain.catch(() => undefined).then(() => present(index))
+    chain = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
+  }
+}

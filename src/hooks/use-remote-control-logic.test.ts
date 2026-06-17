@@ -4,6 +4,7 @@ import type { QueueItem } from "@/types"
 import {
   clampQueueNextIndex,
   clampQueuePrevIndex,
+  createRemotePresentationQueue,
   dispatchRemoteNavigation,
   findCurrentVerseIndex,
   parsePayload,
@@ -114,5 +115,37 @@ describe("dispatchRemoteNavigation", () => {
 
     expect(setActive).toHaveBeenCalledWith(1)
     expect(present).toHaveBeenCalledWith(1)
+  })
+
+  it("serializes async presentation requests", async () => {
+    const calls: string[] = []
+    const resolvers: Array<() => void> = []
+    const queuedPresent = createRemotePresentationQueue((index) => {
+      calls.push(`start:${index}`)
+      return new Promise<void>((resolve) => {
+        resolvers.push(() => {
+          calls.push(`finish:${index}`)
+          resolve()
+        })
+      })
+    })
+
+    const first = queuedPresent(1)
+    const second = queuedPresent(2)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(calls).toEqual(["start:1"])
+
+    resolvers[0]()
+    await first
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(calls).toEqual(["start:1", "finish:1", "start:2"])
+
+    resolvers[1]()
+    await second
+    expect(calls).toEqual(["start:1", "finish:1", "start:2", "finish:2"])
   })
 })

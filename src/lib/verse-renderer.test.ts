@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { textForPresentation } from "./verse-renderer"
+import { clampCornerRadius, textForPresentation } from "./verse-renderer"
 import type { PresentationRenderData, VerseRenderData } from "@/types"
 
 describe("textForPresentation", () => {
@@ -55,5 +55,15 @@ describe("textForPresentation", () => {
     expect(textForPresentation(egw, false)).toBe(
       "Nature and revelation alike testify",
     )
+  })
+})
+
+describe("clampCornerRadius", () => {
+  it("keeps rounded rectangles inside half the smallest dimension", () => {
+    expect(clampCornerRadius(100, 20, 80)).toBe(10)
+  })
+
+  it("does not allow negative radii", () => {
+    expect(clampCornerRadius(100, 20, -4)).toBe(0)
   })
 })

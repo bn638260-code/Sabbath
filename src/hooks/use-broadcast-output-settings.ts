@@ -414,6 +414,23 @@ export function useBroadcastOutputSettings(
     [outputId],
   )
 
+  const applyNdiStatus = useCallback(
+    (status: NdiStatusResponse | null, previewOpen: boolean) => {
+      if (status?.active) {
+        setNdiActive(true)
+        setOutputType("ndi")
+        const mappedResolution = mapNdiResolution(status.width, status.height)
+        const mappedFrameRate = mapNdiFrameRate(status.fps)
+        if (mappedResolution) setNdiResolution(mappedResolution)
+        if (mappedFrameRate) setNdiFrameRate(mappedFrameRate)
+      } else {
+        setNdiActive(false)
+        if (previewOpen) setOutputType("display")
+      }
+    },
+    [],
+  )
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setThemeId(activeThemeId)
@@ -454,17 +471,7 @@ export function useBroadcastOutputSettings(
       try {
         const status = await getBroadcastNdiStatus(invokeTauri, outputId)
         if (cancelled) return
-        if (status?.active) {
-          setNdiActive(true)
-          setOutputType("ndi")
-          const mappedResolution = mapNdiResolution(status.width, status.height)
-          const mappedFrameRate = mapNdiFrameRate(status.fps)
-          if (mappedResolution) setNdiResolution(mappedResolution)
-          if (mappedFrameRate) setNdiFrameRate(mappedFrameRate)
-        } else {
-          setNdiActive(false)
-          if (previewOpen) setOutputType("display")
-        }
+        applyNdiStatus(status, previewOpen)
       } catch {
         if (!cancelled) setNdiActive(false)
       }
@@ -474,49 +481,40 @@ export function useBroadcastOutputSettings(
     return () => {
       cancelled = true
     }
-  }, [open, outputId])
+  }, [applyNdiStatus, open, outputId])
 
   useEffect(() => {
     if (!open) return
 
     let cancelled = false
     const intervalId = setInterval(() => {
-      void getBroadcastNdiStatus(invokeTauri, outputId)
-        .then((status) => {
-          if (cancelled) return
-          if (status?.active) {
-            setNdiActive(true)
-            setOutputType("ndi")
-            const mappedResolution = mapNdiResolution(status.width, status.height)
-            const mappedFrameRate = mapNdiFrameRate(status.fps)
-            if (mappedResolution) setNdiResolution(mappedResolution)
-            if (mappedFrameRate) setNdiFrameRate(mappedFrameRate)
-          } else {
-            setNdiActive(false)
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setNdiActive(false)
-        })
+      void Promise.allSettled([
+        isPreviewOpen
+          ? reconcileBroadcastPreviewState(outputId)
+          : Promise.resolve(isPreviewOpen),
+        getBroadcastNdiStatus(invokeTauri, outputId),
+      ]).then(([previewResult, statusResult]) => {
+        if (cancelled) return
+        const previewOpen =
+          previewResult.status === "fulfilled"
+            ? previewResult.value
+            : isPreviewOpen
+        if (isPreviewOpen && previewResult.status === "fulfilled") {
+          setIsPreviewOpen(previewOpen)
+        }
+        if (statusResult.status === "fulfilled") {
+          applyNdiStatus(statusResult.value, previewOpen)
+        } else {
+          setNdiActive(false)
+        }
+      })
     }, 750)
 
     return () => {
       cancelled = true
       clearInterval(intervalId)
     }
-  }, [open, outputId])
-
-  useEffect(() => {
-    if (!open || !isPreviewOpen) return
-
-    const intervalId = setInterval(() => {
-      void reconcileBroadcastPreviewState(outputId).then(setIsPreviewOpen)
-    }, 750)
-
-    return () => {
-      clearInterval(intervalId)
-    }
-  }, [open, isPreviewOpen, outputId])
+  }, [applyNdiStatus, isPreviewOpen, open, outputId])
 
   const handleThemeChange = useCallback(
     (id: string) => {

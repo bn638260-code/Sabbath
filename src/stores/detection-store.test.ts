@@ -346,4 +346,58 @@ describe("detection store", () => {
     expect(detections[0].source).toBe("direct")
     expect(detections[0].confidence).toBe(0.95)
   })
+
+  it("keeps batch duplicate merges aligned with single duplicate merges", () => {
+    const store = useDetectionStore.getState()
+    const existing = makeDetection({
+      verse_ref: "John 3:16",
+      source: "semantic",
+      confidence: 0.7,
+      verse_text: "Older text",
+      transcript_snippet: "older snippet",
+    })
+    const incoming = makeDetection({
+      verse_ref: "John 3:16",
+      source: "semantic",
+      confidence: 0.8,
+      verse_text: "Newer text",
+      transcript_snippet: "newer snippet",
+    })
+
+    store.addDetection(existing)
+    store.addDetection(incoming)
+    const singleMerged = useDetectionStore.getState().detections[0]
+
+    store.clearDetections()
+    store.addDetection(existing)
+    store.addDetections([incoming])
+    const batchMerged = useDetectionStore.getState().detections[0]
+
+    expect(batchMerged.verse_text).toBe(singleMerged.verse_text)
+    expect(batchMerged.transcript_snippet).toBe(singleMerged.transcript_snippet)
+    expect(batchMerged.confidence).toBe(singleMerged.confidence)
+  })
+
+  it("does not treat chapter number substrings as matching chapter-only refs", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetections([
+      makeDetection({
+        verse_ref: "John 13",
+        chapter: 13,
+        verse: 1,
+        is_chapter_only: true,
+      }),
+      makeDetection({
+        verse_ref: "John 3",
+        chapter: 3,
+        verse: 1,
+        is_chapter_only: true,
+      }),
+    ])
+
+    const detections = useDetectionStore.getState().detections
+    expect(detections).toHaveLength(2)
+    expect(detections.map((d) => d.verse_ref).sort()).toEqual(["John 13", "John 3"])
+  })
 })

@@ -29,6 +29,8 @@ export const COMMAND_LOG_LIMIT = 50
 
 export const HTTP_TOKEN_COPY_MESSAGE =
   "Remote HTTP tokens cannot be revealed after creation. Rotate the token to issue a new one."
+export const HTTP_TOKEN_CLIPBOARD_ERROR_MESSAGE =
+  "Could not copy the remote HTTP token. Copy it manually before closing Settings."
 
 export function parseRemotePort(value: string, fallback: number): number {
   const parsed = parseInt(value, 10)
@@ -53,27 +55,24 @@ export async function fetchRemoteStatuses(): Promise<{
   http: RemoteStatus | null
   httpTokenConfigured: boolean | null
 }> {
-  let osc: RemoteStatus | null = null
-  let http: RemoteStatus | null = null
-  let httpTokenConfigured: boolean | null = null
-
-  try {
-    osc = await invokeTauri<RemoteStatus>("get_osc_status")
-  } catch {
-    /* ignore */
-  }
-  try {
-    http = await invokeTauri<RemoteStatus>("get_http_status")
-  } catch {
-    /* ignore */
-  }
-  try {
-    httpTokenConfigured = await invokeTauri<boolean>("has_remote_http_token")
-  } catch {
-    /* no-runtime fallback */
-  }
+  const [osc, http, httpTokenConfigured] = await Promise.all([
+    invokeTauri<RemoteStatus>("get_osc_status").catch(() => null),
+    invokeTauri<RemoteStatus>("get_http_status").catch(() => null),
+    invokeTauri<boolean>("has_remote_http_token").catch(() => null),
+  ])
 
   return { osc, http, httpTokenConfigured }
+}
+
+export async function copyRemoteHttpToken(
+  token: string,
+): Promise<{ error?: string }> {
+  try {
+    await navigator.clipboard.writeText(token)
+    return {}
+  } catch {
+    return { error: HTTP_TOKEN_CLIPBOARD_ERROR_MESSAGE }
+  }
 }
 
 export async function toggleOscServer(
@@ -137,6 +136,7 @@ export function useRemoteControlSettings() {
   const [oscError, setOscError] = useState<string | null>(null)
   const [httpError, setHttpError] = useState<string | null>(null)
   const [tokenError, setTokenError] = useState<string | null>(null)
+  const [rotatedHttpToken, setRotatedHttpToken] = useState<string | null>(null)
   const [commandLog, setCommandLog] = useState<CommandLogEntry[]>([])
   const logIdRef = useRef(0)
 
@@ -208,8 +208,13 @@ export function useRemoteControlSettings() {
   }, [httpPort, httpStatus.running])
 
   const handleCopyHttpToken = useCallback(async () => {
-    setTokenError(HTTP_TOKEN_COPY_MESSAGE)
-  }, [])
+    if (!rotatedHttpToken) {
+      setTokenError(HTTP_TOKEN_COPY_MESSAGE)
+      return
+    }
+    const result = await copyRemoteHttpToken(rotatedHttpToken)
+    setTokenError(result.error ?? null)
+  }, [rotatedHttpToken])
 
   const handleRotateHttpToken = useCallback(async () => {
     setTokenError(null)
@@ -219,7 +224,7 @@ export function useRemoteControlSettings() {
       return
     }
     if (result.token) {
-      await navigator.clipboard.writeText(result.token)
+      setRotatedHttpToken(result.token)
       setHttpTokenConfigured(true)
     }
   }, [])
@@ -236,6 +241,7 @@ export function useRemoteControlSettings() {
     oscStatus,
     httpStatus,
     httpTokenConfigured,
+    rotatedHttpToken,
     oscError,
     httpError,
     tokenError,

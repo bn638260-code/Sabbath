@@ -47,7 +47,7 @@ function loadHymnVoiceControl() {
 export const transcriptionActions = {
   async start(
     onMissingApiKey?: (provider: SttProvider) => void
-  ): Promise<void> {
+  ): Promise<boolean> {
     const transcript = useTranscriptStore.getState()
     transcript.setConnectionStatus("connecting")
 
@@ -62,6 +62,7 @@ export const transcriptionActions = {
         whisperProfile: settings.lowPowerMode ? "fast" : "balanced",
       })
       transcript.setTranscribing(true)
+      return true
     } catch (e) {
       const msg = String(e)
       transcript.setConnectionStatus("error")
@@ -74,6 +75,7 @@ export const transcriptionActions = {
       } else {
         toast.error("Could not start transcription", { description: msg })
       }
+      return false
     }
   },
 
@@ -96,12 +98,25 @@ export const transcriptionActions = {
   ): Promise<void> {
     const transcript = useTranscriptStore.getState()
     const wasTranscribing = transcript.isTranscribing
+    const previousSegments = transcript.segments
+    const previousPartial = transcript.currentPartial
 
-    transcript.clearTranscript()
-    if (!wasTranscribing) return
+    if (!wasTranscribing) {
+      transcript.clearTranscript()
+      return
+    }
 
     await transcriptionActions.stop()
-    await transcriptionActions.start(onMissingApiKey)
+    const restarted = await transcriptionActions.start(onMissingApiKey)
+    if (restarted) {
+      useTranscriptStore.getState().clearTranscript()
+      return
+    }
+
+    useTranscriptStore.setState({
+      segments: previousSegments,
+      currentPartial: previousPartial,
+    })
   },
 }
 

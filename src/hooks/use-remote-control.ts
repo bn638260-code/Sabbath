@@ -7,6 +7,7 @@ import { useQueueStore } from "@/stores/queue-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { presentItem, presentVerse } from "@/lib/presentation-workflow"
 import {
+  createRemotePresentationQueue,
   dispatchRemoteNavigation,
   parsePayload,
 } from "@/hooks/use-remote-control-logic"
@@ -27,6 +28,7 @@ export function useRemoteControl() {
 
     let cancelled = false
     const unlisteners: UnlistenFn[] = []
+    const presentQueueItemInOrder = createRemotePresentationQueue(presentQueueItem)
     const addUnlistener = (fn: UnlistenFn) => {
       if (cancelled) {
         fn()
@@ -48,7 +50,7 @@ export function useRemoteControl() {
             activeIndex: queue.activeIndex,
             liveReference: broadcast.liveItem?.reference ?? null,
           },
-          presentQueueItem,
+          presentQueueItemInOrder,
           (index) => useQueueStore.getState().setActive(index),
         )
       })
@@ -66,7 +68,7 @@ export function useRemoteControl() {
             activeIndex: queue.activeIndex,
             liveReference: broadcast.liveItem?.reference ?? null,
           },
-          presentQueueItem,
+          presentQueueItemInOrder,
           (index) => useQueueStore.getState().setActive(index),
         )
       })

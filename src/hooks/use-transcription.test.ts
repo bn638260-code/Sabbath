@@ -342,6 +342,42 @@ describe("use-transcription", () => {
         expect.any(Object)
       )
     })
+
+    it("restores the transcript when restart fails after stopping", async () => {
+      mockInvoke
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce("Audio device disappeared")
+      const { useTranscriptStore, transcriptionActions } = await loadModules()
+
+      const existingSegments = [
+        {
+          id: "seg-1",
+          text: "keep these words",
+          is_final: true,
+          confidence: 0.9,
+          words: [],
+          timestamp: Date.now(),
+        },
+      ]
+      useTranscriptStore.setState({
+        isTranscribing: true,
+        connectionStatus: "connected",
+        segments: existingSegments,
+        currentPartial: "unfinished thought",
+      })
+
+      await transcriptionActions.dumpMemory()
+
+      expect(mockInvoke).toHaveBeenNthCalledWith(1, "stop_transcription")
+      expect(mockInvoke).toHaveBeenNthCalledWith(
+        2,
+        "start_transcription",
+        expect.any(Object),
+      )
+      expect(useTranscriptStore.getState().segments).toEqual(existingSegments)
+      expect(useTranscriptStore.getState().currentPartial).toBe("unfinished thought")
+      expect(useTranscriptStore.getState().connectionStatus).toBe("error")
+    })
   })
 
   describe("handleTranscriptFinalPayload", () => {

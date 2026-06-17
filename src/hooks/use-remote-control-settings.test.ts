@@ -1,23 +1,35 @@
+// @vitest-environment jsdom
+import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   COMMAND_LOG_LIMIT,
+  copyRemoteHttpToken,
   createCommandLogEntry,
   fetchRemoteStatuses,
+  HTTP_TOKEN_CLIPBOARD_ERROR_MESSAGE,
   parseRemotePort,
   rotateRemoteHttpToken,
   toggleHttpServer,
   toggleOscServer,
+  useRemoteControlSettings,
 } from "./use-remote-control-settings"
 
 const mockInvoke = vi.fn()
+const mockListen = vi.fn()
 
 vi.mock("@/lib/tauri-runtime", () => ({
   invokeTauri: (...args: unknown[]) => mockInvoke(...args),
 }))
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: (...args: unknown[]) => mockListen(...args),
+}))
+
 describe("use-remote-control-settings helpers", () => {
   beforeEach(() => {
     mockInvoke.mockReset()
+    mockListen.mockReset()
+    mockListen.mockResolvedValue(() => {})
   })
 
   describe("parseRemotePort", () => {
@@ -55,6 +67,9 @@ describe("use-remote-control-settings helpers", () => {
         http: { running: false, port: null },
         httpTokenConfigured: true,
       })
+      expect(mockInvoke).toHaveBeenCalledWith("get_osc_status")
+      expect(mockInvoke).toHaveBeenCalledWith("get_http_status")
+      expect(mockInvoke).toHaveBeenCalledWith("has_remote_http_token")
     })
 
     it("tolerates missing runtime commands without throwing", async () => {
@@ -127,6 +142,61 @@ describe("use-remote-control-settings helpers", () => {
       await expect(rotateRemoteHttpToken()).resolves.toEqual({
         error: "Error: rotate failed",
       })
+    })
+  })
+
+  describe("copyRemoteHttpToken", () => {
+    it("copies the provided token only when explicitly requested", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      })
+
+      await expect(copyRemoteHttpToken("new-token")).resolves.toEqual({})
+      expect(writeText).toHaveBeenCalledWith("new-token")
+    })
+
+    it("returns clipboard failures without throwing", async () => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+      })
+
+      await expect(copyRemoteHttpToken("new-token")).resolves.toEqual({
+        error: HTTP_TOKEN_CLIPBOARD_ERROR_MESSAGE,
+      })
+    })
+  })
+
+  describe("useRemoteControlSettings", () => {
+    it("does not overwrite the clipboard when rotating a token", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      })
+      mockInvoke.mockImplementation(async (command: string) => {
+        if (command === "rotate_remote_http_token") return "new-token"
+        return null
+      })
+
+      const { result, unmount } = renderHook(() => useRemoteControlSettings())
+
+      await act(async () => {
+        await result.current.handleRotateHttpToken()
+      })
+
+      expect(result.current.httpTokenConfigured).toBe(true)
+      expect(result.current.rotatedHttpToken).toBe("new-token")
+      expect(writeText).not.toHaveBeenCalled()
+
+      await act(async () => {
+        await result.current.handleCopyHttpToken()
+      })
+
+      expect(writeText).toHaveBeenCalledWith("new-token")
+      unmount()
     })
   })
 
