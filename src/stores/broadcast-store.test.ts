@@ -142,6 +142,32 @@ describe("broadcast store sync", () => {
     )
   })
 
+  it("emits the selected transition when committing a live item", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const theme = useBroadcastStore.getState().themes[0]
+    const item = {
+      reference: "Psalm 23:1",
+      segments: [{ text: "The Lord is my shepherd", verseNumber: 1 }],
+    }
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().setLiveTransitionType("slide")
+    useBroadcastStore.getState().commitLiveItem(item)
+
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:verse-update",
+      expect.objectContaining({
+        transition: expect.objectContaining({
+          type: "slide",
+          duration: theme.transition.duration,
+          easing: theme.transition.easing,
+          direction: theme.transition.direction,
+        }),
+      }),
+    )
+  })
+
   it("stores the reading mode auto-live preference without emitting output", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
 

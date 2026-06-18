@@ -5,6 +5,7 @@ import { CanvasPresentation } from "@/components/ui/canvas-verse"
 import { VideoControlBar } from "@/components/broadcast/VideoControlBar"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
+import { SegmentedControl } from "@/components/ui/segmented-control"
 import { Switch } from "@/components/ui/switch"
 import {
   applyPanelFullscreen,
@@ -27,11 +28,20 @@ import {
   Minimize2Icon,
 } from "lucide-react"
 import { toast } from "sonner"
+import type { BroadcastTransitionType } from "@/types"
+
+const LIVE_TRANSITION_OPTIONS: { value: BroadcastTransitionType; label: string }[] = [
+  { value: "none", label: "Cut" },
+  { value: "fade", label: "Fade" },
+  { value: "slide", label: "Slide" },
+  { value: "scale", label: "Scale" },
+]
 
 export function LiveOutputPanel({ className }: { className?: string }) {
   const isLive = useBroadcastStore((s) => s.isLive)
   const liveItem = useBroadcastStore((s) => s.liveItem)
   const readingModeAutoLive = useBroadcastStore((s) => s.readingModeAutoLive)
+  const liveTransitionType = useBroadcastStore((s) => s.liveTransitionType)
   const activeTheme = useBroadcastStore(selectActiveTheme)
   const previewItem = useBroadcastStore((s) => s.previewItem)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -157,6 +167,15 @@ export function LiveOutputPanel({ className }: { className?: string }) {
         )}
       >
         <div className="flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            aria-label="Live transition"
+            value={liveTransitionType}
+            options={LIVE_TRANSITION_OPTIONS}
+            onChange={(type) =>
+              useBroadcastStore.getState().setLiveTransitionType(type)
+            }
+            className="[&_button]:px-2"
+          />
           <Button
             size="sm"
             disabled={!canCommitPreview}

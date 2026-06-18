@@ -15,6 +15,7 @@ vi.mock("@/lib/presentation-workflow", () => ({
 }))
 
 const setWindowFullscreenMock = vi.fn().mockResolvedValue(undefined)
+const setLiveTransitionTypeMock = vi.fn()
 vi.mock("./live-output-panel-fullscreen", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("./live-output-panel-fullscreen")>()
@@ -32,6 +33,7 @@ vi.mock("@/stores/broadcast-store", () => {
       liveItem: null,
       previewItem: null,
       readingModeAutoLive: false,
+      liveTransitionType: "fade",
       themes: [],
       activeThemeId: "",
     })
@@ -39,6 +41,7 @@ vi.mock("@/stores/broadcast-store", () => {
   useBroadcastStore.getState = () => ({
     setLive: vi.fn(),
     setReadingModeAutoLive: vi.fn(),
+    setLiveTransitionType: setLiveTransitionTypeMock,
   })
   return { selectActiveTheme, useBroadcastStore }
 })
@@ -65,6 +68,7 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
   })
 
   beforeEach(() => {
+    setLiveTransitionTypeMock.mockClear()
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -99,6 +103,21 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
     // There is chrome besides the stage; it must all be sibling-level so the
     // :fullscreen > *:not(stage) rule can hide it.
     expect(panel.children.length).toBeGreaterThan(1)
+  })
+
+  it("offers live transition choices", () => {
+    renderPanel()
+
+    expect(container.querySelector('[aria-label="Live transition"]')).not.toBeNull()
+    const cut = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Cut",
+    )
+    expect(cut).not.toBeNull()
+
+    act(() => {
+      cut?.click()
+    })
+    expect(setLiveTransitionTypeMock).toHaveBeenCalledWith("none")
   })
 
   it("drives Tauri window fullscreen and applies the layout attribute synchronously", async () => {

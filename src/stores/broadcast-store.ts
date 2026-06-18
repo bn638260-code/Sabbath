@@ -7,6 +7,8 @@ import type {
   BroadcastOutputIssue,
   BroadcastOutputIssueKind,
   BroadcastTheme,
+  BroadcastTransition,
+  BroadcastTransitionType,
   PresentationRenderData,
 } from "@/types"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
@@ -21,6 +23,13 @@ import { getPresentationRenderData } from "@/types"
 import { useQueueStore } from "@/stores/queue-store"
 
 type SelectedElement = "verse" | "reference" | null
+type BroadcastSyncOptions = { transitionType?: BroadcastTransitionType }
+type BroadcastUpdatePayload = {
+  theme: BroadcastTheme
+  item: PresentationRenderData | null
+  opacity: number
+  transition?: BroadcastTransition
+}
 
 interface BroadcastState {
   themes: BroadcastTheme[]
@@ -30,6 +39,7 @@ interface BroadcastState {
   previewItem: PresentationRenderData | null
   liveItem: PresentationRenderData | null
   readingModeAutoLive: boolean
+  liveTransitionType: BroadcastTransitionType
   opacity: number
   videoTransport: VideoTimeUpdatePayload | null
   videoLoop: boolean
@@ -68,8 +78,12 @@ interface BroadcastState {
   setLive: (live: boolean) => void
   setPreviewItem: (item: PresentationRenderData | null) => void
   setLiveItem: (item: PresentationRenderData | null) => void
-  commitLiveItem: (item: PresentationRenderData, options?: { makeLive?: boolean }) => void
+  commitLiveItem: (
+    item: PresentationRenderData,
+    options?: { makeLive?: boolean; transitionType?: BroadcastTransitionType }
+  ) => void
   setReadingModeAutoLive: (enabled: boolean) => void
+  setLiveTransitionType: (type: BroadcastTransitionType) => void
   setOpacity: (opacity: number) => void
   sendVideoCommand: (command: VideoTransportCommand) => void
   setVideoTransport: (payload: VideoTimeUpdatePayload) => void
@@ -79,8 +93,8 @@ interface BroadcastState {
   setPreferredAudioOutputDeviceId: (deviceId: string) => void
   setAutoAdvanceVideoOnEnd: (enabled: boolean) => void
   handleVideoEnded: () => VideoEndDecision
-  syncBroadcastOutput: () => void
-  syncBroadcastOutputFor: (outputId: string) => void
+  syncBroadcastOutput: (options?: BroadcastSyncOptions) => void
+  syncBroadcastOutputFor: (outputId: string, options?: BroadcastSyncOptions) => void
   reportOutputIssue: (input: {
     outputId: BroadcastIssueOutputId
     kind: BroadcastOutputIssueKind
@@ -136,6 +150,33 @@ export function selectLatestOutputIssue(
 
 function findThemeById(themes: BroadcastTheme[], id: string): BroadcastTheme | null {
   return themes.find((theme) => theme.id === id) ?? themes[0] ?? null
+}
+
+function transitionForTheme(
+  theme: BroadcastTheme,
+  type: BroadcastTransitionType,
+): BroadcastTransition {
+  return {
+    ...theme.transition,
+    type,
+    duration: type === "none" ? 0 : theme.transition.duration,
+  }
+}
+
+function buildBroadcastPayload(
+  state: BroadcastState,
+  theme: BroadcastTheme,
+  options?: BroadcastSyncOptions,
+): BroadcastUpdatePayload {
+  const payload: BroadcastUpdatePayload = {
+    theme,
+    item: state.isLive ? state.liveItem : null,
+    opacity: state.opacity,
+  }
+  if (options?.transitionType) {
+    payload.transition = transitionForTheme(theme, options.transitionType)
+  }
+  return payload
 }
 
 export type VideoEndDecision = "loop" | "advance" | "hold"
@@ -350,6 +391,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   previewItem: null,
   liveItem: null,
   readingModeAutoLive: true,
+  liveTransitionType: "fade",
   opacity: 1,
   videoTransport: null,
   videoLoop: false,
@@ -443,18 +485,14 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
         t.id === id ? { ...t, pinned: !t.pinned, updatedAt: Date.now() } : t
       ),
     })),
-  syncBroadcastOutputFor: (outputId: string) => {
+  syncBroadcastOutputFor: (outputId: string, options) => {
     const s = get()
     const themeId = outputId === "alt" ? s.altActiveThemeId : s.activeThemeId
     const label = outputId === "alt" ? "broadcast-alt" : "broadcast"
     const theme = findThemeById(s.themes, themeId)
     if (!theme) return
 
-    void emitTo(label, "broadcast:verse-update", {
-      theme,
-      item: s.isLive ? s.liveItem : null,
-      opacity: s.opacity,
-    }).then(
+    void emitTo(label, "broadcast:verse-update", buildBroadcastPayload(s, theme, options)).then(
       () => {
         get().clearOutputIssueFor(outputId === "alt" ? "alt" : "main", "broadcast-sync")
       },
@@ -528,9 +566,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       dismissOutputIssueToast(issue.id)
     }
   },
-  syncBroadcastOutput: () => {
-    get().syncBroadcastOutputFor("main")
-    get().syncBroadcastOutputFor("alt")
+  syncBroadcastOutput: (options) => {
+    get().syncBroadcastOutputFor("main", options)
+    get().syncBroadcastOutputFor("alt", options)
   },
   setActiveTheme: (activeThemeId) => {
     set({ activeThemeId })
@@ -557,7 +595,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     const makeLive = options?.makeLive ?? true
     const previousWasVideo = get().liveItem?.kind === "video"
     set(makeLive ? { liveItem, isLive: true } : { liveItem })
-    get().syncBroadcastOutput()
+    get().syncBroadcastOutput({
+      transitionType: options?.transitionType ?? get().liveTransitionType,
+    })
     if (liveItem.kind === "video") {
       get().sendVideoCommand({ type: "load", item: liveItem })
     } else if (previousWasVideo) {
@@ -566,6 +606,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   },
   setReadingModeAutoLive: (readingModeAutoLive) => {
     set({ readingModeAutoLive })
+  },
+  setLiveTransitionType: (liveTransitionType) => {
+    set({ liveTransitionType })
   },
   setOpacity: (opacity) => {
     const nextOpacity = Number.isFinite(opacity)
