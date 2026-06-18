@@ -71,7 +71,7 @@ export function OperatorStatusStrip({
   return (
     <section
       data-slot="operator-status-strip"
-      className="flex h-11 shrink-0 scrollbar-thin items-center justify-between gap-4 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-5 text-xs select-none"
+      className="flex h-11 shrink-0 scrollbar-thin items-center justify-between gap-4 overflow-x-auto border-b border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-sunken)_72%,transparent)] px-5 text-xs select-none"
     >
       <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto">
         <div className="flex shrink-0 items-center gap-2 text-muted-foreground">
@@ -109,8 +109,9 @@ export function OperatorStatusStrip({
         <Badge
           variant={isLive ? "default" : "outline"}
           className={cn(
-            "h-5 shrink-0 font-mono text-[0.5rem] uppercase",
-            isLive && "bg-emerald-500 text-foreground hover:bg-emerald-500"
+            "h-5 shrink-0 rounded-md font-mono text-[0.5rem] uppercase",
+            isLive &&
+              "border-red-500/30 bg-red-500/15 text-red-300 hover:bg-red-500/15"
           )}
         >
           {isLive ? "On air" : "Hidden"}
@@ -148,7 +149,9 @@ export function OperatorStatusStrip({
           <span
             className={cn(
               "size-1.5 rounded-full",
-              isLive ? "animate-pulse bg-emerald-500" : "bg-red-500/80"
+              isLive
+                ? "animate-pulse bg-red-400"
+                : "bg-muted-foreground/60"
             )}
           />
           <span className="text-muted-foreground">Broadcast</span>

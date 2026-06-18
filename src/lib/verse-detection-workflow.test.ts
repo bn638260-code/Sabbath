@@ -636,6 +636,33 @@ describe("verse detection workflow", () => {
     ).toBe("Current translation text")
   })
 
+  it("previews text fetched from the current translation", async () => {
+    invokeMock.mockResolvedValue({
+      id: 25,
+      translation_id: 7,
+      book_number: 43,
+      book_name: "John",
+      book_abbreviation: "John",
+      chapter: 3,
+      verse: 16,
+      text: "Current translation preview text",
+    })
+
+    await handleVerseDetections([
+      makeDetection({
+        auto_queued: false,
+        verse_text: "Detection event text",
+      }),
+    ])
+
+    expect(useBibleStore.getState().selectedVerse?.text).toBe(
+      "Current translation preview text"
+    )
+    expect(useBroadcastStore.getState().previewItem?.segments[0]?.text).toBe(
+      "Current translation preview text"
+    )
+  })
+
   it("falls back to loaded current chapter text when verse fetch is unavailable", async () => {
     useBibleStore.setState({
       currentChapter: [

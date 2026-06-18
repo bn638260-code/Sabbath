@@ -17,6 +17,14 @@ import { useColorModeStore } from "@/stores/color-mode-store"
 import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
 import { installOperatorFlowHarness } from "@/test/operator-flow-harness"
 
+// Dev-only screenshot/demo mode. `import.meta.env.DEV` is statically false in
+// production, so this constant folds to `false` and the dynamic import of the
+// seed module below is tree-shaken out of the prod bundle entirely.
+const demoMode =
+  import.meta.env.DEV &&
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).has("demo")
+
 function hydrateControllerColorMode() {
   useColorModeStore.getState().hydrate()
 }
@@ -39,7 +47,11 @@ if (
 // Verification needs the network (Supabase session refresh), so it hydrates
 // independently: the gate shows its checking state instead of blocking first
 // paint behind a slow or unreachable connection.
-void hydrateVerification()
+// In dev demo mode the seed forces a verified state, so skip the network
+// verification that would otherwise overwrite it.
+if (!demoMode) {
+  void hydrateVerification()
+}
 
 const resetTranscription = isTauriRuntime()
   ? invokeTauri("stop_transcription").catch((error) => {
@@ -64,7 +76,13 @@ resetTranscription
     })
   )
   .then(() => initBiblePersistence())
-  .finally(() => {
+  .finally(async () => {
+    // Dev-only: populate stores for screenshots when `?demo` is present. The
+    // dynamic import keeps the seed module out of production builds.
+    if (demoMode) {
+      const { maybeSeedDemoState } = await import("@/lib/dev/demo-seed")
+      maybeSeedDemoState()
+    }
     createRoot(document.getElementById("root")!).render(
       <StrictMode>
         <TooltipProvider>

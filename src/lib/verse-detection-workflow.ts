@@ -42,17 +42,6 @@ function detectionLikeToVerse({
   }
 }
 
-function selectDetectedVerse(args: {
-  book_number: number
-  book_name: string
-  chapter: number
-  verse: number
-  verse_text: string
-}) {
-  const verse = detectionLikeToVerse(args)
-  selectPreviewVerse(verse)
-}
-
 function findCurrentChapterVerse(detection: DetectionResult): Verse | null {
   const { activeTranslationId, currentChapter } = useBibleStore.getState()
   return (
@@ -157,7 +146,10 @@ function selectPreviewDirectHit(
   return best
 }
 
-async function queueDetectedVerse(detection: DetectionResult): Promise<void> {
+async function queueDetectedVerse(
+  detection: DetectionResult,
+  resolvedDetection?: ResolvedDetectionVerse
+): Promise<void> {
   if (isEgwDetection(detection)) {
     if (!detection.auto_queued) return
 
@@ -170,7 +162,7 @@ async function queueDetectedVerse(detection: DetectionResult): Promise<void> {
     return
   }
 
-  const { verse } = await resolveDetectionVerse(detection)
+  const { verse } = resolvedDetection ?? (await resolveDetectionVerse(detection))
   if (
     !detection.is_chapter_only &&
     detection.source === "direct" &&
@@ -214,16 +206,19 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
   useDetectionStore.getState().addDetections(detections)
 
   const directHit = selectPreviewDirectHit(detections)
+  const resolvedDetections = new WeakMap<DetectionResult, ResolvedDetectionVerse>()
   if (directHit) {
     if (isEgwDetection(directHit)) {
       previewEgwParagraph(directHit.egw_paragraph)
     } else {
-      selectDetectedVerse(directHit)
+      const resolved = await resolveDetectionVerse(directHit)
+      resolvedDetections.set(directHit, resolved)
+      selectPreviewVerse(resolved.verse)
     }
   }
 
   for (const detection of detections) {
-    await queueDetectedVerse(detection)
+    await queueDetectedVerse(detection, resolvedDetections.get(detection))
   }
 }
 

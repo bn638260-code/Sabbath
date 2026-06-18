@@ -1,10 +1,18 @@
-import { useCallback } from "react"
+import { useCallback, useEffect } from "react"
 import { invokeTauri } from "@/lib/tauri-runtime"
 import { toast } from "sonner"
+import { profileDetectionEvent } from "@/lib/detection-profiler"
+import {
+  handleReadingAdvance,
+  handleVerseDetections,
+} from "@/lib/verse-detection-workflow"
 import { useAudioStore } from "@/stores/audio-store"
+import { useBibleStore } from "@/stores/bible-store"
+import { useDetectionStore } from "@/stores/detection-store"
 import { useSettingsStore, type SttProvider } from "@/stores/settings-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
 import { handleSermonSlideVoiceControl } from "@/services/slides/sermon-slide-voice-control"
+import type { DetectionResult, ReadingAdvance } from "@/types"
 import { useTauriEvent } from "./use-tauri-event"
 
 interface TranscriptPartialPayload {
@@ -138,11 +146,7 @@ export async function handleTranscriptFinalPayload(
   await handleHymnVoiceControl(payload.text)
 }
 
-export function useTranscription(options?: UseTranscriptionOptions) {
-  const segments = useTranscriptStore((s) => s.segments)
-  const isTranscribing = useTranscriptStore((s) => s.isTranscribing)
-  const connectionStatus = useTranscriptStore((s) => s.connectionStatus)
-
+export function useTranscriptionEventBridge() {
   // STT lifecycle events
   useTauriEvent("stt_connected", () => {
     useTranscriptStore.getState().setConnectionStatus("connected")
@@ -191,6 +195,46 @@ export function useTranscription(options?: UseTranscriptionOptions) {
   useTauriEvent<TranscriptPartialPayload>("transcript_final", (payload) => {
     void handleTranscriptFinalPayload(payload)
   })
+
+  useTauriEvent<{ rms: number; peak: number }>("audio_level", (payload) => {
+    useAudioStore.getState().setLevel(payload)
+  })
+
+  // Voice translation commands: "read in NIV", "switch to ESV"
+  useTauriEvent<{ abbreviation: string; translation_id: number }>(
+    "translation_command",
+    (data) => {
+      useBibleStore.getState().setActiveTranslation(data.translation_id)
+      if (import.meta.env.DEV) {
+        console.log(`[VOICE] Translation switched to ${data.abbreviation}`)
+      }
+    }
+  )
+
+  useTauriEvent<DetectionResult[]>("verse_detections", (detections) => {
+    profileDetectionEvent("verse_detections", detections.length, () => {
+      void handleVerseDetections(detections)
+    })
+  })
+
+  useTauriEvent<ReadingAdvance>("reading_mode_verse", (advance) => {
+    profileDetectionEvent("reading_mode_verse", 1, () => {
+      handleReadingAdvance(advance)
+    })
+  })
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      useDetectionStore.getState().evictStale()
+    }, 2_000)
+    return () => clearInterval(id)
+  }, [])
+}
+
+export function useTranscription(options?: UseTranscriptionOptions) {
+  const segments = useTranscriptStore((s) => s.segments)
+  const isTranscribing = useTranscriptStore((s) => s.isTranscribing)
+  const connectionStatus = useTranscriptStore((s) => s.connectionStatus)
 
   const onMissingApiKey = options?.onMissingApiKey
 

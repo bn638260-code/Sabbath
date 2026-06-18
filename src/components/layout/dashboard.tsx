@@ -65,17 +65,17 @@ function WorkspaceFallback() {
 
 function LiveDeskPage() {
   return (
-    <div className="view-pane grid grid-cols-12 gap-5">
-      <TranscriptPanel className="glass-panel col-span-12 h-[620px] xl:col-span-3" />
+    <div className="view-pane grid grid-cols-12 gap-3">
+      <TranscriptPanel className="glass-panel col-span-12 h-[720px] xl:col-span-3" />
 
-      <div className="col-span-12 grid h-fit grid-cols-12 gap-5 xl:col-span-9">
-        <PreviewPanel className="col-span-12 h-[380px] lg:col-span-5" />
-        <LiveOutputPanel className="col-span-12 h-[380px] lg:col-span-7" />
-        <QueuePanel className="col-span-12 h-[250px] lg:col-span-6" />
-        <DetectionsPanel className="col-span-12 h-[250px] lg:col-span-6" />
+      <div className="col-span-12 grid h-fit grid-cols-12 gap-3 xl:col-span-9">
+        <PreviewPanel className="col-span-12 h-[440px] lg:col-span-5" />
+        <LiveOutputPanel className="col-span-12 h-[440px] lg:col-span-7" />
+        <QueuePanel className="col-span-12 h-[290px] lg:col-span-6" />
+        <DetectionsPanel className="col-span-12 h-[290px] lg:col-span-6" />
       </div>
 
-      <div className="glass-panel col-span-12 p-5">
+      <div className="glass-panel col-span-12 p-4">
         <SearchPanel embedded />
       </div>
     </div>
@@ -178,7 +178,7 @@ export function Dashboard() {
             <div
               ref={workspaceScrollRef}
               data-slot="workspace-scroll"
-              className="scrollbar-thin flex-1 overflow-y-auto p-5"
+              className="scrollbar-thin flex-1 overflow-y-auto p-4"
             >
               {workspaceContent}
             </div>

@@ -12,20 +12,11 @@ import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { LevelMeter } from "@/components/ui/level-meter"
 import { Button } from "@/components/ui/button"
 import { MicIcon, MicOffIcon, Trash2Icon } from "lucide-react"
-import { profileDetectionEvent } from "@/lib/detection-profiler"
 import { cn } from "@/lib/utils"
 import { useAudioStore } from "@/stores/audio-store"
-import { useBibleStore } from "@/stores/bible-store"
 import type { SttProvider } from "@/stores/settings-store"
-import { useDetectionStore } from "@/stores/detection-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
-import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { useTranscription } from "@/hooks/use-transcription"
-import {
-  handleReadingAdvance,
-  handleVerseDetections,
-} from "@/lib/verse-detection-workflow"
-import type { DetectionResult, ReadingAdvance } from "@/types"
 
 const LazyApiKeyPrompt = lazy(() =>
   import("@/components/ui/api-key-prompt").then((mod) => ({
@@ -88,37 +79,6 @@ export function TranscriptPanel({ className }: { className?: string }) {
   const hasPartial = useTranscriptStore((s) => s.currentPartial.length > 0)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  useTauriEvent<{ rms: number; peak: number }>("audio_level", (payload) => {
-    useAudioStore.getState().setLevel(payload)
-  })
-
-  // Listen for voice translation commands: "read in NIV", "switch to ESV"
-  useTauriEvent<{ abbreviation: string; translation_id: number }>(
-    "translation_command",
-    (data) => {
-      useBibleStore.getState().setActiveTranslation(data.translation_id)
-      if (import.meta.env.DEV) {
-        console.log(`[VOICE] Translation switched to ${data.abbreviation}`)
-      }
-    }
-  )
-
-  // Listen for detection results from the backend (batch replaces previous detections)
-  useTauriEvent<DetectionResult[]>("verse_detections", (detections) => {
-    profileDetectionEvent("verse_detections", detections.length, () => {
-      void handleVerseDetections(detections)
-    })
-  })
-
-  // Reading mode navigation: auto-navigate book panel when reading mode
-  // advances to a new verse (chapter commands, verse commands, text matching).
-  // Does NOT add to queue — only direct/semantic feed the queue.
-  useTauriEvent<ReadingAdvance>("reading_mode_verse", (advance) => {
-    profileDetectionEvent("reading_mode_verse", 1, () => {
-      handleReadingAdvance(advance)
-    })
-  })
-
   // Auto-scroll on segment additions. Partial-driven scrolling lives in
   // LivePartialLine so the panel doesn't re-render per audio tick.
   useEffect(() => {
@@ -126,13 +86,6 @@ export function TranscriptPanel({ className }: { className?: string }) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [segments])
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      useDetectionStore.getState().evictStale()
-    }, 2_000)
-    return () => clearInterval(id)
-  }, [])
 
   return (
     <div

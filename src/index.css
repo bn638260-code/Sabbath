@@ -105,36 +105,36 @@
 }
 
 :root {
-  --shell-navy: #1b2a4a;
-  --shell-teal: #2fa4a0;
-  --shell-bg-deep: #eef5f4;
-  --shell-bg-base: #f7fbfa;
-  --shell-bg-surface: rgba(255, 255, 255, 0.78);
-  --shell-bg-elevated: rgba(255, 255, 255, 0.9);
-  --shell-bg-sunken: rgba(27, 42, 74, 0.06);
-  --shell-border-subtle: rgba(27, 42, 74, 0.1);
-  --shell-border-dim: rgba(27, 42, 74, 0.18);
-  --shell-text-primary: #15213b;
-  --shell-text-secondary: #52627b;
-  --shell-text-muted: #718096;
-  --shell-panel-shadow: 0 18px 45px -26px rgba(27, 42, 74, 0.42);
-  --shell-panel-shadow-hover: 0 22px 55px -28px rgba(27, 42, 74, 0.5);
-  --shell-overlay: rgba(11, 22, 42, 0.26);
-  --shell-code-bg: rgba(27, 42, 74, 0.08);
-  --background: oklch(0.985 0.012 186);
-  --foreground: oklch(0.23 0.045 264);
-  --card: oklch(0.99 0.008 186);
-  --card-foreground: oklch(0.23 0.045 264);
-  --popover: oklch(0.99 0.008 186);
-  --popover-foreground: oklch(0.23 0.045 264);
-  --primary: #2fa4a0;
-  --primary-foreground: #f7fbfa;
-  --secondary: oklch(0.94 0.02 210);
-  --secondary-foreground: #1b2a4a;
-  --muted: oklch(0.94 0.02 210);
-  --muted-foreground: #65748a;
-  --accent: oklch(0.94 0.02 210);
-  --accent-foreground: #1b2a4a;
+  --shell-navy: #243044;
+  --shell-teal: #2da7a3;
+  --shell-bg-deep: #e8ece8;
+  --shell-bg-base: #f7f4ec;
+  --shell-bg-surface: rgba(255, 252, 244, 0.86);
+  --shell-bg-elevated: rgba(255, 255, 250, 0.94);
+  --shell-bg-sunken: rgba(36, 48, 68, 0.055);
+  --shell-border-subtle: rgba(36, 48, 68, 0.12);
+  --shell-border-dim: rgba(36, 48, 68, 0.2);
+  --shell-text-primary: #1b2433;
+  --shell-text-secondary: #53606f;
+  --shell-text-muted: #7a8390;
+  --shell-panel-shadow: 0 16px 38px -28px rgba(36, 48, 68, 0.5);
+  --shell-panel-shadow-hover: 0 18px 44px -28px rgba(36, 48, 68, 0.58);
+  --shell-overlay: rgba(19, 25, 36, 0.24);
+  --shell-code-bg: rgba(36, 48, 68, 0.08);
+  --background: oklch(0.965 0.012 88);
+  --foreground: oklch(0.24 0.027 257);
+  --card: oklch(0.985 0.008 88);
+  --card-foreground: oklch(0.24 0.027 257);
+  --popover: oklch(0.985 0.008 88);
+  --popover-foreground: oklch(0.24 0.027 257);
+  --primary: #2da7a3;
+  --primary-foreground: #f9faf6;
+  --secondary: oklch(0.93 0.011 84);
+  --secondary-foreground: #243044;
+  --muted: oklch(0.92 0.01 84);
+  --muted-foreground: #66717f;
+  --accent: oklch(0.92 0.01 84);
+  --accent-foreground: #243044;
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
@@ -144,7 +144,7 @@
   --chart-3: oklch(0.648 0.2 131.684);
   --chart-4: oklch(0.532 0.157 131.589);
   --chart-5: oklch(0.453 0.124 130.933);
-  --radius: 0.875rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.648 0.2 131.684);
@@ -165,41 +165,41 @@
 }
 
 .dark {
-  --shell-navy: #1b2a4a;
-  --shell-teal: #2fa4a0;
-  --shell-bg-deep: #081224;
-  --shell-bg-base: #0b1730;
-  --shell-bg-surface: rgba(17, 31, 58, 0.72);
-  --shell-bg-elevated: rgba(29, 47, 82, 0.78);
-  --shell-bg-sunken: rgba(4, 9, 20, 0.55);
-  --shell-border-subtle: rgba(137, 169, 196, 0.12);
-  --shell-border-dim: rgba(137, 169, 196, 0.22);
-  --shell-text-primary: #f6fbff;
-  --shell-text-secondary: #a8b7c9;
-  --shell-text-muted: #74849a;
-  --shell-panel-shadow: 0 18px 42px -20px rgba(0, 0, 0, 0.72);
-  --shell-panel-shadow-hover: 0 22px 48px -18px rgba(0, 0, 0, 0.8);
-  --shell-overlay: rgba(0, 0, 0, 0.66);
-  --shell-code-bg: rgba(2, 6, 18, 0.52);
-  --brand-accent: #2fa4a0;
-  --brand-accent-glow: rgba(47, 164, 160, 0.22);
-  --brand-border: rgba(47, 164, 160, 0.4);
+  --shell-navy: #1f2937;
+  --shell-teal: #34c6bd;
+  --shell-bg-deep: #0b0d10;
+  --shell-bg-base: #14181d;
+  --shell-bg-surface: rgba(26, 31, 37, 0.88);
+  --shell-bg-elevated: rgba(35, 41, 48, 0.94);
+  --shell-bg-sunken: rgba(6, 8, 11, 0.62);
+  --shell-border-subtle: rgba(229, 231, 235, 0.1);
+  --shell-border-dim: rgba(229, 231, 235, 0.18);
+  --shell-text-primary: #f4f2ec;
+  --shell-text-secondary: #b7b8b4;
+  --shell-text-muted: #838883;
+  --shell-panel-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.78);
+  --shell-panel-shadow-hover: 0 20px 50px -20px rgba(0, 0, 0, 0.88);
+  --shell-overlay: rgba(0, 0, 0, 0.7);
+  --shell-code-bg: rgba(6, 8, 11, 0.58);
+  --brand-accent: #34c6bd;
+  --brand-accent-glow: rgba(52, 198, 189, 0.2);
+  --brand-border: rgba(52, 198, 189, 0.42);
   --bg-deep: var(--shell-bg-deep);
   --bg-base: var(--shell-bg-base);
-  --background: oklch(0.16 0.035 260);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0.025 265 / 0.72);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: #2fa4a0;
-  --primary-foreground: #06131f;
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.18 0.008 240);
+  --foreground: oklch(0.95 0.01 90);
+  --card: oklch(0.225 0.009 240 / 0.9);
+  --card-foreground: oklch(0.95 0.01 90);
+  --popover: oklch(0.22 0.01 240);
+  --popover-foreground: oklch(0.95 0.01 90);
+  --primary: #34c6bd;
+  --primary-foreground: #08100f;
+  --secondary: oklch(0.27 0.008 240);
+  --secondary-foreground: oklch(0.95 0.01 90);
+  --muted: oklch(0.29 0.008 240);
+  --muted-foreground: oklch(0.72 0.01 110);
+  --accent: oklch(0.29 0.008 240);
+  --accent-foreground: oklch(0.95 0.01 90);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
@@ -251,10 +251,12 @@
 
 /* ── SabbathCue controller shell (reference source-truth) ── */
 #bodyThemeContainer {
-  --accent: #2fa4a0;
-  --accent-glow: rgba(47, 164, 160, 0.18);
-  --accent-border: rgba(47, 164, 160, 0.35);
+  --accent: #2da7a3;
+  --accent-glow: rgba(45, 167, 163, 0.16);
+  --accent-border: rgba(45, 167, 163, 0.36);
   --accent-dark: #1f7774;
+  --broadcast-accent: #f2b84b;
+  --broadcast-accent-glow: rgba(242, 184, 75, 0.18);
   --bg-deep: var(--shell-bg-deep);
   --bg-base: var(--shell-bg-base);
   --bg-surface: var(--shell-bg-surface);
@@ -268,25 +270,42 @@
   --brand-accent-glow: var(--accent-glow);
   --brand-border: var(--accent-border);
 
+  /* Premium refresh tokens: deep desaturated copper bloom (complement of teal),
+     a teal counter-bloom for warm-cool contrast, matte panels, filmic grain. */
+  --gradient-warm: rgba(199, 104, 60, 0.32);
+  --gradient-cool: color-mix(in srgb, var(--accent) 20%, transparent);
+  --grain-opacity: 0.72;
+  --panel-surface-matte: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+
   position: fixed;
   inset: 0;
   overflow: hidden;
   background:
     radial-gradient(
-      circle at 10% 0%,
-      rgba(47, 164, 160, 0.12),
-      transparent 32%
+      130% 120% at 92% 0%,
+      var(--gradient-warm),
+      transparent 58%
     ),
-    linear-gradient(135deg, var(--bg-deep), var(--bg-base));
+    radial-gradient(
+      120% 125% at 2% 100%,
+      var(--gradient-cool),
+      transparent 52%
+    ),
+    linear-gradient(
+      138deg,
+      var(--bg-deep),
+      var(--bg-base) 60%,
+      color-mix(in srgb, var(--bg-base) 86%, var(--gradient-warm))
+    );
   color: var(--text-primary);
   font-family: var(--font-sans);
   transition: background 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #bodyThemeContainer.theme-teal {
-  --accent: #2fa4a0;
-  --accent-glow: rgba(47, 164, 160, 0.22);
-  --accent-border: rgba(47, 164, 160, 0.42);
+  --accent: #2da7a3;
+  --accent-glow: rgba(45, 167, 163, 0.2);
+  --accent-border: rgba(45, 167, 163, 0.42);
   --accent-dark: #1f7774;
 }
 
@@ -319,10 +338,17 @@
 }
 
 .light #bodyThemeContainer {
-  --accent: #2fa4a0;
-  --accent-glow: rgba(47, 164, 160, 0.18);
-  --accent-border: rgba(47, 164, 160, 0.35);
+  --accent: #2da7a3;
+  --accent-glow: rgba(45, 167, 163, 0.16);
+  --accent-border: rgba(45, 167, 163, 0.36);
   --accent-dark: #1f7774;
+  --broadcast-accent: #d99522;
+  --broadcast-accent-glow: rgba(217, 149, 34, 0.16);
+  /* Light: a warm sunrise copper wash over cream, gentler grain, near-white matte panels. */
+  --gradient-warm: rgba(206, 116, 64, 0.22);
+  --gradient-cool: color-mix(in srgb, var(--accent) 16%, transparent);
+  --grain-opacity: 0.4;
+  --panel-surface-matte: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
 }
 
 #bodyThemeContainer::before {
@@ -332,33 +358,34 @@
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(
-      circle at 12% 18%,
-      rgba(47, 164, 160, 0.2) 0%,
-      transparent 42%
+    linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--accent) 8%, transparent),
+      transparent
     ),
-    radial-gradient(
-      circle at 82% 18%,
-      rgba(27, 42, 74, 0.16) 0%,
-      transparent 52%
-    ),
-    radial-gradient(
-      circle at 45% 86%,
-      rgba(47, 164, 160, 0.12) 0%,
-      transparent 40%
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--text-primary) 3%, transparent) 0,
+      color-mix(in srgb, var(--text-primary) 3%, transparent) 1px,
+      transparent 1px,
+      transparent 96px
     );
-  animation: aurora-drift 30s ease-in-out infinite alternate;
+  opacity: 0.2;
   transition: all 0.8s ease-in-out;
 }
 
+/* Filmic grain — matte, not glossy. baseFrequency keeps it fine; soft-light
+   blends it into the gradient without crushing legibility. */
 #bodyThemeContainer::after {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.85;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+  opacity: var(--grain-opacity);
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
 }
 
 .app-shell {
@@ -370,10 +397,11 @@
 }
 
 .glass-panel {
-  background: linear-gradient(145deg, var(--bg-surface), var(--bg-elevated));
-  backdrop-filter: blur(28px) saturate(1.6);
+  background: var(--panel-surface-matte);
+  /* Matte, not glossy: a whisper of blur to lift off the grain, no saturate sheen. */
+  backdrop-filter: blur(3px);
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  border-radius: 14px;
   position: relative;
   overflow: hidden;
   box-shadow: var(--shell-panel-shadow);
@@ -387,6 +415,7 @@
   box-shadow: var(--shell-panel-shadow-hover);
 }
 
+/* Faint top hairline for crisp edge definition — far quieter than the old glossy sheen. */
 .glass-panel::before {
   content: "";
   position: absolute;
@@ -397,7 +426,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--text-primary) 16%, transparent) 50%,
+    color-mix(in srgb, var(--text-primary) 7%, transparent) 50%,
     transparent 100%
   );
   pointer-events: none;
@@ -405,9 +434,9 @@
 }
 
 .panel-header {
-  background: var(--shell-bg-sunken);
+  background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 12px 18px;
+  padding: 13px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -420,8 +449,8 @@
 }
 
 .btn-action:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.15);
+  transform: translateY(-1px);
+  filter: brightness(1.08);
 }
 
 .btn-action:active:not(:disabled) {
@@ -446,9 +475,9 @@
 }
 
 .queue-item:hover {
-  background: var(--accent-glow);
-  border-left: 4px solid var(--accent);
-  padding-left: 20px !important;
+  background: color-mix(in srgb, var(--accent-glow) 72%, transparent);
+  border-left: 3px solid var(--accent);
+  padding-left: 18px !important;
 }
 
 .search-input {

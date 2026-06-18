@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { MoonIcon, SunIcon, Trash2Icon } from "lucide-react"
+import { useEffect, useState, type ReactNode } from "react"
+import { CircleDotIcon, MoonIcon, SunIcon, Trash2Icon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { APP_DISPLAY_NAME } from "@/lib/app-brand"
 import { AppLogo } from "@/components/ui/app-logo"
@@ -7,6 +7,7 @@ import {
   useAccentThemeStore,
   type AccentTheme,
 } from "@/stores/accent-theme-store"
+import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useColorModeStore } from "@/stores/color-mode-store"
 import { blackoutOutput } from "@/lib/operator-actions"
 import { WorkspaceTopNav } from "@/components/layout/workspace-top-nav"
@@ -33,11 +34,40 @@ function formatClock(date: Date): string {
   })
 }
 
+function HeaderStatusChip({
+  icon,
+  label,
+  tone = "neutral",
+}: {
+  icon: ReactNode
+  label: string
+  tone?: "neutral" | "live" | "ready" | "warn"
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 font-mono text-[10px] font-semibold tracking-wide uppercase",
+        tone === "live"
+          ? "border-red-500/35 bg-red-500/12 text-red-300"
+          : tone === "ready"
+            ? "border-teal-400/30 bg-teal-400/10 text-teal-200"
+            : tone === "warn"
+              ? "border-amber-400/35 bg-amber-400/12 text-amber-300"
+              : "border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] text-muted-foreground"
+      )}
+    >
+      {icon}
+      {label}
+    </span>
+  )
+}
+
 export function AppControllerHeader() {
   const theme = useAccentThemeStore((s) => s.theme)
   const setTheme = useAccentThemeStore((s) => s.setTheme)
   const colorMode = useColorModeStore((s) => s.mode)
   const toggleColorMode = useColorModeStore((s) => s.toggle)
+  const isLive = useBroadcastStore((s) => s.isLive)
   const [clock, setClock] = useState(() => formatClock(new Date()))
 
   useEffect(() => {
@@ -48,7 +78,7 @@ export function AppControllerHeader() {
   const versionLabel = `v${packageJson.version}`
 
   return (
-    <header className="z-50 flex h-[56px] shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-6 backdrop-blur-xl">
+    <header className="z-50 flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-sunken)_86%,transparent)] px-5 backdrop-blur-xl">
       <div className="flex items-center gap-5">
         <div className="flex items-center gap-3">
           <AppLogo
@@ -74,6 +104,13 @@ export function AppControllerHeader() {
       </div>
 
       <div className="flex items-center gap-3">
+        <div className="hidden items-center gap-1.5 xl:flex">
+          <HeaderStatusChip
+            icon={<CircleDotIcon className="size-3" />}
+            label={isLive ? "On Air" : "Standby"}
+            tone={isLive ? "live" : "neutral"}
+          />
+        </div>
         <div className="hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-3 py-1 font-mono text-xs font-semibold tracking-wider text-foreground lg:block">
           {clock}
         </div>
