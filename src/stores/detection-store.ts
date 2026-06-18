@@ -13,6 +13,8 @@ interface DetectionResultWithMeta extends DetectionResult {
 const MAX_RECENT_DETECTIONS = 5
 const MAX_RECENCY_BONUS = 0.01
 const RECENCY_BONUS_WINDOW_MS = 30_000
+// Drop detections older than this so the panel reflects current speech.
+const DETECTION_TTL_MS = 90_000
 const NUMBER_TOKEN_PATTERN = /\d+/g
 const VERSE_REF_PATTERN = /(\d+)\s*:\s*(\d+)/g
 
@@ -24,6 +26,7 @@ interface DetectionState {
   setDetections: (detections: DetectionResult[]) => void
   removeDetection: (verseRef: string) => void
   clearDetections: () => void
+  evictStale: (now?: number) => void
 }
 
 function detectionRank(
@@ -293,4 +296,14 @@ export const useDetectionStore = create<DetectionState>((set) => ({
       }
     }),
   clearDetections: () => set({ detections: [] }),
+  evictStale: (now = Date.now()) =>
+    set((state) => {
+      const fresh = state.detections.filter(
+        (d) => now - (d.received_at ?? 0) < DETECTION_TTL_MS
+      )
+
+      return fresh.length === state.detections.length
+        ? state
+        : { detections: fresh }
+    }),
 }))

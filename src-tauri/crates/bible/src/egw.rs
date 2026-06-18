@@ -133,6 +133,67 @@ impl BibleDb {
         let rows = stmt.query_map(rusqlite::params![fts_query, limit_i64], map_egw_paragraph)?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
+
+    /// BM25-ranked keyword search over EGW paragraphs for live transcript matching.
+    ///
+    /// Mirrors `search_verses_bm25`: phrase, AND, then OR tiers, reusing the
+    /// same query builders. Unlike `search_egw` (implicit AND, for the search
+    /// box), the OR tier lets a partial transcript window match a paragraph.
+    pub fn search_egw_bm25(
+        &self,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<EgwParagraph>, BibleError> {
+        let conn = self.conn()?;
+
+        let fts_exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='egw_paragraphs_fts'",
+                [],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+        if !fts_exists {
+            return Ok(vec![]);
+        }
+
+        #[expect(
+            clippy::cast_possible_wrap,
+            reason = "limit is a small page-size value that fits in i64"
+        )]
+        let limit_i64 = limit as i64;
+
+        let mut results: Vec<EgwParagraph> = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for fts_query in [
+            crate::search::build_phrase_query(query),
+            crate::search::build_and_query(query),
+            crate::search::build_or_query(query),
+        ] {
+            if fts_query.is_empty() || results.len() >= limit {
+                continue;
+            }
+            let mut stmt = conn.prepare(
+                "SELECT p.id, p.book_number, p.book_title, p.chapter, p.chapter_title, p.paragraph, p.text \
+                 FROM egw_paragraphs_fts fts \
+                 JOIN egw_paragraphs p ON p.id = fts.rowid \
+                 WHERE fts.text MATCH ?1 \
+                 ORDER BY bm25(egw_paragraphs_fts) \
+                 LIMIT ?2",
+            )?;
+            let rows =
+                stmt.query_map(rusqlite::params![fts_query, limit_i64], map_egw_paragraph)?;
+            for row in rows {
+                let paragraph = row?;
+                if seen.insert(paragraph.id) {
+                    results.push(paragraph);
+                }
+            }
+        }
+
+        results.truncate(limit);
+        Ok(results)
+    }
 }
 
 fn map_egw_paragraph(row: &rusqlite::Row) -> rusqlite::Result<EgwParagraph> {
@@ -201,6 +262,15 @@ mod tests {
         let hits = db.search_egw("conflict great", 10).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].paragraph, 2);
+    }
+
+    #[test]
+    fn bm25_search_matches_partial_transcript_window() {
+        let db = test_db();
+        let hits = db
+            .search_egw_bm25("tonight we consider the great conflict story", 5)
+            .unwrap();
+        assert!(hits.iter().any(|p| p.paragraph == 2));
     }
 
     #[test]

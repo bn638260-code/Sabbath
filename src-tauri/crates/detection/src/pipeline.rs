@@ -17,6 +17,9 @@ const FTS5_CONFIDENCE_DECAY: f64 = 0.04;
 /// FTS5 results below this confidence are not included.
 const FTS5_MIN_CONFIDENCE: f64 = 0.50;
 
+/// FTS5 BM25 scores are negative; more negative = stronger match.
+const FTS5_LIVE_RANK_FLOOR: f64 = -1.0;
+
 /// Minimum word count for vector embedding search (short text lacks semantic signal).
 const MIN_WORDS_FOR_VECTOR: usize = 4;
 
@@ -150,8 +153,19 @@ impl DetectionPipeline {
 
         for (rank, fts) in fts_results.iter().enumerate() {
             let confidence = FTS5_RANK0_CONFIDENCE - (rank as f64 * FTS5_CONFIDENCE_DECAY);
+            log::debug!(
+                "[DET-SEMANTIC] FTS5 candidate idx={rank} bm25={:.3} {} {}:{} conf={:.0}%",
+                fts.rank,
+                fts.book_name,
+                fts.chapter,
+                fts.verse,
+                confidence * 100.0
+            );
             if confidence < FTS5_MIN_CONFIDENCE {
                 break;
+            }
+            if fts.rank > FTS5_LIVE_RANK_FLOOR {
+                continue;
             }
             let key = (fts.book_number, fts.chapter, fts.verse);
             if vector_keys.contains(&key) {
@@ -328,14 +342,14 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: 0.0,
+                rank: -8.0,
             },
             Bm25Result {
                 book_number: 45,
                 book_name: "Romans".to_string(),
                 chapter: 5,
                 verse: 8,
-                rank: 1.0,
+                rank: -6.0,
             },
         ];
 
@@ -378,14 +392,14 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: 0.0,
+                rank: -8.0,
             },
             Bm25Result {
                 book_number: 45,
                 book_name: "Romans".to_string(),
                 chapter: 5,
                 verse: 8,
-                rank: 5.0,
+                rank: -2.0,
             },
         ];
 
@@ -413,42 +427,42 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: 0.0,
+                rank: -8.0,
             },
             Bm25Result {
                 book_number: 45,
                 book_name: "Romans".to_string(),
                 chapter: 8,
                 verse: 28,
-                rank: 1.0,
+                rank: -7.0,
             },
             Bm25Result {
                 book_number: 1,
                 book_name: "Genesis".to_string(),
                 chapter: 1,
                 verse: 1,
-                rank: 2.0,
+                rank: -6.0,
             },
             Bm25Result {
                 book_number: 19,
                 book_name: "Psalms".to_string(),
                 chapter: 23,
                 verse: 1,
-                rank: 3.0,
+                rank: -5.0,
             },
             Bm25Result {
                 book_number: 23,
                 book_name: "Isaiah".to_string(),
                 chapter: 53,
                 verse: 5,
-                rank: 4.0,
+                rank: -4.0,
             },
             Bm25Result {
                 book_number: 40,
                 book_name: "Matthew".to_string(),
                 chapter: 5,
                 verse: 3,
-                rank: 5.0,
+                rank: -3.0,
             },
         ];
 
@@ -468,7 +482,7 @@ mod tests {
             book_name: "John".to_string(),
             chapter: 3,
             verse: 16,
-            rank: 0.0,
+            rank: -8.0,
         }];
 
         let results = pipeline.process_hybrid_with_fts("John three sixteen", &fts_results);
@@ -488,5 +502,35 @@ mod tests {
                 "hybrid pipeline must not emit duplicate verse refs"
             );
         }
+    }
+
+    #[test]
+    fn test_pipeline_hybrid_drops_weak_fts_below_rank_floor() {
+        let mut pipeline = DetectionPipeline::new();
+        let fts_results = vec![
+            Bm25Result {
+                book_number: 43,
+                book_name: "John".to_string(),
+                chapter: 3,
+                verse: 16,
+                rank: -5.0,
+            },
+            Bm25Result {
+                book_number: 1,
+                book_name: "Genesis".to_string(),
+                chapter: 1,
+                verse: 1,
+                rank: -0.2,
+            },
+        ];
+
+        let results = pipeline.process_hybrid_with_fts("god so loved the world", &fts_results);
+
+        assert!(results
+            .iter()
+            .any(|r| r.detection.verse_ref.book_name == "John"));
+        assert!(!results
+            .iter()
+            .any(|r| r.detection.verse_ref.book_name == "Genesis"));
     }
 }

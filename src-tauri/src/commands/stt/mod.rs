@@ -27,11 +27,12 @@ use rhema_audio::{AudioConfig, AudioFrame};
 use rhema_stt::TranscriptEvent;
 
 use self::detection::{
-    check_reading_mode, enqueue_direct_detection_job, enqueue_final_semantic_job,
-    enqueue_partial_semantic_job, is_detection_paused, run_direct_detection,
-    run_partial_direct_preview_detection, run_semantic_detection, take_semantic_job,
-    DeepgramSemanticBuffer, PARTIAL_SEMANTIC_DEBOUNCE, PARTIAL_SEMANTIC_MIN_WORDS,
-    SEMANTIC_WINDOW_SEGMENTS,
+    check_reading_mode, clamp_to_recent_words, enqueue_direct_detection_job,
+    enqueue_final_semantic_job, enqueue_partial_semantic_job, is_detection_paused,
+    run_direct_detection, run_partial_direct_preview_detection, run_semantic_detection,
+    take_semantic_job, DeepgramSemanticBuffer, LIVE_DETECTION_WINDOW_WORDS,
+    PARTIAL_SEMANTIC_DEBOUNCE, PARTIAL_SEMANTIC_MIN_WORDS, SEMANTIC_WINDOW_SEGMENTS,
+    WINDOW_RESET_GAP,
 };
 use self::provider::build_stt_provider;
 use self::utils::{
@@ -410,6 +411,7 @@ pub async fn start_transcription(
         let mut transcript_router = TranscriptRouter::default();
         let mut semantic_window: VecDeque<String> =
             VecDeque::with_capacity(SEMANTIC_WINDOW_SEGMENTS);
+        let mut last_final_at: Option<Instant> = None;
         let partial_semantic_enabled = partial_semantic_detection_enabled(low_power);
         let deepgram_semantic_on_speech_final = false;
         let mut deepgram_semantic_buffer = DeepgramSemanticBuffer::default();
@@ -493,7 +495,10 @@ pub async fn start_transcription(
                                 last_partial_semantic_at = Instant::now();
                                 let mut parts = semantic_window.iter().cloned().collect::<Vec<_>>();
                                 parts.push(transcript.clone());
-                                let semantic_text = parts.join(" ");
+                                let semantic_text = clamp_to_recent_words(
+                                    &parts.join(" "),
+                                    LIVE_DETECTION_WINDOW_WORDS,
+                                );
                                 enqueue_partial_semantic_job(
                                     &partial_semantic_job_evt,
                                     &partial_semantic_notify_evt,
@@ -608,15 +613,22 @@ pub async fn start_transcription(
                                         );
                                     }
                                 } else {
+                                    if last_final_at.is_some_and(|t| t.elapsed() >= WINDOW_RESET_GAP) {
+                                        semantic_window.clear();
+                                    }
+                                    last_final_at = Some(Instant::now());
                                     semantic_window.push_back(detection_text.clone());
                                     while semantic_window.len() > SEMANTIC_WINDOW_SEGMENTS {
                                         semantic_window.pop_front();
                                     }
-                                    let semantic_text = semantic_window
-                                        .iter()
-                                        .cloned()
-                                        .collect::<Vec<_>>()
-                                        .join(" ");
+                                    let semantic_text = clamp_to_recent_words(
+                                        &semantic_window
+                                            .iter()
+                                            .cloned()
+                                            .collect::<Vec<_>>()
+                                            .join(" "),
+                                        LIVE_DETECTION_WINDOW_WORDS,
+                                    );
                                     enqueue_final_semantic_job(
                                         &final_semantic_job_evt,
                                         &final_semantic_notify_evt,

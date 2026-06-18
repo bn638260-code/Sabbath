@@ -481,4 +481,31 @@ describe("detection store", () => {
     expect(detections[0].content_type).toBe("egw")
     expect(detections[0].confidence).toBe(0.99)
   })
+
+  it("evictStale removes detections older than the TTL and keeps fresh ones", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetection(makeDetection({ verse_ref: "Old 1:1" }))
+
+    now = new Date("2026-05-19T00:02:00Z").getTime()
+    store.addDetection(makeDetection({ verse_ref: "Fresh 2:2" }))
+
+    store.evictStale(now)
+
+    const refs = useDetectionStore.getState().detections.map((d) => d.verse_ref)
+    expect(refs).toContain("Fresh 2:2")
+    expect(refs).not.toContain("Old 1:1")
+  })
+
+  it("evictStale is a no-op when nothing has expired", () => {
+    const store = useDetectionStore.getState()
+    store.addDetection(makeDetection({ verse_ref: "John 3:16" }))
+
+    const before = useDetectionStore.getState().detections
+    store.evictStale(now + 1_000)
+    const after = useDetectionStore.getState().detections
+
+    expect(after).toBe(before)
+    expect(after).toHaveLength(1)
+  })
 })

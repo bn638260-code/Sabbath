@@ -419,6 +419,40 @@ fn best_egw_alias_match<'a>(
     matches
 }
 
+/// Confidence assigned to EGW paragraphs matched by keyword (below explicit references).
+const EGW_FTS_CONFIDENCE: f64 = 0.55;
+
+/// Minimum word count before running EGW keyword search.
+const EGW_FTS_MIN_WORDS: usize = 5;
+
+/// Maximum EGW paragraphs surfaced per detection pass.
+const EGW_FTS_LIMIT: usize = 2;
+
+/// Detect EGW paragraphs by BM25 keyword search of the transcript window.
+pub(crate) fn detect_egw_fts(state: &AppState, text: &str) -> Vec<DetectionResult> {
+    if text.split_whitespace().count() < EGW_FTS_MIN_WORDS {
+        return Vec::new();
+    }
+    let Some(db) = state.bible_db.as_ref() else {
+        return Vec::new();
+    };
+
+    match db.search_egw_bm25(text, EGW_FTS_LIMIT) {
+        Ok(paragraphs) => paragraphs
+            .into_iter()
+            .map(|paragraph| {
+                let mut result = egw_to_result(paragraph, EGW_FTS_CONFIDENCE, text);
+                result.source = "semantic".to_string();
+                result
+            })
+            .collect(),
+        Err(error) => {
+            log::warn!("[DET-EGW] FTS search failed: {error}");
+            Vec::new()
+        }
+    }
+}
+
 /// Detect explicit Ellen G. White paragraph references like `PP 1:2` or
 /// `Patriarchs and Prophets chapter one paragraph two`.
 pub(crate) fn detect_egw_references(state: &AppState, text: &str) -> Vec<DetectionResult> {
@@ -433,6 +467,7 @@ pub(crate) fn detect_egw_references(state: &AppState, text: &str) -> Vec<Detecti
         }
     };
     if books.is_empty() {
+        log::debug!("[DET-EGW] No EGW books imported; EGW detection disabled");
         return Vec::new();
     }
 
@@ -841,7 +876,9 @@ mod tests {
                (2, 'The Desire of Ages', 'DA', 1);
              INSERT INTO egw_paragraphs (book_id, book_number, book_title, chapter, chapter_title, paragraph, text) VALUES
                (1, 1, 'Patriarchs and Prophets', 1, 'Why Was Sin Permitted?', 2, 'The history of the great conflict.'),
-               (2, 2, 'The Desire of Ages', 14, 'We Have Found the Messias', 3, 'Jesus had bidden Peter and his companions follow Him.');",
+               (2, 2, 'The Desire of Ages', 14, 'We Have Found the Messias', 3, 'Jesus had bidden Peter and his companions follow Him.');
+             CREATE VIRTUAL TABLE egw_paragraphs_fts USING fts5(text, content='egw_paragraphs', content_rowid='id', tokenize='unicode61');
+             INSERT INTO egw_paragraphs_fts(rowid, text) SELECT id, text FROM egw_paragraphs;",
         )
         .expect("fixture schema");
         drop(conn);
@@ -947,6 +984,24 @@ mod tests {
         assert_eq!(results[0].verse_ref, "The Desire of Ages 14:3");
         assert_eq!(results[0].chapter, 14);
         assert_eq!(results[0].verse, 3);
+    }
+
+    #[test]
+    fn detect_egw_fts_matches_paragraph_by_keywords() {
+        let fixture = fixture_state(1);
+
+        let results = detect_egw_fts(
+            &fixture.state,
+            "tonight we consider the great conflict and its history",
+        );
+
+        assert!(!results.is_empty());
+        assert_eq!(results[0].content_type, "egw");
+        assert_eq!(results[0].source, "semantic");
+        assert_eq!(
+            results[0].egw_paragraph.as_ref().map(|p| p.paragraph),
+            Some(2)
+        );
     }
 
     #[test]

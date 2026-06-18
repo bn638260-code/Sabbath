@@ -28,18 +28,25 @@ async fn build_vosk_provider(
     let model_path = asset_paths::vosk_model_path(app);
     if !model_path.exists() {
         let error = missing_vosk_model_error(&model_path);
-        log::error!("[STT-vosk] {error}");
+        log::error!(
+            "[STT-MODEL] failed provider=vosk model={} reason=missing_model",
+            model_path.display()
+        );
         return Err(error);
     }
     let worker_path = asset_paths::vosk_worker_path(app);
     if !worker_path.exists() {
         let error = missing_vosk_worker_error(&worker_path);
-        log::error!("[STT-vosk] {error}");
+        log::error!(
+            "[STT-MODEL] failed provider=vosk model={} reason=missing_worker worker={}",
+            model_path.display(),
+            worker_path.display()
+        );
         return Err(error);
     }
 
     log::info!(
-        "Starting Vosk transcription: model={}, worker={}, device_id={device_id:?}",
+        "[STT-MODEL] selected provider=vosk model={} source=local worker={} device_id={device_id:?}",
         model_path.display(),
         worker_path.display()
     );
@@ -76,22 +83,27 @@ pub(crate) async fn build_stt_provider(
     match provider_name {
         "vosk" => build_vosk_provider(app, device_id).await,
         "whisper" | "legacy-whisper" | "faster-whisper" => {
+            log::warn!("[STT-MODEL] failed provider={provider_name} reason=removed_provider");
             Err(removed_provider_error(provider_name))
         }
         "gladia" => {
             let resolved_api_key = secrets::get_gladia_api_key_or_empty()?;
 
             if resolved_api_key.is_empty() {
+                log::warn!(
+                    "[STT-MODEL] failed provider=gladia model=solaria-1 reason=missing_api_key"
+                );
                 return Err("No Gladia API key configured. Set it in Settings.".into());
             }
 
+            let model = "solaria-1";
             log::info!(
-                "Starting Gladia transcription: api_key_configured=true, device_id={device_id:?}, gain={gain:?}"
+                "[STT-MODEL] selected provider=gladia model={model} source=remote api_key_configured=true device_id={device_id:?} gain={gain:?}"
             );
 
             let stt_config = SttConfig {
                 api_key: resolved_api_key,
-                model: "solaria-1".to_string(),
+                model: model.to_string(),
                 sample_rate: 16_000,
                 encoding: "wav/pcm".to_string(),
                 language: Some("en".to_string()),
@@ -103,16 +115,20 @@ pub(crate) async fn build_stt_provider(
             let resolved_api_key = secrets::get_deepgram_api_key_or_empty()?;
 
             if resolved_api_key.is_empty() {
+                log::warn!(
+                    "[STT-MODEL] failed provider=deepgram model=nova-3 reason=missing_api_key"
+                );
                 return Err("No Deepgram API key configured. Set it in Settings.".into());
             }
 
+            let model = "nova-3";
             log::info!(
-                "Starting Deepgram transcription: api_key_configured=true, device_id={device_id:?}, gain={gain:?}"
+                "[STT-MODEL] selected provider=deepgram model={model} source=remote api_key_configured=true device_id={device_id:?} gain={gain:?}"
             );
 
             let stt_config = SttConfig {
                 api_key: resolved_api_key,
-                model: "nova-3".to_string(),
+                model: model.to_string(),
                 sample_rate: 16_000,
                 encoding: "linear16".to_string(),
                 language: Some("en-US".to_string()),
@@ -120,9 +136,12 @@ pub(crate) async fn build_stt_provider(
 
             Ok(Box::new(DeepgramClient::new(stt_config)))
         }
-        _ => Err(format!(
-            "Unknown speech-to-text provider \"{provider_name}\". Choose Vosk, Deepgram, or Gladia."
-        )),
+        _ => {
+            log::warn!("[STT-MODEL] failed provider={provider_name} reason=unknown_provider");
+            Err(format!(
+                "Unknown speech-to-text provider \"{provider_name}\". Choose Vosk, Deepgram, or Gladia."
+            ))
+        }
     }
 }
 

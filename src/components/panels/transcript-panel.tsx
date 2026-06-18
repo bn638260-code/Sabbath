@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 import { useAudioStore } from "@/stores/audio-store"
 import { useBibleStore } from "@/stores/bible-store"
 import type { SttProvider } from "@/stores/settings-store"
+import { useDetectionStore } from "@/stores/detection-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
 import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { useTranscription } from "@/hooks/use-transcription"
@@ -125,6 +126,13 @@ export function TranscriptPanel({ className }: { className?: string }) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [segments])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      useDetectionStore.getState().evictStale()
+    }, 2_000)
+    return () => clearInterval(id)
+  }, [])
 
   return (
     <div

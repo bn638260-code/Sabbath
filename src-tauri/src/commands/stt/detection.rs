@@ -29,6 +29,21 @@ pub(crate) const PARTIAL_SEMANTIC_MIN_WORDS: usize = 3;
 pub(crate) const LIVE_SEMANTIC_CAP: usize = 5;
 const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
 
+/// Maximum trailing words of the rolling transcript window fed to live
+/// semantic + FTS5 detection.
+pub(crate) const LIVE_DETECTION_WINDOW_WORDS: usize = 12;
+
+/// Clear the rolling detection window after this much silence between finals.
+pub(crate) const WINDOW_RESET_GAP: Duration = Duration::from_secs(8);
+
+/// Return the last `max_words` whitespace-delimited words of `text`, re-joined
+/// with single spaces.
+pub(crate) fn clamp_to_recent_words(text: &str, max_words: usize) -> String {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let start = words.len().saturating_sub(max_words);
+    words[start..].join(" ")
+}
+
 /// Take the latest pending semantic job from a shared slot, recovering from
 /// poisoned locks so the worker doesn't die permanently.
 pub(crate) fn take_semantic_job(
@@ -608,24 +623,30 @@ pub(crate) fn run_semantic_detection(
         t0.elapsed()
     );
 
-    if merged.is_empty() {
-        log::info!("[DET-SEMANTIC] No detections");
-        return;
-    }
-
-    // Resolve verse text from DB for merged results
+    // Resolve verse text from DB for merged results, and add EGW paragraph
+    // matches so spoken Ellen White quotes surface even without explicit refs.
     let app_managed: State<'_, Mutex<AppState>> = app.state();
     let Ok(app_state) = app_managed.lock() else {
         log::error!("Failed to lock AppState for verse resolution");
         return;
     };
 
-    let results: Vec<crate::commands::detection::DetectionResult> = merged
+    let mut results: Vec<crate::commands::detection::DetectionResult> = merged
         .iter()
         .map(|m| crate::commands::detection::to_result(&app_state, m))
         .collect();
+    let egw_results = crate::commands::detection::detect_egw_fts(&app_state, transcript);
+    if !egw_results.is_empty() {
+        log::info!("[DET-EGW] FTS matched {} paragraph(s)", egw_results.len());
+        results.extend(egw_results);
+    }
 
     drop(app_state);
+
+    if results.is_empty() {
+        log::info!("[DET-SEMANTIC] No detections");
+        return;
+    }
 
     // Final stale check before emission
     if seq < latest_seq.load(Ordering::Acquire) {
@@ -952,6 +973,31 @@ mod tests {
         assert_eq!(SEMANTIC_WINDOW_SEGMENTS, 4);
         assert_eq!(PARTIAL_SEMANTIC_DEBOUNCE, Duration::from_millis(100));
         assert_eq!(PARTIAL_SEMANTIC_MIN_WORDS, 3);
+    }
+
+    #[test]
+    fn clamp_to_recent_words_keeps_only_trailing_words() {
+        assert_eq!(
+            super::clamp_to_recent_words("one two three four five", 3),
+            "three four five"
+        );
+    }
+
+    #[test]
+    fn clamp_to_recent_words_returns_all_when_under_limit() {
+        assert_eq!(
+            super::clamp_to_recent_words("john three sixteen", 12),
+            "john three sixteen"
+        );
+    }
+
+    #[test]
+    fn clamp_to_recent_words_normalizes_empty_and_extra_whitespace() {
+        assert_eq!(super::clamp_to_recent_words("", 12), "");
+        assert_eq!(
+            super::clamp_to_recent_words("   spaced   out  ", 12),
+            "spaced out"
+        );
     }
 
     /// Test that stale detection is correctly identified when
