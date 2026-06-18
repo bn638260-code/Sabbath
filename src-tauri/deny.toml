@@ -5,10 +5,31 @@
 targets = ["x86_64-pc-windows-msvc"]
 
 [advisories]
-unmaintained = "workspace"
-unsound = "workspace"
+# Surface ALL unmaintained/unsound advisories (including transitive deps) so any
+# NEW one fails CI and must be triaged. Knowingly-accepted advisories are listed
+# in `ignore` below, each with its dependency source and rationale. Reviewed
+# against SECURITY_TEST_REPORT.md §2.7 (R8). Re-evaluate on every Tauri / tokenizers bump.
+#
+# Scope note: this config checks the x86_64-pc-windows-msvc target only (see [graph]).
+# The GTK3-bindings family (atk/gdk/gtk/glib/gtk3-macros, RUSTSEC-2024-04xx) and
+# proc-macro-error are Linux-only deps of Tauri's webkit2gtk backend and are therefore
+# out of scope here; they will be retired upstream when Tauri/wry move off GTK3.
+unmaintained = "all"
+unsound = "all"
 yanked = "deny"
-ignore = []
+ignore = [
+    # Unmaintained transitive crates pulled in by Tauri (via tauri-utils):
+    "RUSTSEC-2025-0057", # fxhash             -> selectors -> kuchikiki -> tauri-utils
+    "RUSTSEC-2025-0075", # unic-char-range    -> urlpattern -> tauri-utils
+    "RUSTSEC-2025-0080", # unic-common        -> urlpattern -> tauri-utils
+    "RUSTSEC-2025-0081", # unic-char-property -> urlpattern -> tauri-utils
+    "RUSTSEC-2025-0098", # unic-ucd-version   -> urlpattern -> tauri-utils
+    "RUSTSEC-2025-0100", # unic-ucd-ident     -> urlpattern -> tauri-utils
+    # Unmaintained transitive crate pulled in by HuggingFace tokenizers (rhema-detection):
+    "RUSTSEC-2024-0436", # paste -> tokenizers; proc-macro, build-time only
+    # Unsound, but not reachable in our usage:
+    "RUSTSEC-2026-0097", # rand: unsound only with a custom logger calling rand::rng(); not our code path
+]
 
 [licenses]
 allow = [

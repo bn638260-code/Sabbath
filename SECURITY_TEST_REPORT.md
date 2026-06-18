@@ -40,7 +40,7 @@
 | Cross-site scripting (XSS) | ✅ | 2026-06-18 | 0 `dangerouslySetInnerHTML`, 0 `eval`/`new Function`; React auto-escaping; strict CSP |
 | CSRF protection | 🔵 | 2026-06-18 | N/A — no cookie-session web surface; Supabase uses bearer tokens |
 | Secrets & credential management | ✅ | 2026-06-18 | API keys in **OS keychain** via `keyring`; `.env` gitignored & untracked |
-| Dependency / supply-chain | ✅ | 2026-06-18 | `npm audit` **0 vulns** + `cargo audit` **0 vulns** (696 crates); 21 advisory warnings (unmaintained/unsound transitive) |
+| Dependency / supply-chain | ✅ | 2026-06-18 | CI-gated: `npm audit` **0** + `cargo deny check` **0** (696 crates). `deny.toml` hardened to `all` scope; 8 transitive advisories documented in `ignore` |
 | Data protection & encryption | ✅ | 2026-06-18 | TLS to Supabase; keychain at rest; updates minisign-signed |
 | Session management | ⚠️ | 2026-06-18 | `persistSession:false`, custom verification token store; verify token-at-rest handling |
 | API / endpoint security | ⚠️ | 2026-06-18 | Supabase RPCs (`register_device`) + RLS; verify least-privilege on RPCs |
@@ -107,8 +107,10 @@
 - **Status:** ✅ Pass
 - **Checked:** `npm audit`, lockfiles, CVEs.
 - **Findings:**
-  - `npm audit`: **0 vulnerabilities** (info/low/moderate/high/critical all 0) as of 2026-06-18.
-  - **`cargo audit` (R8, 2026-06-18): 0 vulnerabilities** across **696 crate dependencies** (1,134 advisories loaded). It reported **21 advisory *warnings*** — all "unmaintained" or "unsound" transitive crates, e.g. `glib 0.18.5` (RUSTSEC-2024-0429, unsound, transitive via Tauri/GTK on Linux), `rand` (RUSTSEC-2026-0097, unsound only with a custom logger calling `rand::rng()`), `unic-ucd-version` (unmaintained). **None are exploitable vulnerabilities**; they are upstream maintenance signals to monitor on dependency bumps.
+  - `npm audit`: **0 vulnerabilities** (info/low/moderate/high/critical all 0) as of 2026-06-18; gated in CI (`npm audit --audit-level=moderate`).
+  - **Rust deps are gated in CI by `cargo-deny`** (`cargo deny check`, the `rust` job in [.github/workflows/desktop-ci.yml](.github/workflows/desktop-ci.yml)) — **0 vulnerabilities** across 696 crates. Config is [src-tauri/deny.toml](src-tauri/deny.toml).
+  - **Hardened (R8/R9, 2026-06-18):** `deny.toml` advisories scope changed `workspace → all`, so **any new transitive unmaintained/unsound crate now fails CI** (previously only direct workspace deps were flagged). The **8** currently-accepted advisories are listed in `ignore` with per-crate source + rationale: `fxhash` + 5× `unic-*` (transitive via Tauri's `tauri-utils`), `paste` (transitive via HuggingFace `tokenizers`), and `rand` (RUSTSEC-2026-0097, unsound only with a custom logger calling `rand::rng()` — not our code path). All are non-exploitable maintenance/soundness advisories with no upstream fix available.
+  - A broader ad-hoc `cargo audit` (all targets, all transitive) additionally lists ~10 Linux-only GTK3-bindings advisories (`atk`/`gdk`/`gtk`/`glib`/…, RUSTSEC-2024-04xx) pulled by Tauri's webkit2gtk backend; these are **out of scope for the Windows-only build** and will retire upstream when Tauri/wry move off GTK3.
   - Lockfiles committed (`package-lock.json`, `bun.lock`); Rust pins via `Cargo.lock` + `rust-toolchain.toml`.
 
 ### 2.8 Data Protection & Encryption
@@ -145,7 +147,7 @@
 | ID | Severity | Area | Description | Status | Owner | Opened | Target |
 |---|---|---|---|---|---|---|---|
 | SEC-001 | Medium | AuthZ | Verify RLS enabled + explicit policies on **every** Supabase table and least-privilege on RPCs | Open | 👤 | 2026-06-18 | next release |
-| SEC-002 | Low | Supply chain | Run `cargo audit` for Rust crate CVEs | **Fixed (R8, 2026-06-18)** — 0 vulns / 696 crates; 21 maintenance warnings to monitor | 🤖 | 2026-06-18 | done |
+| SEC-002 | Low | Supply chain | Gate Rust crate advisories in CI | **Fixed (R8/R9, 2026-06-18)** — `cargo deny` already in CI; hardened to `all` scope + 8 documented ignores. New advisories now fail CI | 🤖 | 2026-06-18 | done |
 | SEC-003 | Low | File handling | Add/confirm `starts_with(app_dir)` containment after `canonicalize()` for imported asset paths | Open | 🤖 | 2026-06-18 | next release |
 | SEC-004 | Low | Session | Confirm verification/device token storage location + logout invalidation | Open | 🤖+👤 | 2026-06-18 | next release |
 | SEC-005 | Info | Auth | Confirm Supabase brute-force/rate-limit + lockout enabled in dashboard | Open | 👤 | 2026-06-18 | next release |
@@ -160,7 +162,8 @@
 | Manual source review | — | CSP, capabilities, secrets, injection sinks, XSS sinks | 2026-06-18 |
 | `git ls-files` | git | Secret/`.env` tracking check | 2026-06-18 |
 | Migration review | — | Supabase RLS / RPC posture | 2026-06-18 |
-| `cargo audit` | 0.21+ | Rust crate CVEs (0 vulns / 696 crates; 21 warnings) | 2026-06-18 |
+| `cargo deny check` | 0.19.7 | Rust advisories/licenses/bans/sources — CI gate (0 issues / 696 crates) | 2026-06-18 |
+| `cargo audit` | 0.21+ | Ad-hoc cross-target Rust advisory scan (0 vulns; 21 maintenance warnings) | 2026-06-18 |
 | DAST / pen test | — | Runtime attack surface | 🧪 not run |
 
 ---
@@ -171,7 +174,7 @@
 
 | Date | By | Summary of change | Items affected |
 |---|---|---|---|
-| `2026-06-18` | Claude (Opus 4.8) | **R8: ran `cargo audit`** — 0 vulnerabilities / 696 crates; 21 maintenance warnings recorded. SEC-002 closed. | §2.7 Dependencies |
+| `2026-06-18` | Claude (Opus 4.8) | **R8/R9: hardened Rust dep gate.** Confirmed `cargo deny check` already in CI (0 issues); changed `deny.toml` advisories scope `workspace → all` and documented 8 accepted transitive advisories in `ignore`. New advisories now fail CI. SEC-002 closed. | §2.7 Dependencies |
 | `2026-06-18` | Claude (Opus 4.8) | Initial assessment. Strong posture: keychain secrets, strict CSP, least-privilege Tauri capabilities, signed updates, 0 npm vulns, RLS present. 5 verify/low items opened (SEC-001…005). | All sections |
 
 ---

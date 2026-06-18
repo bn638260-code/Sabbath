@@ -26,7 +26,7 @@
 
 |                 | **Low effort** | **High effort** |
 |---|---|---|
-| **High impact** | ⭐ **Quick wins** — split `vendor` chunk (R1); verify Supabase RLS (R7); `cargo audit` (R8) | 🎯 **Big bets** — live-service runtime profiling (R10); modularize `verse-renderer.ts` (R4) |
+| **High impact** | ⭐ **Quick wins** — split `vendor` chunk (R1); verify Supabase RLS (R7); harden `cargo deny` gate (R8) | 🎯 **Big bets** — live-service runtime profiling (R10); modularize `verse-renderer.ts` (R4) |
 | **Low impact**  | 🟢 **Fill-ins** — leveled logger for `console.*` (R6); add coverage + complexity + jscpd to CI (R9); asset path containment (R11) | 🕳 **Defer** — rewrite vendored `sidebar.tsx`; data-drive builtin themes (R5) unless it blocks a feature |
 
 **Recommended order:** R7 → R8 → R11 → R1 → R6 → R9 → R4 → R2/R3 → R10 → R5.
@@ -47,8 +47,8 @@
 | R5 | Data-drive or split builtin themes (1,467 LOC) | DBG #1 | extract data | [src/lib/builtin-themes.ts](src/lib/builtin-themes.ts) | 🟢 | `[ ]` |
 | R6 | Introduce leveled logger; replace 67 stray `console.*` | DBG #6 / SEC §2.12 | wrap + replace | `src/**` (67 sites) | 🟢 | `[ ]` |
 | R7 | **Verify RLS enabled + explicit policies on every Supabase table; least-privilege RPCs** | SEC-001 | DB review | `supabase/migrations/**` | 🟡 | `[ ]` |
-| R8 | Run `cargo audit` for Rust crate CVEs | SEC-002 | tooling | `src-tauri/Cargo.lock` | 🟢 | `[x]` **done 2026-06-18** — 0 vulns / 696 crates; 21 maintenance warnings |
-| R9 | Add `vitest --coverage`, `eslint complexity`, `jscpd`, `cargo audit` to CI | DBG B3 / SEC-002 | CI tooling | [.github/workflows/desktop-ci.yml](.github/workflows/desktop-ci.yml) | 🟢 | `[ ]` |
+| R8 | Gate Rust crate advisories in CI | SEC-002 | tooling | [src-tauri/deny.toml](src-tauri/deny.toml) | 🟢 | `[x]` **done 2026-06-18** — `cargo deny check` already in CI (0 issues / 696 crates); hardened `workspace → all` + 8 documented ignores |
+| R9 | Add `vitest --coverage`, `eslint complexity`, `jscpd` to CI (Rust advisories already gated via `cargo deny`, hardened in R8) | DBG B3 | CI tooling | [.github/workflows/desktop-ci.yml](.github/workflows/desktop-ci.yml) | 🟢 | `[~]` cargo-deny portion done (R8); coverage/complexity/jscpd pending |
 | R10 | Live-service runtime profiling (FPS, memory growth, detection latency over 90 min) | PERF-003 | instrument + soak | `main.tsx`, broadcast path | 🟡 | `[ ]` |
 | R11 | Add `starts_with(app_dir)` containment after `canonicalize()` for imported assets | SEC-003 | guard clause | [src-tauri/src/commands/assets.rs](src-tauri/src/commands/assets.rs) | 🟢 | `[ ]` |
 | R12 | Confirm verification/device token storage location + logout invalidation | SEC-004 | review | [src/lib/verification/session-storage.ts](src/lib/verification/session-storage.ts) | 🟢 | `[ ]` |
