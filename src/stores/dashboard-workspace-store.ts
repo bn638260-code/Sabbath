@@ -2,6 +2,7 @@ import { create } from "zustand"
 
 export type DashboardWorkspace =
   | "live"
+  | "queue"
   | "run-service"
   | "service-plans"
   | "hymns"

@@ -9,6 +9,10 @@ vi.mock("@/components/ui/canvas-verse", () => ({
   CanvasPresentation: () => React.createElement("div", { "data-testid": "canvas-presentation" }),
 }))
 
+vi.mock("@/components/broadcast/VideoControlBar", () => ({
+  VideoControlBar: () => React.createElement("div", { "data-testid": "video-control-bar" }),
+}))
+
 vi.mock("@/lib/presentation-workflow", () => ({
   commitPreviewToLive: vi.fn(),
   presentItem: vi.fn(),
@@ -16,6 +20,7 @@ vi.mock("@/lib/presentation-workflow", () => ({
 
 const setWindowFullscreenMock = vi.fn().mockResolvedValue(undefined)
 const setLiveTransitionTypeMock = vi.fn()
+let broadcastState: Record<string, unknown>
 vi.mock("./live-output-panel-fullscreen", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("./live-output-panel-fullscreen")>()
@@ -28,16 +33,8 @@ vi.mock("./live-output-panel-fullscreen", async (importOriginal) => {
 
 vi.mock("@/stores/broadcast-store", () => {
   const useBroadcastStore = (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
-      isLive: false,
-      liveItem: null,
-      previewItem: null,
-      readingModeAutoLive: false,
-      liveTransitionType: "fade",
-      themes: [],
-      activeThemeId: "",
-    })
-  const selectActiveTheme = () => null
+    selector(broadcastState)
+  const selectActiveTheme = (state: Record<string, unknown>) => state.activeTheme
   useBroadcastStore.getState = () => ({
     setLive: vi.fn(),
     setReadingModeAutoLive: vi.fn(),
@@ -69,6 +66,16 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
 
   beforeEach(() => {
     setLiveTransitionTypeMock.mockClear()
+    broadcastState = {
+      isLive: false,
+      liveItem: null,
+      previewItem: null,
+      readingModeAutoLive: false,
+      liveTransitionType: "fade",
+      themes: [],
+      activeThemeId: "",
+      activeTheme: null,
+    }
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -118,6 +125,36 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
       cut?.click()
     })
     expect(setLiveTransitionTypeMock).toHaveBeenCalledWith("none")
+  })
+
+  it("renders live video media instead of the text canvas", () => {
+    broadcastState = {
+      ...broadcastState,
+      isLive: true,
+      liveItem: {
+        kind: "video",
+        reference: "Welcome Video",
+        segments: [{ text: "Welcome Video" }],
+        video: {
+          source: "url",
+          videoId: "video-1",
+          title: "Welcome Video",
+          url: "https://cdn.example.com/welcome.mp4",
+        },
+      },
+      activeTheme: { id: "theme-1" },
+    }
+
+    renderPanel()
+
+    const video = container.querySelector("video")
+    expect(video).not.toBeNull()
+    expect(video?.getAttribute("src")).toBe("https://cdn.example.com/welcome.mp4")
+    expect(container.querySelector("[data-testid='canvas-presentation']")).toBeNull()
+    expect(container.querySelector("[data-testid='video-control-bar']")).not.toBeNull()
+    expect(container.querySelector("[data-slot='live-output-anim']")?.className).toContain(
+      "live-anim-fade",
+    )
   })
 
   it("drives Tauri window fullscreen and applies the layout attribute synchronously", async () => {

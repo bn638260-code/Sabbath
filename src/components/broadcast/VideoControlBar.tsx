@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { listen } from "@tauri-apps/api/event"
 import {
   PauseIcon,
   PlayIcon,
+  RefreshCwIcon,
   RotateCcwIcon,
   Volume2Icon,
   VolumeXIcon,
@@ -10,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import {
   canSetAudioSink,
+  audioOutputScanLabel,
   listAudioOutputDevices,
   type AudioOutputDevice,
 } from "@/lib/audio-output-devices"
@@ -164,30 +166,50 @@ function AudioDeviceSelect({
   preferredDevice,
   canRouteAudio,
   devices,
+  loading,
+  onRefresh,
 }: {
   preferredDevice: string
   canRouteAudio: boolean
   devices: AudioOutputDevice[]
+  loading: boolean
+  onRefresh: () => void
 }) {
+  const status = audioOutputScanLabel({ canRouteAudio, loading, devices })
   return (
-    <select
-      value={preferredDevice}
-      disabled={!canRouteAudio || devices.length === 0}
-      className="search-input h-8 max-w-40 px-2 text-xs"
-      aria-label="Audio output device"
-      onChange={(event) =>
-        useBroadcastStore
-          .getState()
-          .setPreferredAudioOutputDeviceId(event.currentTarget.value)
-      }
-    >
-      <option value="">Default audio</option>
-      {devices.map((device) => (
-        <option key={device.deviceId} value={device.deviceId}>
-          {device.label}
-        </option>
-      ))}
-    </select>
+    <div className="flex flex-wrap items-center gap-1">
+      <select
+        value={preferredDevice}
+        disabled={!canRouteAudio || devices.length === 0}
+        className="search-input h-8 max-w-40 px-2 text-xs"
+        aria-label="Audio output device"
+        onChange={(event) =>
+          useBroadcastStore
+            .getState()
+            .setPreferredAudioOutputDeviceId(event.currentTarget.value)
+        }
+      >
+        <option value="">Default audio</option>
+        {devices.map((device) => (
+          <option key={device.deviceId} value={device.deviceId}>
+            {device.label}
+          </option>
+        ))}
+      </select>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="outline"
+        title="Scan audio outputs"
+        disabled={!canRouteAudio || loading}
+        onClick={onRefresh}
+      >
+        <RefreshCwIcon className={loading ? "size-3 animate-spin" : "size-3"} />
+      </Button>
+      <span className="text-[0.625rem] uppercase text-muted-foreground">
+        {status}
+      </span>
+    </div>
   )
 }
 
@@ -199,6 +221,7 @@ export function VideoControlBar({ item }: VideoControlBarProps) {
   const autoAdvance = useBroadcastStore((state) => state.autoAdvanceVideoOnEnd)
   const preferredDevice = useBroadcastStore((state) => state.preferredAudioOutputDeviceId)
   const [devices, setDevices] = useState<AudioOutputDevice[]>([])
+  const [loadingDevices, setLoadingDevices] = useState(false)
 
   const isYoutube = item.video?.source === "youtube"
   const canRouteAudio = !isYoutube && canSetAudioSink()
@@ -227,10 +250,22 @@ export function VideoControlBar({ item }: VideoControlBarProps) {
     }
   }, [])
 
-  useEffect(() => {
-    if (!canRouteAudio) return
-    void listAudioOutputDevices().then(setDevices)
+  const refreshAudioOutputs = useCallback(async () => {
+    if (!canRouteAudio) {
+      setDevices([])
+      return
+    }
+    setLoadingDevices(true)
+    try {
+      setDevices(await listAudioOutputDevices())
+    } finally {
+      setLoadingDevices(false)
+    }
   }, [canRouteAudio])
+
+  useEffect(() => {
+    void refreshAudioOutputs()
+  }, [refreshAudioOutputs, item.video?.videoId])
 
   if (sourceMissing) {
     return (
@@ -259,6 +294,8 @@ export function VideoControlBar({ item }: VideoControlBarProps) {
         preferredDevice={preferredDevice}
         canRouteAudio={canRouteAudio}
         devices={devices}
+        loading={loadingDevices}
+        onRefresh={() => void refreshAudioOutputs()}
       />
       {isYoutube ? (
         <span className="text-[0.625rem] uppercase text-muted-foreground">

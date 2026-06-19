@@ -59,6 +59,12 @@ const LazyLibraryWorkspace = lazy(() =>
   })),
 )
 
+const LazyQueueWorkspace = lazy(() =>
+  import("@/components/queue/QueueWorkspace").then((mod) => ({
+    default: mod.QueueWorkspace,
+  })),
+)
+
 function WorkspaceFallback() {
   return <div className="glass-panel min-h-[200px] animate-pulse" />
 }
@@ -130,6 +136,10 @@ export function Dashboard() {
   const workspaceContent =
     workspace === "live" ? (
       <LiveDeskPage />
+    ) : workspace === "queue" ? (
+      <Suspense fallback={<WorkspaceFallback />}>
+        <LazyQueueWorkspace />
+      </Suspense>
     ) : workspace === "service-plans" ? (
       <Suspense fallback={<WorkspaceFallback />}>
         <LazyServicePlanWorkspace />

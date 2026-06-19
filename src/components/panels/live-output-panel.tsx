@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CanvasPresentation } from "@/components/ui/canvas-verse"
 import { VideoControlBar } from "@/components/broadcast/VideoControlBar"
+import { EmergencyLiveButton } from "@/components/queue/EmergencyLiveButton"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { SegmentedControl } from "@/components/ui/segmented-control"
@@ -13,6 +14,7 @@ import {
 } from "@/components/panels/live-output-panel-fullscreen"
 import { commitPreviewToLive, presentItem } from "@/lib/presentation-workflow"
 import { cn } from "@/lib/utils"
+import { convertTauriFileSrc } from "@/lib/tauri-runtime"
 import { selectActiveTheme, useBroadcastStore } from "@/stores/broadcast-store"
 import { useEgwSlideStore } from "@/stores/egw-slide-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
@@ -50,6 +52,21 @@ export function liveTransitionClass(type: BroadcastTransitionType): string {
     default:
       return ""
   }
+}
+
+function liveVideoSrc(
+  item: ReturnType<typeof useBroadcastStore.getState>["liveItem"]
+): string | null {
+  const video = item?.video
+  if (!video) return null
+  if (video.source === "local" && video.videoPath) {
+    return convertTauriFileSrc(video.videoPath)
+  }
+  if (video.source === "url" && video.url) return video.url
+  if (video.source === "youtube" && video.youtubeId) {
+    return `https://www.youtube-nocookie.com/embed/${video.youtubeId}?controls=1`
+  }
+  return null
 }
 
 function navigateLiveDeck(
@@ -138,6 +155,7 @@ function LiveSendControls({
         }
         className="[&_button]:px-2"
       />
+      <EmergencyLiveButton />
       <Button
         size="sm"
         disabled={!canCommitPreview}
@@ -229,6 +247,7 @@ function LiveStage({
   const contentKey = visibleItem
     ? `${visibleItem.reference}#${visibleItem.hymnSlide?.slideIndex ?? 0}`
     : "empty"
+  const videoSrc = liveVideoSrc(visibleItem)
   return (
     <div
       data-slot="live-output-stage"
@@ -255,13 +274,34 @@ function LiveStage({
               liveTransitionClass(transitionType)
             )}
           >
-            <CanvasPresentation
-              theme={activeTheme}
-              item={visibleItem}
-              className={
-                isFullscreenLayout ? "[&_canvas]:rounded-none" : undefined
-              }
-            />
+            {visibleItem.kind === "video" && videoSrc ? (
+              visibleItem.video?.source === "youtube" ? (
+                <iframe
+                  title={visibleItem.reference}
+                  src={videoSrc}
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  className="aspect-video max-h-full w-full rounded-md border border-[var(--border-subtle)] bg-black"
+                />
+              ) : (
+                <video
+                  key={videoSrc}
+                  src={videoSrc}
+                  poster={visibleItem.video?.poster}
+                  controls
+                  autoPlay
+                  className="aspect-video max-h-full w-full rounded-md border border-[var(--border-subtle)] bg-black object-contain"
+                />
+              )
+            ) : (
+              <CanvasPresentation
+                theme={activeTheme}
+                item={visibleItem}
+                className={
+                  isFullscreenLayout ? "[&_canvas]:rounded-none" : undefined
+                }
+              />
+            )}
           </div>
         ) : (
           <PanelEmptyState

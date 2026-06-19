@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
+import { emitTo } from "@tauri-apps/api/event"
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import {
   buildVideoCommand,
@@ -7,7 +8,11 @@ import {
 } from "@/lib/broadcast-video-control"
 import { VIDEO_TRANSPORT_EVENT } from "@/lib/library/library-video"
 import { convertTauriFileSrc, isTauriRuntime } from "@/lib/tauri-runtime"
-import type { PresentationRenderData, VideoPresentationSource } from "@/types"
+import type {
+  BroadcastOutputId,
+  PresentationRenderData,
+  VideoPresentationSource,
+} from "@/types"
 
 interface UseBroadcastVideoOptions {
   video: HTMLVideoElement | null
@@ -62,9 +67,24 @@ function stopVideo(element: HTMLVideoElement): void {
   element.load()
 }
 
+function isBroadcastOutputId(outputId: string): outputId is BroadcastOutputId {
+  return outputId === "main" || outputId === "alt"
+}
+
+function reportAudioSinkFailure(outputId: string, error: unknown): void {
+  if (!isTauriRuntime() || !isBroadcastOutputId(outputId)) return
+  void emitTo("main", "broadcast:output-error", {
+    outputId,
+    kind: "video-audio",
+    title: "Video audio output failed",
+    description: `Could not route video audio to the selected output: ${String(error)}`,
+  })
+}
+
 function applyPlaybackCommand(
   element: HTMLVideoElement,
   payload: ReturnType<typeof buildVideoCommand>,
+  outputId: string,
 ): void {
   if (payload.type === "play") void element.play().catch(() => undefined)
   if (payload.type === "pause") element.pause()
@@ -79,7 +99,7 @@ function applyPlaybackCommand(
   if (payload.type === "setSinkId" && "setSinkId" in element) {
     void (element as HTMLVideoElement & { setSinkId: (sinkId: string) => Promise<void> })
       .setSinkId(payload.sinkId)
-      .catch(() => undefined)
+      .catch((error) => reportAudioSinkFailure(outputId, error))
   }
   if (payload.type === "stop") stopVideo(element)
 }
@@ -133,10 +153,14 @@ export function useBroadcastVideo({
         loadVideoSource(element, payload.item.video)
         return
       }
+      if (payload.type === "setSinkId") {
+        applyPlaybackCommand(element, payload, outputId)
+        return
+      }
       if (!itemRef.current?.video || itemRef.current.video.source === "youtube") return
-      applyPlaybackCommand(element, payload)
+      applyPlaybackCommand(element, payload, outputId)
     },
-    [],
+    [outputId],
   )
 
   useEffect(() => {

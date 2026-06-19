@@ -27,3 +27,15 @@ export function canSetAudioSink(): boolean {
   if (typeof document === "undefined") return false
   return "setSinkId" in document.createElement("video")
 }
+
+export function audioOutputScanLabel(input: {
+  canRouteAudio: boolean
+  loading: boolean
+  devices: AudioOutputDevice[]
+}): string {
+  if (!input.canRouteAudio) return "Routing unavailable"
+  if (input.loading) return "Scanning outputs"
+  if (input.devices.length === 0) return "No outputs found"
+  if (input.devices.length === 1) return "1 output found"
+  return `${input.devices.length} outputs found`
+}

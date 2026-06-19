@@ -40,6 +40,7 @@ const VALID_OUTPUT_ERROR_KINDS = new Set<BroadcastOutputIssueKind>([
   "manual-detection",
   "auto-detection",
   "verse-lookup",
+  "video-audio",
   "persistence",
 ])
 

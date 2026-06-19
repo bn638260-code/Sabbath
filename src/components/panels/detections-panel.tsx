@@ -23,11 +23,7 @@ import {
   presentEgwParagraph,
   createEgwQueueItem,
 } from "@/lib/presentation-workflow"
-import {
-  presentHymnByNumber,
-  previewHymnByNumber,
-  queueHymnByNumber,
-} from "@/services/hymnal/hymn-voice-control"
+import { loadHymnVoiceControl } from "@/services/hymnal/hymn-voice-control-loader"
 import type {
   DetectionResult,
   EgwParagraph,
@@ -106,7 +102,11 @@ function HymnDetectionCard({
           size="sm"
           variant="outline"
           className="gap-1"
-          onClick={() => void previewHymnByNumber(number)}
+          onClick={() =>
+            void loadHymnVoiceControl().then((mod) =>
+              mod.previewHymnByNumber(number)
+            )
+          }
         >
           <EyeIcon className="size-3" />
           Preview
@@ -114,7 +114,11 @@ function HymnDetectionCard({
         <Button
           size="sm"
           className="gap-1"
-          onClick={() => void presentHymnByNumber(number)}
+          onClick={() =>
+            void loadHymnVoiceControl().then((mod) =>
+              mod.presentHymnByNumber(number)
+            )
+          }
         >
           <PlayIcon className="size-3" />
           Present
@@ -123,7 +127,11 @@ function HymnDetectionCard({
           variant="outline"
           size="sm"
           className="gap-1"
-          onClick={() => void queueHymnByNumber(number)}
+          onClick={() =>
+            void loadHymnVoiceControl().then((mod) =>
+              mod.queueHymnByNumber(number)
+            )
+          }
         >
           <PlusIcon className="size-3" />
           Queue

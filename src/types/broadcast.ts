@@ -10,6 +10,7 @@ export type BroadcastOutputIssueKind =
   | "manual-detection"
   | "auto-detection"
   | "verse-lookup"
+  | "video-audio"
   | "persistence"
 
 export interface BroadcastOutputIssue {

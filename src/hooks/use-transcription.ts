@@ -12,6 +12,7 @@ import { useDetectionStore } from "@/stores/detection-store"
 import { useSettingsStore, type SttProvider } from "@/stores/settings-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
 import { handleSermonSlideVoiceControl } from "@/services/slides/sermon-slide-voice-control"
+import { loadHymnVoiceControl } from "@/services/hymnal/hymn-voice-control-loader"
 import type { DetectionResult, ReadingAdvance } from "@/types"
 import { useTauriEvent } from "./use-tauri-event"
 
@@ -42,15 +43,6 @@ const MISSING_GLADIA_KEY_MARKER = "No Gladia API key"
 const NOT_RUNNING_ERROR = "Transcription is not running"
 const MAYBE_HYMN_CUE_PATTERN =
   /\b(?:sda\s+(?:hymn|song)|(?:hymn|song))(?:\s+number)?\s+[a-z0-9]/i
-
-let hymnVoiceControlPromise: Promise<
-  typeof import("@/services/hymnal/hymn-voice-control")
-> | null = null
-
-function loadHymnVoiceControl() {
-  hymnVoiceControlPromise ??= import("@/services/hymnal/hymn-voice-control")
-  return hymnVoiceControlPromise
-}
 
 export const transcriptionActions = {
   async start(

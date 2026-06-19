@@ -6,13 +6,16 @@ import {
   useBroadcastYoutube,
   useYoutubeEmbedUrl,
 } from "@/hooks/use-broadcast-youtube"
-import { useBroadcastOutputRuntime } from "@/hooks/use-broadcast-output-runtime"
+import {
+  type BroadcastPayload,
+  useBroadcastOutputRuntime,
+} from "@/hooks/use-broadcast-output-runtime"
 import {
   ACCENT_THEME_STORAGE_KEY,
   accentThemeClassName,
   type AccentTheme,
 } from "@/stores/accent-theme-store"
-import type { PresentationRenderData } from "@/types"
+import type { BroadcastTransitionType, PresentationRenderData } from "@/types"
 
 function readAccentTheme(): AccentTheme {
   try {
@@ -45,16 +48,31 @@ function applyAccentThemeToDocument() {
 const outputId =
   new URLSearchParams(window.location.search).get("output") ?? "main"
 
+function videoTransitionClass(type: BroadcastTransitionType | undefined): string {
+  if (type === "fade") return "live-anim-fade"
+  if (type === "slide") return "live-anim-slide"
+  if (type === "scale") return "live-anim-scale"
+  return ""
+}
+
 function BroadcastCanvas() {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null)
   const [youtubeFrame, setYoutubeFrame] = useState<HTMLIFrameElement | null>(null)
   const [item, setItem] = useState<PresentationRenderData | null>(null)
+  const [videoTransition, setVideoTransition] = useState("")
   const videoItem = item?.kind === "video" ? item : null
   const youtubeSrc = useYoutubeEmbedUrl(videoItem?.video?.youtubeId)
   const isYoutube = videoItem?.video?.source === "youtube"
   const handlePayloadChange = useCallback(
-    (payload: { item: PresentationRenderData | null }) => setItem(payload.item),
+    (payload: BroadcastPayload) => {
+      setItem(payload.item)
+      setVideoTransition(
+        payload.item?.kind === "video"
+          ? videoTransitionClass(payload.transition?.type)
+          : "",
+      )
+    },
     [],
   )
 
@@ -92,7 +110,9 @@ function BroadcastCanvas() {
         }}
       />
       <video
+        key={videoItem?.video?.videoId ?? "video"}
         ref={setVideoElement}
+        className={videoTransition}
         playsInline
         style={{
           position: "fixed",
@@ -106,7 +126,9 @@ function BroadcastCanvas() {
         }}
       />
       <iframe
+        key={videoItem?.video?.videoId ?? "youtube"}
         ref={setYoutubeFrame}
+        className={videoTransition}
         title={videoItem?.reference ?? "YouTube video"}
         src={isYoutube && youtubeSrc ? youtubeSrc : undefined}
         allow="autoplay; encrypted-media; picture-in-picture"

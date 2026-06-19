@@ -4,6 +4,7 @@ import {
   ClipboardListIcon,
   LibraryIcon,
   LayoutGridIcon,
+  ListOrderedIcon,
   PlayCircleIcon,
   RadioIcon,
   SettingsIcon,
@@ -25,6 +26,12 @@ export type DashboardWorkspaceNavItem = {
 /** Workspace navigation order, rendered as icon-first buttons in the top navigation. */
 export const DASHBOARD_WORKSPACE_NAV: DashboardWorkspaceNavItem[] = [
   { id: "live", label: "Live Desk", icon: LayoutGridIcon, shortcut: "Ctrl/Cmd + 1" },
+  {
+    id: "queue",
+    label: "Queue",
+    icon: ListOrderedIcon,
+    shortcut: "Ctrl/Cmd + 6",
+  },
   {
     id: "run-service",
     label: "Run Service Flow",

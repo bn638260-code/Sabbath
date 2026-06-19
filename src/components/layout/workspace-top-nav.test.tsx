@@ -29,7 +29,7 @@ describe("WorkspaceTopNav", () => {
     const nav = screen.getByRole("navigation", { name: "Workspaces" })
     expect(nav).toBeTruthy()
     const buttons = screen.getAllByRole("button")
-    expect(buttons).toHaveLength(8)
+    expect(buttons).toHaveLength(9)
     for (const button of buttons) {
       expect(button.getAttribute("aria-label")).toBeTruthy()
     }
@@ -60,6 +60,12 @@ describe("WorkspaceTopNav", () => {
     renderTopNav()
     fireEvent.click(screen.getByRole("button", { name: /Church Library/ }))
     expect(useDashboardWorkspaceStore.getState().workspace).toBe("library")
+  })
+
+  it("switches to the Queue workspace", () => {
+    renderTopNav()
+    fireEvent.click(screen.getByRole("button", { name: /Queue/ }))
+    expect(useDashboardWorkspaceStore.getState().workspace).toBe("queue")
   })
 
   it("marks the active workspace icon with aria-current", () => {

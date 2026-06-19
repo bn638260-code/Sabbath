@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DetectionsPanel } from "./detections-panel"
 import type { DetectionResult, Verse } from "@/types"
@@ -175,7 +175,7 @@ describe("DetectionsPanel", () => {
     ).toBeTruthy()
   })
 
-  it("renders a spoken hymn as a card and sends it live", () => {
+  it("renders a spoken hymn as a card and sends it live", async () => {
     detectionsRef.current = [hymnDetection]
     render(<DetectionsPanel />)
 
@@ -184,7 +184,7 @@ describe("DetectionsPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /present/i }))
 
-    expect(presentHymnMock).toHaveBeenCalledWith(46)
+    await waitFor(() => expect(presentHymnMock).toHaveBeenCalledWith(46))
     expect(presentVerseMock).not.toHaveBeenCalled()
   })
 })

@@ -59,6 +59,10 @@ export default defineConfig({
         main: path.resolve(__dirname, "index.html"),
         broadcast: path.resolve(__dirname, "broadcast-output.html"),
       },
+      onwarn(warning, warn) {
+        if (warning.code === "PLUGIN_TIMINGS") return
+        warn(warning)
+      },
       output: {
         manualChunks(id) {
           const normalizedId = id.replace(/\\/g, "/")

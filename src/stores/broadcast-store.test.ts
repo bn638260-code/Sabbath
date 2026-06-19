@@ -542,4 +542,41 @@ describe("broadcast store sync", () => {
       },
     )
   })
+
+  it("reapplies the selected audio output when a video item goes live", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const item = {
+      kind: "video" as const,
+      reference: "Welcome Video",
+      segments: [{ text: "Welcome Video" }],
+      video: {
+        source: "url" as const,
+        videoId: "video-1",
+        title: "Welcome Video",
+        url: "https://cdn.example.com/welcome.mp4",
+      },
+    }
+
+    useBroadcastStore.getState().setPreferredAudioOutputDeviceId("speaker-1")
+    emitToMock.mockClear()
+
+    useBroadcastStore.getState().commitLiveItem(item)
+
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:video-control",
+      {
+        type: "setSinkId",
+        sinkId: "speaker-1",
+      },
+    )
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast-alt",
+      "broadcast:video-control",
+      {
+        type: "setSinkId",
+        sinkId: "speaker-1",
+      },
+    )
+  })
 })

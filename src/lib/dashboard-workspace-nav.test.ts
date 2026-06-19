@@ -7,6 +7,7 @@ import type { DashboardWorkspace } from "@/stores/dashboard-workspace-store"
 
 const EXPECTED_IDS: DashboardWorkspace[] = [
   "live",
+  "queue",
   "run-service",
   "service-plans",
   "live-service",
@@ -35,6 +36,7 @@ describe("dashboard-workspace-nav", () => {
     expect(shortcuts["run-service"]).toBe("Ctrl/Cmd + 3")
     expect(shortcuts.hymns).toBe("Ctrl/Cmd + 4")
     expect(shortcuts.library).toBe("Ctrl/Cmd + 5")
+    expect(shortcuts.queue).toBe("Ctrl/Cmd + 6")
     expect(shortcuts["live-service"]).toBeUndefined()
     expect(shortcuts.settings).toBeUndefined()
     expect(shortcuts["help-legal"]).toBeUndefined()
@@ -53,6 +55,7 @@ describe("dashboard-workspace-nav", () => {
       expect(workspaceNavLabel(id)).toBeTruthy()
     }
     expect(workspaceNavLabel("live")).toBe("Live Desk")
+    expect(workspaceNavLabel("queue")).toBe("Queue")
     expect(workspaceNavLabel("live-service")).toBe("Broadcast Control")
     expect(workspaceNavLabel("settings")).toBe("System Settings")
     expect(workspaceNavLabel("help-legal")).toBe("Help & Legal")

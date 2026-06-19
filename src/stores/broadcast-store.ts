@@ -19,7 +19,7 @@ import {
   type VideoTransportCommand,
 } from "@/lib/broadcast-video-control"
 import { isTauriRuntime } from "@/lib/tauri-runtime"
-import { restoreHymnDeckForQueueItem } from "@/lib/queued-hymn-deck"
+import { restorePresentationDeckForQueueItem } from "@/lib/queued-presentation-deck"
 import { getPresentationRenderData } from "@/types"
 import { useQueueStore } from "@/stores/queue-store"
 
@@ -655,6 +655,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     })
     if (liveItem.kind === "video") {
       get().sendVideoCommand({ type: "load", item: liveItem })
+      const sinkId = get().preferredAudioOutputDeviceId
+      if (sinkId) get().sendVideoCommand({ type: "setSinkId", sinkId })
     } else if (previousWasVideo) {
       get().sendVideoCommand({ type: "stop" })
     }
@@ -742,7 +744,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     }
     if (decision === "advance" && nextItem) {
       queue.setActive(nextIndex)
-      restoreHymnDeckForQueueItem(nextItem)
+      restorePresentationDeckForQueueItem(nextItem)
       const renderData = getPresentationRenderData(nextItem.presentation)
       get().commitLiveItem(renderData)
     }

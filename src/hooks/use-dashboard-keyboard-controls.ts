@@ -223,6 +223,11 @@ function handleWorkspaceShortcut(key: string): boolean {
     useServicePlanStore.getState().closePlanner()
     return true
   }
+  if (key === "6") {
+    useDashboardWorkspaceStore.getState().setWorkspace("queue")
+    useServicePlanStore.getState().closePlanner()
+    return true
+  }
   return false
 }
 

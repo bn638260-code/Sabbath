@@ -1,4 +1,8 @@
-import type { HymnPresentationItemData, PresentationItem } from "./presentation"
+import type {
+  HymnPresentationItemData,
+  PresentationItem,
+  SlideDeckPresentationItemData,
+} from "./presentation"
 import { getPresentationReference, getScriptureVerse } from "./presentation"
 
 export interface QueueItem {
@@ -28,6 +32,8 @@ export interface QueueItem {
   }
   /** Full hymn/song deck snapshot used to restore slide navigation from older queued items. */
   hymnDeck?: HymnPresentationItemData[]
+  /** Full slide deck snapshot used to restore PowerPoint/image-deck navigation from queued items. */
+  slideDeck?: SlideDeckPresentationItemData[]
 }
 
 export function getVerseFromItem(item: QueueItem) {
