@@ -25,7 +25,7 @@ export type {
   VerificationStatus,
 } from "./verification"
 export { getVerseFromItem, getReferenceFromItem } from "./queue"
-export type { DetectionResult, DetectionStatus, ReadingAdvance, SemanticSearchResult } from "./detection"
+export type { DetectionResult, DetectionStatus, HymnDetection, ReadingAdvance, SemanticSearchResult } from "./detection"
 export type {
   BroadcastIssueOutputId,
   BroadcastOutputErrorEvent,
