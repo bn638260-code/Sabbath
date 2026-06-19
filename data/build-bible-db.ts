@@ -14,7 +14,6 @@ const SCHEMA_PATH = join(DATA_DIR, "schema.sql")
 const SOURCES_DIR = join(DATA_DIR, "sources")
 const CROSS_REFS_PATH = join(DATA_DIR, "cross-refs", "cross_references.txt")
 
-// OSIS book abbreviation → book number mapping
 const OSIS_TO_NUM: Record<string, number> = {
   Gen: 1, Exod: 2, Lev: 3, Num: 4, Deut: 5, Josh: 6, Judg: 7, Ruth: 8,
   "1Sam": 9, "2Sam": 10, "1Kgs": 11, "2Kgs": 12, "1Chr": 13, "2Chr": 14,
@@ -28,7 +27,6 @@ const OSIS_TO_NUM: Record<string, number> = {
   "1John": 62, "2John": 63, "3John": 64, Jude: 65, Rev: 66,
 }
 
-// Standard book abbreviations for our DB
 const BOOK_ABBREVS: Record<string, string> = {
   Genesis: "Gen", Exodus: "Exod", Leviticus: "Lev", Numbers: "Num",
   Deuteronomy: "Deut", Joshua: "Josh", Judges: "Judg", Ruth: "Ruth",
@@ -84,31 +82,42 @@ const TRANSLATIONS_META: Array<{
   { file: "PorBLivre.json", abbreviation: "PorBLivre", title: "Biblia Livre", language: "pt", license: "Public Domain", isCopyrighted: false, includeInPublicRelease: true },
 ]
 
-function main() {
-  console.log("\n🔨 Building rhema.db...\n")
+type ParsedOsis = { book: number; chapter: number; verse: number }
+type ParsedOsisRange = { start: ParsedOsis; end: ParsedOsis }
 
-  // Remove existing DB
+function resetDatabase(): Database {
   try {
     unlinkSync(DB_PATH)
   } catch {
     // The database may not exist yet on a fresh build.
   }
+  return new Database(DB_PATH, { create: true })
+}
 
-  const db = new Database(DB_PATH, { create: true })
-
-  // Create schema — execute each statement individually for FTS5 compatibility
+function createSchema(db: Database): void {
   const schema = readFileSync(SCHEMA_PATH, "utf-8")
   const statements = schema.split(";").map((s) => s.trim()).filter(Boolean)
   for (const stmt of statements) {
-    try {
-      db.exec(stmt + ";")
-    } catch (e) {
-      console.error(`  ❌ Failed on SQL: ${stmt.substring(0, 60)}...`)
-      throw e
-    }
+    db.exec(stmt + ";")
+  }
+}
+
+function insertTranslationData(db: Database, meta: (typeof TRANSLATIONS_META)[number]): void {
+  if (PUBLIC_RELEASE && !meta.includeInPublicRelease) {
+    console.log(`  skipped ${meta.abbreviation}: public release`)
+    return
   }
 
-  // Prepare insert statements
+  const filePath = join(SOURCES_DIR, meta.file)
+  let raw: string
+  try {
+    raw = readFileSync(filePath, "utf-8")
+  } catch {
+    console.log(`  skipped ${meta.file}: not found`)
+    return
+  }
+
+  const data: ScrollmapperJSON = JSON.parse(raw)
   const insertTranslation = db.prepare(
     "INSERT INTO translations (abbreviation, title, language, license, is_copyrighted, is_downloaded) VALUES (?, ?, ?, ?, ?, ?)"
   )
@@ -119,160 +128,140 @@ function main() {
     "INSERT INTO verses (translation_id, book_id, book_number, book_name, book_abbreviation, chapter, verse, text) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   )
 
-  // Process each translation
-  for (const meta of TRANSLATIONS_META) {
-    if (PUBLIC_RELEASE && !meta.includeInPublicRelease) {
-      console.log(`  ⏭ ${meta.abbreviation}: skipped for public release`)
-      continue
-    }
+  db.exec("BEGIN TRANSACTION")
+  insertTranslation.run(
+    meta.abbreviation,
+    meta.title,
+    meta.language,
+    meta.license,
+    meta.isCopyrighted ? 1 : 0,
+    1,
+  )
+  const translation = db.query("SELECT last_insert_rowid() as id").get() as { id: number }
+  let verseCount = 0
 
-    const filePath = join(SOURCES_DIR, meta.file)
-    console.log(`  📖 Processing ${meta.abbreviation}...`)
+  for (let bookIdx = 0; bookIdx < data.books.length; bookIdx++) {
+    const book = data.books[bookIdx]
+    const abbrev = BOOK_ABBREVS[book.name] || book.name.substring(0, 4)
+    const bookNumber = OSIS_TO_NUM[abbrev] ?? bookIdx + 1
+    const testament = bookNumber <= 39 ? "OT" : "NT"
+    insertBook.run(translation.id, bookNumber, book.name, abbrev, testament)
+    const bookResult = db.query("SELECT last_insert_rowid() as id").get() as { id: number }
 
-    let raw: string
-    try {
-      raw = readFileSync(filePath, "utf-8")
-    } catch {
-      console.log(`  ⏭ ${meta.file} not found, skipping`)
-      continue
-    }
-
-    const data: ScrollmapperJSON = JSON.parse(raw)
-
-    db.exec("BEGIN TRANSACTION")
-
-    // Insert translation
-    insertTranslation.run(
-      meta.abbreviation,
-      meta.title,
-      meta.language,
-      meta.license,
-      meta.isCopyrighted ? 1 : 0,
-      1,
-    )
-    const translationId = db.query("SELECT last_insert_rowid() as id").get() as { id: number }
-    const tId = translationId.id
-
-    let verseCount = 0
-
-    // Insert books and verses
-    for (let bookIdx = 0; bookIdx < data.books.length; bookIdx++) {
-      const book = data.books[bookIdx]
-      const abbrev = BOOK_ABBREVS[book.name] || book.name.substring(0, 4)
-      const bookNumber = OSIS_TO_NUM[abbrev] ?? bookIdx + 1
-      const testament = bookNumber <= 39 ? "OT" : "NT"
-
-      insertBook.run(tId, bookNumber, book.name, abbrev, testament)
-      const bookResult = db.query("SELECT last_insert_rowid() as id").get() as { id: number }
-      const bookId = bookResult.id
-
-      for (const chapter of book.chapters) {
-        for (const verse of chapter.verses) {
-          insertVerse.run(tId, bookId, bookNumber, book.name, abbrev, chapter.chapter, verse.verse, verse.text)
-          verseCount++
-        }
+    for (const chapter of book.chapters) {
+      for (const verse of chapter.verses) {
+        insertVerse.run(translation.id, bookResult.id, bookNumber, book.name, abbrev, chapter.chapter, verse.verse, verse.text)
+        verseCount++
       }
     }
-
-    db.exec("COMMIT")
-    console.log(`  ✓ ${meta.abbreviation}: ${data.books.length} books, ${verseCount} verses`)
   }
 
-  // Build FTS5 index
-  console.log("\n  🔍 Building FTS5 search index...")
+  db.exec("COMMIT")
+  console.log(`  ${meta.abbreviation}: ${data.books.length} books, ${verseCount} verses`)
+}
+
+function importTranslations(db: Database): void {
+  for (const meta of TRANSLATIONS_META) {
+    console.log(`  Processing ${meta.abbreviation}...`)
+    insertTranslationData(db, meta)
+  }
+}
+
+function buildSearchIndex(db: Database): void {
+  console.log("\n  Building FTS5 search index...")
   db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS verses_fts USING fts5(text, content='verses', content_rowid='id', tokenize='unicode61');")
   db.exec("INSERT INTO verses_fts(rowid, text) SELECT id, text FROM verses;")
-  console.log("  ✓ FTS5 index built")
+}
 
-  // Import cross-references
-  console.log("\n  🔗 Importing cross-references...")
-  let crossRefRaw: string
+function parseOsis(ref: string): ParsedOsis | null {
+  const parts = ref.split(".")
+  if (parts.length !== 3) return null
+  const chapter = parseInt(parts[1])
+  const verse = parseInt(parts[2])
+  const book = OSIS_TO_NUM[parts[0]]
+  if (!book || isNaN(chapter) || isNaN(verse)) return null
+  return { book, chapter, verse }
+}
+
+function parseOsisRange(ref: string): ParsedOsisRange | null {
+  const [startRef, endRef] = ref.split("-", 2)
+  const start = parseOsis(startRef)
+  if (!start) return null
+  if (!endRef) return { start, end: start }
+
+  const end = parseOsis(endRef)
+  if (!end) return null
+  if (end.book !== start.book || end.chapter !== start.chapter) return null
+  return { start, end }
+}
+
+function importCrossReferences(db: Database): void {
+  console.log("\n  Importing cross-references...")
+  let raw: string
   try {
-    crossRefRaw = readFileSync(CROSS_REFS_PATH, "utf-8")
+    raw = readFileSync(CROSS_REFS_PATH, "utf-8")
   } catch {
-    console.log("  ⏭ cross_references.txt not found, skipping")
-    crossRefRaw = ""
+    console.log("  skipped cross_references.txt: not found")
+    return
   }
 
-  if (crossRefRaw) {
-    const insertCrossRef = db.prepare(
-      "INSERT INTO cross_references (from_book, from_chapter, from_verse, to_book, to_chapter, to_verse_start, to_verse_end, votes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  const insertCrossRef = db.prepare(
+    "INSERT INTO cross_references (from_book, from_chapter, from_verse, to_book, to_chapter, to_verse_start, to_verse_end, votes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  )
+  db.exec("BEGIN TRANSACTION")
+  let count = 0
+
+  for (const line of raw.split("\n")) {
+    if (line.startsWith("From") || line.startsWith("#") || !line.trim()) continue
+    const [fromStr, toStr, votesStr] = line.split("\t")
+    const from = parseOsis(fromStr)
+    const to = parseOsisRange(toStr)
+    if (!from || !to) continue
+
+    insertCrossRef.run(
+      from.book,
+      from.chapter,
+      from.verse,
+      to.start.book,
+      to.start.chapter,
+      to.start.verse,
+      to.end.verse,
+      parseInt(votesStr) || 0,
     )
-
-    type ParsedOsis = { book: number; chapter: number; verse: number }
-    type ParsedOsisRange = {
-      start: ParsedOsis
-      end: ParsedOsis
-    }
-
-    function parseOsis(ref: string): ParsedOsis | null {
-      // Format: "Gen.1.1" or "1John.3.16"
-      const parts = ref.split(".")
-      if (parts.length !== 3) return null
-      const bookAbbrev = parts[0]
-      const chapter = parseInt(parts[1])
-      const verse = parseInt(parts[2])
-      const book = OSIS_TO_NUM[bookAbbrev]
-      if (!book || isNaN(chapter) || isNaN(verse)) return null
-      return { book, chapter, verse }
-    }
-
-    function parseOsisRange(ref: string): ParsedOsisRange | null {
-      const [startRef, endRef] = ref.split("-", 2)
-      const start = parseOsis(startRef)
-      if (!start) return null
-
-      if (!endRef) {
-        return { start, end: start }
-      }
-
-      const end = parseOsis(endRef)
-      if (!end) return null
-      if (end.book !== start.book || end.chapter !== start.chapter) return null
-
-      return { start, end }
-    }
-
-    const lines = crossRefRaw.split("\n")
-    db.exec("BEGIN TRANSACTION")
-
-    let crossRefCount = 0
-    for (const line of lines) {
-      if (line.startsWith("From") || line.startsWith("#") || !line.trim()) continue
-      const [fromStr, toStr, votesStr] = line.split("\t")
-      const from = parseOsis(fromStr)
-      const to = parseOsisRange(toStr)
-      if (!from || !to) continue
-
-      const votes = parseInt(votesStr) || 0
-      insertCrossRef.run(
-        from.book, from.chapter, from.verse,
-        to.start.book, to.start.chapter, to.start.verse, to.end.verse,
-        votes
-      )
-      crossRefCount++
-    }
-
-    db.exec("COMMIT")
-    console.log(`  ✓ ${crossRefCount.toLocaleString()} cross-references imported`)
+    count++
   }
 
-  // Optimize
-  console.log("\n  ⚡ Optimizing database...")
+  db.exec("COMMIT")
+  console.log(`  ${count.toLocaleString()} cross-references imported`)
+}
+
+function optimizeDatabase(db: Database): void {
+  console.log("\n  Optimizing database...")
   db.exec("PRAGMA optimize;")
   db.exec("ANALYZE;")
+}
 
-  // Stats
+function logStats(db: Database): void {
   const verseTotal = db.query("SELECT COUNT(*) as c FROM verses").get() as { c: number }
   const transTotal = db.query("SELECT COUNT(*) as c FROM translations").get() as { c: number }
   const crossTotal = db.query("SELECT COUNT(*) as c FROM cross_references").get() as { c: number }
 
-  console.log(`\n✅ rhema.db built successfully!`)
+  console.log("\nrhema.db built successfully")
   console.log(`   ${transTotal.c} translations`)
   console.log(`   ${verseTotal.c.toLocaleString()} verses`)
   console.log(`   ${crossTotal.c.toLocaleString()} cross-references`)
-  console.log(`   📁 ${DB_PATH}\n`)
+  console.log(`   ${DB_PATH}\n`)
+}
 
+function main(): void {
+  console.log("\nBuilding rhema.db...\n")
+  const db = resetDatabase()
+  createSchema(db)
+  importTranslations(db)
+  buildSearchIndex(db)
+  importCrossReferences(db)
+  optimizeDatabase(db)
+  logStats(db)
   db.close()
 }
 

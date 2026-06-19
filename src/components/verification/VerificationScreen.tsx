@@ -14,8 +14,13 @@ import { AppLogo } from "@/components/ui/app-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SegmentedControl } from "@/components/ui/segmented-control"
+import { APP_DISPLAY_NAME } from "@/lib/app-brand"
 import { cn } from "@/lib/utils"
 import { requestPasswordReset } from "@/lib/supabase/auth"
+import {
+  accentThemeClassName,
+  useAccentThemeStore,
+} from "@/stores/accent-theme-store"
 import { useVerificationStore } from "@/stores/verification-store"
 import type {
   VerificationErrorCode,
@@ -113,11 +118,13 @@ function AuthNotice({
   return (
     <div
       className={cn(
-        "flex gap-2 rounded-lg border px-3 py-2 text-left text-xs leading-relaxed",
+        "flex gap-2 rounded-md border px-3 py-2 text-left text-xs leading-relaxed",
         tone === "success" &&
-          "border-emerald-400/25 bg-emerald-400/10 text-emerald-100",
-        tone === "error" && "border-red-400/25 bg-red-400/10 text-red-100",
-        tone === "info" && "border-sky-400/25 bg-sky-400/10 text-sky-100"
+          "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
+        tone === "error" &&
+          "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-200",
+        tone === "info" &&
+          "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-200"
       )}
       role={tone === "error" ? "alert" : "status"}
     >
@@ -136,8 +143,10 @@ function Field({
   help?: string
 }) {
   return (
-    <label className="flex flex-col gap-1.5 text-left text-xs font-medium text-foreground">
-      <span>{label}</span>
+    <label className="flex flex-col gap-1.5 text-left">
+      <span className="font-mono text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+        {label}
+      </span>
       <Input {...props} />
       {help ? (
         <span className="text-[11px] leading-relaxed font-normal text-muted-foreground">
@@ -200,7 +209,7 @@ function PasswordResetForm({
     >
       <button
         type="button"
-        className="inline-flex w-fit items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="btn-action inline-flex h-7 w-fit items-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground hover:bg-[var(--shell-bg-sunken)] hover:text-foreground"
         disabled={busy}
         onClick={() =>
           onBack(
@@ -215,7 +224,7 @@ function PasswordResetForm({
       </button>
 
       <div className="space-y-1 text-left">
-        <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
+        <div className="flex items-center gap-2 text-base font-semibold text-foreground">
           <KeyRoundIcon className="size-5 text-[var(--brand-accent)]" />
           Reset password
         </div>
@@ -253,7 +262,369 @@ function PasswordResetForm({
   )
 }
 
+function authFeedback({
+  status,
+  error,
+  errorCode,
+  localMessage,
+  localTone,
+}: {
+  status: VerificationStatus
+  error: string | null
+  errorCode: VerificationErrorCode | null
+  localMessage: string | null
+  localTone: NoticeTone
+}) {
+  const staleSession = status === "expired"
+  const storeNotice = status === "required" && error ? error : null
+  const storeError =
+    status === "error" ? formatErrorMessage(errorCode, error) : null
+
+  return {
+    canRetry: (status === "error" && errorCode === "network") || staleSession,
+    message: localMessage ?? storeError ?? storeNotice,
+    staleSession,
+    tone:
+      localMessage !== null
+        ? localTone
+        : storeError
+          ? ("error" as const)
+          : ("success" as const),
+  }
+}
+
+function submitLabelFor(
+  mode: AuthMode,
+  pendingAction: PendingAction
+): string {
+  if (mode === "create-account") {
+    return pendingAction === "create-account"
+      ? "Creating account"
+      : "Create account"
+  }
+  return pendingAction === "sign-in" ? "Signing in" : "Sign in"
+}
+
+function AuthFields({
+  mode,
+  busy,
+  email,
+  password,
+  confirmPassword,
+  onEmailChange,
+  onPasswordChange,
+  onConfirmPasswordChange,
+}: {
+  mode: AuthMode
+  busy: boolean
+  email: string
+  password: string
+  confirmPassword: string
+  onEmailChange: (email: string) => void
+  onPasswordChange: (password: string) => void
+  onConfirmPasswordChange: (password: string) => void
+}) {
+  return (
+    <>
+      <Field
+        autoComplete="email"
+        disabled={busy}
+        label="Email"
+        placeholder="you@example.com"
+        type="email"
+        value={email}
+        onChange={(event) => onEmailChange(event.target.value)}
+      />
+      <Field
+        autoComplete={
+          mode === "create-account" ? "new-password" : "current-password"
+        }
+        disabled={busy}
+        help={
+          mode === "create-account"
+            ? `Use at least ${MIN_PASSWORD_LENGTH} characters.`
+            : undefined
+        }
+        label="Password"
+        placeholder="Password"
+        type="password"
+        value={password}
+        onChange={(event) => onPasswordChange(event.target.value)}
+      />
+      {mode === "create-account" ? (
+        <Field
+          autoComplete="new-password"
+          disabled={busy}
+          label="Confirm password"
+          placeholder="Confirm password"
+          type="password"
+          value={confirmPassword}
+          onChange={(event) => onConfirmPasswordChange(event.target.value)}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function AuthFooterActions({
+  busy,
+  canRetry,
+  staleSession,
+  onForgotPassword,
+  onRetry,
+  onClearSession,
+}: {
+  busy: boolean
+  canRetry: boolean
+  staleSession: boolean
+  onForgotPassword: () => void
+  onRetry: () => void
+  onClearSession: () => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2 border-t border-[var(--border-dim)] pt-4">
+      <Button
+        disabled={busy}
+        size="sm"
+        type="button"
+        variant="ghost"
+        onClick={onForgotPassword}
+      >
+        <KeyRoundIcon className="size-4" />
+        Forgot password?
+      </Button>
+
+      {canRetry ? (
+        <Button
+          disabled={busy}
+          size="sm"
+          type="button"
+          variant="ghost"
+          onClick={onRetry}
+        >
+          <LoaderCircleIcon className="size-4" />
+          Retry
+        </Button>
+      ) : null}
+
+      {staleSession ? (
+        <Button
+          disabled={busy}
+          size="sm"
+          type="button"
+          variant="ghost"
+          onClick={onClearSession}
+        >
+          <ArrowLeftIcon className="size-4" />
+          Clear session
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+function VerificationStatusChip({ status }: { status: VerificationStatus }) {
+  const label =
+    status === "checking"
+      ? "Checking"
+      : status === "expired"
+        ? "Session expired"
+        : status === "error"
+          ? "Attention needed"
+          : "Account required"
+
+  return (
+    <span
+      className={cn(
+        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 font-mono text-[10px] font-semibold tracking-wide uppercase",
+        status === "expired" || status === "error"
+          ? "border-amber-500/35 bg-amber-500/12 text-amber-700 dark:text-amber-300"
+          : "border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] text-muted-foreground"
+      )}
+    >
+      <ShieldCheckIcon className="size-3" />
+      {label}
+    </span>
+  )
+}
+
+function VerificationHeader({ status }: { status: VerificationStatus }) {
+  return (
+    <header className="z-50 flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-sunken)_86%,transparent)] px-5 backdrop-blur-xl">
+      <div className="flex items-center gap-3">
+        <AppLogo
+          size="sm"
+          className="transition-transform duration-300 hover:rotate-3"
+        />
+        <div className="flex flex-col leading-none">
+          <span className="font-display text-xl tracking-wide text-foreground">
+            {APP_DISPLAY_NAME}
+          </span>
+          <span className="mt-0.5 font-mono text-[9px] tracking-wider text-muted-foreground uppercase">
+            Account Access
+          </span>
+        </div>
+      </div>
+
+      <VerificationStatusChip status={status} />
+    </header>
+  )
+}
+
+function VerificationSidePanel() {
+  return (
+    <section
+      aria-label={`${APP_DISPLAY_NAME} account`}
+      className="hidden border-r border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] p-6 md:flex md:flex-col md:justify-between"
+    >
+      <div className="space-y-5">
+        <div className="space-y-2">
+          <span className="font-mono text-[10px] font-semibold tracking-wider text-[var(--accent)] uppercase">
+            Operator account
+          </span>
+          <h2 className="max-w-xs text-2xl leading-tight font-semibold text-foreground">
+            Sign in to open the presentation controller.
+          </h2>
+          <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+            Your account keeps this installation connected to the verified
+            SabbathCue workspace.
+          </p>
+        </div>
+
+        <div className="grid gap-2 border-y border-[var(--border-subtle)] py-4">
+          {["Controller shell", "Broadcast outputs", "Library sync"].map(
+            (item) => (
+              <div
+                key={item}
+                className="flex items-center justify-between gap-3 text-xs"
+              >
+                <span className="text-muted-foreground">{item}</span>
+                <span className="rounded-md border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-2 py-0.5 font-mono text-[10px] font-semibold text-foreground uppercase">
+                  Ready
+                </span>
+              </div>
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-2 py-1 font-mono text-[10px]">
+        <span className="size-1.5 rounded-full bg-[var(--accent)]" />
+        <span className="text-muted-foreground">Secure session</span>
+      </div>
+    </section>
+  )
+}
+
+function AuthPanel({
+  mode,
+  status,
+  busy,
+  pendingAction,
+  email,
+  password,
+  confirmPassword,
+  message,
+  tone,
+  canRetry,
+  staleSession,
+  onModeChange,
+  onEmailChange,
+  onPasswordChange,
+  onConfirmPasswordChange,
+  onSignIn,
+  onSignUp,
+  onForgotPassword,
+  onRetry,
+  onClearSession,
+}: {
+  mode: AuthMode
+  status: VerificationStatus
+  busy: boolean
+  pendingAction: PendingAction
+  email: string
+  password: string
+  confirmPassword: string
+  message: string | null
+  tone: NoticeTone
+  canRetry: boolean
+  staleSession: boolean
+  onModeChange: (mode: AuthMode) => void
+  onEmailChange: (email: string) => void
+  onPasswordChange: (password: string) => void
+  onConfirmPasswordChange: (password: string) => void
+  onSignIn: (event: FormEvent<HTMLFormElement>) => void
+  onSignUp: (event: FormEvent<HTMLFormElement>) => void
+  onForgotPassword: () => void
+  onRetry: () => void
+  onClearSession: () => void
+}) {
+  const SubmitIcon = mode === "create-account" ? UserPlusIcon : LogInIcon
+
+  return (
+    <>
+      <div className="space-y-4">
+        <SegmentedControl
+          aria-label="Authentication mode"
+          className="w-full justify-center"
+          options={AUTH_MODE_OPTIONS}
+          value={mode}
+          onChange={onModeChange}
+        />
+
+        <div className="space-y-1 text-left">
+          <h1 className="text-xl font-semibold text-foreground">
+            {modeTitle(mode, status)}
+          </h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {modeDescription(mode, status)}
+          </p>
+        </div>
+      </div>
+
+      {message ? <AuthNotice tone={tone}>{message}</AuthNotice> : null}
+
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) =>
+          mode === "create-account" ? onSignUp(event) : onSignIn(event)
+        }
+      >
+        <AuthFields
+          busy={busy}
+          confirmPassword={confirmPassword}
+          email={email}
+          mode={mode}
+          password={password}
+          onConfirmPasswordChange={onConfirmPasswordChange}
+          onEmailChange={onEmailChange}
+          onPasswordChange={onPasswordChange}
+        />
+
+        <Button className="w-full" disabled={busy} type="submit">
+          {pendingAction === mode ? (
+            <LoaderCircleIcon className="size-4 animate-spin" />
+          ) : (
+            <SubmitIcon className="size-4" />
+          )}
+          {submitLabelFor(mode, pendingAction)}
+        </Button>
+      </form>
+
+      <AuthFooterActions
+        busy={busy}
+        canRetry={canRetry}
+        staleSession={staleSession}
+        onClearSession={onClearSession}
+        onForgotPassword={onForgotPassword}
+        onRetry={onRetry}
+      />
+    </>
+  )
+}
+
 export function VerificationScreen() {
+  const accentTheme = useAccentThemeStore((s) => s.theme)
   const status = useVerificationStore((s) => s.status)
   const error = useVerificationStore((s) => s.error)
   const errorCode = useVerificationStore((s) => s.errorCode)
@@ -273,15 +644,13 @@ export function VerificationScreen() {
 
   const isChecking = status === "checking"
   const isBusy = isChecking || pendingAction !== null
-  const staleSession = status === "expired"
-  const storeNotice = status === "required" && error ? error : null
-  const storeError =
-    status === "error" ? formatErrorMessage(errorCode, error) : null
-  const canRetry =
-    (status === "error" && errorCode === "network") || staleSession
-  const visibleMessage = localMessage ?? storeError ?? storeNotice
-  const visibleTone: NoticeTone =
-    localMessage !== null ? localTone : storeError ? "error" : "success"
+  const feedback = authFeedback({
+    error,
+    errorCode,
+    localMessage,
+    localTone,
+    status,
+  })
 
   function setModeAndClear(nextMode: AuthMode) {
     setMode(nextMode)
@@ -344,190 +713,77 @@ export function VerificationScreen() {
     setPendingAction(null)
   }
 
-  const submitLabel =
-    mode === "create-account"
-      ? pendingAction === "create-account"
-        ? "Creating account"
-        : "Create account"
-      : pendingAction === "sign-in"
-        ? "Signing in"
-        : "Sign in"
-  const SubmitIcon = mode === "create-account" ? UserPlusIcon : LogInIcon
-
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-y-auto bg-[var(--bg-deep)] p-4 text-foreground">
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),transparent_35%,rgba(16,185,129,0.08)_70%,rgba(14,165,233,0.1))]" />
-      <main className="relative grid w-full max-w-4xl overflow-hidden rounded-[8px] border border-[var(--border-dim)] bg-[rgba(3,5,10,0.92)] shadow-[0_28px_90px_rgba(0,0,0,0.65)] md:grid-cols-[0.9fr_1.1fr]">
-        <section
-          aria-label="SabbathCue account"
-          className="hidden border-r border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-8 md:flex md:flex-col md:justify-between"
-        >
-          <div className="space-y-8">
-            <AppLogo size="lg" />
-            <p className="max-w-xs text-2xl leading-tight font-semibold text-foreground">
-              SabbathCue account
-            </p>
-          </div>
-          <div
-            aria-hidden="true"
-            className="h-44 rounded-[8px] border border-[var(--border-dim)] bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(16,185,129,0.08),rgba(14,165,233,0.14))]"
-          >
-            <div className="h-full bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:28px_28px] opacity-35" />
-          </div>
-        </section>
+    <div
+      id="bodyThemeContainer"
+      className={cn(
+        accentThemeClassName(accentTheme),
+        "fixed inset-0 overflow-hidden bg-[var(--bg-deep)] text-foreground"
+      )}
+    >
+      <div className="app-shell">
+        <VerificationHeader status={status} />
 
-        <section className="p-5 sm:p-8">
-          <div className="mx-auto flex w-full max-w-sm flex-col gap-5">
-            <div className="flex items-center justify-between gap-3 md:hidden">
-              <AppLogo size="md" />
-              <ShieldCheckIcon className="size-5 text-[var(--brand-accent)]" />
-            </div>
+        <main className="relative z-10 flex flex-1 items-center justify-center overflow-y-auto p-4">
+          <div className="glass-panel grid w-full max-w-4xl md:min-h-[520px] md:grid-cols-[0.95fr_1.05fr]">
+            <VerificationSidePanel />
 
-            {showReset ? (
-              <PasswordResetForm
-                busy={pendingAction === "reset-password"}
-                initialEmail={email.trim()}
-                onBusyChange={(busy) =>
-                  setPendingAction(busy ? "reset-password" : null)
-                }
-                onBack={(notice) => {
-                  setShowReset(false)
-                  if (notice) {
-                    setLocalTone("success")
-                    setLocalMessage(notice)
-                  }
-                }}
-              />
-            ) : (
-              <>
-                <div className="space-y-4">
-                  <SegmentedControl
-                    aria-label="Authentication mode"
-                    className="w-full justify-center"
-                    options={AUTH_MODE_OPTIONS}
-                    value={mode}
-                    onChange={setModeAndClear}
-                  />
-
-                  <div className="space-y-1 text-left">
-                    <h1 className="text-xl font-semibold text-foreground">
-                      {modeTitle(mode, status)}
-                    </h1>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      {modeDescription(mode, status)}
-                    </p>
-                  </div>
+            <section className="flex items-center p-5 sm:p-8">
+              <div className="mx-auto flex w-full max-w-sm flex-col gap-5">
+                <div className="flex items-center justify-between gap-3 md:hidden">
+                  <span className="font-mono text-[10px] font-semibold tracking-wider text-[var(--accent)] uppercase">
+                    Operator account
+                  </span>
+                  <ShieldCheckIcon className="size-5 text-[var(--brand-accent)]" />
                 </div>
 
-                {visibleMessage ? (
-                  <AuthNotice tone={visibleTone}>{visibleMessage}</AuthNotice>
-                ) : null}
-
-                <form
-                  className="flex flex-col gap-4"
-                  onSubmit={(event) =>
-                    mode === "create-account"
-                      ? void handleSignUp(event)
-                      : void handleSignIn(event)
-                  }
-                >
-                  <Field
-                    autoComplete="email"
-                    disabled={isBusy}
-                    label="Email"
-                    placeholder="you@example.com"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                  <Field
-                    autoComplete={
-                      mode === "create-account"
-                        ? "new-password"
-                        : "current-password"
+                {showReset ? (
+                  <PasswordResetForm
+                    busy={pendingAction === "reset-password"}
+                    initialEmail={email.trim()}
+                    onBusyChange={(busy) =>
+                      setPendingAction(busy ? "reset-password" : null)
                     }
-                    disabled={isBusy}
-                    help={
-                      mode === "create-account"
-                        ? `Use at least ${MIN_PASSWORD_LENGTH} characters.`
-                        : undefined
-                    }
-                    label="Password"
-                    placeholder="Password"
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                  {mode === "create-account" ? (
-                    <Field
-                      autoComplete="new-password"
-                      disabled={isBusy}
-                      label="Confirm password"
-                      placeholder="Confirm password"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(event) =>
-                        setConfirmPassword(event.target.value)
+                    onBack={(notice) => {
+                      setShowReset(false)
+                      if (notice) {
+                        setLocalTone("success")
+                        setLocalMessage(notice)
                       }
-                    />
-                  ) : null}
-
-                  <Button className="w-full" disabled={isBusy} type="submit">
-                    {pendingAction === mode ? (
-                      <LoaderCircleIcon className="size-4 animate-spin" />
-                    ) : (
-                      <SubmitIcon className="size-4" />
-                    )}
-                    {submitLabel}
-                  </Button>
-                </form>
-
-                <div className="flex flex-wrap items-center justify-center gap-2 border-t border-[var(--border-dim)] pt-4">
-                  <Button
-                    disabled={isBusy}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
+                    }}
+                  />
+                ) : (
+                  <AuthPanel
+                    busy={isBusy}
+                    canRetry={feedback.canRetry}
+                    confirmPassword={confirmPassword}
+                    email={email}
+                    message={feedback.message}
+                    mode={mode}
+                    password={password}
+                    pendingAction={pendingAction}
+                    staleSession={feedback.staleSession}
+                    status={status}
+                    tone={feedback.tone}
+                    onClearSession={() => void signOut()}
+                    onConfirmPasswordChange={setConfirmPassword}
+                    onEmailChange={setEmail}
+                    onForgotPassword={() => {
                       setLocalMessage(null)
                       setShowReset(true)
                     }}
-                  >
-                    <KeyRoundIcon className="size-4" />
-                    Forgot password?
-                  </Button>
-
-                  {canRetry ? (
-                    <Button
-                      disabled={isBusy}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                      onClick={() => void refresh()}
-                    >
-                      <LoaderCircleIcon className="size-4" />
-                      Retry
-                    </Button>
-                  ) : null}
-
-                  {staleSession ? (
-                    <Button
-                      disabled={isBusy}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                      onClick={() => void signOut()}
-                    >
-                      <ArrowLeftIcon className="size-4" />
-                      Clear session
-                    </Button>
-                  ) : null}
-                </div>
-              </>
-            )}
+                    onModeChange={setModeAndClear}
+                    onPasswordChange={setPassword}
+                    onRetry={() => void refresh()}
+                    onSignIn={(event) => void handleSignIn(event)}
+                    onSignUp={(event) => void handleSignUp(event)}
+                  />
+                )}
+              </div>
+            </section>
           </div>
-        </section>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }

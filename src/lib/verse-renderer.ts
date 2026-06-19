@@ -3,6 +3,7 @@ import type {
   VerseRenderData,
   PresentationRenderData,
   RenderOptions,
+  TextVerticalAlign,
 } from "@/types"
 
 export interface VerseLayoutRect {
@@ -895,51 +896,100 @@ function rectForAlignedText(
   }
 }
 
-export function computeVerseLayoutMetrics(
-  ctx: CanvasRenderingContext2D,
+function baseLayoutMetrics(
   theme: BroadcastTheme,
-  verse: VerseRenderData | null,
   options?: RenderOptions
-): VerseLayoutMetrics {
+): {
+  scaledTheme: BroadcastTheme
+  textAreaRect: VerseLayoutRect
+  textRect: VerseLayoutRect
+} {
   const scale = options?.scale ?? 1
   const scaledTheme = buildScaledTheme(theme, scale)
   const canvasW = scaledTheme.resolution.width
   const canvasH = scaledTheme.resolution.height
   const layout = scaledTheme.layout
-
   const bgW = (layout.backgroundWidth / 100) * canvasW
   const bgH = (layout.backgroundHeight / 100) * canvasH
   const textAreaW = (layout.textAreaWidth / 100) * bgW
   const textAreaH = (layout.textAreaHeight / 100) * bgH
-  const globalOffsetX = (options?.offsetX ?? 0) + layout.offsetX
-  const globalOffsetY = (options?.offsetY ?? 0) + layout.offsetY
   const pos = anchorPosition(
     layout.anchor,
     textAreaW,
     textAreaH,
     canvasW,
     canvasH,
-    globalOffsetX,
-    globalOffsetY
+    (options?.offsetX ?? 0) + layout.offsetX,
+    (options?.offsetY ?? 0) + layout.offsetY
   )
-
   const pad = layout.padding
-  const textRectX = pos.x + pad.left
-  const textRectY = pos.y + pad.top
-  const textRectW = textAreaW - pad.left - pad.right
-  const textRectH = textAreaH - pad.top - pad.bottom
-  const textAreaRect: VerseLayoutRect = {
-    x: pos.x,
-    y: pos.y,
-    width: textAreaW,
-    height: textAreaH,
+  return {
+    scaledTheme,
+    textAreaRect: {
+      x: pos.x,
+      y: pos.y,
+      width: textAreaW,
+      height: textAreaH,
+    },
+    textRect: {
+      x: pos.x + pad.left,
+      y: pos.y + pad.top,
+      width: textAreaW - pad.left - pad.right,
+      height: textAreaH - pad.top - pad.bottom,
+    },
   }
-  const textRect: VerseLayoutRect = {
-    x: textRectX,
-    y: textRectY,
-    width: textRectW,
-    height: textRectH,
+}
+
+function blockVerticalAlignForTheme(theme: BroadcastTheme): TextVerticalAlign {
+  return resolveVerticalAlign(
+    theme.reference.position === "above"
+      ? (theme.reference.verticalAlign ?? theme.verseText.verticalAlign)
+      : (theme.verseText.verticalAlign ?? theme.reference.verticalAlign)
+  )
+}
+
+function measureReferenceWidth(
+  ctx: CanvasRenderingContext2D,
+  theme: BroadcastTheme,
+  verse: VerseRenderData,
+  maxWidth: number
+): number {
+  const refText = applyTextTransform(
+    theme.reference.uppercase
+      ? verse.reference.toUpperCase()
+      : verse.reference,
+    resolveTextTransform(theme.reference.textTransform)
+  )
+  ctx.save()
+  ctx.font = `${theme.reference.fontWeight} ${theme.reference.fontSize}px "${theme.reference.fontFamily}", sans-serif`
+  const width = Math.max(1, Math.min(maxWidth, ctx.measureText(refText).width))
+  ctx.restore()
+  return width
+}
+
+function presentationBlockHeight(
+  theme: BroadcastTheme,
+  referenceHeight: number,
+  verseHeight: number,
+  referenceGap: number
+): number {
+  if (theme.reference.position === "above") return referenceHeight + verseHeight
+  if (theme.reference.position === "below") {
+    return verseHeight + referenceGap + referenceHeight
   }
+  return verseHeight + referenceHeight
+}
+
+export function computeVerseLayoutMetrics(
+  ctx: CanvasRenderingContext2D,
+  theme: BroadcastTheme,
+  verse: VerseRenderData | null,
+  options?: RenderOptions
+): VerseLayoutMetrics {
+  const { scaledTheme, textAreaRect, textRect } = baseLayoutMetrics(
+    theme,
+    options
+  )
 
   if (!verse) {
     return {
@@ -962,54 +1012,41 @@ export function computeVerseLayoutMetrics(
     scaledTheme.layout.textAlign,
     false
   )
-  const blockVerticalAlign = resolveVerticalAlign(
-    scaledTheme.reference.position === "above"
-      ? (scaledTheme.reference.verticalAlign ??
-          scaledTheme.verseText.verticalAlign)
-      : (scaledTheme.verseText.verticalAlign ??
-          scaledTheme.reference.verticalAlign)
-  )
+  const blockVerticalAlign = blockVerticalAlignForTheme(scaledTheme)
   const referenceGap = Math.max(
     0,
     scaledTheme.layout.referenceGap ?? scaledTheme.reference.fontSize * 0.5
   )
-  const verseMetrics = measureVerseHeight(ctx, scaledTheme, verse, textRectW)
+  const verseMetrics = measureVerseHeight(ctx, scaledTheme, verse, textRect.width)
   const verseHeight = verseMetrics.height
   const verseDrawX = alignX(
     verseAlign === "justify" ? "left" : verseAlign,
-    textRectX,
-    textRectW
+    textRect.x,
+    textRect.width
   )
   const referenceDrawX = alignX(
     referenceAlign === "justify" ? "left" : referenceAlign,
-    textRectX,
-    textRectW
+    textRect.x,
+    textRect.width
   )
 
-  const refText = applyTextTransform(
-    scaledTheme.reference.uppercase
-      ? verse.reference.toUpperCase()
-      : verse.reference,
-    resolveTextTransform(scaledTheme.reference.textTransform)
+  const referenceWidth = measureReferenceWidth(
+    ctx,
+    scaledTheme,
+    verse,
+    textRect.width
   )
-  ctx.save()
-  ctx.font = `${scaledTheme.reference.fontWeight} ${scaledTheme.reference.fontSize}px "${scaledTheme.reference.fontFamily}", sans-serif`
-  const referenceWidth = Math.max(
-    1,
-    Math.min(textRectW, ctx.measureText(refText).width)
-  )
-  ctx.restore()
 
-  const blockHeight =
-    scaledTheme.reference.position === "above"
-      ? referenceHeight + verseHeight
-      : scaledTheme.reference.position === "below"
-        ? verseHeight + referenceGap + referenceHeight
-        : verseHeight + referenceHeight
+  const blockHeight = presentationBlockHeight(
+    scaledTheme,
+    referenceHeight,
+    verseHeight,
+    referenceGap
+  )
   const blockStartY = alignY(
     blockVerticalAlign,
-    textRectY,
-    textRectH,
+    textRect.y,
+    textRect.height,
     blockHeight
   )
 

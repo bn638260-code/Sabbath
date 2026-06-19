@@ -5,10 +5,12 @@ import { createRoot } from "react-dom/client"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { BroadcastTheme } from "@/types"
 
-const mockInvoke = vi.fn()
-const mockEmitTo = vi.fn()
-const mockWindowEmitTo = vi.fn()
-const mockRenderPresentation = vi.fn(() => ({ lines: [] }))
+const mockInvoke = vi.fn<(...args: unknown[]) => unknown>()
+const mockEmitTo = vi.fn<(...args: unknown[]) => unknown>()
+const mockWindowEmitTo = vi.fn<(...args: unknown[]) => unknown>()
+const mockRenderPresentation = vi.fn<(...args: unknown[]) => { lines: unknown[] }>(() => ({
+  lines: [],
+}))
 const listeners = new Map<string, (event: { payload: unknown }) => void>()
 let canvasContexts = new WeakMap<HTMLCanvasElement, ReturnType<typeof createMockCanvasContext>>()
 
@@ -53,7 +55,9 @@ function createMockCanvasContext(canvas: HTMLCanvasElement) {
 
 function installCanvasMock() {
   canvasContexts = new WeakMap()
-  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function getContext() {
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function getContext(
+    this: HTMLCanvasElement
+  ) {
     const canvas = this as HTMLCanvasElement
     let context = canvasContexts.get(canvas)
     if (!context) {
@@ -145,7 +149,7 @@ describe("useBroadcastOutputRuntime", () => {
     mockEmitTo.mockResolvedValue(undefined)
     mockWindowEmitTo.mockResolvedValue(undefined)
     mockRenderPresentation.mockClear()
-    mockInvoke.mockImplementation(async (command: string) => {
+    mockInvoke.mockImplementation(async (command: unknown) => {
       if (command === "push_ndi_frame") throw new Error("ndi down")
       if (command === "get_ndi_status") return null
       return undefined

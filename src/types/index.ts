@@ -32,10 +32,13 @@ export type {
   BroadcastOutputId,
   BroadcastOutputIssue,
   BroadcastOutputIssueKind,
+  BroadcastTransition,
+  BroadcastTransitionType,
   BroadcastTheme,
+  RenderOptions,
+  TextVerticalAlign,
   VerseRenderData,
   VerseSegment,
-  RenderOptions,
 } from "./broadcast"
 export type {
   PresentationItemKind,

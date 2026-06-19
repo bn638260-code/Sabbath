@@ -31,6 +31,139 @@ const LazyThemeDesigner = lazy(() =>
   })),
 )
 
+function OutputStatusPanel({
+  isLive,
+  activeThemeName,
+  previewReference,
+  liveReference,
+  latestOutputIssue,
+}: {
+  isLive: boolean
+  activeThemeName: string | null
+  previewReference: string | null
+  liveReference: string | null
+  latestOutputIssue: ReturnType<typeof selectLatestOutputIssue>
+}) {
+  return (
+    <section className="glass-panel relative flex flex-col overflow-hidden">
+      <PanelHeader
+        title="Output Status"
+        icon={<RadioIcon className="size-4" />}
+      >
+        <Badge variant={isLive ? "default" : "outline"}>
+          {isLive ? "On air" : "Hidden"}
+        </Badge>
+      </PanelHeader>
+      <div className="space-y-3 p-3">
+        <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
+          <div className="flex items-center gap-2 text-[0.625rem] font-medium uppercase text-muted-foreground">
+            <MonitorIcon className="size-3.5" />
+            Active theme
+          </div>
+          <p className="mt-1 truncate text-sm font-medium">
+            {activeThemeName ?? "No theme selected"}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
+            <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+              Preview
+            </div>
+            <p className="mt-1 truncate text-sm font-medium">
+              {previewReference ?? "Empty"}
+            </p>
+          </div>
+          <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
+            <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+              Live
+            </div>
+            <p className="mt-1 truncate text-sm font-medium">
+              {liveReference ?? "Nothing live"}
+            </p>
+          </div>
+        </div>
+        {latestOutputIssue ? (
+          <div className="rounded-md border border-amber-500/25 bg-amber-500/10 p-3">
+            <div className="flex items-center gap-2 text-[0.625rem] font-medium uppercase text-amber-100/90">
+              <AlertTriangleIcon className="size-3.5" />
+              {latestOutputIssue.title}
+            </div>
+            <p className="mt-1 line-clamp-3 text-xs text-amber-100/75">
+              {latestOutputIssue.description}
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+function ServiceSignalPanel({
+  serviceContext,
+}: {
+  serviceContext: ReturnType<typeof useServicePlanStore.getState>["serviceContext"]
+}) {
+  return (
+    <section className="glass-panel relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <PanelHeader
+        title="Service Signal"
+        icon={<FileTextIcon className="size-4" />}
+      >
+        <Badge
+          variant={serviceContext.performanceMode ? "default" : "outline"}
+        >
+          {serviceContext.planStatus}
+        </Badge>
+      </PanelHeader>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
+          <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+            Active item
+          </div>
+          <p className="mt-1 truncate text-sm font-medium">
+            {serviceContext.activeItem?.title ?? "Nothing active"}
+          </p>
+          <p className="mt-1 text-xs capitalize text-muted-foreground">
+            {serviceContext.activeItem?.kind ??
+              "Start a service plan to populate this view"}
+          </p>
+        </div>
+
+        <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
+          <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+            Up next
+          </div>
+          <p className="mt-1 truncate text-sm font-medium">
+            {serviceContext.nextItem?.title ?? "No next item"}
+          </p>
+          <p className="mt-1 text-xs capitalize text-muted-foreground">
+            {serviceContext.nextItem?.kind ?? "End of plan"}
+          </p>
+        </div>
+
+        <div>
+          <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+            Expected references
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {serviceContext.expectedReferences.length > 0 ? (
+              serviceContext.expectedReferences.map((ref) => (
+                <Badge key={ref} variant="secondary">
+                  {ref}
+                </Badge>
+              ))
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                None for the active item.
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function LiveServicePlanPage() {
   const [broadcastOpen, setBroadcastOpen] = useState(false)
   const [broadcastSettingsMounted, setBroadcastSettingsMounted] = useState(false)
@@ -102,114 +235,14 @@ export function LiveServicePlanPage() {
         </section>
 
         <aside className="flex min-h-[560px] flex-col gap-5">
-          <section className="glass-panel relative flex flex-col overflow-hidden">
-            <PanelHeader
-              title="Output Status"
-              icon={<RadioIcon className="size-4" />}
-            >
-              <Badge variant={isLive ? "default" : "outline"}>
-                {isLive ? "On air" : "Hidden"}
-              </Badge>
-            </PanelHeader>
-            <div className="space-y-3 p-3">
-              <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-                <div className="flex items-center gap-2 text-[0.625rem] font-medium uppercase text-muted-foreground">
-                  <MonitorIcon className="size-3.5" />
-                  Active theme
-                </div>
-                <p className="mt-1 truncate text-sm font-medium">
-                  {activeTheme?.name ?? "No theme selected"}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-                  <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
-                    Preview
-                  </div>
-                  <p className="mt-1 truncate text-sm font-medium">
-                    {previewItem?.reference ?? "Empty"}
-                  </p>
-                </div>
-                <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-                  <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
-                    Live
-                  </div>
-                  <p className="mt-1 truncate text-sm font-medium">
-                    {liveItem?.reference ?? "Nothing live"}
-                  </p>
-                </div>
-              </div>
-              {latestOutputIssue ? (
-                <div className="rounded-md border border-amber-500/25 bg-amber-500/10 p-3">
-                  <div className="flex items-center gap-2 text-[0.625rem] font-medium uppercase text-amber-100/90">
-                    <AlertTriangleIcon className="size-3.5" />
-                    {latestOutputIssue.title}
-                  </div>
-                  <p className="mt-1 line-clamp-3 text-xs text-amber-100/75">
-                    {latestOutputIssue.description}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          </section>
-
-          <section className="glass-panel relative flex min-h-0 flex-1 flex-col overflow-hidden">
-            <PanelHeader
-              title="Service Signal"
-              icon={<FileTextIcon className="size-4" />}
-            >
-              <Badge
-                variant={serviceContext.performanceMode ? "default" : "outline"}
-              >
-                {serviceContext.planStatus}
-              </Badge>
-            </PanelHeader>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-              <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-                <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
-                  Active item
-                </div>
-                <p className="mt-1 truncate text-sm font-medium">
-                  {serviceContext.activeItem?.title ?? "Nothing active"}
-                </p>
-                <p className="mt-1 text-xs capitalize text-muted-foreground">
-                  {serviceContext.activeItem?.kind ??
-                    "Start a service plan to populate this view"}
-                </p>
-              </div>
-
-              <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-                <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
-                  Up next
-                </div>
-                <p className="mt-1 truncate text-sm font-medium">
-                  {serviceContext.nextItem?.title ?? "No next item"}
-                </p>
-                <p className="mt-1 text-xs capitalize text-muted-foreground">
-                  {serviceContext.nextItem?.kind ?? "End of plan"}
-                </p>
-              </div>
-
-              <div>
-                <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
-                  Expected references
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {serviceContext.expectedReferences.length > 0 ? (
-                    serviceContext.expectedReferences.map((ref) => (
-                      <Badge key={ref} variant="secondary">
-                        {ref}
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      None for the active item.
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
+          <OutputStatusPanel
+            isLive={isLive}
+            activeThemeName={activeTheme?.name ?? null}
+            previewReference={previewItem?.reference ?? null}
+            liveReference={liveItem?.reference ?? null}
+            latestOutputIssue={latestOutputIssue}
+          />
+          <ServiceSignalPanel serviceContext={serviceContext} />
         </aside>
       </div>
     </div>
