@@ -6,6 +6,7 @@ import {
   shouldSuppressDuplicateHymnCommand,
 } from "./hymn-voice-control"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
+import { useDetectionStore } from "@/stores/detection-store"
 
 const selectPreviewItemMock = vi.fn()
 const getHymnByNumberMock = vi.fn()
@@ -68,6 +69,7 @@ describe("hymn voice control", () => {
     generateHymnScreensMock.mockReset()
     addRecentHymnMock.mockReset()
     useHymnSlideStore.getState().setDeck([], 0)
+    useDetectionStore.setState({ detections: [] })
     vi.useFakeTimers()
   })
 
@@ -121,6 +123,23 @@ describe("hymn voice control", () => {
         }),
       )
       expect(addRecentHymnMock).toHaveBeenCalledWith("sda-12")
+    })
+
+    it("adds a hymn detection card to the detection store", async () => {
+      getHymnByNumberMock.mockResolvedValue(sampleHymn)
+      generateHymnScreensMock.mockReturnValue([sampleScreen])
+
+      await handleHymnVoiceControl("please open hymn 12")
+
+      const hymn = useDetectionStore
+        .getState()
+        .detections.find((d) => d.content_type === "hymn")
+      expect(hymn?.verse_ref).toBe("Hymn 12")
+      expect(hymn?.hymn).toEqual({
+        number: 12,
+        id: "sda-12",
+        title: "Joyful, Joyful, We Adore Thee",
+      })
     })
 
     it("leaves preview unchanged when hymn lookup fails", async () => {

@@ -17,8 +17,12 @@ const FTS5_CONFIDENCE_DECAY: f64 = 0.04;
 /// FTS5 results below this confidence are not included.
 const FTS5_MIN_CONFIDENCE: f64 = 0.50;
 
-/// FTS5 BM25 scores are negative; more negative = stronger match.
-const FTS5_LIVE_RANK_FLOOR: f64 = -1.0;
+/// FTS5 BM25 scores are negative; more negative = stronger match. Live keyword
+/// candidates must beat this floor to surface. Calibrated against the real
+/// corpus: reference-command keyword noise tops out near -11..-12, while genuine
+/// verse-text matches run <= -16, so -13 separates them. (The search UI is
+/// unaffected — only the live detection path applies this floor.)
+const FTS5_LIVE_RANK_FLOOR: f64 = -13.0;
 
 /// Minimum word count for vector embedding search (short text lacks semantic signal).
 const MIN_WORDS_FOR_VECTOR: usize = 4;
@@ -342,14 +346,14 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: -8.0,
+                rank: -16.0,
             },
             Bm25Result {
                 book_number: 45,
                 book_name: "Romans".to_string(),
                 chapter: 5,
                 verse: 8,
-                rank: -6.0,
+                rank: -15.0,
             },
         ];
 
@@ -392,14 +396,14 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: -8.0,
+                rank: -20.0,
             },
             Bm25Result {
                 book_number: 45,
                 book_name: "Romans".to_string(),
                 chapter: 5,
                 verse: 8,
-                rank: -2.0,
+                rank: -15.0,
             },
         ];
 
@@ -427,42 +431,42 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: -8.0,
+                rank: -20.0,
             },
             Bm25Result {
                 book_number: 45,
                 book_name: "Romans".to_string(),
                 chapter: 8,
                 verse: 28,
-                rank: -7.0,
+                rank: -19.0,
             },
             Bm25Result {
                 book_number: 1,
                 book_name: "Genesis".to_string(),
                 chapter: 1,
                 verse: 1,
-                rank: -6.0,
+                rank: -18.0,
             },
             Bm25Result {
                 book_number: 19,
                 book_name: "Psalms".to_string(),
                 chapter: 23,
                 verse: 1,
-                rank: -5.0,
+                rank: -17.0,
             },
             Bm25Result {
                 book_number: 23,
                 book_name: "Isaiah".to_string(),
                 chapter: 53,
                 verse: 5,
-                rank: -4.0,
+                rank: -16.0,
             },
             Bm25Result {
                 book_number: 40,
                 book_name: "Matthew".to_string(),
                 chapter: 5,
                 verse: 3,
-                rank: -3.0,
+                rank: -15.0,
             },
         ];
 
@@ -482,7 +486,7 @@ mod tests {
             book_name: "John".to_string(),
             chapter: 3,
             verse: 16,
-            rank: -8.0,
+            rank: -16.0,
         }];
 
         let results = pipeline.process_hybrid_with_fts("John three sixteen", &fts_results);
@@ -505,6 +509,46 @@ mod tests {
     }
 
     #[test]
+    fn live_fts_floor_drops_keyword_noise_keeps_strong_matches() {
+        // Calibrated against the real corpus: reference-command keyword noise
+        // (e.g. "samuel verse one three") tops out around BM25 -11..-12, while
+        // genuine verse-text matches are <= -16. The live floor must drop the
+        // former and keep the latter.
+        let mut pipeline = DetectionPipeline::new();
+        let fts_results = vec![
+            Bm25Result {
+                book_number: 43,
+                book_name: "John".to_string(),
+                chapter: 3,
+                verse: 16,
+                rank: -16.0, // strong genuine match
+            },
+            Bm25Result {
+                book_number: 23,
+                book_name: "Isaiah".to_string(),
+                chapter: 41,
+                verse: 27,
+                rank: -11.5, // keyword noise
+            },
+        ];
+
+        let results = pipeline.process_hybrid_with_fts("god so loved the world", &fts_results);
+
+        assert!(
+            results
+                .iter()
+                .any(|r| r.detection.verse_ref.book_name == "John"),
+            "strong match must survive the floor"
+        );
+        assert!(
+            !results
+                .iter()
+                .any(|r| r.detection.verse_ref.book_name == "Isaiah"),
+            "keyword-noise match below the floor must be dropped"
+        );
+    }
+
+    #[test]
     fn test_pipeline_hybrid_drops_weak_fts_below_rank_floor() {
         let mut pipeline = DetectionPipeline::new();
         let fts_results = vec![
@@ -513,14 +557,14 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: -5.0,
+                rank: -16.0,
             },
             Bm25Result {
                 book_number: 1,
                 book_name: "Genesis".to_string(),
                 chapter: 1,
                 verse: 1,
-                rank: -0.2,
+                rank: -11.0,
             },
         ];
 

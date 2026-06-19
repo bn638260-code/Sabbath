@@ -65,11 +65,13 @@ impl TranscriptRouter {
                 };
             }
             self.last_partial = Some(normalized);
+            // A partial that already reads as a complete reference detects
+            // immediately, for any provider, so the verse surfaces before the
+            // endpointing pause. (Was deepgram-only.)
             let complete_reference = looks_like_complete_reference(cleaned);
             return TranscriptRoute {
                 emit_transcript: true,
-                authoritative_detection: (input.provider == "deepgram" && complete_reference)
-                    .then(|| cleaned.to_string()),
+                authoritative_detection: complete_reference.then(|| cleaned.to_string()),
                 suppress_reason: None,
             };
         }
@@ -150,7 +152,7 @@ fn looks_like_non_speech(normalized: &str) -> bool {
     false
 }
 
-fn looks_like_complete_reference(text: &str) -> bool {
+pub(crate) fn looks_like_complete_reference(text: &str) -> bool {
     let lower = text.to_lowercase();
     if !contains_book_hint(&lower) {
         return false;
@@ -311,21 +313,24 @@ mod tests {
     }
 
     #[test]
-    fn non_deepgram_partial_complete_reference_is_not_authoritative() {
+    fn partial_complete_reference_is_authoritative_for_any_provider() {
         let mut router = TranscriptRouter::default();
         let route = router.route(input(TranscriptEventKind::Partial, "John 3 16"));
 
         assert!(route.emit_transcript);
-        assert!(route.authoritative_detection.is_none());
+        assert_eq!(route.authoritative_detection.as_deref(), Some("John 3 16"));
     }
 
     #[test]
-    fn non_deepgram_partial_spoken_reference_is_not_authoritative() {
+    fn partial_spoken_reference_is_authoritative_for_any_provider() {
         let mut router = TranscriptRouter::default();
         let route = router.route(input(TranscriptEventKind::Partial, "John three sixteen"));
 
         assert!(route.emit_transcript);
-        assert!(route.authoritative_detection.is_none());
+        assert_eq!(
+            route.authoritative_detection.as_deref(),
+            Some("John three sixteen")
+        );
     }
 
     #[test]

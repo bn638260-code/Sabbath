@@ -462,6 +462,35 @@ fn is_hymn_or_song_number_command(text: &str) -> bool {
     false
 }
 
+/// True when an utterance is a voice command the dedicated command/reading
+/// paths already handle: a translation switch, a hymn/song number, or reading
+/// navigation. Live semantic paraphrase search skips these so spoken commands
+/// don't flood the detections panel with keyword noise.
+pub fn is_voice_command_utterance(text: &str) -> bool {
+    if is_hymn_or_song_number_command(text) {
+        return true;
+    }
+    let lower = text.to_lowercase();
+    if TRANSLATION_COMMANDS
+        .iter()
+        .any(|(phrase, _)| lower.contains(phrase))
+    {
+        return true;
+    }
+    is_navigation_command(&lower)
+}
+
+/// Reading-navigation phrases: directional moves ("next"/"previous"/"go back"
+/// a verse or chapter) and moves within "the same/this chapter".
+fn is_navigation_command(lower: &str) -> bool {
+    let directional =
+        lower.contains("next") || lower.contains("previous") || lower.contains("go back");
+    if directional && (lower.contains("verse") || lower.contains("chapter")) {
+        return true;
+    }
+    (lower.contains("same chapter") || lower.contains("this chapter")) && lower.contains("verse")
+}
+
 fn hymn_command_number_end(tokens: &[&str], start: usize) -> Option<usize> {
     let first = tokens.get(start)?;
     if first.chars().all(|ch| ch.is_ascii_digit()) {
@@ -1359,6 +1388,30 @@ mod tests {
         assert_eq!(results[0].verse_ref.book_name, "Psalms");
         assert_eq!(results[0].verse_ref.chapter, 23);
         assert_eq!(results[0].verse_ref.verse_start, 1);
+    }
+
+    #[test]
+    fn voice_command_utterance_matches_hymn_translation_and_navigation() {
+        // Commands the dedicated command/reading paths already handle — live
+        // semantic paraphrase search must skip these so it does not flood the
+        // detections panel with keyword noise.
+        assert!(is_voice_command_utterance("Hymn number 46"));
+        assert!(is_voice_command_utterance("I need the new living translation."));
+        assert!(is_voice_command_utterance("King James Version"));
+        assert!(is_voice_command_utterance("let's go to the next verse"));
+        assert!(is_voice_command_utterance("go back to the previous verse"));
+        assert!(is_voice_command_utterance("in the same chapter verse 17"));
+    }
+
+    #[test]
+    fn voice_command_utterance_ignores_prose_and_bare_references() {
+        // Sermon prose must remain eligible for semantic paraphrase detection.
+        assert!(!is_voice_command_utterance(
+            "For God so loved the world that he gave his only begotten son"
+        ));
+        // A bare scripture reference is a reference, not a voice command; the
+        // reference path (not this predicate) is responsible for it.
+        assert!(!is_voice_command_utterance("Genesis chapter 3 verse 15"));
     }
 
     #[test]

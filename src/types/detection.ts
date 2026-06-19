@@ -1,7 +1,14 @@
 import type { EgwParagraph } from "./egw"
 
+/** Spoken-hymn detection payload (frontend-only; populated by hymn voice control). */
+export interface HymnDetection {
+  number: number
+  id: string
+  title: string
+}
+
 export interface DetectionResult {
-  content_type?: "bible" | "egw"
+  content_type?: "bible" | "egw" | "hymn"
   verse_ref: string
   verse_text: string
   book_name: string
@@ -15,6 +22,7 @@ export interface DetectionResult {
   /** True when detected from a chapter-only reference (verse defaults to 1, may be refined). */
   is_chapter_only: boolean
   egw_paragraph?: EgwParagraph | null
+  hymn?: HymnDetection | null
 }
 
 export interface ReadingAdvance {

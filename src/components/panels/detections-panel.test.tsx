@@ -7,8 +7,13 @@ import type { DetectionResult, Verse } from "@/types"
 const {
   clearDetectionsMock,
   detection,
+  hymnDetection,
+  detectionsRef,
   presentVerseMock,
   selectPreviewVerseMock,
+  presentHymnMock,
+  previewHymnMock,
+  queueHymnMock,
   verse,
 } = vi.hoisted(() => {
   const detection: DetectionResult = {
@@ -25,6 +30,22 @@ const {
     is_chapter_only: false,
   }
 
+  const hymnDetection: DetectionResult = {
+    content_type: "hymn",
+    verse_ref: "Hymn 46",
+    verse_text: "Holy, Holy, Holy",
+    book_name: "Hymn",
+    book_number: 0,
+    chapter: 0,
+    verse: 46,
+    confidence: 1,
+    source: "direct",
+    auto_queued: false,
+    transcript_snippet: "",
+    is_chapter_only: false,
+    hymn: { number: 46, id: "sda-46", title: "Holy, Holy, Holy" },
+  }
+
   const verse: Verse = {
     id: 0,
     translation_id: 1,
@@ -39,14 +60,19 @@ const {
   return {
     clearDetectionsMock: vi.fn(),
     detection,
+    hymnDetection,
+    detectionsRef: { current: [detection] as DetectionResult[] },
     presentVerseMock: vi.fn(),
     selectPreviewVerseMock: vi.fn(),
+    presentHymnMock: vi.fn(),
+    previewHymnMock: vi.fn(),
+    queueHymnMock: vi.fn(),
     verse,
   }
 })
 
 vi.mock("@/hooks/use-detection", () => ({
-  useDetection: () => ({ detections: [detection] }),
+  useDetection: () => ({ detections: detectionsRef.current }),
   detectionActions: {
     clearDetections: clearDetectionsMock,
     getDetectionStatus: vi.fn(async () => ({
@@ -63,6 +89,12 @@ vi.mock("@/lib/presentation-workflow", () => ({
   selectPreviewVerse: (...args: unknown[]) => selectPreviewVerseMock(...args),
 }))
 
+vi.mock("@/services/hymnal/hymn-voice-control", () => ({
+  presentHymnByNumber: (...args: unknown[]) => presentHymnMock(...args),
+  previewHymnByNumber: (...args: unknown[]) => previewHymnMock(...args),
+  queueHymnByNumber: (...args: unknown[]) => queueHymnMock(...args),
+}))
+
 vi.mock("@/stores/queue-store", () => ({
   useQueueStore: {
     getState: () => ({
@@ -73,9 +105,13 @@ vi.mock("@/stores/queue-store", () => ({
 
 describe("DetectionsPanel", () => {
   beforeEach(() => {
+    detectionsRef.current = [detection]
     selectPreviewVerseMock.mockClear()
     presentVerseMock.mockClear()
     clearDetectionsMock.mockClear()
+    presentHymnMock.mockClear()
+    previewHymnMock.mockClear()
+    queueHymnMock.mockClear()
   })
 
   afterEach(() => {
@@ -104,5 +140,18 @@ describe("DetectionsPanel", () => {
       verse,
       expect.objectContaining({ navigate: true }),
     )
+  })
+
+  it("renders a spoken hymn as a card and sends it live", () => {
+    detectionsRef.current = [hymnDetection]
+    render(<DetectionsPanel />)
+
+    expect(screen.getByText("Hymn 46")).toBeTruthy()
+    expect(screen.getByText("Holy, Holy, Holy")).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: /present/i }))
+
+    expect(presentHymnMock).toHaveBeenCalledWith(46)
+    expect(presentVerseMock).not.toHaveBeenCalled()
   })
 })

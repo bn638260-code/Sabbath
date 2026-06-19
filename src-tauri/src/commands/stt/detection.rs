@@ -44,6 +44,17 @@ pub(crate) fn clamp_to_recent_words(text: &str, max_words: usize) -> String {
     words[start..].join(" ")
 }
 
+/// True when the transcript window is an explicit scripture reference or a
+/// voice/reading command that the direct + command paths already handle.
+///
+/// Live semantic (fuzzy) search defers to those paths for such utterances, so
+/// the detections panel reflects what was actually spoken instead of keyword
+/// noise from BM25 matching on reference words like "chapter"/"verse".
+pub(crate) fn transcript_defers_to_direct(text: &str) -> bool {
+    crate::commands::transcript_router::looks_like_complete_reference(text)
+        || rhema_detection::is_voice_command_utterance(text)
+}
+
 /// Take the latest pending semantic job from a shared slot, recovering from
 /// poisoned locks so the worker doesn't die permanently.
 pub(crate) fn take_semantic_job(
@@ -89,6 +100,17 @@ pub(crate) fn enqueue_final_semantic_job(
         return;
     }
 
+    // Explicit references and voice commands are owned by the direct + command
+    // paths. Skipping the enqueue (rather than suppressing later in the worker)
+    // also prevents these utterances from evicting a pending prose job from the
+    // latest-wins slot, so genuine paraphrase detections still run.
+    if transcript_defers_to_direct(&text) {
+        log::debug!(
+            "[DET-TRACE] seq={seq} skip=semantic_enqueue reason=reference_or_command label=final"
+        );
+        return;
+    }
+
     let replaced = replace_semantic_job(job_slot, (seq, text), "final");
     let n = sent_counter.fetch_add(1, Ordering::Relaxed) + 1;
 
@@ -115,6 +137,13 @@ pub(crate) fn enqueue_partial_semantic_job(
     text: String,
 ) {
     if text.trim().is_empty() {
+        return;
+    }
+
+    if transcript_defers_to_direct(&text) {
+        log::debug!(
+            "[DET-TRACE] seq={seq} skip=semantic_enqueue reason=reference_or_command label=partial"
+        );
         return;
     }
 
@@ -444,6 +473,12 @@ pub(crate) fn run_direct_detection(
         return has_high_confidence;
     }
 
+    log::info!(
+        "[DET-TRACE] seq={seq} decision=direct emitted={} top={} took={:?}",
+        results.len(),
+        results.first().map_or("-", |r| r.verse_ref.as_str()),
+        t0.elapsed()
+    );
     let _ = app.emit("verse_detections", &results);
     if transcript_logging_enabled() {
         log::info!(
@@ -469,6 +504,37 @@ pub(crate) fn run_semantic_detection(
     // latest accepted transcript sequence, skip emission.
     if seq < latest_seq.load(Ordering::Acquire) {
         log::debug!("[DET-SEMANTIC] Skipping stale job seq={seq}");
+        return;
+    }
+
+    // Reference and command windows never reach this worker — they are filtered
+    // at enqueue (see `enqueue_*_semantic_job`). Remaining windows are EGW
+    // references or sermon prose.
+    //
+    // Catch Ellen White references that endpointing fragmented across several
+    // finals: the single-final direct pass misses them, but the rolling window
+    // still holds the whole "Book chapter N paragraph M". Emit the explicit
+    // paragraph and skip fuzzy search.
+    let egw_explicit = {
+        let app_managed: State<'_, Mutex<AppState>> = app.state();
+        let Ok(app_state) = app_managed.lock() else {
+            log::error!("[DET-SEMANTIC] AppState lock failed for EGW window catch");
+            return;
+        };
+        crate::commands::detection::detect_egw_references(&app_state, transcript)
+    };
+    if !egw_explicit.is_empty() {
+        if seq < latest_seq.load(Ordering::Acquire) {
+            return;
+        }
+        for r in &egw_explicit {
+            log::info!(
+                "[DET-TRACE] seq={seq} decision=egw_explicit reason=window_reference {} ({:.0}%)",
+                r.verse_ref,
+                r.confidence * 100.0
+            );
+        }
+        let _ = app.emit("verse_detections", &egw_explicit);
         return;
     }
 
@@ -580,6 +646,12 @@ pub(crate) fn run_semantic_detection(
         );
     }
     let _ = app.emit("verse_detections", &results);
+    log::info!(
+        "[DET-TRACE] seq={seq} decision=semantic_fuzzy emitted={} top={} ({:.0}%)",
+        results.len(),
+        results.first().map_or("-", |r| r.verse_ref.as_str()),
+        results.first().map_or(0.0, |r| r.confidence) * 100.0
+    );
     log::info!("[DET-SEMANTIC] Total: {:?}", t0.elapsed());
 }
 
@@ -814,13 +886,66 @@ pub(crate) fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found
 #[cfg(test)]
 mod tests {
     use super::{
-        finalize_live_semantic_results, replace_semantic_job, take_semantic_job,
-        DeepgramSemanticBuffer, LIVE_SEMANTIC_CAP, PARTIAL_SEMANTIC_DEBOUNCE,
-        PARTIAL_SEMANTIC_MIN_WORDS, SEMANTIC_WINDOW_SEGMENTS,
+        enqueue_final_semantic_job, enqueue_partial_semantic_job, finalize_live_semantic_results,
+        replace_semantic_job, take_semantic_job, DeepgramSemanticBuffer, LIVE_SEMANTIC_CAP,
+        PARTIAL_SEMANTIC_DEBOUNCE, PARTIAL_SEMANTIC_MIN_WORDS, SEMANTIC_WINDOW_SEGMENTS,
     };
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
+    use tokio::sync::Notify;
+
+    #[test]
+    fn semantic_enqueue_skips_reference_and_command_windows() {
+        let slot = Arc::new(Mutex::new(None));
+        let notify = Arc::new(Notify::new());
+        let sent = Arc::new(AtomicU64::new(0));
+        let replaced = Arc::new(AtomicU64::new(0));
+
+        // Explicit reference — direct path owns it; semantic must not enqueue
+        // (so it cannot evict a pending prose job from the latest-wins slot).
+        enqueue_final_semantic_job(
+            &slot,
+            &notify,
+            &sent,
+            &replaced,
+            1,
+            "John chapter 8 verse 9".to_string(),
+        );
+        assert!(
+            slot.lock().unwrap().is_none(),
+            "reference window must not enqueue a semantic job"
+        );
+
+        // Voice command — same.
+        enqueue_partial_semantic_job(
+            &slot,
+            &notify,
+            &sent,
+            &replaced,
+            2,
+            "let's go to the next verse".to_string(),
+        );
+        assert!(
+            slot.lock().unwrap().is_none(),
+            "command window must not enqueue a semantic job"
+        );
+
+        // Sermon prose — must enqueue so paraphrase detection still runs.
+        enqueue_final_semantic_job(
+            &slot,
+            &notify,
+            &sent,
+            &replaced,
+            3,
+            "for God so loved the world that he gave his only begotten son".to_string(),
+        );
+        assert_eq!(
+            slot.lock().unwrap().as_ref().map(|(seq, _)| *seq),
+            Some(3),
+            "prose window must enqueue a semantic job"
+        );
+    }
 
     fn make_detection_result(
         verse_ref: &str,
@@ -881,6 +1006,38 @@ mod tests {
         assert_eq!(s1, 1);
         assert_eq!(s2, 2);
         assert_eq!(s3, 3);
+    }
+
+    #[test]
+    fn defers_to_direct_for_explicit_references_and_commands() {
+        use super::transcript_defers_to_direct as defers;
+
+        // Explicit scripture references — the direct path is authoritative.
+        assert!(defers("John chapter 8 verse 9"));
+        assert!(defers("Galatians 1 verse 1"));
+        assert!(defers("genesis chapter 3 verse 15"));
+        assert!(defers("1 Samuel 1 verse 3"));
+        assert!(defers("Revelation 1 verse 1"));
+        assert!(defers("Romans 8 verse 5"));
+        // Voice/reading commands.
+        assert!(defers("Hymn number 46"));
+        assert!(defers("I need the new living translation."));
+        assert!(defers("King James Version"));
+        assert!(defers("let's go to the next verse"));
+        assert!(defers("in the same chapter verse 17"));
+    }
+
+    #[test]
+    fn does_not_defer_for_sermon_prose() {
+        use super::transcript_defers_to_direct as defers;
+
+        // Spoken verse content must stay eligible for semantic paraphrase
+        // detection (e.g. this should still surface John 3:16).
+        assert!(!defers(
+            "For God so loved the world that he gave his only begotten son"
+        ));
+        assert!(!defers("testing one two testing"));
+        assert!(!defers("today we are talking about obedience and grace"));
     }
 
     #[test]

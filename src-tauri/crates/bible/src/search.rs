@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
 use rusqlite::Connection;
@@ -129,12 +129,29 @@ fn run_fts_query(
         .map_err(BibleError::from)
 }
 
-/// Deduplicate results by (`book_number`, chapter, verse), keeping first occurrence.
+/// Deduplicate results by (`book_number`, chapter, verse), keeping the strongest
+/// (most negative) BM25 score for each verse.
+///
+/// A verse can surface from several FTS tiers (phrase, AND, OR) with different
+/// scores; keeping the strongest makes the score a reliable relevance signal for
+/// downstream gating. First-seen order is preserved.
 fn dedup_results(results: Vec<Bm25Result>, limit: usize) -> Vec<Bm25Result> {
-    let mut seen = HashSet::new();
-    results
+    let mut order: Vec<(i32, i32, i32)> = Vec::new();
+    let mut best: HashMap<(i32, i32, i32), Bm25Result> = HashMap::new();
+    for result in results {
+        let key = (result.book_number, result.chapter, result.verse);
+        match best.get_mut(&key) {
+            Some(existing) if result.rank < existing.rank => *existing = result,
+            Some(_) => {}
+            None => {
+                order.push(key);
+                best.insert(key, result);
+            }
+        }
+    }
+    order
         .into_iter()
-        .filter(|r| seen.insert((r.book_number, r.chapter, r.verse)))
+        .filter_map(|key| best.remove(&key))
         .take(limit)
         .collect()
 }
@@ -274,6 +291,58 @@ impl BibleDb {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn bm25(rank: f64, book_number: i32, chapter: i32, verse: i32) -> Bm25Result {
+        Bm25Result {
+            rank,
+            book_number,
+            book_name: format!("Book{book_number}"),
+            chapter,
+            verse,
+        }
+    }
+
+    #[test]
+    fn dedup_keeps_strongest_bm25_per_verse() {
+        // The same verse surfaces from multiple FTS tiers with different scores:
+        // a weak phrase-tier hit first, then a strong AND-tier hit. Dedup must keep
+        // the strongest (most negative) score so downstream relevance gating is accurate.
+        let results = vec![
+            bm25(-11.68, 43, 3, 16), // phrase tier (weak), seen first
+            bm25(-24.99, 43, 3, 16), // AND tier (strong), seen later
+            bm25(-8.0, 45, 5, 8),
+        ];
+
+        let deduped = dedup_results(results, 10);
+
+        assert_eq!(deduped.len(), 2);
+        let john = deduped
+            .iter()
+            .find(|r| r.book_number == 43)
+            .expect("John 3:16 retained");
+        assert!(
+            (john.rank - (-24.99)).abs() < f64::EPSILON,
+            "expected strongest score -24.99, got {}",
+            john.rank
+        );
+    }
+
+    #[test]
+    fn dedup_preserves_first_seen_order_and_limit() {
+        let results = vec![
+            bm25(-5.0, 1, 1, 1),
+            bm25(-9.0, 2, 2, 2),
+            bm25(-30.0, 1, 1, 1), // stronger dup of first verse — must not reorder
+            bm25(-3.0, 3, 3, 3),
+        ];
+
+        let deduped = dedup_results(results, 2);
+
+        assert_eq!(deduped.len(), 2);
+        assert_eq!(deduped[0].book_number, 1);
+        assert!((deduped[0].rank - (-30.0)).abs() < f64::EPSILON);
+        assert_eq!(deduped[1].book_number, 2);
+    }
 
     #[test]
     fn phrase_query_wraps_input() {

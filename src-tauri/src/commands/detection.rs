@@ -974,6 +974,23 @@ mod tests {
     }
 
     #[test]
+    fn detect_egw_references_resolves_reference_embedded_in_rolling_window() {
+        // The live semantic gate runs this on the rolling transcript window so
+        // Ellen White references that endpointing fragmented across finals are
+        // still caught (surrounded by other speech).
+        let fixture = fixture_state(1);
+
+        let results = detect_egw_references(
+            &fixture.state,
+            "testing one two the desire of ages chapter fourteen paragraph three and then we continue",
+        );
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref, "The Desire of Ages 14:3");
+        assert_eq!(results[0].source, "direct");
+    }
+
+    #[test]
     fn detect_egw_references_finds_abbreviation_colon_style_reference() {
         let fixture = fixture_state(1);
 

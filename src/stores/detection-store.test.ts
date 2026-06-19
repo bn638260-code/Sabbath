@@ -84,6 +84,31 @@ describe("detection store", () => {
     expect(detections[1].verse_ref).toBe("Strong Semantic")
   })
 
+  it("dedupes hymn detections by hymn number and keeps verses distinct", () => {
+    const store = useDetectionStore.getState()
+
+    const hymn46 = (): DetectionResult =>
+      makeDetection({
+        content_type: "hymn",
+        verse_ref: "Hymn 46",
+        verse_text: "Holy, Holy, Holy",
+        book_name: "Hymn",
+        book_number: 0,
+        chapter: 0,
+        verse: 46,
+        hymn: { number: 46, id: "hymn-46", title: "Holy, Holy, Holy" },
+      })
+
+    store.addDetection(hymn46())
+    store.addDetection(hymn46())
+    store.addDetection(makeDetection({ verse_ref: "John 3:16" }))
+
+    const detections = useDetectionStore.getState().detections
+    const hymns = detections.filter((d) => d.content_type === "hymn")
+    expect(hymns).toHaveLength(1)
+    expect(detections.filter((d) => d.verse_ref === "John 3:16")).toHaveLength(1)
+  })
+
   it("near-tied direct hit wins over semantic", () => {
     const store = useDetectionStore.getState()
 

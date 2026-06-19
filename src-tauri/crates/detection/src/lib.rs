@@ -24,7 +24,7 @@ pub mod semantic;
 pub mod sentence_buffer;
 pub mod types;
 
-pub use direct::detector::DirectDetector;
+pub use direct::detector::{is_voice_command_utterance, DirectDetector};
 pub use error::*;
 pub use merger::{AutoQueueCooldown, DetectionMerger, MergedDetection};
 pub use pipeline::DetectionPipeline;

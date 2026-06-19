@@ -23,7 +23,17 @@ import {
   presentEgwParagraph,
   createEgwQueueItem,
 } from "@/lib/presentation-workflow"
-import type { DetectionResult, EgwParagraph, Verse } from "@/types"
+import {
+  presentHymnByNumber,
+  previewHymnByNumber,
+  queueHymnByNumber,
+} from "@/services/hymnal/hymn-voice-control"
+import type {
+  DetectionResult,
+  EgwParagraph,
+  HymnDetection,
+  Verse,
+} from "@/types"
 
 const SOURCE_COLORS: Record<
   string,
@@ -35,6 +45,7 @@ const SOURCE_COLORS: Record<
     text: "text-indigo-300",
     label: "Semantic",
   },
+  hymn: { bg: "bg-amber-500/15", text: "text-amber-300", label: "Hymn" },
 }
 
 function SourceBadge({ source }: { source: string }) {
@@ -58,7 +69,75 @@ function isEgwDetection(
   return detection.content_type === "egw" && Boolean(detection.egw_paragraph)
 }
 
+function isHymnDetection(
+  detection: DetectionResult
+): detection is DetectionResult & { hymn: HymnDetection } {
+  return detection.content_type === "hymn" && Boolean(detection.hymn)
+}
+
+function HymnDetectionCard({
+  detection,
+}: {
+  detection: DetectionResult & { hymn: HymnDetection }
+}) {
+  const { number, title } = detection.hymn
+
+  return (
+    <div className="queue-item p-3 last:border-0">
+      <div className="flex items-center gap-2">
+        <ConfidenceDot confidence={detection.confidence} />
+        <span className="text-xs font-medium text-muted-foreground">
+          {Math.round(detection.confidence * 100)}%
+        </span>
+        <SourceBadge source="hymn" />
+        <span className="text-sm font-semibold text-foreground">
+          {detection.verse_ref}
+        </span>
+      </div>
+
+      {title && (
+        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+          {title}
+        </p>
+      )}
+
+      <div className="mt-2 flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1"
+          onClick={() => void previewHymnByNumber(number)}
+        >
+          <EyeIcon className="size-3" />
+          Preview
+        </Button>
+        <Button
+          size="sm"
+          className="gap-1"
+          onClick={() => void presentHymnByNumber(number)}
+        >
+          <PlayIcon className="size-3" />
+          Present
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1"
+          onClick={() => void queueHymnByNumber(number)}
+        >
+          <PlusIcon className="size-3" />
+          Queue
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function DetectionCard({ detection }: { detection: DetectionResult }) {
+  if (isHymnDetection(detection)) {
+    return <HymnDetectionCard detection={detection} />
+  }
+
   const egwParagraph = isEgwDetection(detection)
     ? detection.egw_paragraph
     : null
