@@ -8,6 +8,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores([
     'build',
+    'coverage',
     'dist',
     'node_modules',
     'src-tauri/target',

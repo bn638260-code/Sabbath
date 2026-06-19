@@ -15,7 +15,7 @@
     "test": "vitest",
     "test:unit": "vitest --run",
     "test:coverage": "vitest --run --coverage",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/run-playwright-e2e.mjs",
     "dup": "jscpd",
     "download:bible-data": "bun run data/download-sources.ts",
     "build:bible": "bun run data/build-bible-db.ts",
