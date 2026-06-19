@@ -19,6 +19,7 @@ import {
   type VideoTransportCommand,
 } from "@/lib/broadcast-video-control"
 import { isTauriRuntime } from "@/lib/tauri-runtime"
+import { restoreHymnDeckForQueueItem } from "@/lib/queued-hymn-deck"
 import { getPresentationRenderData } from "@/types"
 import { useQueueStore } from "@/stores/queue-store"
 
@@ -94,7 +95,10 @@ interface BroadcastState {
   setAutoAdvanceVideoOnEnd: (enabled: boolean) => void
   handleVideoEnded: () => VideoEndDecision
   syncBroadcastOutput: (options?: BroadcastSyncOptions) => void
-  syncBroadcastOutputFor: (outputId: string, options?: BroadcastSyncOptions) => void
+  syncBroadcastOutputFor: (
+    outputId: string,
+    options?: BroadcastSyncOptions
+  ) => void
   reportOutputIssue: (input: {
     outputId: BroadcastIssueOutputId
     kind: BroadcastOutputIssueKind
@@ -103,7 +107,10 @@ interface BroadcastState {
     id?: string
   }) => void
   clearOutputIssue: (id: string) => void
-  clearOutputIssueFor: (outputId: BroadcastIssueOutputId, kind: BroadcastOutputIssueKind) => void
+  clearOutputIssueFor: (
+    outputId: BroadcastIssueOutputId,
+    kind: BroadcastOutputIssueKind
+  ) => void
   clearOutputIssuesFor: (outputId: BroadcastIssueOutputId) => void
 
   // Projector display setters
@@ -140,15 +147,18 @@ interface BroadcastHydrationPatchInput {
 }
 
 export function selectLatestOutputIssue(
-  state: Pick<BroadcastState, "outputIssues">,
+  state: Pick<BroadcastState, "outputIssues">
 ): BroadcastOutputIssue | null {
   if (state.outputIssues.length === 0) return null
   return state.outputIssues.reduce((latest, issue) =>
-    issue.lastSeenAt > latest.lastSeenAt ? issue : latest,
+    issue.lastSeenAt > latest.lastSeenAt ? issue : latest
   )
 }
 
-function findThemeById(themes: BroadcastTheme[], id: string): BroadcastTheme | null {
+function findThemeById(
+  themes: BroadcastTheme[],
+  id: string
+): BroadcastTheme | null {
   return themes.find((theme) => theme.id === id) ?? themes[0] ?? null
 }
 
@@ -158,7 +168,7 @@ const DEFAULT_TRANSITION_DURATION_MS = 500
 
 function transitionForTheme(
   theme: BroadcastTheme,
-  type: BroadcastTransitionType,
+  type: BroadcastTransitionType
 ): BroadcastTransition {
   if (type === "none") {
     return { ...theme.transition, type, duration: 0 }
@@ -174,7 +184,7 @@ function transitionForTheme(
 function buildBroadcastPayload(
   state: BroadcastState,
   theme: BroadcastTheme,
-  options?: BroadcastSyncOptions,
+  options?: BroadcastSyncOptions
 ): BroadcastUpdatePayload {
   const payload: BroadcastUpdatePayload = {
     theme,
@@ -191,7 +201,8 @@ export type VideoEndDecision = "loop" | "advance" | "hold"
 
 const OUTPUT_ISSUE_LIMIT = 20
 const OUTPUT_ISSUE_TTL_MS = 10 * 60 * 1000
-const PREFERRED_AUDIO_DEVICE_STORAGE_KEY = "sabbathcue:video:preferred-audio-output-device"
+const PREFERRED_AUDIO_DEVICE_STORAGE_KEY =
+  "sabbathcue:video:preferred-audio-output-device"
 const reportedLoadFailureIds = new Set<string>()
 
 export function decideVideoEndAction(input: {
@@ -206,7 +217,9 @@ export function decideVideoEndAction(input: {
 
 function readPreferredAudioOutputDeviceId(): string {
   try {
-    return globalThis.localStorage.getItem(PREFERRED_AUDIO_DEVICE_STORAGE_KEY) ?? ""
+    return (
+      globalThis.localStorage.getItem(PREFERRED_AUDIO_DEVICE_STORAGE_KEY) ?? ""
+    )
   } catch {
     return ""
   }
@@ -214,7 +227,10 @@ function readPreferredAudioOutputDeviceId(): string {
 
 function savePreferredAudioOutputDeviceId(deviceId: string): void {
   try {
-    globalThis.localStorage.setItem(PREFERRED_AUDIO_DEVICE_STORAGE_KEY, deviceId)
+    globalThis.localStorage.setItem(
+      PREFERRED_AUDIO_DEVICE_STORAGE_KEY,
+      deviceId
+    )
   } catch {
     // localStorage is optional in test and non-browser runtimes.
   }
@@ -263,17 +279,25 @@ export function buildBroadcastHydrationPatch({
   return patch
 }
 
-function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): Record<string, unknown> {
+function setNestedValue(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown
+): Record<string, unknown> {
   const keys = path.split(".")
   const isIndex = (key: string) => /^\d+$/.test(key)
-  const result: Record<string, unknown> = Array.isArray(obj) ? [...obj] as unknown as Record<string, unknown> : { ...obj }
+  const result: Record<string, unknown> = Array.isArray(obj)
+    ? ([...obj] as unknown as Record<string, unknown>)
+    : { ...obj }
 
   let current: Record<string, unknown> | unknown[] = result
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i]
     const nextKey = keys[i + 1]
     const currentIndex = isIndex(key) ? Number(key) : key
-    const existing = (current as Record<string, unknown> | unknown[])[currentIndex as keyof typeof current]
+    const existing = (current as Record<string, unknown> | unknown[])[
+      currentIndex as keyof typeof current
+    ]
     const nextContainer = Array.isArray(existing)
       ? [...existing]
       : existing && typeof existing === "object"
@@ -282,13 +306,17 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
           ? []
           : {}
 
-    ;(current as Record<string, unknown> | unknown[])[currentIndex as keyof typeof current] = nextContainer as never
+    ;(current as Record<string, unknown> | unknown[])[
+      currentIndex as keyof typeof current
+    ] = nextContainer as never
     current = nextContainer as Record<string, unknown> | unknown[]
   }
 
   const lastKey = keys[keys.length - 1]
   const lastIndex = isIndex(lastKey) ? Number(lastKey) : lastKey
-  ;(current as Record<string, unknown> | unknown[])[lastIndex as keyof typeof current] = value as never
+  ;(current as Record<string, unknown> | unknown[])[
+    lastIndex as keyof typeof current
+  ] = value as never
 
   return result
 }
@@ -297,7 +325,7 @@ function reportSyncFailure(
   report: BroadcastState["reportOutputIssue"],
   outputId: "main" | "alt",
   label: string,
-  error: unknown,
+  error: unknown
 ): void {
   console.warn(`[broadcast-store] emit draft to '${label}' failed`, error)
   report({
@@ -318,7 +346,7 @@ function dismissOutputIssueToast(id: string): void {
 
 function pruneOutputIssues(
   issues: BroadcastOutputIssue[],
-  now = Date.now(),
+  now = Date.now()
 ): BroadcastOutputIssue[] {
   return issues
     .filter((issue) => now - issue.lastSeenAt <= OUTPUT_ISSUE_TTL_MS)
@@ -328,7 +356,7 @@ function pruneOutputIssues(
 
 function reportLoadFailureOnce(
   id: string,
-  input: Parameters<BroadcastState["reportOutputIssue"]>[0],
+  input: Parameters<BroadcastState["reportOutputIssue"]>[0]
 ): void {
   if (reportedLoadFailureIds.has(id)) return
   const storageKey = `sabbathcue:${id}:reported`
@@ -368,7 +396,7 @@ function emitDraftToBroadcast(state: BroadcastState): void {
       item: state.isLive ? state.liveItem : null,
       opacity: state.opacity,
     }).catch((error) =>
-      reportSyncFailure(report, "alt", "broadcast-alt", error),
+      reportSyncFailure(report, "alt", "broadcast-alt", error)
     )
   }
 }
@@ -383,7 +411,10 @@ function scheduleDraftBroadcast(getState: () => BroadcastState): void {
     emitDraftToBroadcast(getState())
   }
 
-  if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+  if (
+    typeof window === "undefined" ||
+    typeof window.requestAnimationFrame !== "function"
+  ) {
     flush()
     return
   }
@@ -437,7 +468,8 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       return {
         themes,
         activeThemeId: s.activeThemeId === id ? fallbackId : s.activeThemeId,
-        altActiveThemeId: s.altActiveThemeId === id ? fallbackId : s.altActiveThemeId,
+        altActiveThemeId:
+          s.altActiveThemeId === id ? fallbackId : s.altActiveThemeId,
       }
     })
     if (activeThemeId === id || altActiveThemeId === id) {
@@ -485,7 +517,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
         t.id === id && !t.builtin ? { ...t, name, updatedAt: Date.now() } : t
       ),
       draftTheme:
-        s.draftTheme?.id === id ? { ...s.draftTheme, name, updatedAt: Date.now() } : s.draftTheme,
+        s.draftTheme?.id === id
+          ? { ...s.draftTheme, name, updatedAt: Date.now() }
+          : s.draftTheme,
     })),
   togglePinTheme: (id) =>
     set((s) => ({
@@ -500,9 +534,16 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     const theme = findThemeById(s.themes, themeId)
     if (!theme) return
 
-    void emitTo(label, "broadcast:verse-update", buildBroadcastPayload(s, theme, options)).then(
+    void emitTo(
+      label,
+      "broadcast:verse-update",
+      buildBroadcastPayload(s, theme, options)
+    ).then(
       () => {
-        get().clearOutputIssueFor(outputId === "alt" ? "alt" : "main", "broadcast-sync")
+        get().clearOutputIssueFor(
+          outputId === "alt" ? "alt" : "main",
+          "broadcast-sync"
+        )
       },
       (error) => {
         console.warn(`[broadcast-store] sync emit to '${label}' failed`, error)
@@ -512,7 +553,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
           title: "Broadcast sync failed",
           description: `Could not sync live output to ${label}: ${String(error)}`,
         })
-      },
+      }
     )
   },
   reportOutputIssue: (input) => {
@@ -532,9 +573,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
                   lastSeenAt: now,
                   count: issue.count + 1,
                 }
-              : issue,
+              : issue
           ),
-          now,
+          now
         ),
       })
       return
@@ -550,7 +591,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       lastSeenAt: now,
       count: 1,
     }
-    set({ outputIssues: pruneOutputIssues([...get().outputIssues, issue], now) })
+    set({
+      outputIssues: pruneOutputIssues([...get().outputIssues, issue], now),
+    })
     toast.error(issue.title, {
       id,
       description: issue.description,
@@ -566,9 +609,13 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     dismissOutputIssueToast(id)
   },
   clearOutputIssuesFor: (outputId) => {
-    const removed = get().outputIssues.filter((issue) => issue.outputId === outputId)
+    const removed = get().outputIssues.filter(
+      (issue) => issue.outputId === outputId
+    )
     set({
-      outputIssues: get().outputIssues.filter((issue) => issue.outputId !== outputId),
+      outputIssues: get().outputIssues.filter(
+        (issue) => issue.outputId !== outputId
+      ),
     })
     for (const issue of removed) {
       dismissOutputIssueToast(issue.id)
@@ -661,7 +708,10 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     get().sendVideoCommand({ type: "setMuted", muted })
   },
   setVideoVolume: (volume) => {
-    const nextVolume = Math.max(0, Math.min(1, Number.isFinite(volume) ? volume : 1))
+    const nextVolume = Math.max(
+      0,
+      Math.min(1, Number.isFinite(volume) ? volume : 1)
+    )
     set({ videoVolume: nextVolume })
     get().sendVideoCommand({ type: "setVolume", volume: nextVolume })
   },
@@ -676,7 +726,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   handleVideoEnded: () => {
     const queue = useQueueStore.getState()
     const nextIndex =
-      queue.activeIndex === null ? -1 : Math.min(queue.activeIndex + 1, queue.items.length - 1)
+      queue.activeIndex === null
+        ? -1
+        : Math.min(queue.activeIndex + 1, queue.items.length - 1)
     const nextItem = nextIndex >= 0 ? queue.items[nextIndex] : null
     const decision = decideVideoEndAction({
       loop: get().videoLoop,
@@ -690,6 +742,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     }
     if (decision === "advance" && nextItem) {
       queue.setActive(nextIndex)
+      restoreHymnDeckForQueueItem(nextItem)
       const renderData = getPresentationRenderData(nextItem.presentation)
       get().commitLiveItem(renderData)
     }
@@ -717,7 +770,12 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   // Designer
   setDesignerOpen: (isDesignerOpen) => {
     if (!isDesignerOpen) {
-      set({ isDesignerOpen, editingThemeId: null, draftTheme: null, selectedElement: null })
+      set({
+        isDesignerOpen,
+        editingThemeId: null,
+        draftTheme: null,
+        selectedElement: null,
+      })
     } else {
       set({ isDesignerOpen })
     }
@@ -740,14 +798,20 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   },
   updateDraft: (updates) => {
     set((s) => ({
-      draftTheme: s.draftTheme ? { ...s.draftTheme, ...updates, updatedAt: Date.now() } : null,
+      draftTheme: s.draftTheme
+        ? { ...s.draftTheme, ...updates, updatedAt: Date.now() }
+        : null,
     }))
     scheduleDraftBroadcast(get)
   },
   updateDraftNested: (path, value) => {
     set((s) => ({
       draftTheme: s.draftTheme
-        ? (setNestedValue(s.draftTheme as unknown as Record<string, unknown>, path, value) as unknown as BroadcastTheme)
+        ? (setNestedValue(
+            s.draftTheme as unknown as Record<string, unknown>,
+            path,
+            value
+          ) as unknown as BroadcastTheme)
         : null,
     }))
     scheduleDraftBroadcast(get)
@@ -791,7 +855,10 @@ let hydrationPromise: Promise<void> | null = null
 
 async function getThemeStore(): Promise<Store> {
   if (!tauriStore) {
-    tauriStore = await load("broadcast-themes.json", { autoSave: false, defaults: {} })
+    tauriStore = await load("broadcast-themes.json", {
+      autoSave: false,
+      defaults: {},
+    })
   }
   return tauriStore
 }
@@ -803,16 +870,34 @@ export function hydrateBroadcastThemes(): Promise<void> {
   hydrationPromise = (async () => {
     try {
       const store = await getThemeStore()
-      const customThemes = (await store.get("customThemes")) as BroadcastTheme[] | undefined
+      const customThemes = (await store.get("customThemes")) as
+        | BroadcastTheme[]
+        | undefined
       const activeId = (await store.get("activeThemeId")) as string | undefined
-      const altActiveId = (await store.get("altActiveThemeId")) as string | undefined
-      const readingModeAutoLive = (await store.get("readingModeAutoLive")) as boolean | undefined
-      const mainDisplayMonitorIndex = (await store.get("mainDisplayMonitorIndex")) as number | undefined
-      const altDisplayMonitorIndex = (await store.get("altDisplayMonitorIndex")) as number | undefined
-      const mainDisplayMonitorKey = (await store.get("mainDisplayMonitorKey")) as string | undefined
-      const altDisplayMonitorKey = (await store.get("altDisplayMonitorKey")) as string | undefined
-      const mainProjectorFullscreen = (await store.get("mainProjectorFullscreen")) as boolean | undefined
-      const altProjectorFullscreen = (await store.get("altProjectorFullscreen")) as boolean | undefined
+      const altActiveId = (await store.get("altActiveThemeId")) as
+        | string
+        | undefined
+      const readingModeAutoLive = (await store.get("readingModeAutoLive")) as
+        | boolean
+        | undefined
+      const mainDisplayMonitorIndex = (await store.get(
+        "mainDisplayMonitorIndex"
+      )) as number | undefined
+      const altDisplayMonitorIndex = (await store.get(
+        "altDisplayMonitorIndex"
+      )) as number | undefined
+      const mainDisplayMonitorKey = (await store.get(
+        "mainDisplayMonitorKey"
+      )) as string | undefined
+      const altDisplayMonitorKey = (await store.get("altDisplayMonitorKey")) as
+        | string
+        | undefined
+      const mainProjectorFullscreen = (await store.get(
+        "mainProjectorFullscreen"
+      )) as boolean | undefined
+      const altProjectorFullscreen = (await store.get(
+        "altProjectorFullscreen"
+      )) as boolean | undefined
 
       const patch = buildBroadcastHydrationPatch({
         customThemes,
@@ -856,7 +941,9 @@ export function hydrateBroadcastThemes(): Promise<void> {
       })
     } catch {
       hydrationPromise = null
-      console.warn("[broadcast] Failed to load persisted themes, using defaults")
+      console.warn(
+        "[broadcast] Failed to load persisted themes, using defaults"
+      )
       reportLoadFailureOnce("global:persistence:broadcast-theme-load", {
         outputId: "global",
         kind: "persistence",
@@ -872,11 +959,15 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null
 let pendingSave: Promise<void> = Promise.resolve()
 const SAVE_DEBOUNCE_MS = 500
 
-export function selectActiveTheme(state: BroadcastState): BroadcastTheme | null {
+export function selectActiveTheme(
+  state: BroadcastState
+): BroadcastTheme | null {
   return findThemeById(state.themes, state.activeThemeId)
 }
 
-export function selectAltActiveTheme(state: BroadcastState): BroadcastTheme | null {
+export function selectAltActiveTheme(
+  state: BroadcastState
+): BroadcastTheme | null {
   return findThemeById(state.themes, state.altActiveThemeId)
 }
 

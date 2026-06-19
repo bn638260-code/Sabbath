@@ -523,6 +523,47 @@ describe("verse detection workflow", () => {
     })
   })
 
+  it("auto-lives auto-queued EGW direct detections", async () => {
+    await handleVerseDetections([
+      makeDetection({
+        content_type: "egw",
+        verse_ref: "Patriarchs and Prophets 1:2",
+        verse_text: "The history of the great conflict.",
+        book_name: "Patriarchs and Prophets",
+        book_number: 1,
+        chapter: 1,
+        verse: 2,
+        auto_queued: true,
+        egw_paragraph: {
+          id: 12,
+          book_number: 1,
+          book_title: "Patriarchs and Prophets",
+          chapter: 1,
+          chapter_title: "Why Was Sin Permitted?",
+          paragraph: 2,
+          text: "The history of the great conflict.",
+        },
+      }),
+    ])
+
+    expect(useBibleStore.getState().selectedVerse).toBeNull()
+    expect(useBroadcastStore.getState().isLive).toBe(true)
+    expect(useBroadcastStore.getState().liveItem).toMatchObject({
+      kind: "egw",
+      reference: "Patriarchs and Prophets 1:2",
+    })
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast",
+      "broadcast:verse-update",
+      expect.objectContaining({
+        item: expect.objectContaining({
+          kind: "egw",
+          reference: "Patriarchs and Prophets 1:2",
+        }),
+      })
+    )
+  })
+
   it("keeps the first direct hit when confidence is tied", async () => {
     const detection1 = makeDetection({
       verse_ref: "Romans 5:8",

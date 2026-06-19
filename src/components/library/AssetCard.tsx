@@ -1,8 +1,15 @@
-import { FolderPlusIcon, PlayIcon, PlusIcon, SendIcon, Trash2Icon } from "lucide-react"
+import {
+  FolderPlusIcon,
+  PlayIcon,
+  PlusIcon,
+  SendIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { libraryAssetToServiceItem } from "@/lib/library/asset-to-service-item"
 import { videoAssetToPresentation } from "@/lib/library/library-video"
 import { songDocToDeck } from "@/lib/library/song-doc"
+import { createHymnDeckQueueItems } from "@/services/hymnal/hymn-presentation"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useLibraryStore } from "@/stores/library-store"
@@ -18,7 +25,9 @@ interface AssetCardProps {
 export function AssetCard({ asset }: AssetCardProps) {
   const collections = useLibraryStore((state) => state.collections)
   const deleteAsset = useLibraryStore((state) => state.deleteAsset)
-  const addAssetToCollection = useLibraryStore((state) => state.addAssetToCollection)
+  const addAssetToCollection = useLibraryStore(
+    (state) => state.addAssetToCollection
+  )
   const addItem = useServicePlanStore((state) => state.addItem)
 
   const preview = () => previewAsset(asset)
@@ -36,7 +45,7 @@ export function AssetCard({ asset }: AssetCardProps) {
       (asset.source === "youtube" && !asset.youtubeId))
 
   const unlinkedCollection = collections.find(
-    (collection) => !asset.collectionIds.includes(collection.id),
+    (collection) => !asset.collectionIds.includes(collection.id)
   )
 
   return (
@@ -51,7 +60,7 @@ export function AssetCard({ asset }: AssetCardProps) {
             fileName: asset.fileName,
             thumbnail: asset.thumbnail,
             name: asset.name,
-          }),
+          })
         )
         event.dataTransfer.effectAllowed = "copy"
       }}
@@ -65,7 +74,7 @@ export function AssetCard({ asset }: AssetCardProps) {
             loading="lazy"
           />
         ) : (
-          <span className="text-center text-xs font-semibold uppercase text-muted-foreground">
+          <span className="text-center text-xs font-semibold text-muted-foreground uppercase">
             {videoMissing ? "Missing source" : asset.type}
           </span>
         )}
@@ -73,8 +82,10 @@ export function AssetCard({ asset }: AssetCardProps) {
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">{asset.name}</p>
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          <p className="truncate text-sm font-semibold text-foreground">
+            {asset.name}
+          </p>
+          <p className="mt-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
             {asset.type}
           </p>
         </div>
@@ -123,7 +134,9 @@ export function AssetCard({ asset }: AssetCardProps) {
               size="icon-xs"
               variant="ghost"
               title={`Add to ${unlinkedCollection.name}`}
-              onClick={() => addAssetToCollection(asset.id, unlinkedCollection.id)}
+              onClick={() =>
+                addAssetToCollection(asset.id, unlinkedCollection.id)
+              }
             >
               <FolderPlusIcon className="size-3" />
             </Button>
@@ -151,6 +164,21 @@ function previewAsset(asset: LibraryAsset): void {
 }
 
 function queueAsset(asset: LibraryAsset): void {
+  if (asset.type === "song") {
+    const deck = songDocToDeck(asset.song)
+    if (deck.length === 0) return
+    useQueueStore.getState().addItems(
+      createHymnDeckQueueItems(deck, {
+        groupId: `library-song-${asset.id}-${crypto.randomUUID()}`,
+        groupLabel: `${asset.name} - ${deck.length} slides`,
+        source: "manual",
+        idPrefix: `library-song-${asset.id}`,
+      })
+    )
+    useHymnSlideStore.getState().setDeck(deck, 0)
+    return
+  }
+
   const item = firstPresentation(asset)
   if (!item) return
   useQueueStore.getState().addItem({

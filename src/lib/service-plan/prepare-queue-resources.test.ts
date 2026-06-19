@@ -89,9 +89,19 @@ describe("enqueuePreparedResourcesForItem", () => {
 
     expect(queued).toBe(2)
     expect(items).toHaveLength(2)
-    expect(items.every((entry) => entry.presentation.kind === "hymn")).toBe(true)
+    expect(items.every((entry) => entry.presentation.kind === "hymn")).toBe(
+      true
+    )
+    expect(items.map((entry) => entry.presentation.reference)).toEqual([
+      "[Plan] #1 Hymn 1 - Verse 1 1 of 2",
+      "[Plan] #1 Hymn 1 - Verse 1 2 of 2",
+    ])
     expect(items[0].hymnGroup?.groupId).toBe(items[1].hymnGroup?.groupId)
     expect(items[0].hymnGroup?.itemCount).toBe(2)
+    expect(items[0].hymnDeck).toHaveLength(2)
+    expect(items[0].hymnDeck?.[1]?.reference).toBe(
+      "[Plan] #1 Hymn 1 - Verse 1 2 of 2"
+    )
     expect(items[0].source).toBe("service-plan")
   })
 
@@ -99,7 +109,7 @@ describe("enqueuePreparedResourcesForItem", () => {
     await enqueuePreparedResourcesForItem(itemWithMedia())
 
     expect(useQueueStore.getState().items[0].presentation.reference).toBe(
-      "[Plan] Media - Welcome",
+      "[Plan] Media - Welcome"
     )
   })
 })

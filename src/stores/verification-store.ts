@@ -10,7 +10,7 @@ import {
 } from "@/lib/verification/verification-provider"
 import type { VerificationStateSnapshot } from "@/types/verification"
 
-const HEARTBEAT_MS = 6 * 60 * 60 * 1000
+const HEARTBEAT_MS = 60 * 1000
 
 interface VerificationStore extends VerificationStateSnapshot {
   isHydrated: boolean
@@ -24,23 +24,70 @@ interface VerificationStore extends VerificationStateSnapshot {
 
 let hydrationPromise: Promise<void> | null = null
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+let focusListenersActive = false
+let suspensionCheckPromise: Promise<void> | null = null
 
 function stopHeartbeat(): void {
   if (heartbeatTimer !== null) {
     clearInterval(heartbeatTimer)
     heartbeatTimer = null
   }
+  stopFocusListeners()
+}
+
+function runSuspensionCheck(): Promise<void> {
+  if (suspensionCheckPromise) return suspensionCheckPromise
+
+  suspensionCheckPromise = (async () => {
+    const snapshot = await heartbeatDeviceRegistration()
+    if (snapshot) applySnapshot(snapshot)
+  })()
+    .catch(() => {
+      // Transient heartbeat failures never kick an active session.
+    })
+    .finally(() => {
+      suspensionCheckPromise = null
+    })
+
+  return suspensionCheckPromise
+}
+
+function handleFocusVerification(): void {
+  if (
+    typeof document !== "undefined" &&
+    document.visibilityState === "hidden"
+  ) {
+    return
+  }
+  if (useVerificationStore.getState().status !== "verified") return
+  void runSuspensionCheck()
+}
+
+function startFocusListeners(): void {
+  if (focusListenersActive || typeof window === "undefined") return
+
+  window.addEventListener("focus", handleFocusVerification)
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", handleFocusVerification)
+  }
+  focusListenersActive = true
+}
+
+function stopFocusListeners(): void {
+  if (!focusListenersActive || typeof window === "undefined") return
+
+  window.removeEventListener("focus", handleFocusVerification)
+  if (typeof document !== "undefined") {
+    document.removeEventListener("visibilitychange", handleFocusVerification)
+  }
+  focusListenersActive = false
 }
 
 function startHeartbeat(): void {
   stopHeartbeat()
+  startFocusListeners()
   heartbeatTimer = setInterval(() => {
-    void (async () => {
-      const snapshot = await heartbeatDeviceRegistration()
-      if (snapshot) applySnapshot(snapshot)
-    })().catch(() => {
-      // Transient heartbeat failures never kick an active session.
-    })
+    void runSuspensionCheck()
   }, HEARTBEAT_MS)
 }
 
@@ -153,4 +200,5 @@ export function isAppVerified(): boolean {
 export function resetVerificationStoreForTests(): void {
   hydrationPromise = null
   stopHeartbeat()
+  suspensionCheckPromise = null
 }

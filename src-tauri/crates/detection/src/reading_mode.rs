@@ -326,6 +326,21 @@ impl ReadingMode {
             return None;
         }
 
+        if (trimmed.contains("same chapter") || trimmed.contains("this chapter"))
+            && trimmed.contains("verse ")
+        {
+            if let Some(verse) = extract_verse_number(trimmed) {
+                log::info!("[READING] Same chapter verse command detected: verse {verse}");
+                self.bare_number_context = BareNumberContext::None;
+                return Some(ChapterChange {
+                    book_number: self.book_number,
+                    book_name: self.book_name.clone(),
+                    new_chapter: self.chapter,
+                    start_verse: Some(verse),
+                });
+            }
+        }
+
         // "chapter N" or "chapter N verse M" or "N verse M" anywhere in text
         log::debug!("[READING] Attempting to extract chapter and verse from: {trimmed:?}");
         let (chapter_num, verse_num) = extract_chapter_and_verse(trimmed)?;
@@ -554,9 +569,7 @@ fn normalize_command_text(text: &str) -> String {
         if ch.is_alphanumeric() {
             normalized.push(ch);
             previous_was_space = false;
-        } else if ch == '\'' {
-            continue;
-        } else if !previous_was_space {
+        } else if ch != '\'' && !previous_was_space {
             normalized.push(' ');
             previous_was_space = true;
         }
@@ -1112,6 +1125,21 @@ mod tests {
         let change = result.unwrap();
         assert_eq!(change.new_chapter, 3);
         assert_eq!(change.start_verse, Some(5));
+    }
+
+    #[test]
+    fn same_chapter_verse_command_keeps_current_chapter_and_sets_verse() {
+        let mut rm = ReadingMode::new();
+        let verses: Vec<(i32, String)> =
+            (1..=10).map(|i| (i, format!("Verse {i} text."))).collect();
+        rm.start(1, "Genesis", 5, 1, verses);
+
+        let result = rm.check_chapter_command("in same chapter verse 7");
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.new_chapter, 5);
+        assert_eq!(change.start_verse, Some(7));
     }
 
     #[test]

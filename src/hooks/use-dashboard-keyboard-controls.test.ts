@@ -101,6 +101,21 @@ function makeQueueItem(id: string, index: number): QueueItem {
   }
 }
 
+function makeQueuedHymnDeckItem(index: number): QueueItem {
+  const deck = [makeSlide(0), makeSlide(1), makeSlide(2)]
+  return {
+    ...makeQueueItem(`queued-${index}`, index),
+    source: "hymn",
+    hymnGroup: {
+      groupId: "queued-hymn",
+      groupLabel: "Joyful - 3 screens",
+      itemIndex: index + 1,
+      itemCount: deck.length,
+    },
+    hymnDeck: deck,
+  }
+}
+
 describe("handleDashboardKeyboardEvent", () => {
   beforeEach(() => {
     useHymnSlideStore
@@ -246,6 +261,46 @@ describe("handleDashboardKeyboardEvent", () => {
     expect(useBroadcastStore.getState().isLive).toBe(true)
     expect(useBroadcastStore.getState().liveItem?.reference).toBe(
       "Joyful - Slide 1 of 3"
+    )
+  })
+
+  it("restores an older queued hymn deck before presenting and advancing it", () => {
+    const otherDeck = [
+      {
+        ...makeSlide(0),
+        hymnId: "hymn-99",
+        screenId: "other-screen-0",
+        reference: "Other Hymn - Slide 1 of 1",
+      },
+    ]
+    useHymnSlideStore.getState().setDeck(otherDeck, 0)
+    useQueueStore.setState({
+      items: [makeQueuedHymnDeckItem(1)],
+      activeIndex: 0,
+    })
+
+    handleDashboardKeyboardEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        ctrlKey: true,
+        shiftKey: true,
+      })
+    )
+
+    expect(
+      useHymnSlideStore.getState().deck.map((slide) => slide.screenId)
+    ).toEqual(["screen-0", "screen-1", "screen-2"])
+    expect(useHymnSlideStore.getState().activeIndex).toBe(1)
+    expect(useBroadcastStore.getState().liveItem?.hymnSlide?.screenId).toBe(
+      "screen-1"
+    )
+
+    handleDashboardKeyboardEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight" })
+    )
+
+    expect(useBroadcastStore.getState().liveItem?.hymnSlide?.screenId).toBe(
+      "screen-2"
     )
   })
 

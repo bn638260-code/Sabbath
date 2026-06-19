@@ -133,7 +133,13 @@ export function SettingsPage() {
 
         <section
           id={`settings-section-${activeSection}`}
-          data-tour={activeSection === "account" ? "settings-section-account" : undefined}
+          data-tour={
+            activeSection === "account"
+              ? "settings-section-account"
+              : activeSection === "speech"
+                ? "settings-section-speech"
+                : undefined
+          }
           className="glass-panel min-h-0 overflow-y-auto p-5 scrollbar-thin"
         >
           <h3 className="mb-4 border-b border-[var(--border-subtle)] pb-2 font-mono text-xs font-bold uppercase tracking-wider text-foreground">

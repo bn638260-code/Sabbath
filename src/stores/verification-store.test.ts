@@ -33,6 +33,7 @@ describe("verification-store", () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it("hydrate fails closed when no session can be restored", async () => {
@@ -77,7 +78,7 @@ describe("verification-store", () => {
     expect(useVerificationStore.getState().status).toBe("verified")
     expect(isAppVerified()).toBe(true)
 
-    await vi.advanceTimersByTimeAsync(6 * 60 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(60 * 1000)
     expect(mockHeartbeatDeviceRegistration).toHaveBeenCalledTimes(1)
 
     mockSignOut.mockResolvedValue({
@@ -92,8 +93,59 @@ describe("verification-store", () => {
     })
     await useVerificationStore.getState().signOut()
     mockHeartbeatDeviceRegistration.mockClear()
-    await vi.advanceTimersByTimeAsync(6 * 60 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(60 * 1000)
     expect(mockHeartbeatDeviceRegistration).not.toHaveBeenCalled()
+  })
+
+  it("focus rechecks suspension and applies the blocking snapshot", async () => {
+    const focusTarget = new EventTarget()
+    vi.stubGlobal("window", {
+      addEventListener: (type: string, listener: EventListener) =>
+        focusTarget.addEventListener(type, listener),
+      removeEventListener: (type: string, listener: EventListener) =>
+        focusTarget.removeEventListener(type, listener),
+    })
+    vi.stubGlobal("document", {
+      visibilityState: "visible",
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })
+    mockSignIn.mockResolvedValue({
+      status: "verified",
+      verifiedUserId: "user-1",
+      verifiedDeviceId: "device-1",
+      accessTokenExpiresAt: Date.now() + 60_000,
+      lastVerifiedAt: Date.now(),
+      offlineGraceExpiresAt: 0,
+      error: null,
+      errorCode: null,
+    })
+    mockHeartbeatDeviceRegistration.mockResolvedValue({
+      status: "error",
+      verifiedUserId: null,
+      verifiedDeviceId: null,
+      accessTokenExpiresAt: null,
+      lastVerifiedAt: null,
+      offlineGraceExpiresAt: null,
+      error: "This account has been suspended. Contact support for assistance.",
+      errorCode: "suspended",
+    })
+
+    const { useVerificationStore, isAppVerified } = await import(
+      "./verification-store"
+    )
+
+    await useVerificationStore.getState().signIn("user@example.com", "secret")
+    mockHeartbeatDeviceRegistration.mockClear()
+
+    focusTarget.dispatchEvent(new Event("focus"))
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(mockHeartbeatDeviceRegistration).toHaveBeenCalledTimes(1)
+    expect(useVerificationStore.getState().status).toBe("error")
+    expect(useVerificationStore.getState().errorCode).toBe("suspended")
+    expect(isAppVerified()).toBe(false)
   })
 
   it("signIn surfaces provider errors", async () => {

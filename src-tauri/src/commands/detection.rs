@@ -3,7 +3,7 @@
     reason = "Tauri command extractors require pass-by-value"
 )]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::Instant;
 
@@ -508,6 +508,69 @@ pub(crate) fn detect_egw_references(state: &AppState, text: &str) -> Vec<Detecti
     results
 }
 
+pub(crate) fn apply_egw_auto_queue(
+    results: &mut [DetectionResult],
+    merger: &mut rhema_detection::DetectionMerger,
+) {
+    let direct_indices: Vec<usize> = results
+        .iter()
+        .enumerate()
+        .filter_map(|(index, result)| {
+            (result.content_type == "egw" && result.source == "direct").then_some(index)
+        })
+        .collect();
+
+    if direct_indices.is_empty() {
+        return;
+    }
+
+    let candidates: Vec<rhema_detection::Detection> = direct_indices
+        .iter()
+        .map(|index| {
+            let result = &results[*index];
+            rhema_detection::Detection {
+                verse_ref: rhema_detection::VerseRef {
+                    book_number: result.book_number,
+                    book_name: result.book_name.clone(),
+                    chapter: result.chapter,
+                    verse_start: result.verse,
+                    verse_end: None,
+                },
+                verse_id: None,
+                confidence: result.confidence,
+                source: rhema_detection::DetectionSource::DirectReference,
+                transcript_snippet: result.transcript_snippet.clone(),
+                detected_at: 0,
+                is_chapter_only: false,
+            }
+        })
+        .collect();
+
+    let auto_by_ref: HashMap<(i32, i32, i32), bool> = merger
+        .merge(candidates, vec![])
+        .into_iter()
+        .map(|merged| {
+            let verse_ref = merged.detection.verse_ref;
+            (
+                (
+                    verse_ref.book_number,
+                    verse_ref.chapter,
+                    verse_ref.verse_start,
+                ),
+                merged.auto_queued,
+            )
+        })
+        .collect();
+
+    for index in direct_indices {
+        let result = &mut results[index];
+        result.auto_queued = auto_by_ref
+            .get(&(result.book_number, result.chapter, result.verse))
+            .copied()
+            .unwrap_or(false);
+    }
+}
+
 /// Run the detection pipeline on a piece of transcript text
 #[tauri::command]
 pub fn detect_verses(
@@ -971,6 +1034,35 @@ mod tests {
             results[0].egw_paragraph.as_ref().map(|p| p.text.as_str()),
             Some("The history of the great conflict.")
         );
+    }
+
+    #[test]
+    fn egw_direct_results_auto_queue_when_auto_mode_threshold_allows() {
+        let fixture = fixture_state(1);
+        let mut results = detect_egw_references(
+            &fixture.state,
+            "please read Patriarchs and Prophets chapter one paragraph two",
+        );
+        let mut merger = DetectionMerger::new();
+        apply_detection_settings_to_merger(&mut merger, Some(0.80), 2500);
+
+        apply_egw_auto_queue(&mut results, &mut merger);
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].auto_queued);
+    }
+
+    #[test]
+    fn egw_direct_results_do_not_auto_queue_in_manual_mode() {
+        let fixture = fixture_state(1);
+        let mut results = detect_egw_references(&fixture.state, "PP 1:2");
+        let mut merger = DetectionMerger::new();
+        apply_detection_settings_to_merger(&mut merger, None, 2500);
+
+        apply_egw_auto_queue(&mut results, &mut merger);
+
+        assert_eq!(results.len(), 1);
+        assert!(!results[0].auto_queued);
     }
 
     #[test]

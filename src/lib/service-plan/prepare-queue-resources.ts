@@ -10,8 +10,16 @@ import { buildSermonSlideDeck } from "@/services/slides/sermon-slide-deck"
 import { useBibleStore } from "@/stores/bible-store"
 import { useQueueStore } from "@/stores/queue-store"
 import type { QueueItem } from "@/types/queue"
-import type { PresentationItem } from "@/types/presentation"
-import type { MediaRef, ServiceAttachment, ServiceItem, ScriptureRef } from "@/types/service-plan"
+import type {
+  HymnPresentationItemData,
+  PresentationItem,
+} from "@/types/presentation"
+import type {
+  MediaRef,
+  ServiceAttachment,
+  ServiceItem,
+  ScriptureRef,
+} from "@/types/service-plan"
 import type { Verse } from "@/types"
 
 const PLAN_PREFIX = "[Plan]"
@@ -22,7 +30,7 @@ function planReference(label: string): string {
 
 function createPlaceholderScripturePresentation(
   label: string,
-  detail: string,
+  detail: string
 ): PresentationItem {
   const translationId = useBibleStore.getState().activeTranslationId
   const verse: Verse = {
@@ -44,7 +52,7 @@ function createPlaceholderScripturePresentation(
 
 function createMediaPresentation(
   input: Pick<ServiceAttachment, "id" | "kind" | "label"> | MediaRef,
-  kind: "media" | "document",
+  kind: "media" | "document"
 ): PresentationItem {
   const title = input.label
   const kindLabel = kind === "document" ? "Document" : "Media"
@@ -79,7 +87,7 @@ async function resolveScriptureRef(ref: ScriptureRef): Promise<Verse | null> {
   const book = books.find(
     (candidate) =>
       candidate.name.toLowerCase() === bookQuery ||
-      candidate.abbreviation.toLowerCase() === bookQuery,
+      candidate.abbreviation.toLowerCase() === bookQuery
   )
   if (!book) return null
 
@@ -90,22 +98,32 @@ async function resolveScriptureRef(ref: ScriptureRef): Promise<Verse | null> {
 function queuePreparedItem(
   presentation: PresentationItem,
   hymnGroup?: QueueItem["hymnGroup"],
+  hymnDeck?: QueueItem["hymnDeck"]
 ): void {
+  const preparedReference = planReference(presentation.reference)
+  const preparedHymnDeck: HymnPresentationItemData[] | undefined =
+    hymnDeck?.map((slide) => ({
+      ...slide,
+      reference: planReference(slide.reference),
+    }))
   const item: QueueItem = {
     id: crypto.randomUUID(),
     presentation: {
       ...presentation,
-      reference: planReference(presentation.reference),
+      reference: preparedReference,
     },
     confidence: 1,
     source: "service-plan",
     added_at: Date.now(),
     hymnGroup,
+    hymnDeck: preparedHymnDeck,
   }
   useQueueStore.getState().addItem(item)
 }
 
-export async function enqueuePreparedResourcesForItem(item: ServiceItem): Promise<number> {
+export async function enqueuePreparedResourcesForItem(
+  item: ServiceItem
+): Promise<number> {
   let queued = 0
 
   for (const hymnRef of item.hymnRefs) {
@@ -118,8 +136,12 @@ export async function enqueuePreparedResourcesForItem(item: ServiceItem): Promis
         selectedSectionIds: defaultSelectedSectionIds(hymn),
       })
       const groupItems = createGroupedHymnQueueItems(screens)
-      for (const queueItem of groupItems) {
-        queuePreparedItem(queueItem.presentation, queueItem.hymnGroup)
+      for (const queueItem of [...groupItems].reverse()) {
+        queuePreparedItem(
+          queueItem.presentation,
+          queueItem.hymnGroup,
+          queueItem.hymnDeck
+        )
         queued += 1
       }
     } catch {
@@ -144,10 +166,15 @@ export async function enqueuePreparedResourcesForItem(item: ServiceItem): Promis
 
       const label =
         scriptureRef.reference ??
-        [scriptureRef.book, scriptureRef.chapter, scriptureRef.verse].filter(Boolean).join(" ")
+        [scriptureRef.book, scriptureRef.chapter, scriptureRef.verse]
+          .filter(Boolean)
+          .join(" ")
       if (!label) continue
       queuePreparedItem(
-        createPlaceholderScripturePresentation(label, "Scripture reference pending lookup."),
+        createPlaceholderScripturePresentation(
+          label,
+          "Scripture reference pending lookup."
+        )
       )
       queued += 1
     } catch {

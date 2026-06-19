@@ -672,7 +672,7 @@ impl DirectDetector {
                 "niv" => Some("NIV"),
                 "esv" => Some("ESV"),
                 "nasb" => Some("NASB"),
-                "nkjv" => Some("NKJV"),
+                "nkjv" | "njkv" => Some("NKJV"),
                 "nlt" => Some("NLT"),
                 "kjv" => Some("KJV"),
                 "amp" | "amplified" => Some("AMP"),
@@ -1396,7 +1396,9 @@ mod tests {
         // semantic paraphrase search must skip these so it does not flood the
         // detections panel with keyword noise.
         assert!(is_voice_command_utterance("Hymn number 46"));
-        assert!(is_voice_command_utterance("I need the new living translation."));
+        assert!(is_voice_command_utterance(
+            "I need the new living translation."
+        ));
         assert!(is_voice_command_utterance("King James Version"));
         assert!(is_voice_command_utterance("let's go to the next verse"));
         assert!(is_voice_command_utterance("go back to the previous verse"));
@@ -1573,6 +1575,24 @@ mod tests {
         assert_eq!(
             detector.detect_translation_command("i want to read that in the message"),
             Some("MSG".to_string())
+        );
+    }
+
+    #[test]
+    fn translation_command_accepts_i_want_nkjv_and_nlt_phrases() {
+        let detector = DirectDetector::new();
+
+        assert_eq!(
+            detector.detect_translation_command("I want the NKJV"),
+            Some("NKJV".to_string())
+        );
+        assert_eq!(
+            detector.detect_translation_command("I want the NJKV"),
+            Some("NKJV".to_string())
+        );
+        assert_eq!(
+            detector.detect_translation_command("I want the NLT"),
+            Some("NLT".to_string())
         );
     }
 

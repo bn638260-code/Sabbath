@@ -150,10 +150,8 @@ mod tests {
 
     #[test]
     fn rejects_oversize_video() {
-        let dir = std::env::temp_dir().join(format!(
-            "sabbathcue-video-large-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("sabbathcue-video-large-{}", std::process::id()));
         fs::create_dir_all(&dir).expect("temp dir");
         let file_path = dir.join("large.mp4");
         let file = fs::File::create(&file_path).expect("create file");

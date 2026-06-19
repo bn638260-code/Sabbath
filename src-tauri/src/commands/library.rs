@@ -29,8 +29,8 @@ fn validate_library_image_source(path: &str) -> Result<PathBuf, String> {
     if is_blocked_system_path(path) {
         return Err("System paths are not allowed".into());
     }
-    let metadata =
-        std::fs::symlink_metadata(path).map_err(|e| format!("Could not read image metadata: {e}"))?;
+    let metadata = std::fs::symlink_metadata(path)
+        .map_err(|e| format!("Could not read image metadata: {e}"))?;
     if metadata.file_type().is_symlink() {
         return Err("Symlinked paths are not allowed".into());
     }
@@ -130,13 +130,13 @@ fn jpeg_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
         if index + 2 > bytes.len() {
             break;
         }
-        let length = u16::from_be_bytes([bytes[index], bytes[index + 1]]) as usize;
+        let length = usize::from(u16::from_be_bytes([bytes[index], bytes[index + 1]]));
         if length < 2 || index + length > bytes.len() {
             break;
         }
-        if matches!(marker, 0xc0 | 0xc1 | 0xc2 | 0xc3) && length >= 7 {
-            let height = u16::from_be_bytes([bytes[index + 3], bytes[index + 4]]) as u32;
-            let width = u16::from_be_bytes([bytes[index + 5], bytes[index + 6]]) as u32;
+        if matches!(marker, 0xc0..=0xc3) && length >= 7 {
+            let height = u32::from(u16::from_be_bytes([bytes[index + 3], bytes[index + 4]]));
+            let width = u32::from(u16::from_be_bytes([bytes[index + 5], bytes[index + 6]]));
             return Some((width, height));
         }
         index += length;
@@ -150,15 +150,13 @@ fn webp_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     }
     match &bytes[12..16] {
         b"VP8X" if bytes.len() >= 30 => {
-            let width =
-                1 + u32::from_le_bytes([bytes[24], bytes[25], bytes[26], 0]);
-            let height =
-                1 + u32::from_le_bytes([bytes[27], bytes[28], bytes[29], 0]);
+            let width = 1 + u32::from_le_bytes([bytes[24], bytes[25], bytes[26], 0]);
+            let height = 1 + u32::from_le_bytes([bytes[27], bytes[28], bytes[29], 0]);
             Some((width, height))
         }
         b"VP8 " if bytes.len() >= 30 => Some((
-            u16::from_le_bytes([bytes[26], bytes[27]]) as u32 & 0x3fff,
-            u16::from_le_bytes([bytes[28], bytes[29]]) as u32 & 0x3fff,
+            u32::from(u16::from_le_bytes([bytes[26], bytes[27]])) & 0x3fff,
+            u32::from(u16::from_le_bytes([bytes[28], bytes[29]])) & 0x3fff,
         )),
         _ => None,
     }

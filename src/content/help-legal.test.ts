@@ -29,6 +29,21 @@ describe("help-legal content", () => {
     expect(COPYRIGHT_SECTIONS.length).toBeGreaterThanOrEqual(4)
   })
 
+  it("keeps the help guide current for transcription and auto detection", () => {
+    const guideText = HELP_GUIDE_SECTIONS.flatMap((section) => [
+      section.title,
+      ...section.items,
+    ]).join(" ")
+
+    expect(guideText).toContain("Vosk")
+    expect(guideText).toContain("Deepgram")
+    expect(guideText).toContain("Gladia")
+    expect(guideText).toContain("Ellen White")
+    expect(guideText).toContain("80%")
+    expect(guideText).toContain("10 seconds")
+    expect(guideText).toContain("Don't")
+  })
+
   it("covers legal protections in terms", () => {
     const titles = TERMS_SECTIONS.map((section) => section.title).join(" ")
     expect(titles).toContain("Intellectual property")

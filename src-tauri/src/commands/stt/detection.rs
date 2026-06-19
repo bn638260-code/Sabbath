@@ -308,6 +308,18 @@ pub(crate) fn finalize_live_semantic_results(
     merged
 }
 
+fn mark_egw_auto_queue(
+    app: &AppHandle,
+    results: &mut [crate::commands::detection::DetectionResult],
+) {
+    let merger_state: State<'_, Mutex<DetectionMerger>> = app.state();
+    let Ok(mut merger) = merger_state.lock() else {
+        log::warn!("[DET-EGW] DetectionMerger busy; EGW auto-queue skipped");
+        return;
+    };
+    crate::commands::detection::apply_egw_auto_queue(results, &mut merger);
+}
+
 fn emit_egw_direct_detections(
     app: &AppHandle,
     seq: u64,
@@ -321,18 +333,20 @@ fn emit_egw_direct_detections(
         }
         return;
     };
-    let results = crate::commands::detection::detect_egw_references(&app_state, transcript);
+    let mut results = crate::commands::detection::detect_egw_references(&app_state, transcript);
     drop(app_state);
 
     if results.is_empty() || seq < latest_seq.load(Ordering::Acquire) {
         return;
     }
 
+    mark_egw_auto_queue(app, &mut results);
     for result in &results {
         log::info!(
-            "[DET-EGW] Found: {} ({:.0}%)",
+            "[DET-EGW] Found: {} ({:.0}%) auto_q={}",
             result.verse_ref,
-            result.confidence * 100.0
+            result.confidence * 100.0,
+            result.auto_queued
         );
     }
     let _ = app.emit("verse_detections", &results);
@@ -454,9 +468,14 @@ pub(crate) fn run_direct_detection(
         .iter()
         .map(|m| crate::commands::detection::to_result(&app_state, m))
         .collect();
+    let egw_start = results.len();
     results.extend(crate::commands::detection::detect_egw_references(
         &app_state, transcript,
     ));
+    drop(app_state);
+    if results.len() > egw_start {
+        mark_egw_auto_queue(app, &mut results[egw_start..]);
+    }
 
     for r in &results {
         log::info!(
@@ -465,7 +484,6 @@ pub(crate) fn run_direct_detection(
             r.confidence * 100.0
         );
     }
-    drop(app_state);
 
     // Final stale check before emission
     if seq < latest_seq.load(Ordering::Acquire) {
@@ -494,6 +512,10 @@ pub(crate) fn run_direct_detection(
 
 /// Run hybrid semantic detection combining FTS5 BM25 with vector search.
 /// Uses `spawn_blocking` so mutex locks and DB I/O don't starve the tokio runtime.
+#[expect(
+    clippy::too_many_lines,
+    reason = "live semantic detection coordinates stale checks, explicit EGW routing, and emission in one pipeline"
+)]
 pub(crate) fn run_semantic_detection(
     app: &AppHandle,
     seq: u64,
@@ -515,7 +537,7 @@ pub(crate) fn run_semantic_detection(
     // finals: the single-final direct pass misses them, but the rolling window
     // still holds the whole "Book chapter N paragraph M". Emit the explicit
     // paragraph and skip fuzzy search.
-    let egw_explicit = {
+    let mut egw_explicit = {
         let app_managed: State<'_, Mutex<AppState>> = app.state();
         let Ok(app_state) = app_managed.lock() else {
             log::error!("[DET-SEMANTIC] AppState lock failed for EGW window catch");
@@ -527,11 +549,13 @@ pub(crate) fn run_semantic_detection(
         if seq < latest_seq.load(Ordering::Acquire) {
             return;
         }
+        mark_egw_auto_queue(app, &mut egw_explicit);
         for r in &egw_explicit {
             log::info!(
-                "[DET-TRACE] seq={seq} decision=egw_explicit reason=window_reference {} ({:.0}%)",
+                "[DET-TRACE] seq={seq} decision=egw_explicit reason=window_reference {} ({:.0}%) auto_q={}",
                 r.verse_ref,
-                r.confidence * 100.0
+                r.confidence * 100.0,
+                r.auto_queued
             );
         }
         let _ = app.emit("verse_detections", &egw_explicit);

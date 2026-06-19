@@ -11,6 +11,10 @@ import {
   sermonDeckSlides,
   type PresentationDeckKind,
 } from "@/lib/presentation-deck-navigation"
+import {
+  getQueuedHymnDeckForRenderItem,
+  restoreQueuedHymnDeckForRenderItem,
+} from "@/lib/queued-hymn-deck"
 import { useEgwSlideStore } from "@/stores/egw-slide-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
@@ -20,6 +24,18 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 interface PresentationDeckControlsProps {
   item: PresentationRenderData | null
   onNavigate: (kind: PresentationDeckKind, index: number) => void
+}
+
+const PREVIOUS_TITLES: Record<PresentationDeckKind, string> = {
+  hymn: "Previous hymn slide",
+  egw: "Previous EGW slide",
+  slideDeck: "Previous sermon slide",
+}
+
+const NEXT_TITLES: Record<PresentationDeckKind, string> = {
+  hymn: "Next hymn slide",
+  egw: "Next EGW slide",
+  slideDeck: "Next sermon slide",
 }
 
 export function PresentationDeckControls({
@@ -35,22 +51,24 @@ export function PresentationDeckControls({
   const kind = presentationDeckKind(item)
   if (!kind) return null
 
-  const deckSlides =
-    kind === "hymn"
-      ? hymnDeckSlides(hymnDeck)
-      : kind === "egw"
-        ? egwDeckSlides(egwDeck)
-        : sermonDeckSlides(sermonDeck)
-  const fallbackIndex =
-    kind === "hymn"
-      ? hymnActiveIndex
-      : kind === "egw"
-        ? egwActiveIndex
-        : sermonActiveIndex
+  const queuedHymnDeck =
+    kind === "hymn" ? getQueuedHymnDeckForRenderItem(item) : null
+  const deckSlidesByKind = {
+    hymn: hymnDeckSlides(queuedHymnDeck ?? hymnDeck),
+    egw: egwDeckSlides(egwDeck),
+    slideDeck: sermonDeckSlides(sermonDeck),
+  }
+  const fallbackIndexByKind = {
+    hymn: hymnActiveIndex,
+    egw: egwActiveIndex,
+    slideDeck: sermonActiveIndex,
+  }
+  const deckSlides = deckSlidesByKind[kind]
+  const fallbackIndex = fallbackIndexByKind[kind]
   const currentIndex = findDeckIndex(
     deckSlides,
     presentationDeckSlideId(item),
-    fallbackIndex,
+    fallbackIndex
   )
   const slide = deckSlides[currentIndex]
   const canNavigate = deckSlides.length > 0
@@ -58,6 +76,7 @@ export function PresentationDeckControls({
   const navigate = (delta: number) => {
     const nextIndex = clampDeckIndex(deckSlides.length, currentIndex, delta)
     if (nextIndex === currentIndex) return
+    if (kind === "hymn") restoreQueuedHymnDeckForRenderItem(item)
     onNavigate(kind, nextIndex)
   }
 
@@ -66,15 +85,11 @@ export function PresentationDeckControls({
       <Button
         size="icon-xs"
         variant="outline"
-        disabled={!canNavigate || !canNavigateDeck(deckSlides.length, currentIndex, -1)}
-        onClick={() => navigate(-1)}
-        title={
-          kind === "hymn"
-            ? "Previous hymn slide"
-            : kind === "egw"
-              ? "Previous EGW slide"
-              : "Previous sermon slide"
+        disabled={
+          !canNavigate || !canNavigateDeck(deckSlides.length, currentIndex, -1)
         }
+        onClick={() => navigate(-1)}
+        title={PREVIOUS_TITLES[kind]}
       >
         <ChevronLeftIcon className="size-3" />
       </Button>
@@ -88,15 +103,11 @@ export function PresentationDeckControls({
       <Button
         size="icon-xs"
         variant="outline"
-        disabled={!canNavigate || !canNavigateDeck(deckSlides.length, currentIndex, 1)}
-        onClick={() => navigate(1)}
-        title={
-          kind === "hymn"
-            ? "Next hymn slide"
-            : kind === "egw"
-              ? "Next EGW slide"
-              : "Next sermon slide"
+        disabled={
+          !canNavigate || !canNavigateDeck(deckSlides.length, currentIndex, 1)
         }
+        onClick={() => navigate(1)}
+        title={NEXT_TITLES[kind]}
       >
         <ChevronRightIcon className="size-3" />
       </Button>

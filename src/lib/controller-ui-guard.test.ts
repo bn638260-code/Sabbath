@@ -22,6 +22,7 @@ const TUTORIAL_DATA_TOUR_IDS = [
   "broadcast",
   "theme",
   "settings",
+  "settings-section-speech",
   "settings-section-account",
 ] as const
 
@@ -115,6 +116,19 @@ function sourceDefinesDataTour(sources: string, id: string): boolean {
 }
 
 describe("controller UI guard — tutorial targets", () => {
+  it("reminds users that Deepgram and Gladia need paid provider API keys", () => {
+    const step = TUTORIAL_STEPS.find((item) => item.title === "Cloud API keys")
+    const content = String(step?.content ?? "")
+
+    expect(step?.target).toBe('[data-tour="settings-section-speech"]')
+    expect(content).toContain("Deepgram")
+    expect(content).toContain("Gladia")
+    expect(content).toContain("paid")
+    expect(content).toContain("not free")
+    expect(content).toContain("generate an API key")
+    expect(content).toContain("Settings > Speech Recognition")
+  })
+
   it("maps every TUTORIAL_STEPS target to a data-tour or data-slot anchor in source", () => {
     const layoutAndPanelSources = [
       "src/components/layout/workspace-top-nav.tsx",

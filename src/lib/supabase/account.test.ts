@@ -93,6 +93,20 @@ describe("supabase account lib", () => {
     })
   })
 
+  it("adminSetSuspended sends the expected reinstatement payload", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null })
+
+    const { adminSetSuspended } = await import("@/lib/supabase/account")
+    const result = await adminSetSuspended("user-1", false)
+
+    expect(result).toEqual({ ok: true })
+    expect(mockRpc).toHaveBeenCalledWith("admin_set_suspended", {
+      p_user_id: "user-1",
+      p_suspended: false,
+      p_reason: null,
+    })
+  })
+
   it("adminDeleteAccount surfaces RPC errors", async () => {
     mockRpc.mockResolvedValue({
       data: null,

@@ -5,16 +5,14 @@ import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useBibleStore } from "@/stores/bible-store"
 import { useQueueStore } from "@/stores/queue-store"
 import { useSettingsStore } from "@/stores/settings-store"
-import { presentItem, presentVerse } from "@/lib/presentation-workflow"
+import { presentVerse } from "@/lib/presentation-workflow"
+import { presentQueuedItem } from "@/lib/queue-presentation"
 import {
   createRemotePresentationQueue,
   dispatchRemoteNavigation,
   parsePayload,
 } from "@/hooks/use-remote-control-logic"
-import {
-  getScriptureVerse,
-  type Verse,
-} from "@/types"
+import { getScriptureVerse, type Verse } from "@/types"
 
 /**
  * Listens for remote control events from the Rust backend (OSC / HTTP API)
@@ -28,7 +26,8 @@ export function useRemoteControl() {
 
     let cancelled = false
     const unlisteners: UnlistenFn[] = []
-    const presentQueueItemInOrder = createRemotePresentationQueue(presentQueueItem)
+    const presentQueueItemInOrder =
+      createRemotePresentationQueue(presentQueueItem)
     const addUnlistener = (fn: UnlistenFn) => {
       if (cancelled) {
         fn()
@@ -51,7 +50,7 @@ export function useRemoteControl() {
             liveReference: broadcast.liveItem?.reference ?? null,
           },
           presentQueueItemInOrder,
-          (index) => useQueueStore.getState().setActive(index),
+          (index) => useQueueStore.getState().setActive(index)
         )
       })
       addUnlistener(u1)
@@ -69,7 +68,7 @@ export function useRemoteControl() {
             liveReference: broadcast.liveItem?.reference ?? null,
           },
           presentQueueItemInOrder,
-          (index) => useQueueStore.getState().setActive(index),
+          (index) => useQueueStore.getState().setActive(index)
         )
       })
       addUnlistener(u2)
@@ -163,7 +162,7 @@ async function presentQueueItem(index: number) {
 
     const verse = getScriptureVerse(item.presentation)
     if (!verse) {
-      presentItem(item.presentation)
+      presentQueuedItem(item)
       return
     }
 
@@ -208,4 +207,3 @@ function syncStatusSnapshot() {
     // Silently ignore — HTTP server may not be running
   })
 }
-

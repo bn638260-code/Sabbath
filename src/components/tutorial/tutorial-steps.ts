@@ -158,6 +158,18 @@ export const TUTORIAL_STEPS: Step[] = [
   },
   {
     ...STEP_DEFAULTS,
+    target: '[data-tour="settings-section-speech"]',
+    title: "Cloud API keys",
+    content:
+      "Deepgram and Gladia require your own paid third-party accounts; they are not free or included with SabbathCue. Create an account with the provider, generate an API key in that provider's dashboard, then paste it in Settings > Speech Recognition before choosing that cloud provider.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="settings-section-speech"]', {
+        settingsSection: "speech",
+      }),
+  },
+  {
+    ...STEP_DEFAULTS,
     target: '[data-tour="settings-section-account"]',
     title: "Your Account",
     content:

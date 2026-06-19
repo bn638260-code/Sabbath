@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useLibraryStore } from "@/stores/library-store"
 import { useQueueStore } from "@/stores/queue-store"
 import type { LibraryAsset } from "@/types/library"
@@ -13,7 +14,9 @@ vi.mock("@tauri-apps/api/event", () => ({
 }))
 
 vi.mock("@/lib/library/library-persistence", () => ({
-  loadLibrarySnapshot: vi.fn().mockResolvedValue({ assets: [], collections: [] }),
+  loadLibrarySnapshot: vi
+    .fn()
+    .mockResolvedValue({ assets: [], collections: [] }),
   saveLibrarySnapshot: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -48,6 +51,27 @@ function videoAsset(): LibraryAsset {
   }
 }
 
+function songAsset(): LibraryAsset {
+  return {
+    id: "song-1",
+    name: "Opening Song",
+    type: "song",
+    collectionIds: [],
+    song: {
+      title: "Opening Song",
+      sections: [
+        {
+          kind: "verse",
+          index: 1,
+          lines: ["Line one", "Line two", "Line three", "Line four"],
+        },
+      ],
+    },
+    createdAt: 1,
+    updatedAt: 1,
+  }
+}
+
 describe("AssetCard", () => {
   beforeEach(() => {
     useBroadcastStore.setState({
@@ -56,6 +80,7 @@ describe("AssetCard", () => {
       themes: [...BUILTIN_THEMES],
     })
     useQueueStore.setState({ items: [], activeIndex: null })
+    useHymnSlideStore.getState().setDeck([], 0)
     useLibraryStore.setState({
       assets: [imageAsset()],
       collections: [
@@ -112,6 +137,26 @@ describe("AssetCard", () => {
     })
   })
 
+  it("queues every slide for multi-slide song assets", () => {
+    render(<AssetCard asset={songAsset()} />)
+
+    fireEvent.click(screen.getByRole("button", { name: /queue/i }))
+
+    const items = useQueueStore.getState().items
+    expect(items).toHaveLength(2)
+    expect(items[0].presentation).toMatchObject({
+      kind: "hymn",
+      reference: "Opening Song - Verse 1 1/2",
+    })
+    expect(items[1].presentation).toMatchObject({
+      kind: "hymn",
+      reference: "Opening Song - Verse 1 2/2",
+    })
+    expect(items[0].hymnGroup?.groupId).toBe(items[1].hymnGroup?.groupId)
+    expect(items[0].hymnDeck).toHaveLength(2)
+    expect(useHymnSlideStore.getState().deck).toHaveLength(2)
+  })
+
   it("adds an asset to the first unlinked collection", () => {
     render(<AssetCard asset={imageAsset()} />)
 
@@ -146,8 +191,10 @@ describe("AssetCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /apply/i }))
 
     expect(useBroadcastStore.getState().activeThemeId).toBe("library-theme")
-    expect(useBroadcastStore.getState().themes.some((item) => item.id === "library-theme")).toBe(
-      true,
-    )
+    expect(
+      useBroadcastStore
+        .getState()
+        .themes.some((item) => item.id === "library-theme")
+    ).toBe(true)
   })
 })

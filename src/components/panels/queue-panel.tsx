@@ -14,10 +14,7 @@ import {
   VideoIcon,
 } from "lucide-react"
 import { useQueueStore } from "@/stores/queue-store"
-import {
-  presentItem,
-  selectPreviewItem,
-} from "@/lib/presentation-workflow"
+import { presentQueuedItem, previewQueuedItem } from "@/lib/queue-presentation"
 import { getReferenceFromItem, type QueueItem } from "@/types"
 
 function QueueItemRow({
@@ -45,12 +42,12 @@ function QueueItemRow({
 }) {
   const handlePreview = () => {
     useQueueStore.getState().setActive(index)
-    selectPreviewItem(item.presentation)
+    previewQueuedItem(item)
   }
 
   const handlePresent = () => {
     useQueueStore.getState().setActive(index)
-    presentItem(item.presentation)
+    presentQueuedItem(item)
   }
 
   const handleRemove = () => {
@@ -182,10 +179,14 @@ export function QueuePanel({ className }: { className?: string }) {
       data-slot="queue-panel"
       className={cn(
         "glass-panel relative flex min-h-0 flex-col overflow-hidden",
-        className,
+        className
       )}
     >
-      <PanelHeader title="Queue" icon={<ListOrderedIcon className="size-3" />} step={4}>
+      <PanelHeader
+        title="Queue"
+        icon={<ListOrderedIcon className="size-3" />}
+        step={4}
+      >
         <div className="flex items-center gap-2">
           <Badge variant="outline">{items.length}</Badge>
           <button
@@ -209,9 +210,12 @@ export function QueuePanel({ className }: { className?: string }) {
             </div>
           )}
           {items.map((item, idx) => {
-            const showGroupLabel = item.hymnGroup && item.hymnGroup.itemIndex === 1
+            const showGroupLabel =
+              item.hymnGroup && item.hymnGroup.itemIndex === 1
             const prevItem = idx > 0 ? items[idx - 1] : null
-            const isDifferentGroup = !prevItem || prevItem.hymnGroup?.groupId !== item.hymnGroup?.groupId
+            const isDifferentGroup =
+              !prevItem ||
+              prevItem.hymnGroup?.groupId !== item.hymnGroup?.groupId
 
             return (
               <div key={item.id}>
@@ -224,7 +228,11 @@ export function QueuePanel({ className }: { className?: string }) {
                   item={item}
                   index={idx}
                   isActive={idx === activeIndex}
-                  isHighlighted={highlightedIds.length > 0 ? highlightedIds.includes(item.id) : item.id === highlightedId}
+                  isHighlighted={
+                    highlightedIds.length > 0
+                      ? highlightedIds.includes(item.id)
+                      : item.id === highlightedId
+                  }
                   isDragging={idx === draggedIndex}
                   isDropTarget={idx === dropTargetIndex && idx !== draggedIndex}
                   onDragStart={setDraggedIndex}

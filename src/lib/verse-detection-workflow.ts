@@ -3,6 +3,7 @@ import {
   selectPreviewVerse,
   createScriptureQueueItem,
   previewEgwParagraph,
+  presentEgwParagraph,
   createEgwQueueItem,
 } from "@/lib/presentation-workflow"
 import { bibleActions } from "@/hooks/use-bible"
@@ -209,7 +210,11 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
   const resolvedDetections = new WeakMap<DetectionResult, ResolvedDetectionVerse>()
   if (directHit) {
     if (isEgwDetection(directHit)) {
-      previewEgwParagraph(directHit.egw_paragraph)
+      if (directHit.auto_queued) {
+        presentEgwParagraph(directHit.egw_paragraph)
+      } else {
+        previewEgwParagraph(directHit.egw_paragraph)
+      }
     } else {
       const resolved = await resolveDetectionVerse(directHit)
       resolvedDetections.set(directHit, resolved)

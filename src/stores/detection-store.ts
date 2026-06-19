@@ -13,8 +13,8 @@ interface DetectionResultWithMeta extends DetectionResult {
 const MAX_RECENT_DETECTIONS = 5
 const MAX_RECENCY_BONUS = 0.01
 const RECENCY_BONUS_WINDOW_MS = 30_000
-// Drop detections older than this so the panel reflects current speech.
-const DETECTION_TTL_MS = 90_000
+// Keep matches inspectable, but clear old speech before the five-item box goes stale.
+const DETECTION_TTL_MS = 10_000
 const NUMBER_TOKEN_PATTERN = /\d+/g
 const VERSE_REF_PATTERN = /(\d+)\s*:\s*(\d+)/g
 

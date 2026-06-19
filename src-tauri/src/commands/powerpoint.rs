@@ -1,12 +1,7 @@
-//! Convert PowerPoint decks to PDF via a local LibreOffice (`soffice`) runtime.
+//! Convert `PowerPoint` decks to PDF via a local `LibreOffice` (`soffice`) runtime.
 //!
 //! The frontend renders the returned PDF to slide images lazily with
 //! `pdfjs-dist`; this module only performs the validated, sandboxed conversion.
-
-#![expect(
-    clippy::needless_pass_by_value,
-    reason = "Tauri command extractors require pass-by-value"
-)]
 
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
@@ -20,21 +15,21 @@ use tauri::command;
 use crate::asset_paths;
 use crate::commands::path_guard::{is_blocked_system_path, reject_unsafe_path_surface};
 
-/// Reject decks larger than this before handing them to LibreOffice.
+/// Reject decks larger than this before handing them to `LibreOffice`.
 const MAX_DECK_SIZE_BYTES: u64 = 100 * 1024 * 1024;
 /// Cap the produced PDF so an unexpectedly huge conversion cannot exhaust memory.
 const MAX_PDF_SIZE_BYTES: u64 = 200 * 1024 * 1024;
-/// Maximum time to wait for a single LibreOffice conversion.
+/// Maximum time to wait for a single `LibreOffice` conversion.
 const CONVERSION_TIMEOUT: Duration = Duration::from_secs(120);
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
 const SUPPORTED_DECK_EXTENSIONS: &[&str] = &["ppt", "pptx"];
 
-/// Error returned when LibreOffice cannot be located. Names the override env
+/// Error returned when `LibreOffice` cannot be located. Names the override env
 /// var without leaking any local filesystem paths.
 const MISSING_CONVERTER_ERROR: &str =
     "LibreOffice (soffice) was not found. Install LibreOffice or set SABBATHCUE_SOFFICE_PATH to the soffice executable.";
 
-/// Base64-encoded PDF produced from a PowerPoint deck.
+/// Base64-encoded PDF produced from a `PowerPoint` deck.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PowerPointConversion {
@@ -60,7 +55,7 @@ fn first_nonempty_line(text: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// Validate a deck path we will read and hand to LibreOffice. Rejects URLs,
+/// Validate a deck path we will read and hand to `LibreOffice`. Rejects URLs,
 /// network shares, parent traversal, system paths, symlinks, directories,
 /// unsupported extensions, and oversized files.
 fn validate_deck_path(path: &str) -> Result<PathBuf, String> {
@@ -93,7 +88,7 @@ fn validate_deck_path(path: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(path))
 }
 
-/// Run LibreOffice headless to convert `input` into a PDF inside `out_dir`.
+/// Run `LibreOffice` headless to convert `input` into a PDF inside `out_dir`.
 fn run_soffice(soffice: &Path, input: &Path, out_dir: &Path) -> Result<(), String> {
     let mut command = Command::new(soffice);
     suppress_console_window(&mut command);
@@ -142,7 +137,8 @@ fn run_soffice(soffice: &Path, input: &Path, out_dir: &Path) -> Result<(), Strin
 
 fn convert_powerpoint_to_pdf_inner(path: &str) -> Result<PowerPointConversion, String> {
     let input = validate_deck_path(path)?;
-    let soffice = asset_paths::resolve_soffice().ok_or_else(|| MISSING_CONVERTER_ERROR.to_string())?;
+    let soffice =
+        asset_paths::resolve_soffice().ok_or_else(|| MISSING_CONVERTER_ERROR.to_string())?;
 
     let out_dir = tempfile::tempdir()
         .map_err(|e| format!("Could not create a temporary conversion directory: {e}"))?;
@@ -161,7 +157,8 @@ fn convert_powerpoint_to_pdf_inner(path: &str) -> Result<PowerPointConversion, S
         return Err("Converted PDF exceeds the size limit".into());
     }
 
-    let bytes = std::fs::read(&pdf_path).map_err(|e| format!("Could not read converted PDF: {e}"))?;
+    let bytes =
+        std::fs::read(&pdf_path).map_err(|e| format!("Could not read converted PDF: {e}"))?;
     let pdf_base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
 
     let file_name = input
@@ -176,7 +173,7 @@ fn convert_powerpoint_to_pdf_inner(path: &str) -> Result<PowerPointConversion, S
     })
 }
 
-/// Convert a local `.ppt`/`.pptx` deck to a base64-encoded PDF using LibreOffice.
+/// Convert a local `.ppt`/`.pptx` deck to a base64-encoded PDF using `LibreOffice`.
 #[command]
 pub async fn convert_powerpoint_to_pdf(path: String) -> Result<PowerPointConversion, String> {
     tauri::async_runtime::spawn_blocking(move || convert_powerpoint_to_pdf_inner(&path))

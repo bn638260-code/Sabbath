@@ -1,14 +1,17 @@
-import type { PresentationItem } from "./presentation"
-import {
-  getPresentationReference,
-  getScriptureVerse,
-} from "./presentation"
+import type { HymnPresentationItemData, PresentationItem } from "./presentation"
+import { getPresentationReference, getScriptureVerse } from "./presentation"
 
 export interface QueueItem {
   id: string
   presentation: PresentationItem
   confidence: number
-  source: "manual" | "hymn" | "service-plan" | "ai-direct" | "ai-semantic" | "ai-cloud"
+  source:
+    | "manual"
+    | "hymn"
+    | "service-plan"
+    | "ai-direct"
+    | "ai-semantic"
+    | "ai-cloud"
   added_at: number
   /** True when queued from a chapter-only detection (verse defaults to 1, may be refined). */
   is_chapter_only?: boolean
@@ -23,6 +26,8 @@ export interface QueueItem {
     /** Total number of items in the group. */
     itemCount: number
   }
+  /** Full hymn/song deck snapshot used to restore slide navigation from older queued items. */
+  hymnDeck?: HymnPresentationItemData[]
 }
 
 export function getVerseFromItem(item: QueueItem) {

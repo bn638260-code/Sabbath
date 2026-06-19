@@ -4,7 +4,7 @@ use tauri::{AppHandle, Manager};
 
 pub const VOSK_ACCURATE_MODEL_DIRNAME: &str = "vosk-model-en-us-0.22-lgraph";
 pub const VOSK_MODEL_DIRNAME: &str = VOSK_ACCURATE_MODEL_DIRNAME;
-/// Well-known LibreOffice install locations probed after env and PATH lookups.
+/// Well-known `LibreOffice` install locations probed after env and PATH lookups.
 const SOFFICE_FIXED_CANDIDATES: &[&str] = &[
     r"C:\Program Files\LibreOffice\program\soffice.exe",
     r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
@@ -174,7 +174,7 @@ pub fn vosk_worker_path(app: &AppHandle) -> PathBuf {
     )
 }
 
-/// Executable names for the LibreOffice CLI, per platform.
+/// Executable names for the `LibreOffice` CLI, per platform.
 fn soffice_executable_names() -> &'static [&'static str] {
     if cfg!(windows) {
         &["soffice.exe", "soffice.com"]
@@ -212,9 +212,9 @@ fn soffice_candidate_paths(
     candidates
 }
 
-/// Resolve a LibreOffice `soffice` executable used to convert PowerPoint decks
+/// Resolve a `LibreOffice` `soffice` executable used to convert `PowerPoint` decks
 /// to PDF. Honors `SABBATHCUE_SOFFICE_PATH`, then `PATH`, then the common
-/// Windows install directories. Returns `None` when LibreOffice is absent.
+/// Windows install directories. Returns `None` when `LibreOffice` is absent.
 pub fn resolve_soffice() -> Option<PathBuf> {
     let env_override = std::env::var("SABBATHCUE_SOFFICE_PATH").ok();
     let candidates = soffice_candidate_paths(

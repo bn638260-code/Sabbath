@@ -4,6 +4,8 @@ import {
   presentItem,
   selectPreviewItem,
 } from "@/lib/presentation-workflow"
+import { presentQueuedItem, previewQueuedItem } from "@/lib/queue-presentation"
+import { restoreQueuedHymnDeckForRenderItem } from "@/lib/queued-hymn-deck"
 import {
   blackoutOutput,
   clearLiveOutput,
@@ -63,7 +65,7 @@ function selectQueueItem(delta: number): void {
   if (!item) return
 
   queue.setActive(nextIndex)
-  selectPreviewItem(item.presentation)
+  previewQueuedItem(item)
 }
 
 function presentActiveQueueItem(): void {
@@ -73,7 +75,7 @@ function presentActiveQueueItem(): void {
   if (!item) return
 
   queue.setActive(index)
-  presentItem(item.presentation)
+  presentQueuedItem(item)
 }
 
 function advanceLiveHymnGroup(delta: number): boolean {
@@ -98,14 +100,17 @@ function advanceLiveHymnGroup(delta: number): boolean {
     const target = queue.items[targetQueueIndex]
     if (target) {
       queue.setActive(targetQueueIndex)
-      presentItem(target.presentation)
+      presentQueuedItem(target)
       return true
     }
   }
   return false
 }
 
-function presentOrPreview(next: Parameters<typeof presentItem>[0], isLive: boolean): void {
+function presentOrPreview(
+  next: Parameters<typeof presentItem>[0],
+  isLive: boolean
+): void {
   if (isLive) presentItem(next)
   else selectPreviewItem(next)
 }
@@ -115,6 +120,7 @@ function advanceHymnDeck(
   targetItem: PresentationRenderData | null,
   isLive: boolean
 ): boolean {
+  restoreQueuedHymnDeckForRenderItem(targetItem)
   const hymnSlides = useHymnSlideStore.getState()
   if (hymnSlides.deck.length === 0) return false
   const deck = hymnDeckSlides(hymnSlides.deck)
@@ -175,15 +181,19 @@ function advanceSermonDeck(
 
 function advancePresentationDeck(delta: number): boolean {
   const broadcast = useBroadcastStore.getState()
-  const targetItem = broadcast.isLive ? broadcast.liveItem : broadcast.previewItem
+  const targetItem = broadcast.isLive
+    ? broadcast.liveItem
+    : broadcast.previewItem
   const deckKind = presentationDeckKind(targetItem)
   if (!deckKind) return false
 
   if (broadcast.isLive && deckKind === "hymn" && advanceLiveHymnGroup(delta)) {
     return true
   }
-  if (deckKind === "hymn") return advanceHymnDeck(delta, targetItem, broadcast.isLive)
-  if (deckKind === "egw") return advanceEgwDeck(delta, targetItem, broadcast.isLive)
+  if (deckKind === "hymn")
+    return advanceHymnDeck(delta, targetItem, broadcast.isLive)
+  if (deckKind === "egw")
+    return advanceEgwDeck(delta, targetItem, broadcast.isLive)
   return advanceSermonDeck(delta, targetItem, broadcast.isLive)
 }
 

@@ -566,6 +566,18 @@ describe("detection store", () => {
     expect(refs).not.toContain("Old 1:1")
   })
 
+  it("evictStale keeps detections for 10 seconds", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetection(makeDetection({ verse_ref: "John 3:16" }))
+
+    store.evictStale(now + 9_999)
+    expect(useDetectionStore.getState().detections).toHaveLength(1)
+
+    store.evictStale(now + 10_000)
+    expect(useDetectionStore.getState().detections).toHaveLength(0)
+  })
+
   it("evictStale is a no-op when nothing has expired", () => {
     const store = useDetectionStore.getState()
     store.addDetection(makeDetection({ verse_ref: "John 3:16" }))

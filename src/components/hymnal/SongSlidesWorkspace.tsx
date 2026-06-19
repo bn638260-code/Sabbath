@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { presentItem, selectPreviewItem } from "@/lib/presentation-workflow"
+import { createHymnDeckQueueItems } from "@/services/hymnal/hymn-presentation"
 import { splitLyricLineForReadableSlides } from "@/lib/text-slide-chunking"
 import { cn } from "@/lib/utils"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useLibraryStore } from "@/stores/library-store"
 import { useQueueStore } from "@/stores/queue-store"
-import type { HymnPresentationItemData, QueueItem } from "@/types"
+import type { HymnPresentationItemData } from "@/types"
 import {
   FileUpIcon,
   ListMusicIcon,
@@ -35,14 +36,14 @@ function splitSlides(text: string): string[][] {
       block
         .split(/\r?\n/)
         .map((line) => line.trim())
-        .filter(Boolean),
+        .filter(Boolean)
     )
     .filter((lines) => lines.length > 0)
 
   const slides: string[][] = []
   for (const lines of manualSlides) {
     const readableLines = lines.flatMap((line) =>
-      splitLyricLineForReadableSlides(line),
+      splitLyricLineForReadableSlides(line)
     )
     for (let index = 0; index < readableLines.length; index += 3) {
       slides.push(readableLines.slice(index, index + 3))
@@ -60,7 +61,7 @@ function createSongSlideItem(
   title: string,
   lines: string[],
   index: number,
-  total: number,
+  total: number
 ): HymnPresentationItemData {
   const trimmedTitle = title.trim() || "Custom Song"
   return {
@@ -76,24 +77,16 @@ function createSongSlideItem(
   }
 }
 
-function createQueueItems(deck: HymnPresentationItemData[]): QueueItem[] {
+function createQueueItems(deck: HymnPresentationItemData[]) {
   if (deck.length === 0) return []
 
   const groupId = `custom-song-${crypto.randomUUID()}`
   const groupLabel = `${deck[0].hymnTitle} - ${deck.length} slides`
-  return deck.map((presentation, index) => ({
-    id: `custom-song-slide-${crypto.randomUUID()}`,
-    presentation,
-    confidence: 1,
-    source: "hymn",
-    added_at: Date.now(),
-    hymnGroup: {
-      groupId,
-      groupLabel,
-      itemIndex: index + 1,
-      itemCount: deck.length,
-    },
-  }))
+  return createHymnDeckQueueItems(deck, {
+    groupId,
+    groupLabel,
+    idPrefix: "custom-song-slide",
+  })
 }
 
 export function SongSlidesWorkspace() {
@@ -106,9 +99,9 @@ export function SongSlidesWorkspace() {
   const deck = useMemo(
     () =>
       slideLines.map((lines, index) =>
-        createSongSlideItem(title, lines, index, slideLines.length),
+        createSongSlideItem(title, lines, index, slideLines.length)
       ),
-    [slideLines, title],
+    [slideLines, title]
   )
   const activeSlide = deck[Math.min(activeIndex, Math.max(0, deck.length - 1))]
 
@@ -167,7 +160,10 @@ export function SongSlidesWorkspace() {
       className="glass-panel relative flex min-h-0 flex-1 flex-col overflow-hidden"
       data-slot="song-slides-workspace"
     >
-      <PanelHeader title="Song Slides" icon={<ListMusicIcon className="size-3" />}>
+      <PanelHeader
+        title="Song Slides"
+        icon={<ListMusicIcon className="size-3" />}
+      >
         <Badge variant="outline" className="h-5 text-[0.5625rem] uppercase">
           {deck.length} slides
         </Badge>
@@ -176,10 +172,13 @@ export function SongSlidesWorkspace() {
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,0.8fr)_minmax(320px,1fr)]">
         <div className="flex min-h-0 flex-col border-r border-[var(--border-subtle)]">
           <div className="space-y-2 border-b border-[var(--border-subtle)] p-3">
-            <label className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+            <label className="text-[0.625rem] font-medium text-muted-foreground uppercase">
               Song title
             </label>
-            <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
             <div className="flex items-center gap-2">
               <input
                 ref={fileInputRef}
@@ -203,7 +202,7 @@ export function SongSlidesWorkspace() {
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col p-3">
-            <label className="mb-2 text-[0.625rem] font-medium uppercase text-muted-foreground">
+            <label className="mb-2 text-[0.625rem] font-medium text-muted-foreground uppercase">
               Slide text
             </label>
             <textarea
@@ -221,21 +220,40 @@ export function SongSlidesWorkspace() {
         <div className="flex min-h-0 flex-col">
           <div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-1.5">
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{title || "Custom Song"}</p>
+              <p className="truncate text-sm font-medium">
+                {title || "Custom Song"}
+              </p>
               <p className="truncate text-xs text-muted-foreground">
-                {activeSlide ? `Slide ${activeSlide.slideIndex + 1} of ${activeSlide.slideCount}` : "No slides"}
+                {activeSlide
+                  ? `Slide ${activeSlide.slideIndex + 1} of ${activeSlide.slideCount}`
+                  : "No slides"}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <Button size="xs" variant="outline" disabled={!activeSlide} onClick={handlePreview}>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={!activeSlide}
+                onClick={handlePreview}
+              >
                 <SendIcon className="mr-1 size-3" />
                 Preview
               </Button>
-              <Button size="xs" variant="outline" disabled={deck.length === 0} onClick={handleQueueAll}>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={deck.length === 0}
+                onClick={handleQueueAll}
+              >
                 <PlusIcon className="mr-1 size-3" />
                 Queue
               </Button>
-              <Button size="xs" variant="outline" disabled={deck.length === 0} onClick={handleSaveToLibrary}>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={deck.length === 0}
+                onClick={handleSaveToLibrary}
+              >
                 Save
               </Button>
               <Button size="xs" disabled={!activeSlide} onClick={handleLive}>
@@ -249,10 +267,10 @@ export function SongSlidesWorkspace() {
             {activeSlide ? (
               <div className="flex min-h-full flex-col gap-3">
                 <div className="relative flex aspect-video items-center justify-center rounded-md border border-[var(--border-subtle)] bg-black p-8 text-center">
-                  <span className="absolute right-3 top-3 rounded bg-[var(--shell-bg-sunken)] px-2 py-0.5 text-[0.625rem] font-semibold text-foreground">
+                  <span className="absolute top-3 right-3 rounded bg-[var(--shell-bg-sunken)] px-2 py-0.5 text-[0.625rem] font-semibold text-foreground">
                     {activeSlide.slideIndex + 1} of {activeSlide.slideCount}
                   </span>
-                  <div className="max-w-[80%] space-y-3 text-balance text-2xl font-semibold leading-snug text-foreground">
+                  <div className="max-w-[80%] space-y-3 text-2xl leading-snug font-semibold text-balance text-foreground">
                     {activeSlide.segments.map((segment) => (
                       <p key={segment.text}>{segment.text}</p>
                     ))}
@@ -269,14 +287,16 @@ export function SongSlidesWorkspace() {
                         "rounded-md border px-2 py-1.5 text-left text-xs transition-colors",
                         index === activeIndex
                           ? "border-lime-500/50 bg-lime-500/15"
-                          : "border-[var(--border-subtle)] hover:bg-[var(--shell-bg-sunken)]",
+                          : "border-[var(--border-subtle)] hover:bg-[var(--shell-bg-sunken)]"
                       )}
                     >
                       <span className="block truncate font-medium">
                         {index + 1}. Slide
                       </span>
                       <span className="line-clamp-1 text-[0.68rem] text-muted-foreground">
-                        {slide.segments.map((segment) => segment.text).join(" ")}
+                        {slide.segments
+                          .map((segment) => segment.text)
+                          .join(" ")}
                       </span>
                     </button>
                   ))}
