@@ -5,6 +5,7 @@ import { CanvasPresentation } from "@/components/ui/canvas-verse"
 import { VideoControlBar } from "@/components/broadcast/VideoControlBar"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
+import { SegmentedControl } from "@/components/ui/segmented-control"
 import { Switch } from "@/components/ui/switch"
 import {
   applyPanelFullscreen,
@@ -27,11 +28,228 @@ import {
   Minimize2Icon,
 } from "lucide-react"
 import { toast } from "sonner"
+import type { BroadcastTransitionType } from "@/types"
+
+const LIVE_TRANSITION_OPTIONS: { value: BroadcastTransitionType; label: string }[] = [
+  { value: "none", label: "Cut" },
+  { value: "fade", label: "Fade" },
+  { value: "slide", label: "Slide" },
+  { value: "scale", label: "Scale" },
+]
+
+function navigateLiveDeck(
+  kind: "hymn" | "slideDeck" | "egw",
+  index: number
+): void {
+  if (kind === "hymn") {
+    const hymnSlides = useHymnSlideStore.getState()
+    const next = hymnSlides.deck[index]
+    if (!next) return
+    hymnSlides.setDeck(hymnSlides.deck, index)
+    presentItem(next)
+    return
+  }
+  if (kind === "egw") {
+    const egwSlides = useEgwSlideStore.getState()
+    const next = egwSlides.deck[index]
+    if (!next) return
+    egwSlides.setDeck(egwSlides.deck, index)
+    presentItem(next)
+    return
+  }
+  const sermonSlides = useSermonSlideStore.getState()
+  const next = sermonSlides.deck[index]
+  if (!next) return
+  sermonSlides.setDeck(sermonSlides.deck, index, sermonSlides.activeItemId)
+  presentItem(next)
+}
+
+function LiveHeaderActions({
+  isLive,
+  isFullscreen,
+  onToggleFullscreen,
+}: {
+  isLive: boolean
+  isFullscreen: boolean
+  onToggleFullscreen: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        size="xs"
+        className="h-6 gap-1 px-2"
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        onClick={onToggleFullscreen}
+      >
+        {isFullscreen ? (
+          <Minimize2Icon className="size-3.5" />
+        ) : (
+          <Maximize2Icon className="size-3.5" />
+        )}
+      </Button>
+      <Badge
+        variant={isLive ? "default" : "outline"}
+        className={cn(
+          "h-5 text-[0.5625rem] uppercase",
+          isLive && "bg-emerald-500 text-foreground hover:bg-emerald-500"
+        )}
+      >
+        {isLive ? "On air" : "Hidden"}
+      </Badge>
+    </div>
+  )
+}
+
+function LiveSendControls({
+  isLive,
+  liveItem,
+  canCommitPreview,
+  liveTransitionType,
+}: {
+  isLive: boolean
+  liveItem: ReturnType<typeof useBroadcastStore.getState>["liveItem"]
+  canCommitPreview: boolean
+  liveTransitionType: BroadcastTransitionType
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <SegmentedControl
+        aria-label="Live transition"
+        value={liveTransitionType}
+        options={LIVE_TRANSITION_OPTIONS}
+        onChange={(type) =>
+          useBroadcastStore.getState().setLiveTransitionType(type)
+        }
+        className="[&_button]:px-2"
+      />
+      <Button
+        size="sm"
+        disabled={!canCommitPreview}
+        className="gap-2"
+        onClick={() => commitPreviewToLive()}
+        title={
+          canCommitPreview
+            ? "Send the Program Preview item to Live Output"
+            : "Select a verse, hymn, or song before sending live"
+        }
+      >
+        <SendIcon className="size-3.5" />
+        Send Preview Live
+      </Button>
+      {isLive && presentationDeckKind(liveItem) ? (
+        <PresentationDeckControls
+          item={liveItem}
+          onNavigate={navigateLiveDeck}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function LiveVisibilitySwitch({ isLive }: { isLive: boolean }) {
+  return (
+    <label className="flex items-center gap-2.5">
+      {isLive ? (
+        <EyeIcon className="size-3.5 text-emerald-500" />
+      ) : (
+        <EyeOffIcon className="size-3.5 text-muted-foreground" />
+      )}
+      <span className="text-xs text-muted-foreground">
+        {isLive ? "Visible" : "Hidden"}
+      </span>
+      <Switch
+        checked={isLive}
+        onCheckedChange={(checked) =>
+          useBroadcastStore.getState().setLive(checked)
+        }
+        className="data-[state=checked]:bg-emerald-500"
+      />
+    </label>
+  )
+}
+
+function ReadingModeRow({
+  hidden,
+  readingModeAutoLive,
+}: {
+  hidden: boolean
+  readingModeAutoLive: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-10 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-2",
+        hidden && "hidden"
+      )}
+    >
+      <span className="truncate text-xs text-muted-foreground">
+        Auto-live reading mode
+      </span>
+      <Switch
+        checked={readingModeAutoLive}
+        onCheckedChange={(checked) =>
+          useBroadcastStore.getState().setReadingModeAutoLive(checked)
+        }
+        className="data-[state=checked]:bg-emerald-500"
+      />
+    </div>
+  )
+}
+
+function LiveStage({
+  isLive,
+  activeTheme,
+  visibleItem,
+  isFullscreenLayout,
+}: {
+  isLive: boolean
+  activeTheme: ReturnType<typeof selectActiveTheme>
+  visibleItem: ReturnType<typeof useBroadcastStore.getState>["liveItem"]
+  isFullscreenLayout: boolean
+}) {
+  return (
+    <div
+      data-slot="live-output-stage"
+      className={cn(
+        "flex min-h-0 flex-1 bg-[var(--shell-bg-sunken)] p-2",
+        isFullscreenLayout && "bg-black p-0",
+        !isFullscreenLayout && !isLive && "opacity-45 transition-opacity"
+      )}
+    >
+      <div
+        data-slot="live-output-frame"
+        className={cn(
+          "flex h-full w-full items-center justify-center rounded-md border border-[var(--border-subtle)] p-2 text-center",
+          isLive && !isFullscreenLayout && "live-glowing-active",
+          isFullscreenLayout && "rounded-none border-0 p-0"
+        )}
+      >
+        {visibleItem && activeTheme ? (
+          <CanvasPresentation
+            theme={activeTheme}
+            item={visibleItem}
+            className={
+              isFullscreenLayout ? "[&_canvas]:rounded-none" : undefined
+            }
+          />
+        ) : (
+          <PanelEmptyState
+            icon={<EyeOffIcon className="size-8" />}
+            title="Nothing live"
+            description="Send a verse, hymn, or song slide to show audience output."
+          />
+        )}
+      </div>
+    </div>
+  )
+}
 
 export function LiveOutputPanel({ className }: { className?: string }) {
   const isLive = useBroadcastStore((s) => s.isLive)
   const liveItem = useBroadcastStore((s) => s.liveItem)
   const readingModeAutoLive = useBroadcastStore((s) => s.readingModeAutoLive)
+  const liveTransitionType = useBroadcastStore((s) => s.liveTransitionType)
   const activeTheme = useBroadcastStore(selectActiveTheme)
   const previewItem = useBroadcastStore((s) => s.previewItem)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -43,33 +261,6 @@ export function LiveOutputPanel({ className }: { className?: string }) {
     [isLive, liveItem]
   )
   const canCommitPreview = Boolean(previewItem)
-  const navigateLiveDeck = (
-    kind: "hymn" | "slideDeck" | "egw",
-    index: number
-  ) => {
-    if (kind === "hymn") {
-      const hymnSlides = useHymnSlideStore.getState()
-      const next = hymnSlides.deck[index]
-      if (!next) return
-      hymnSlides.setDeck(hymnSlides.deck, index)
-      presentItem(next)
-      return
-    }
-    if (kind === "egw") {
-      const egwSlides = useEgwSlideStore.getState()
-      const next = egwSlides.deck[index]
-      if (!next) return
-      egwSlides.setDeck(egwSlides.deck, index)
-      presentItem(next)
-      return
-    }
-    const sermonSlides = useSermonSlideStore.getState()
-    const next = sermonSlides.deck[index]
-    if (!next) return
-    sermonSlides.setDeck(sermonSlides.deck, index, sermonSlides.activeItemId)
-    presentItem(next)
-  }
-
   const setPanelFullscreen = async (fullscreen: boolean) => {
     try {
       await applyPanelFullscreen(
@@ -124,30 +315,11 @@ export function LiveOutputPanel({ className }: { className?: string }) {
         step={3}
         className={cn(isFullscreenLayout && "hidden")}
       >
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="xs"
-            className="h-6 gap-1 px-2"
-            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-            onClick={toggleFullscreen}
-          >
-            {isFullscreen ? (
-              <Minimize2Icon className="size-3.5" />
-            ) : (
-              <Maximize2Icon className="size-3.5" />
-            )}
-          </Button>
-          <Badge
-            variant={isLive ? "default" : "outline"}
-            className={cn(
-              "h-5 text-[0.5625rem] uppercase",
-              isLive && "bg-emerald-500 text-foreground hover:bg-emerald-500"
-            )}
-          >
-            {isLive ? "On air" : "Hidden"}
-          </Badge>
-        </div>
+        <LiveHeaderActions
+          isLive={isLive}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+        />
       </PanelHeader>
 
       <div
@@ -156,103 +328,31 @@ export function LiveOutputPanel({ className }: { className?: string }) {
           isFullscreenLayout && "hidden"
         )}
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            disabled={!canCommitPreview}
-            className="gap-2"
-            onClick={() => commitPreviewToLive()}
-            title={
-              canCommitPreview
-                ? "Send the Program Preview item to Live Output"
-                : "Select a verse, hymn, or song before sending live"
-            }
-          >
-            <SendIcon className="size-3.5" />
-            Send Preview Live
-          </Button>
-          {isLive && presentationDeckKind(liveItem) ? (
-            <PresentationDeckControls
-              item={liveItem}
-              onNavigate={navigateLiveDeck}
-            />
-          ) : null}
-        </div>
-
-        <label className="flex items-center gap-2.5">
-          {isLive ? (
-            <EyeIcon className="size-3.5 text-emerald-500" />
-          ) : (
-            <EyeOffIcon className="size-3.5 text-muted-foreground" />
-          )}
-          <span className="text-xs text-muted-foreground">
-            {isLive ? "Visible" : "Hidden"}
-          </span>
-          <Switch
-            checked={isLive}
-            onCheckedChange={(checked) =>
-              useBroadcastStore.getState().setLive(checked)
-            }
-            className="data-[state=checked]:bg-emerald-500"
-          />
-        </label>
-      </div>
-
-      <div
-        className={cn(
-          "flex min-h-10 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-2",
-          isFullscreenLayout && "hidden"
-        )}
-      >
-        <span className="truncate text-xs text-muted-foreground">
-          Auto-live reading mode
-        </span>
-        <Switch
-          checked={readingModeAutoLive}
-          onCheckedChange={(checked) =>
-            useBroadcastStore.getState().setReadingModeAutoLive(checked)
-          }
-          className="data-[state=checked]:bg-emerald-500"
+        <LiveSendControls
+          isLive={isLive}
+          liveItem={liveItem}
+          canCommitPreview={canCommitPreview}
+          liveTransitionType={liveTransitionType}
         />
+
+        <LiveVisibilitySwitch isLive={isLive} />
       </div>
+
+      <ReadingModeRow
+        hidden={isFullscreenLayout}
+        readingModeAutoLive={readingModeAutoLive}
+      />
 
       {isLive && liveItem?.kind === "video" ? (
         <VideoControlBar item={liveItem} />
       ) : null}
 
-      <div
-        data-slot="live-output-stage"
-        className={cn(
-          "flex min-h-0 flex-1 bg-[var(--shell-bg-sunken)] p-2",
-          isFullscreenLayout && "bg-black p-0",
-          !isFullscreenLayout && !isLive && "opacity-45 transition-opacity"
-        )}
-      >
-        <div
-          data-slot="live-output-frame"
-          className={cn(
-            "flex h-full w-full items-center justify-center rounded-md border border-[var(--border-subtle)] p-2 text-center",
-            isLive && !isFullscreenLayout && "live-glowing-active",
-            isFullscreenLayout && "rounded-none border-0 p-0"
-          )}
-        >
-          {visibleItem && activeTheme ? (
-            <CanvasPresentation
-              theme={activeTheme}
-              item={visibleItem}
-              className={
-                isFullscreenLayout ? "[&_canvas]:rounded-none" : undefined
-              }
-            />
-          ) : (
-            <PanelEmptyState
-              icon={<EyeOffIcon className="size-8" />}
-              title="Nothing live"
-              description="Send a verse, hymn, or song slide to show audience output."
-            />
-          )}
-        </div>
-      </div>
+      <LiveStage
+        isLive={isLive}
+        activeTheme={activeTheme}
+        visibleItem={visibleItem}
+        isFullscreenLayout={isFullscreenLayout}
+      />
 
       <div
         className={cn(

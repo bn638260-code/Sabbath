@@ -9,7 +9,6 @@ pub enum TranscriptEventKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TranscriptRoute {
     pub emit_transcript: bool,
-    pub preview_candidate: Option<String>,
     pub authoritative_detection: Option<String>,
     pub suppress_reason: Option<String>,
 }
@@ -61,7 +60,6 @@ impl TranscriptRouter {
             if self.last_partial.as_deref() == Some(normalized.as_str()) {
                 return TranscriptRoute {
                     emit_transcript: false,
-                    preview_candidate: None,
                     authoritative_detection: None,
                     suppress_reason: Some("duplicate_partial".to_string()),
                 };
@@ -70,7 +68,6 @@ impl TranscriptRouter {
             let complete_reference = looks_like_complete_reference(cleaned);
             return TranscriptRoute {
                 emit_transcript: true,
-                preview_candidate: complete_reference.then(|| cleaned.to_string()),
                 authoritative_detection: (input.provider == "deepgram" && complete_reference)
                     .then(|| cleaned.to_string()),
                 suppress_reason: None,
@@ -89,7 +86,6 @@ impl TranscriptRouter {
         let authoritative_detection = Some(cleaned.to_string());
         TranscriptRoute {
             emit_transcript: true,
-            preview_candidate: looks_like_complete_reference(cleaned).then(|| cleaned.to_string()),
             authoritative_detection,
             suppress_reason: None,
         }
@@ -99,7 +95,6 @@ impl TranscriptRouter {
 fn suppressed(reason: &str) -> TranscriptRoute {
     TranscriptRoute {
         emit_transcript: false,
-        preview_candidate: None,
         authoritative_detection: None,
         suppress_reason: Some(reason.to_string()),
     }
@@ -300,10 +295,6 @@ mod tests {
         ));
 
         assert!(route.emit_transcript);
-        assert_eq!(
-            route.preview_candidate.as_deref(),
-            Some("Let us turn to Exodus 20 verse 4, keeping the sabbath holy")
-        );
         assert!(route.authoritative_detection.is_some());
     }
 
@@ -316,30 +307,24 @@ mod tests {
         ));
 
         assert!(route.emit_transcript);
-        assert!(route.preview_candidate.is_none());
         assert!(route.authoritative_detection.is_some());
     }
 
     #[test]
-    fn partial_complete_reference_can_preview_only() {
+    fn non_deepgram_partial_complete_reference_is_not_authoritative() {
         let mut router = TranscriptRouter::default();
         let route = router.route(input(TranscriptEventKind::Partial, "John 3 16"));
 
         assert!(route.emit_transcript);
-        assert_eq!(route.preview_candidate.as_deref(), Some("John 3 16"));
         assert!(route.authoritative_detection.is_none());
     }
 
     #[test]
-    fn partial_spoken_number_reference_can_preview_only() {
+    fn non_deepgram_partial_spoken_reference_is_not_authoritative() {
         let mut router = TranscriptRouter::default();
         let route = router.route(input(TranscriptEventKind::Partial, "John three sixteen"));
 
         assert!(route.emit_transcript);
-        assert_eq!(
-            route.preview_candidate.as_deref(),
-            Some("John three sixteen")
-        );
         assert!(route.authoritative_detection.is_none());
     }
 
@@ -375,7 +360,6 @@ mod tests {
         let route = router.route(input(TranscriptEventKind::Partial, "we are going to"));
 
         assert!(route.emit_transcript);
-        assert!(route.preview_candidate.is_none());
         assert!(route.authoritative_detection.is_none());
     }
 

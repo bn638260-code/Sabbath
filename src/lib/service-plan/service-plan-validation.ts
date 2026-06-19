@@ -27,6 +27,19 @@ function isOptionalNumber(value: unknown): value is number | undefined {
   return value === undefined || (typeof value === "number" && Number.isFinite(value))
 }
 
+function hasValidServiceItemCollections(item: ServiceItem): boolean {
+  if (!Array.isArray(item.scriptureRefs)) return false
+  if (!item.scriptureRefs.every(isValidScriptureRef)) return false
+  if (!Array.isArray(item.hymnRefs)) return false
+  if (!item.hymnRefs.every(isValidHymnRef)) return false
+  if (!Array.isArray(item.mediaRefs)) return false
+  if (!item.mediaRefs.every(isValidMediaRef)) return false
+  if (!Array.isArray(item.attachments)) return false
+  if (!item.attachments.every(isValidAttachment)) return false
+  if (!Array.isArray(item.checklist)) return false
+  return item.checklist.every(isValidChecklistItem)
+}
+
 export function isValidServicePlan(plan: ServicePlan): boolean {
   if (!isRecord(plan)) return false
   if (typeof plan.id !== "string" || !plan.id) return false
@@ -53,18 +66,7 @@ export function isValidServiceItem(item: ServiceItem): boolean {
   if (!isOptionalNumber(item.durationMinutes)) return false
   if (!isOptionalString(item.notes)) return false
   if (!isOptionalString(item.outputTemplateId)) return false
-  return (
-    Array.isArray(item.scriptureRefs) &&
-    item.scriptureRefs.every(isValidScriptureRef) &&
-    Array.isArray(item.hymnRefs) &&
-    item.hymnRefs.every(isValidHymnRef) &&
-    Array.isArray(item.mediaRefs) &&
-    item.mediaRefs.every(isValidMediaRef) &&
-    Array.isArray(item.attachments) &&
-    item.attachments.every(isValidAttachment) &&
-    Array.isArray(item.checklist) &&
-    item.checklist.every(isValidChecklistItem)
-  )
+  return hasValidServiceItemCollections(item)
 }
 
 export function isValidScriptureRef(ref: ScriptureRef): boolean {

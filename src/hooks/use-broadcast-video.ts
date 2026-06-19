@@ -37,6 +37,70 @@ function snapshot(video: HTMLVideoElement, outputId: string, ended = false) {
   }
 }
 
+function loadVideoSource(
+  element: HTMLVideoElement,
+  source: VideoPresentationSource | null | undefined,
+): void {
+  const src = source ? resolveNativeVideoSrc(source) : null
+  if (!source || !src) {
+    element.removeAttribute("src")
+    element.load()
+    return
+  }
+  if (element.src !== src) {
+    element.src = src
+    element.poster = source.poster ?? ""
+    element.loop = Boolean(source.loop)
+    element.load()
+  }
+  void element.play().catch(() => undefined)
+}
+
+function stopVideo(element: HTMLVideoElement): void {
+  element.pause()
+  element.removeAttribute("src")
+  element.load()
+}
+
+function applyPlaybackCommand(
+  element: HTMLVideoElement,
+  payload: ReturnType<typeof buildVideoCommand>,
+): void {
+  if (payload.type === "play") void element.play().catch(() => undefined)
+  if (payload.type === "pause") element.pause()
+  if (payload.type === "restart") {
+    element.currentTime = 0
+    void element.play().catch(() => undefined)
+  }
+  if (payload.type === "seek") element.currentTime = payload.currentTime
+  if (payload.type === "setVolume") element.volume = payload.volume
+  if (payload.type === "setMuted") element.muted = payload.muted
+  if (payload.type === "setLoop") element.loop = payload.loop
+  if (payload.type === "setSinkId" && "setSinkId" in element) {
+    void (element as HTMLVideoElement & { setSinkId: (sinkId: string) => Promise<void> })
+      .setSinkId(payload.sinkId)
+      .catch(() => undefined)
+  }
+  if (payload.type === "stop") stopVideo(element)
+}
+
+function syncVideoItem(element: HTMLVideoElement, item: PresentationRenderData | null): void {
+  const source = item?.video
+  const src = source && source.source !== "youtube" ? resolveNativeVideoSrc(source) : null
+  if (!source || !src) {
+    stopVideo(element)
+    return
+  }
+  if (element.src !== src) {
+    element.src = src
+    element.poster = source.poster ?? ""
+    element.loop = Boolean(source.loop)
+    element.load()
+  }
+  element.muted = false
+  void element.play().catch(() => undefined)
+}
+
 export function useBroadcastVideo({
   video,
   item,
@@ -66,43 +130,11 @@ export function useBroadcastVideo({
       if (!element) return
       const payload = buildVideoCommand(command)
       if (payload.type === "load") {
-        const source = payload.item.video
-        const src = source ? resolveNativeVideoSrc(source) : null
-        if (!source || !src) {
-          element.removeAttribute("src")
-          element.load()
-          return
-        }
-        if (element.src !== src) {
-          element.src = src
-          element.poster = source.poster ?? ""
-          element.loop = Boolean(source.loop)
-          element.load()
-        }
-        void element.play().catch(() => undefined)
+        loadVideoSource(element, payload.item.video)
         return
       }
       if (!itemRef.current?.video || itemRef.current.video.source === "youtube") return
-      if (payload.type === "play") void element.play().catch(() => undefined)
-      if (payload.type === "pause") element.pause()
-      if (payload.type === "restart") {
-        element.currentTime = 0
-        void element.play().catch(() => undefined)
-      }
-      if (payload.type === "seek") element.currentTime = payload.currentTime
-      if (payload.type === "setVolume") element.volume = payload.volume
-      if (payload.type === "setMuted") element.muted = payload.muted
-      if (payload.type === "setLoop") element.loop = payload.loop
-      if (payload.type === "setSinkId" && "setSinkId" in element) {
-        void (element as HTMLVideoElement & { setSinkId: (sinkId: string) => Promise<void> })
-          .setSinkId(payload.sinkId)
-          .catch(() => undefined)
-      }
-      if (payload.type === "stop") {
-        element.pause()
-        element.removeAttribute("src")
-        element.load()
-      }
+      applyPlaybackCommand(element, payload)
     },
     [],
   )
@@ -110,22 +142,7 @@ export function useBroadcastVideo({
   useEffect(() => {
     const element = videoRef.current
     if (!element) return
-    const source = item?.video
-    const src = source && source.source !== "youtube" ? resolveNativeVideoSrc(source) : null
-    if (!source || !src) {
-      element.pause()
-      element.removeAttribute("src")
-      element.load()
-      return
-    }
-    if (element.src !== src) {
-      element.src = src
-      element.poster = source.poster ?? ""
-      element.loop = Boolean(source.loop)
-      element.load()
-    }
-    element.muted = false
-    void element.play().catch(() => undefined)
+    syncVideoItem(element, item)
   }, [item, video])
 
   useEffect(() => {

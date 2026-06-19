@@ -41,20 +41,17 @@ fn is_stop_word(word: &str) -> bool {
 
 // ── FTS5 query builders ─────────────────────────────────────────────
 
-/// Clean input: strip non-alphanumeric chars (except apostrophes).
-fn clean_word(w: &str) -> String {
-    w.chars()
-        .filter(|c| c.is_alphanumeric() || *c == '\'')
-        .collect()
+/// Split input into FTS-safe alphanumeric terms.
+pub(crate) fn query_terms(input: &str) -> impl Iterator<Item = &str> {
+    input
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|term| !term.is_empty())
 }
 
 /// Exact phrase match — wraps entire input in double quotes.
 /// `"Follow peace with all men"` matches only verses containing that exact sequence.
 pub(crate) fn build_phrase_query(input: &str) -> String {
-    let cleaned: String = input
-        .chars()
-        .filter(|c| c.is_alphanumeric() || c.is_whitespace() || *c == '\'')
-        .collect();
+    let cleaned = query_terms(input).collect::<Vec<_>>().join(" ");
     let trimmed = cleaned.trim();
     if trimmed.is_empty() {
         return String::new();
@@ -66,11 +63,10 @@ pub(crate) fn build_phrase_query(input: &str) -> String {
 /// `"be doers of the word"` → `doers word` (finds James 1:22).
 /// Capped at 12 terms to prevent expensive queries on long text.
 pub(crate) fn build_and_query(input: &str) -> String {
-    let tokens: Vec<String> = input
-        .split_whitespace()
-        .map(clean_word)
+    let tokens: Vec<String> = query_terms(input)
         .filter(|w| w.len() >= 2 && !is_stop_word(w))
         .take(12)
+        .map(ToOwned::to_owned)
         .collect();
     if tokens.is_empty() {
         return String::new();
@@ -82,9 +78,7 @@ pub(crate) fn build_and_query(input: &str) -> String {
 /// `"It's a new creature Old things passed away"` → `"creature" OR "things" OR "passed" OR "away"`.
 /// Capped at 10 terms to prevent expensive queries.
 pub(crate) fn build_or_query(input: &str) -> String {
-    let tokens: Vec<String> = input
-        .split_whitespace()
-        .map(clean_word)
+    let tokens: Vec<String> = query_terms(input)
         .filter(|w| w.len() >= 3 && !is_stop_word(w))
         .take(10)
         .map(|w| format!("\"{w}\""))
@@ -293,7 +287,7 @@ mod tests {
     fn phrase_query_strips_special_chars() {
         assert_eq!(
             build_phrase_query("God's love* NEAR/2"),
-            "\"God's love NEAR2\""
+            "\"God s love NEAR 2\""
         );
     }
 
@@ -332,7 +326,16 @@ mod tests {
     fn or_query_filters_stop_words() {
         assert_eq!(
             build_or_query("It's a new creature Old things are passed away"),
-            "\"It's\" OR \"new\" OR \"creature\" OR \"Old\" OR \"things\" OR \"passed\" OR \"away\""
+            "\"new\" OR \"creature\" OR \"Old\" OR \"things\" OR \"passed\" OR \"away\""
+        );
+    }
+
+    #[test]
+    fn query_builders_strip_apostrophes_for_fts5_safety() {
+        assert_eq!(build_and_query("chapter one don't"), "chapter one don");
+        assert_eq!(
+            build_or_query("chapter one don't"),
+            "\"chapter\" OR \"one\" OR \"don\""
         );
     }
 

@@ -3,6 +3,44 @@ import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
+function hasAny(id: string, parts: string[]): boolean {
+  return parts.some((part) => id.includes(part))
+}
+
+function manualChunkForDependency(id: string): string | undefined {
+  if (id.includes("fabric")) return "canvas"
+  if (id.includes("fuse.js")) return "search"
+  if (
+    hasAny(id, [
+      "react-joyride",
+      "@gilbarbara",
+      "@fastify/deepmerge",
+      "react-innertext",
+      "/node_modules/scroll/",
+      "/node_modules/scrollparent/",
+      "/node_modules/is-lite/",
+    ])
+  ) {
+    return "tour"
+  }
+  if (id.includes("lucide-react")) return "icons"
+  if (id.includes("@radix-ui/react-dialog")) return "dialog"
+  if (hasAny(id, ["@radix-ui", "radix-ui", "cmdk"])) return "ui"
+  if (
+    hasAny(id, [
+      "/node_modules/react/",
+      "/node_modules/react-dom/",
+      "/node_modules/scheduler/",
+    ])
+  ) {
+    return "react"
+  }
+  if (id.includes("/node_modules/@supabase/")) return "supabase"
+  if (id.includes("/node_modules/@tauri-apps/")) return "tauri"
+  if (id.includes("/node_modules/zustand/")) return "state"
+  return "vendor"
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -25,42 +63,7 @@ export default defineConfig({
         manualChunks(id) {
           const normalizedId = id.replace(/\\/g, "/")
           if (!normalizedId.includes("node_modules")) return
-          if (normalizedId.includes("fabric")) return "canvas"
-          if (normalizedId.includes("fuse.js")) return "search"
-          if (
-            normalizedId.includes("react-joyride") ||
-            normalizedId.includes("@gilbarbara") ||
-            normalizedId.includes("@fastify/deepmerge") ||
-            normalizedId.includes("react-innertext") ||
-            normalizedId.includes("/node_modules/scroll/") ||
-            normalizedId.includes("/node_modules/scrollparent/") ||
-            normalizedId.includes("/node_modules/is-lite/")
-          ) {
-            return "tour"
-          }
-          if (normalizedId.includes("lucide-react")) return "icons"
-          if (normalizedId.includes("@radix-ui/react-dialog")) return "dialog"
-          if (
-            normalizedId.includes("@radix-ui") ||
-            normalizedId.includes("radix-ui") ||
-            normalizedId.includes("cmdk")
-          ) {
-            return "ui"
-          }
-          // Split the previously-monolithic `vendor` chunk (PERF-001 / R1).
-          // Path-anchored matches avoid catching e.g. `react-*` packages already
-          // routed above (tour/icons/ui).
-          if (
-            normalizedId.includes("/node_modules/react/") ||
-            normalizedId.includes("/node_modules/react-dom/") ||
-            normalizedId.includes("/node_modules/scheduler/")
-          ) {
-            return "react"
-          }
-          if (normalizedId.includes("/node_modules/@supabase/")) return "supabase"
-          if (normalizedId.includes("/node_modules/@tauri-apps/")) return "tauri"
-          if (normalizedId.includes("/node_modules/zustand/")) return "state"
-          return "vendor"
+          return manualChunkForDependency(normalizedId)
         },
       },
     },

@@ -427,6 +427,70 @@ fn clean_transcript(text: &str) -> String {
     collapsed.trim().to_string()
 }
 
+fn is_hymn_or_song_number_command(text: &str) -> bool {
+    let normalized = text
+        .to_lowercase()
+        .chars()
+        .map(|ch| if ch.is_alphanumeric() { ch } else { ' ' })
+        .collect::<String>();
+    let tokens: Vec<&str> = normalized.split_whitespace().collect();
+
+    for (index, token) in tokens.iter().enumerate() {
+        if !matches!(*token, "hymn" | "hymns" | "song" | "songs") {
+            continue;
+        }
+
+        let mut number_start = index + 1;
+        if tokens.get(number_start) == Some(&"number") {
+            number_start += 1;
+        }
+
+        let Some(number_end) = hymn_command_number_end(&tokens, number_start) else {
+            continue;
+        };
+
+        if tokens[number_end..]
+            .iter()
+            .any(|token| matches!(*token, "chapter" | "verse" | "verses"))
+        {
+            continue;
+        }
+
+        return true;
+    }
+
+    false
+}
+
+fn hymn_command_number_end(tokens: &[&str], start: usize) -> Option<usize> {
+    let first = tokens.get(start)?;
+    if first.chars().all(|ch| ch.is_ascii_digit()) {
+        return first
+            .parse::<i32>()
+            .ok()
+            .filter(|value| *value > 0)
+            .map(|_| start + 1);
+    }
+
+    let mut index = start;
+    let mut saw_number = false;
+    while let Some(token) = tokens.get(index) {
+        if *token == "and" && saw_number {
+            index += 1;
+            continue;
+        }
+
+        if parser::parse_spoken_number(token).is_none() {
+            break;
+        }
+
+        saw_number = true;
+        index += 1;
+    }
+
+    saw_number.then_some(index)
+}
+
 fn replace_case_insensitive_phrase(text: &str, from: &str, to: &str) -> String {
     let lower = text.to_ascii_lowercase();
     let mut result = String::with_capacity(text.len());
@@ -640,6 +704,10 @@ impl DirectDetector {
         reason = "reference detection keeps ordered fallback logic in one pass"
     )]
     pub fn detect(&mut self, text: &str) -> Vec<Detection> {
+        if is_hymn_or_song_number_command(text) {
+            return Vec::new();
+        }
+
         // Step 0: Clean filler phrases from the transcript
         let cleaned = clean_transcript(text);
         let text = &cleaned;
@@ -1287,6 +1355,39 @@ mod tests {
     fn test_reference_corrections_psalm_chapter_mishears() {
         let mut detector = DirectDetector::new();
         let results = detector.detect("songs chapter twenty three verse one");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Psalms");
+        assert_eq!(results[0].verse_ref.chapter, 23);
+        assert_eq!(results[0].verse_ref.verse_start, 1);
+    }
+
+    #[test]
+    fn hymn_number_commands_do_not_become_bible_references() {
+        let mut detector = DirectDetector::new();
+
+        assert!(detector.detect("hymn 12").is_empty());
+        assert!(detector.detect("song two hundred fifty one").is_empty());
+        assert!(detector.detect("please open song number 251").is_empty());
+    }
+
+    #[test]
+    fn hymn_number_guard_preserves_scripture_song_references() {
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("Song of Solomon 2:1");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Song of Solomon");
+        assert_eq!(results[0].verse_ref.chapter, 2);
+        assert_eq!(results[0].verse_ref.verse_start, 1);
+    }
+
+    #[test]
+    fn hymn_number_guard_preserves_psalm_song_chapter_mishears() {
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("song chapter twenty three verse one");
+
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].verse_ref.book_name, "Psalms");
         assert_eq!(results[0].verse_ref.chapter, 23);

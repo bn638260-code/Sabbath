@@ -14,13 +14,14 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import type { BroadcastOutputId } from "@/types"
 import { getBroadcastRenderKey } from "@/lib/broadcast-render-key"
 import { renderPresentation } from "@/lib/verse-renderer"
-import type { BroadcastTheme, PresentationRenderData } from "@/types"
+import type { BroadcastTheme, BroadcastTransition, PresentationRenderData } from "@/types"
 import type { NdiConfigEventPayload } from "@/types"
 
 export interface BroadcastPayload {
   theme: BroadcastTheme
   item: PresentationRenderData | null
   opacity?: number
+  transition?: BroadcastTransition
 }
 
 declare global {
@@ -45,6 +46,70 @@ function fillBlack(canvas: HTMLCanvasElement): void {
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 }
 
+function scheduleAnimationFrame(callback: FrameRequestCallback): number {
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    return window.requestAnimationFrame(callback)
+  }
+  return setTimeout(() => callback(performance.now()), 16) as unknown as number
+}
+
+function cancelScheduledAnimationFrame(id: number): void {
+  if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+    window.cancelAnimationFrame(id)
+    return
+  }
+  clearTimeout(id)
+}
+
+function easeTransitionProgress(
+  progress: number,
+  easing: BroadcastTransition["easing"],
+): number {
+  const p = Math.max(0, Math.min(1, progress))
+  if (easing === "linear") return p
+  if (easing === "ease-in") return p * p
+  if (easing === "ease-out") return 1 - Math.pow(1 - p, 2)
+  return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2
+}
+
+function slideVector(
+  transition: BroadcastTransition,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  if (transition.direction === "down") return { x: 0, y: -height }
+  if (transition.direction === "left") return { x: width, y: 0 }
+  if (transition.direction === "right") return { x: -width, y: 0 }
+  return { x: 0, y: height }
+}
+
+function drawCanvasLayer(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  layer: HTMLCanvasElement,
+  opacity: number,
+  offsetX = 0,
+  offsetY = 0,
+  scale = 1,
+): void {
+  const width = canvas.width * scale
+  const height = canvas.height * scale
+  ctx.save()
+  ctx.globalAlpha = Math.max(0, Math.min(1, opacity))
+  ctx.drawImage(
+    layer,
+    0,
+    0,
+    layer.width,
+    layer.height,
+    (canvas.width - width) / 2 + offsetX,
+    (canvas.height - height) / 2 + offsetY,
+    width,
+    height,
+  )
+  ctx.restore()
+}
+
 interface UseBroadcastOutputRuntimeOptions {
   canvas: HTMLCanvasElement | null
   outputId: string
@@ -67,6 +132,9 @@ export function useBroadcastOutputRuntime({
   const consecutiveFailuresRef = useRef(0)
   const lastErrorEmittedAtRef = useRef(0)
   const lastRenderKeyRef = useRef<string | null>(null)
+  const transitionFrameRef = useRef<number | null>(null)
+  const fromCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const toCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const ndiBurstTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   useEffect(() => {
@@ -85,36 +153,104 @@ export function useBroadcastOutputRuntime({
     console.debug(`[broadcast-output] ${message}`, meta)
   }, [])
 
-  const draw = useCallback(() => {
+  const renderPayloadToCanvas = useCallback((
+    target: HTMLCanvasElement,
+    payload: BroadcastPayload | null,
+    fallbackSize?: { width: number; height: number },
+  ) => {
+    const width = payload?.theme.resolution.width ?? fallbackSize?.width ?? 1920
+    const height = payload?.theme.resolution.height ?? fallbackSize?.height ?? 1080
+    target.width = width
+    target.height = height
+
+    if (!payload) {
+      fillBlack(target)
+      return
+    }
+
+    if (payload.item?.kind === "video") {
+      fillBlack(target)
+      return
+    }
+
+    const ctx = target.getContext("2d")
+    if (!ctx) return
+    const result = renderPresentation(ctx, payload.theme, payload.item, {
+      scale: 1,
+      opacity: payload.opacity,
+      imageCache: imageCacheRef.current,
+    })
+
+    if (!result) {
+      fillBlack(target)
+      logDebug("renderPresentation returned null; drew fallback frame")
+    }
+  }, [logDebug])
+
+  const drawRenderedCanvas = useCallback((source: HTMLCanvasElement) => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const data = latestData.current
-    if (!data) {
-      fillBlack(canvas)
+    canvas.width = source.width
+    canvas.height = source.height
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(source, 0, 0)
+  }, [])
+
+  const draw = useCallback(() => {
+    const target = toCanvasRef.current ?? document.createElement("canvas")
+    toCanvasRef.current = target
+    renderPayloadToCanvas(target, latestData.current)
+    drawRenderedCanvas(target)
+  }, [drawRenderedCanvas, renderPayloadToCanvas])
+
+  const cancelTransition = useCallback(() => {
+    if (transitionFrameRef.current === null) return
+    cancelScheduledAnimationFrame(transitionFrameRef.current)
+    transitionFrameRef.current = null
+  }, [])
+
+  const drawTransitionFrame = useCallback((
+    fromCanvas: HTMLCanvasElement,
+    toCanvas: HTMLCanvasElement,
+    transition: BroadcastTransition,
+    rawProgress: number,
+  ) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    const progress = easeTransitionProgress(rawProgress, transition.easing)
+    canvas.width = toCanvas.width
+    canvas.height = toCanvas.height
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    if (transition.type === "slide") {
+      const vector = slideVector(transition, canvas.width, canvas.height)
+      drawCanvasLayer(ctx, canvas, fromCanvas, 1, -vector.x * progress, -vector.y * progress)
+      drawCanvasLayer(
+        ctx,
+        canvas,
+        toCanvas,
+        1,
+        vector.x * (1 - progress),
+        vector.y * (1 - progress),
+      )
       return
     }
 
-    const { theme, item } = data
-    canvas.width = theme.resolution.width
-    canvas.height = theme.resolution.height
-    if (item?.kind === "video") {
-      fillBlack(canvas)
+    if (transition.type === "scale") {
+      drawCanvasLayer(ctx, canvas, fromCanvas, 1 - progress, 0, 0, 1 + progress * 0.04)
+      drawCanvasLayer(ctx, canvas, toCanvas, progress, 0, 0, 0.96 + progress * 0.04)
       return
     }
-    const result = renderPresentation(ctx, theme, item, {
-      scale: 1,
-      opacity: data.opacity,
-      imageCache: imageCacheRef.current,
-    })
 
-    if (!result) {
-      fillBlack(canvas)
-      logDebug("renderPresentation returned null; drew fallback frame")
-    }
-  }, [logDebug])
+    drawCanvasLayer(ctx, canvas, fromCanvas, 1 - progress)
+    drawCanvasLayer(ctx, canvas, toCanvas, progress)
+  }, [])
 
   const preloadBackgroundImage = useCallback((theme: BroadcastTheme) => {
     const bg = theme.background
@@ -231,6 +367,54 @@ export function useBroadcastOutputRuntime({
     ndiBurstTimersRef.current.push(...timers)
   }, [pushNdiFrame])
 
+  const animatePayload = useCallback((
+    previousPayload: BroadcastPayload | null,
+    payload: BroadcastPayload,
+  ) => {
+    cancelTransition()
+    const transition = payload.transition
+    if (!transition || transition.type === "none" || transition.duration <= 0) {
+      draw()
+      pushNdiBurst()
+      return
+    }
+
+    const fromCanvas = fromCanvasRef.current ?? document.createElement("canvas")
+    const toCanvas = toCanvasRef.current ?? document.createElement("canvas")
+    fromCanvasRef.current = fromCanvas
+    toCanvasRef.current = toCanvas
+
+    renderPayloadToCanvas(toCanvas, payload)
+    renderPayloadToCanvas(fromCanvas, previousPayload, {
+      width: toCanvas.width,
+      height: toCanvas.height,
+    })
+
+    const startedAt = performance.now()
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / transition.duration)
+      drawTransitionFrame(fromCanvas, toCanvas, transition, progress)
+
+      if (progress < 1) {
+        transitionFrameRef.current = scheduleAnimationFrame(step)
+        return
+      }
+
+      transitionFrameRef.current = null
+      drawRenderedCanvas(toCanvas)
+      pushNdiBurst()
+    }
+
+    step(startedAt)
+  }, [
+    cancelTransition,
+    draw,
+    drawRenderedCanvas,
+    drawTransitionFrame,
+    pushNdiBurst,
+    renderPayloadToCanvas,
+  ])
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (canvas) {
@@ -250,6 +434,7 @@ export function useBroadcastOutputRuntime({
         return
       }
 
+      const previousPayload = latestData.current
       lastRenderKeyRef.current = renderKey
       latestData.current = payload
       onPayloadChange?.(payload)
@@ -258,8 +443,7 @@ export function useBroadcastOutputRuntime({
         hasItem: Boolean(payload.item),
         themeId: payload.theme.id,
       })
-      draw()
-      pushNdiBurst()
+      animatePayload(previousPayload, payload)
     }
 
     const e2eHarnessEnabled =
@@ -321,12 +505,13 @@ export function useBroadcastOutputRuntime({
 
     return () => {
       delete window.__SABBATHCUE_BROADCAST_TEST__
+      cancelTransition()
       ndiBurstTimersRef.current.forEach(clearTimeout)
       ndiBurstTimersRef.current = []
       unlisten?.then((fn) => fn())
       unlistenNdiConfig?.then((fn) => fn())
     }
-  }, [canvas, draw, logDebug, onPayloadChange, outputId, preloadBackgroundImage, pushNdiBurst])
+  }, [animatePayload, cancelTransition, canvas, logDebug, onPayloadChange, outputId, preloadBackgroundImage, pushNdiBurst])
 
   useEffect(() => {
     const timer = setInterval(() => {

@@ -52,6 +52,20 @@ export type TextHorizontalAlign = "left" | "center" | "right" | "justify"
 export type TextVerticalAlign = "top" | "middle" | "bottom"
 export type TextTransform = "none" | "uppercase" | "lowercase" | "capitalize"
 export type TextDecoration = "none" | "underline" | "line-through"
+export type BroadcastTransitionType = "fade" | "slide" | "scale" | "none"
+export type BroadcastTransitionEasing =
+  | "linear"
+  | "ease-in"
+  | "ease-out"
+  | "ease-in-out"
+export type BroadcastTransitionDirection = "up" | "down" | "left" | "right"
+
+export interface BroadcastTransition {
+  type: BroadcastTransitionType
+  duration: number
+  easing: BroadcastTransitionEasing
+  direction: BroadcastTransitionDirection
+}
 
 export interface BroadcastTheme {
   id: string
@@ -136,10 +150,5 @@ export interface BroadcastTheme {
     textAreaHeight: number
     referenceGap?: number
   }
-  transition: {
-    type: "fade" | "slide" | "scale" | "none"
-    duration: number
-    easing: "linear" | "ease-in" | "ease-out" | "ease-in-out"
-    direction: "up" | "down" | "left" | "right"
-  }
+  transition: BroadcastTransition
 }

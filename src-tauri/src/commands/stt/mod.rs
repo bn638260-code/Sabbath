@@ -29,10 +29,9 @@ use rhema_stt::TranscriptEvent;
 use self::detection::{
     check_reading_mode, clamp_to_recent_words, enqueue_direct_detection_job,
     enqueue_final_semantic_job, enqueue_partial_semantic_job, is_detection_paused,
-    run_direct_detection, run_partial_direct_preview_detection, run_semantic_detection,
-    take_semantic_job, DeepgramSemanticBuffer, LIVE_DETECTION_WINDOW_WORDS,
-    PARTIAL_SEMANTIC_DEBOUNCE, PARTIAL_SEMANTIC_MIN_WORDS, SEMANTIC_WINDOW_SEGMENTS,
-    WINDOW_RESET_GAP,
+    run_direct_detection, run_semantic_detection, take_semantic_job, DeepgramSemanticBuffer,
+    LIVE_DETECTION_WINDOW_WORDS, PARTIAL_SEMANTIC_DEBOUNCE, PARTIAL_SEMANTIC_MIN_WORDS,
+    SEMANTIC_WINDOW_SEGMENTS, WINDOW_RESET_GAP,
 };
 use self::provider::build_stt_provider;
 use self::utils::{
@@ -326,11 +325,6 @@ pub async fn start_transcription(
     // Background detection channel — direct + reading mode, non-blocking
     let (detect_tx, mut detect_rx) = tokio::sync::mpsc::channel::<(u64, String)>(64);
 
-    // Background fast-preview channel: direct references only, latest work wins.
-    // This gives preview a fast path without touching final detector/cooldown state.
-    let (partial_preview_tx, mut partial_preview_rx) =
-        tokio::sync::mpsc::channel::<(u64, String)>(64);
-
     // [DIAG] Counters so we can see whether transcripts are being dropped
     // because the detection workers can't keep up. Logged every 25 sends
     // alongside current queue depth.
@@ -340,27 +334,6 @@ pub async fn start_transcription(
     let semantic_dropped = Arc::new(AtomicU64::new(0));
     let transcript_seq = Arc::new(AtomicU64::new(0));
     let latest_accepted_seq = Arc::new(AtomicU64::new(0));
-
-    // Partial preview worker stays separate from final detector cooldown state.
-    let partial_app = app.clone();
-    let partial_latest_seq = transcript_seq.clone();
-    task_handles.push(spawn_stt_task("partial-preview", async move {
-        let partial_detector = Arc::new(Mutex::new(rhema_detection::DirectDetector::new()));
-        while let Some((seq, transcript)) = partial_preview_rx.recv().await {
-            let app_clone = partial_app.clone();
-            let latest_seq = partial_latest_seq.clone();
-            let detector = partial_detector.clone();
-            tokio::task::spawn_blocking(move || {
-                run_partial_direct_preview_detection(
-                    &app_clone,
-                    &detector,
-                    seq,
-                    &latest_seq,
-                    &transcript,
-                );
-            });
-        }
-    }));
 
     task_handles.push(spawn_latest_wins_semantic_worker(
         "final-semantic",
@@ -387,10 +360,6 @@ pub async fn start_transcription(
             let app_clone = det_app.clone();
             let latest_seq = det_latest_seq.clone();
             let _ = tokio::task::spawn_blocking(move || {
-                if check_reading_mode(&app_clone, &transcript, false) {
-                    return;
-                }
-
                 let direct_found = run_direct_detection(&app_clone, seq, &latest_seq, &transcript);
                 check_reading_mode(&app_clone, &transcript, direct_found);
             })
@@ -462,20 +431,6 @@ pub async fn start_transcription(
                         // This makes translation switching feel instant without waiting for speech_final
                         check_translation_command(&event_app, &transcript);
                         if !is_detection_paused(&event_app) {
-                            if let Some(preview_text) = route.preview_candidate {
-                                match partial_preview_tx.try_send((seq, preview_text)) {
-                                    Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
-                                        if transcript_logging_enabled() {
-                                            log::debug!(
-                                                "[QUEUE] partial_preview_tx dropped stale partial"
-                                            );
-                                        }
-                                    }
-                                    Ok(())
-                                    | Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
-                                }
-                            }
-
                             if let Some(detection_text) = route.authoritative_detection {
                                 enqueue_direct_detection_job(
                                     &detect_tx,
@@ -558,20 +513,6 @@ pub async fn start_transcription(
                             deepgram_semantic_buffer.clear();
                         }
                         if !detection_paused {
-                            if let Some(preview_text) = route.preview_candidate {
-                                match partial_preview_tx.try_send((seq, preview_text)) {
-                                    Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
-                                        if transcript_logging_enabled() {
-                                            log::debug!(
-                                                "[QUEUE] fast_preview_tx dropped stale transcript"
-                                            );
-                                        }
-                                    }
-                                    Ok(())
-                                    | Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
-                                }
-                            }
-
                             log::info!(
                             "[PIPELINE] final_transcript provider={} conf={:.2} chars={} event_ms={:?}",
                             provider_log_name,

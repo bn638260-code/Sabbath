@@ -279,91 +279,6 @@ pub(crate) fn finalize_live_semantic_results(
     merged
 }
 
-/// Run a preview-only direct detection pass on a transcript.
-///
-/// This intentionally skips semantic detection, reading mode, queueing, and
-/// cooldown state. Final transcript handling remains authoritative; this path
-/// exists only to stage complete direct references in the preview panel sooner.
-pub(crate) fn run_partial_direct_preview_detection(
-    app: &AppHandle,
-    detector_state: &Arc<Mutex<DirectDetector>>,
-    seq: u64,
-    latest_seq: &Arc<AtomicU64>,
-    transcript: &str,
-) {
-    if seq != latest_seq.load(Ordering::Acquire) {
-        return;
-    }
-
-    let t0 = std::time::Instant::now();
-    let direct_results = {
-        let Ok(mut detector) = detector_state.lock() else {
-            log::warn!("[DET-PARTIAL] DirectDetector lock poisoned");
-            return;
-        };
-        detector.detect(transcript)
-    };
-
-    if direct_results.is_empty() || seq != latest_seq.load(Ordering::Acquire) {
-        return;
-    }
-
-    let merged: Vec<rhema_detection::MergedDetection> = direct_results
-        .into_iter()
-        .filter(|d| {
-            !d.is_chapter_only
-                && d.verse_ref.book_number > 0
-                && d.verse_ref.chapter > 0
-                && d.verse_ref.verse_start > 0
-                && d.confidence >= 0.90
-        })
-        .map(|d| rhema_detection::MergedDetection {
-            detection: d,
-            auto_queued: false,
-        })
-        .collect();
-
-    if merged.is_empty() {
-        return;
-    }
-
-    let app_managed: State<'_, Mutex<AppState>> = app.state();
-    let Ok(app_state) = app_managed.try_lock() else {
-        if transcript_logging_enabled() {
-            log::debug!("[DET-PARTIAL] AppState busy; skipping partial preview");
-        }
-        return;
-    };
-    let results = finalize_live_semantic_results(
-        merged
-            .iter()
-            .map(|m| crate::commands::detection::to_result(&app_state, m))
-            .collect(),
-    );
-    drop(app_state);
-
-    if results.is_empty() || seq != latest_seq.load(Ordering::Acquire) {
-        return;
-    }
-
-    for r in &results {
-        log::info!(
-            "[DET-PARTIAL] Preview: {} ({:.0}%)",
-            r.verse_ref,
-            r.confidence * 100.0
-        );
-    }
-    let _ = app.emit("verse_detections", &results);
-
-    if transcript_logging_enabled() {
-        log::info!(
-            "[DET-PARTIAL] Detection+emit took {:?} for {:?}",
-            t0.elapsed(),
-            truncate_safe(transcript, 50)
-        );
-    }
-}
-
 fn emit_egw_direct_detections(
     app: &AppHandle,
     seq: u64,
@@ -453,7 +368,7 @@ pub(crate) fn run_direct_detection(
     drop(merger);
     if merged.is_empty() {
         emit_egw_direct_detections(app, seq, latest_seq, transcript);
-        return false;
+        return has_high_confidence;
     }
 
     // Resolve verse info from DB (needs AppState, but only briefly for DB lookup)
@@ -642,6 +557,7 @@ pub(crate) fn run_semantic_detection(
     }
 
     drop(app_state);
+    let results = finalize_live_semantic_results(results);
 
     if results.is_empty() {
         log::info!("[DET-SEMANTIC] No detections");

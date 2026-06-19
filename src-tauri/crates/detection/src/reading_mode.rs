@@ -635,6 +635,9 @@ fn extract_verse_number(text: &str) -> Option<i32> {
     // Find "verse N" or "verses N" anywhere in the text
     for keyword in &["verse ", "verses "] {
         if let Some(pos) = text.find(keyword) {
+            if has_reference_context_before_verse(text, pos) {
+                return None;
+            }
             let rest = &text[pos + keyword.len()..];
             return parse_number_token(rest);
         }
@@ -663,6 +666,14 @@ fn extract_verse_number(text: &str) -> Option<i32> {
     }
 
     None
+}
+
+fn has_reference_context_before_verse(text: &str, verse_pos: usize) -> bool {
+    let prefix = text[..verse_pos].trim();
+    !prefix.is_empty()
+        && prefix
+            .split_whitespace()
+            .any(|token| parse_number_token(token).is_some())
 }
 
 /// Parse a number (digit or spoken word) from the start of `text`.
@@ -918,6 +929,26 @@ mod tests {
     fn test_extract_verse_number_no_match() {
         assert_eq!(extract_verse_number("hello world"), None);
         assert_eq!(extract_verse_number("the weather is nice"), None);
+    }
+
+    #[test]
+    fn extract_verse_number_ignores_complete_reference_context() {
+        assert_eq!(extract_verse_number("genesis 3 verse 9"), None);
+        assert_eq!(extract_verse_number("chapter 3 verse 9"), None);
+    }
+
+    #[test]
+    fn reading_mode_does_not_apply_external_reference_to_current_context() {
+        let mut rm = ReadingMode::new();
+        let verses: Vec<(i32, String)> = (1..=10)
+            .map(|i| (i, format!("sample passage words number {i}")))
+            .collect();
+        rm.start(43, "John", 1, 1, verses);
+
+        let result = rm.check_transcript("Genesis 3 verse 9");
+
+        assert_eq!(result, None);
+        assert_eq!(rm.current_verse(), Some(1));
     }
 
     // --- Bug fix: all chapter verses loaded for backward navigation ---

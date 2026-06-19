@@ -101,13 +101,7 @@ impl BibleDb {
 
         // Keyword search: each significant token must be present (FTS5 implicit
         // AND), in any order — not an exact phrase.
-        let tokens: Vec<String> = query
-            .split_whitespace()
-            .map(|w| {
-                w.chars()
-                    .filter(|c| c.is_alphanumeric() || *c == '\'')
-                    .collect::<String>()
-            })
+        let tokens: Vec<String> = crate::search::query_terms(query)
             .filter(|w| !w.is_empty())
             .map(|w| format!("\"{w}\""))
             .collect();
@@ -253,6 +247,13 @@ mod tests {
         let hits = db.search_egw("conflict", 10).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].paragraph, 2);
+    }
+
+    #[test]
+    fn searches_paragraphs_with_apostrophes_without_fts_syntax_error() {
+        let db = test_db();
+        let hits = db.search_egw_bm25("history don't conflict", 10).unwrap();
+        assert_eq!(hits.len(), 1);
     }
 
     #[test]

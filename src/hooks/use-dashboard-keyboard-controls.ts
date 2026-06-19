@@ -28,6 +28,7 @@ import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import { useTutorialStore } from "@/stores/tutorial-store"
+import type { PresentationRenderData } from "@/types"
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -75,22 +76,12 @@ function presentActiveQueueItem(): void {
   presentItem(item.presentation)
 }
 
-function advancePresentationDeck(delta: number): boolean {
-  const broadcast = useBroadcastStore.getState()
-  const previewItem = broadcast.previewItem
-  const liveItem = broadcast.liveItem
-  const targetItem = broadcast.isLive ? liveItem : previewItem
-  const deckKind = presentationDeckKind(targetItem)
-  if (!deckKind) return false
-  const isLive = broadcast.isLive
-
+function advanceLiveHymnGroup(delta: number): boolean {
   const queue = useQueueStore.getState()
   const activeQueueItem =
     queue.activeIndex === null ? null : (queue.items[queue.activeIndex] ?? null)
 
   if (
-    isLive &&
-    deckKind === "hymn" &&
     activeQueueItem?.presentation.kind === "hymn" &&
     activeQueueItem.hymnGroup
   ) {
@@ -111,43 +102,61 @@ function advancePresentationDeck(delta: number): boolean {
       return true
     }
   }
+  return false
+}
 
-  if (deckKind === "hymn") {
-    const hymnSlides = useHymnSlideStore.getState()
-    if (hymnSlides.deck.length === 0) return false
-    const deck = hymnDeckSlides(hymnSlides.deck)
-    const currentIndex = findDeckIndex(
-      deck,
-      presentationDeckSlideId(targetItem),
-      hymnSlides.activeIndex
-    )
-    const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
-    const next = hymnSlides.deck[nextIndex]
-    if (!next || nextIndex === currentIndex) return true
-    hymnSlides.setDeck(hymnSlides.deck, nextIndex)
-    if (isLive) presentItem(next)
-    else selectPreviewItem(next)
-    return true
-  }
+function presentOrPreview(next: Parameters<typeof presentItem>[0], isLive: boolean): void {
+  if (isLive) presentItem(next)
+  else selectPreviewItem(next)
+}
 
-  if (deckKind === "egw") {
-    const egwSlides = useEgwSlideStore.getState()
-    if (egwSlides.deck.length === 0) return false
-    const deck = egwDeckSlides(egwSlides.deck)
-    const currentIndex = findDeckIndex(
-      deck,
-      presentationDeckSlideId(targetItem),
-      egwSlides.activeIndex
-    )
-    const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
-    const next = egwSlides.deck[nextIndex]
-    if (!next || nextIndex === currentIndex) return true
-    egwSlides.setDeck(egwSlides.deck, nextIndex)
-    if (isLive) presentItem(next)
-    else selectPreviewItem(next)
-    return true
-  }
+function advanceHymnDeck(
+  delta: number,
+  targetItem: PresentationRenderData | null,
+  isLive: boolean
+): boolean {
+  const hymnSlides = useHymnSlideStore.getState()
+  if (hymnSlides.deck.length === 0) return false
+  const deck = hymnDeckSlides(hymnSlides.deck)
+  const currentIndex = findDeckIndex(
+    deck,
+    presentationDeckSlideId(targetItem),
+    hymnSlides.activeIndex
+  )
+  const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
+  const next = hymnSlides.deck[nextIndex]
+  if (!next || nextIndex === currentIndex) return true
+  hymnSlides.setDeck(hymnSlides.deck, nextIndex)
+  presentOrPreview(next, isLive)
+  return true
+}
 
+function advanceEgwDeck(
+  delta: number,
+  targetItem: PresentationRenderData | null,
+  isLive: boolean
+): boolean {
+  const egwSlides = useEgwSlideStore.getState()
+  if (egwSlides.deck.length === 0) return false
+  const deck = egwDeckSlides(egwSlides.deck)
+  const currentIndex = findDeckIndex(
+    deck,
+    presentationDeckSlideId(targetItem),
+    egwSlides.activeIndex
+  )
+  const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
+  const next = egwSlides.deck[nextIndex]
+  if (!next || nextIndex === currentIndex) return true
+  egwSlides.setDeck(egwSlides.deck, nextIndex)
+  presentOrPreview(next, isLive)
+  return true
+}
+
+function advanceSermonDeck(
+  delta: number,
+  targetItem: PresentationRenderData | null,
+  isLive: boolean
+): boolean {
   const sermonSlides = useSermonSlideStore.getState()
   if (sermonSlides.deck.length === 0) return false
   const deck = sermonDeckSlides(sermonSlides.deck)
@@ -160,9 +169,111 @@ function advancePresentationDeck(delta: number): boolean {
   const next = sermonSlides.deck[nextIndex]
   if (!next || nextIndex === currentIndex) return true
   sermonSlides.setDeck(sermonSlides.deck, nextIndex, sermonSlides.activeItemId)
-  if (isLive) presentItem(next)
-  else selectPreviewItem(next)
+  presentOrPreview(next, isLive)
   return true
+}
+
+function advancePresentationDeck(delta: number): boolean {
+  const broadcast = useBroadcastStore.getState()
+  const targetItem = broadcast.isLive ? broadcast.liveItem : broadcast.previewItem
+  const deckKind = presentationDeckKind(targetItem)
+  if (!deckKind) return false
+
+  if (broadcast.isLive && deckKind === "hymn" && advanceLiveHymnGroup(delta)) {
+    return true
+  }
+  if (deckKind === "hymn") return advanceHymnDeck(delta, targetItem, broadcast.isLive)
+  if (deckKind === "egw") return advanceEgwDeck(delta, targetItem, broadcast.isLive)
+  return advanceSermonDeck(delta, targetItem, broadcast.isLive)
+}
+
+function handleWorkspaceShortcut(key: string): boolean {
+  if (key === "1") {
+    useDashboardWorkspaceStore.getState().setWorkspace("live")
+    useServicePlanStore.getState().closePlanner()
+    return true
+  }
+  if (key === "2") {
+    useDashboardWorkspaceStore.getState().setWorkspace("service-plans")
+    useServicePlanStore.getState().openPlanner()
+    return true
+  }
+  if (key === "3") {
+    useDashboardWorkspaceStore.getState().setWorkspace("run-service")
+    useServicePlanStore.getState().closePlanner()
+    return true
+  }
+  if (key === "4") {
+    useDashboardWorkspaceStore.getState().setWorkspace("hymns")
+    useServicePlanStore.getState().closePlanner()
+    return true
+  }
+  if (key === "5") {
+    useDashboardWorkspaceStore.getState().setWorkspace("library")
+    useServicePlanStore.getState().closePlanner()
+    return true
+  }
+  return false
+}
+
+function handleArrowShortcut(event: KeyboardEvent): boolean {
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+    if (event.key === "ArrowRight") return advancePresentationDeck(1)
+    if (event.key === "ArrowLeft") return advancePresentationDeck(-1)
+  }
+
+  if (event.altKey && event.key === "ArrowRight") {
+    void useServicePlanStore.getState().goToNextItem()
+    return true
+  }
+  if (event.altKey && event.key === "ArrowLeft") {
+    void useServicePlanStore.getState().goToPreviousItem()
+    return true
+  }
+  if (event.altKey && event.key === "ArrowDown") {
+    selectQueueItem(1)
+    return true
+  }
+  if (event.altKey && event.key === "ArrowUp") {
+    selectQueueItem(-1)
+    return true
+  }
+  return false
+}
+
+function handleCommandShortcut(event: KeyboardEvent, key: string): boolean {
+  const mod = event.ctrlKey || event.metaKey
+  if (!mod) return false
+
+  if (event.key === "Enter" && event.shiftKey) {
+    presentActiveQueueItem()
+    return true
+  }
+  if (event.key === "Enter") {
+    commitPreviewToLive()
+    return true
+  }
+  if (key === "l") {
+    toggleLiveOutputVisibility()
+    return true
+  }
+  if (event.shiftKey && key === "b") {
+    blackoutOutput()
+    return true
+  }
+  if (event.shiftKey && key === "x") {
+    clearLiveOutput()
+    return true
+  }
+  if (event.shiftKey && key === "p") {
+    clearPreviewOutput()
+    return true
+  }
+  if (key === "m") {
+    toggleTranscription()
+    return true
+  }
+  return false
 }
 
 export function useDashboardKeyboardControls(): void {
@@ -182,113 +293,17 @@ export function handleDashboardKeyboardEvent(event: KeyboardEvent): void {
   const mod = event.ctrlKey || event.metaKey
   const workspaceMod = mod || event.altKey
 
-  if (workspaceMod && !event.shiftKey && key === "1") {
+  if (workspaceMod && !event.shiftKey && handleWorkspaceShortcut(key)) {
     event.preventDefault()
-    useDashboardWorkspaceStore.getState().setWorkspace("live")
-    useServicePlanStore.getState().closePlanner()
     return
   }
 
-  if (workspaceMod && !event.shiftKey && key === "2") {
+  if (handleArrowShortcut(event)) {
     event.preventDefault()
-    useDashboardWorkspaceStore.getState().setWorkspace("service-plans")
-    useServicePlanStore.getState().openPlanner()
     return
   }
 
-  if (workspaceMod && !event.shiftKey && key === "3") {
+  if (handleCommandShortcut(event, key)) {
     event.preventDefault()
-    useDashboardWorkspaceStore.getState().setWorkspace("run-service")
-    useServicePlanStore.getState().closePlanner()
-    return
-  }
-
-  if (workspaceMod && !event.shiftKey && key === "4") {
-    event.preventDefault()
-    useDashboardWorkspaceStore.getState().setWorkspace("hymns")
-    useServicePlanStore.getState().closePlanner()
-    return
-  }
-
-  if (workspaceMod && !event.shiftKey && key === "5") {
-    event.preventDefault()
-    useDashboardWorkspaceStore.getState().setWorkspace("library")
-    useServicePlanStore.getState().closePlanner()
-    return
-  }
-
-  if (!mod && !event.altKey && !event.shiftKey && event.key === "ArrowRight") {
-    if (advancePresentationDeck(1)) event.preventDefault()
-    return
-  }
-
-  if (!mod && !event.altKey && !event.shiftKey && event.key === "ArrowLeft") {
-    if (advancePresentationDeck(-1)) event.preventDefault()
-    return
-  }
-
-  if (mod && event.key === "Enter" && event.shiftKey) {
-    event.preventDefault()
-    presentActiveQueueItem()
-    return
-  }
-
-  if (mod && event.key === "Enter") {
-    event.preventDefault()
-    commitPreviewToLive()
-    return
-  }
-
-  if (mod && key === "l") {
-    event.preventDefault()
-    toggleLiveOutputVisibility()
-    return
-  }
-
-  if (mod && event.shiftKey && key === "b") {
-    event.preventDefault()
-    blackoutOutput()
-    return
-  }
-
-  if (mod && event.shiftKey && key === "x") {
-    event.preventDefault()
-    clearLiveOutput()
-    return
-  }
-
-  if (mod && event.shiftKey && key === "p") {
-    event.preventDefault()
-    clearPreviewOutput()
-    return
-  }
-
-  if (mod && key === "m") {
-    event.preventDefault()
-    toggleTranscription()
-    return
-  }
-
-  if (event.altKey && event.key === "ArrowRight") {
-    event.preventDefault()
-    void useServicePlanStore.getState().goToNextItem()
-    return
-  }
-
-  if (event.altKey && event.key === "ArrowLeft") {
-    event.preventDefault()
-    void useServicePlanStore.getState().goToPreviousItem()
-    return
-  }
-
-  if (event.altKey && event.key === "ArrowDown") {
-    event.preventDefault()
-    selectQueueItem(1)
-    return
-  }
-
-  if (event.altKey && event.key === "ArrowUp") {
-    event.preventDefault()
-    selectQueueItem(-1)
   }
 }
