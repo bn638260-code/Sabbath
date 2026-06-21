@@ -252,6 +252,13 @@ export async function handleVerseDetections(detections: DetectionResult[]) {
 export function handleReadingAdvance(advance: ReadingAdvance) {
   if (advance.book_number <= 0) return
 
+  // Reading mode streams high-confidence advances while a passage is read.
+  // Only auto-stage them when both auto toggles are on; with either off
+  // (Manual broadcast mode or Auto-preview disabled) the operator drives
+  // preview/live manually.
+  const settings = useSettingsStore.getState()
+  if (!settings.autoMode || !settings.autoPreviewDetections) return
+
   const verse = detectionLikeToVerse({
     book_number: advance.book_number,
     book_name: advance.book_name,

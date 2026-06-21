@@ -131,6 +131,7 @@ describe("verse detection workflow", () => {
     })
     useSettingsStore.setState({
       autoPreviewDetections: true,
+      autoMode: true,
     })
   })
 
@@ -367,6 +368,22 @@ describe("verse detection workflow", () => {
     expect(useBibleStore.getState().selectedVerse).toBeNull()
     expect(useBibleStore.getState().pendingNavigation).toBeNull()
     expect(useQueueStore.getState().items).toHaveLength(0)
+  })
+
+  it("ignores reading-mode advances when auto preview is off", () => {
+    useSettingsStore.setState({ autoPreviewDetections: false })
+    handleReadingAdvance(makeReadingAdvance())
+
+    expect(useBibleStore.getState().selectedVerse).toBeNull()
+    expect(useBroadcastStore.getState().previewItem).toBeNull()
+  })
+
+  it("ignores reading-mode advances in manual broadcast mode", () => {
+    useSettingsStore.setState({ autoMode: false })
+    handleReadingAdvance(makeReadingAdvance())
+
+    expect(useBibleStore.getState().selectedVerse).toBeNull()
+    expect(useBroadcastStore.getState().previewItem).toBeNull()
   })
 
   it("does not auto-live normal direct detections", async () => {

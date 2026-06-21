@@ -526,8 +526,14 @@ pub async fn start_transcription(
                             // Fire-and-forget: detection runs in background thread pool.
                             // Event consumer proceeds immediately to next transcript.
                             if let Some(detection_text) = route.authoritative_detection {
-                                let final_semantic_allowed =
-                                    final_semantic_detection_allowed(&provider_log_name, confidence);
+                                // Skip semantic work on near-garbage finals: a short fragment
+                                // with a reported (non-zero) confidence below 0.5 is almost
+                                // always STT noise, not a paraphrase worth searching.
+                                let junk_final = confidence > 0.0
+                                    && confidence < 0.5
+                                    && transcript.chars().count() < 12;
+                                let final_semantic_allowed = !junk_final
+                                    && final_semantic_detection_allowed(&provider_log_name, confidence);
                                 enqueue_direct_detection_job(
                                     &detect_tx,
                                     &latest_accepted_seq,

@@ -16,6 +16,9 @@ const DEFAULT_CACHE_CAPACITY: usize = 256;
 const DEFAULT_CONFIDENCE_THRESHOLD: f64 = 0.42;
 const SEMANTIC_SEARCH_K: usize = 12;
 const MAX_SEMANTIC_DETECTIONS: usize = 5;
+/// Bonus added to displayed confidence per extra strategy that agreed on a
+/// result (capped at two extra), rewarding cross-strategy corroboration.
+const AGREEMENT_BONUS: f64 = 0.02;
 
 /// Orchestrator that combines text chunking, embedding, vector search,
 /// and caching to detect Bible verses from transcript text using
@@ -99,12 +102,23 @@ impl SemanticDetector {
                 SEMANTIC_SEARCH_K,
             ) {
                 Ok(results) => {
+                    // `results` is already ranked by ensemble score; keep that
+                    // order but display the raw match strength (best similarity)
+                    // plus a small bonus when strategies agree, so the shown
+                    // confidence reflects how strong the match actually is.
                     let now = Self::timestamp_ms();
                     for result in results {
                         if result.score >= self.confidence_threshold {
+                            let agreement_bonus = match result.sources.len() {
+                                0 | 1 => 0.0,
+                                2 => AGREEMENT_BONUS,
+                                _ => AGREEMENT_BONUS * 2.0,
+                            };
+                            let confidence =
+                                (result.best_similarity + agreement_bonus).min(1.0);
                             detections.push(Self::make_detection(
                                 result.verse_id,
-                                result.score,
+                                confidence,
                                 text,
                                 now,
                             ));
@@ -154,14 +168,17 @@ impl SemanticDetector {
                     }
                 }
             }
+
+            // Direct-embedding hits arrive per chunk; rank by similarity.
+            detections.sort_by(|a, b| {
+                b.confidence
+                    .partial_cmp(&a.confidence)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
         }
 
-        // Cap results: sort by confidence, keep top semantic suggestions.
-        detections.sort_by(|a, b| {
-            b.confidence
-                .partial_cmp(&a.confidence)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        // Ensemble results keep their score ranking; direct results are sorted
+        // above. Cap to the top semantic suggestions either way.
         detections.truncate(MAX_SEMANTIC_DETECTIONS);
 
         detections
@@ -293,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ensemble_detection_confidence_uses_combined_score() {
+    fn test_ensemble_detection_confidence_uses_best_similarity() {
         let fake_results = vec![SearchResult {
             verse_id: 1001,
             similarity: 0.85,
@@ -310,10 +327,10 @@ mod tests {
 
         assert_eq!(detections.len(), 1);
         assert!(
-            detections[0].confidence < 0.85,
-            "displayed confidence should use ensemble score, not best raw similarity"
+            detections[0].confidence >= 0.85,
+            "displayed confidence should reflect raw best similarity, not the compressed ensemble score"
         );
-        assert!(detections[0].confidence >= DEFAULT_CONFIDENCE_THRESHOLD);
+        assert!(detections[0].confidence <= 1.0);
     }
 
     #[test]

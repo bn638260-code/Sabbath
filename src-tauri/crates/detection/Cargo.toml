@@ -35,3 +35,8 @@ precompute-bin = ["onnx", "vector-search", "env_logger"]
 name = "precompute"
 path = "src/bin/precompute.rs"
 required-features = ["precompute-bin"]
+
+[[bin]]
+name = "score_distribution"
+path = "src/bin/score_distribution.rs"
+required-features = ["precompute-bin"]

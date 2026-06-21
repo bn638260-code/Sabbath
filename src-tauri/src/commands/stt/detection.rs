@@ -27,7 +27,7 @@ pub(crate) const SEMANTIC_WINDOW_SEGMENTS: usize = 4;
 pub(crate) const FINAL_SEMANTIC_MIN_WORDS: usize = 3;
 pub(crate) const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(100);
 pub(crate) const PARTIAL_SEMANTIC_MIN_WORDS: usize = 3;
-pub(crate) const LIVE_SEMANTIC_CAP: usize = 5;
+pub(crate) const LIVE_SEMANTIC_CAP: usize = 3;
 const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
 
 /// Maximum trailing words of the rolling transcript window fed to live
@@ -1075,7 +1075,7 @@ mod tests {
 
     #[test]
     fn live_semantic_workflow_matches_requested_speed_and_result_window() {
-        assert_eq!(LIVE_SEMANTIC_CAP, 5);
+        assert_eq!(LIVE_SEMANTIC_CAP, 3);
         assert_eq!(SEMANTIC_WINDOW_SEGMENTS, 4);
         assert_eq!(PARTIAL_SEMANTIC_DEBOUNCE, Duration::from_millis(100));
         assert_eq!(PARTIAL_SEMANTIC_MIN_WORDS, 3);

@@ -29,7 +29,7 @@ pub(crate) const FTS5_MIN_CONFIDENCE: f64 = 0.50;
 
 /// Detection results at or above this confidence are visible to operators.
 /// Auto-live/auto-queue uses the UI threshold separately.
-pub(crate) const OPERATOR_DETECTION_THRESHOLD: f64 = 0.42;
+pub(crate) const OPERATOR_DETECTION_THRESHOLD: f64 = 0.63;
 
 const AUTO_QUEUE_DISABLED_THRESHOLD: f64 = f64::INFINITY;
 
@@ -963,7 +963,7 @@ mod tests {
 
         apply_detection_settings_to_merger(&mut merger, Some(0.80), 2500);
 
-        let results = merger.merge(vec![], vec![semantic_detection(0.50)]);
+        let results = merger.merge(vec![], vec![semantic_detection(0.79)]);
 
         assert!(
             (merger.confidence_threshold() - OPERATOR_DETECTION_THRESHOLD).abs() < f64::EPSILON
@@ -979,7 +979,7 @@ mod tests {
 
         apply_detection_settings_to_merger(&mut merger, None, 2500);
 
-        let results = merger.merge(vec![], vec![semantic_detection(0.72)]);
+        let results = merger.merge(vec![], vec![semantic_detection(0.79)]);
 
         assert_eq!(results.len(), 1);
         assert!(!results[0].auto_queued);

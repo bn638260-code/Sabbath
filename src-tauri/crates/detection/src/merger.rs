@@ -127,7 +127,11 @@ impl DetectionMerger {
         let mut auto_queue_used = false;
         let mut results = Vec::with_capacity(deduped.len());
         for detection in deduped {
-            let eligible = detection.confidence >= self.auto_queue_threshold && cooldown_ok;
+            // Only direct references auto-queue. Semantic suggestions are
+            // operator review hints, not display-worthy on their own.
+            let eligible = detection.confidence >= self.auto_queue_threshold
+                && cooldown_ok
+                && matches!(detection.source, DetectionSource::DirectReference);
             let auto_queued = eligible && !auto_queue_used;
             if auto_queued {
                 auto_queue_used = true;
@@ -479,6 +483,25 @@ mod tests {
         assert_eq!(results.len(), 1);
         // 0.96 >= 0.80 auto_queue_threshold and no cooldown yet
         assert!(results[0].auto_queued);
+    }
+
+    #[test]
+    fn test_merger_semantic_never_auto_queues_even_above_threshold() {
+        let mut merger = DetectionMerger::new();
+
+        let semantic = vec![make_detection(
+            43,
+            "John",
+            3,
+            16,
+            0.95,
+            DetectionSource::Semantic { similarity: 0.95 },
+        )];
+
+        let results = merger.merge(vec![], semantic);
+        assert_eq!(results.len(), 1);
+        // 0.95 >= 0.80 auto_queue_threshold, but semantic is auto-queue-ineligible.
+        assert!(!results[0].auto_queued);
     }
 
     #[test]
