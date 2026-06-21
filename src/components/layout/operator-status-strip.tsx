@@ -21,13 +21,21 @@ import {
   SwatchBookIcon,
 } from "lucide-react"
 
+// Isolate the high-frequency `audio_level` tick (many times per second while
+// recording) to this leaf so it doesn't re-render the whole status strip and
+// its action buttons. Subscribing to the `rms` primitive also skips ticks where
+// only `peak` changed.
+function MicLevelMeter() {
+  const rms = useAudioStore((s) => s.level.rms)
+  return <LevelMeter level={rms} bars={5} />
+}
+
 export function OperatorStatusStrip({
   actionsLayout = "responsive",
 }: {
   /** Force inline action buttons (used in tests). */
   actionsLayout?: "responsive" | "inline"
 }) {
-  const audioLevel = useAudioStore((s) => s.level)
   const isTranscribing = useTranscriptStore((s) => s.isTranscribing)
   const isLive = useBroadcastStore((s) => s.isLive)
   const liveItem = useBroadcastStore((s) => s.liveItem)
@@ -76,7 +84,7 @@ export function OperatorStatusStrip({
       <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto">
         <div className="flex shrink-0 items-center gap-2 text-muted-foreground">
           <MicIcon className="size-3" />
-          <LevelMeter level={audioLevel.rms} bars={5} />
+          <MicLevelMeter />
           <span className="font-mono text-[10px]">
             {isTranscribing ? "Listening" : "Idle"}
           </span>

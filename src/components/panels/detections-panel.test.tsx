@@ -90,7 +90,6 @@ vi.mock("@/hooks/use-detection", () => ({
 }))
 
 vi.mock("@/lib/presentation-workflow", () => ({
-  AUTO_PREVIEW_MIN_CONFIDENCE: 0.85,
   createEgwQueueItem: vi.fn(() => ({ id: "egw-queue-item" })),
   createScriptureQueueItem: vi.fn(() => ({ id: "queue-item" })),
   detectionToVerse: vi.fn(() => verse),

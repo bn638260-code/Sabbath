@@ -25,7 +25,9 @@ import {
   presentationDeckKind,
   presentationDeckSlideId,
   sermonDeckSlides,
+  type PresentationDeckSlide,
 } from "@/lib/presentation-deck-navigation"
+import type { KeyboardEvent } from "react"
 import type { EgwParagraph, PresentationRenderData, Verse } from "@/types"
 
 export function isPresentationNavigationEditableTarget(
@@ -36,13 +38,21 @@ export function isPresentationNavigationEditableTarget(
   if (target.isContentEditable) return true
 
   const tagName = target.tagName.toLowerCase()
-  if (tagName === "input" || tagName === "textarea" || tagName === "select") {
+  if (
+    tagName === "input" ||
+    tagName === "textarea" ||
+    tagName === "select" ||
+    tagName === "button"
+  ) {
     return true
   }
 
+  // Also skip arrow-nav when a button or list option is focused (e.g. an open
+  // quick-search dropdown) so arrows drive the list/control, not presentation.
+  // The panel container itself is a <div>, so panel-focused nav still works.
   return Boolean(
     target.closest(
-      '[contenteditable="true"], input, textarea, select, [role="textbox"], [role="combobox"], [role="spinbutton"]'
+      '[contenteditable="true"], input, textarea, select, button, [role="textbox"], [role="combobox"], [role="spinbutton"], [role="button"], [role="menuitem"], [role="option"]'
     )
   )
 }
@@ -60,6 +70,32 @@ function scriptureFromTarget(
 ): Verse | null {
   if (targetItem?.kind !== "scripture") return null
   return targetItem.scripture ?? useBibleStore.getState().selectedVerse
+}
+
+// Serializes async scripture/EGW navigation. Each queued advance runs only
+// after the previous one resolves and re-reads the *current* verse/paragraph
+// from the store, so two rapid ArrowRight presses go n -> n+1 -> n+2 instead
+// of both resolving from the same stale snapshot.
+let navigationChain: Promise<void> = Promise.resolve()
+
+function chainNavigation(work: () => Promise<void>): void {
+  navigationChain = navigationChain
+    .then(work)
+    .catch((error) => {
+      console.warn("[keyboard] navigation failed", error)
+    })
+}
+
+function currentScripture(
+  isLive: boolean,
+  targetItem: PresentationRenderData | null
+): Verse | null {
+  if (isLive) {
+    const live = useBroadcastStore.getState().liveItem
+    const liveVerse = live?.kind === "scripture" ? (live.scripture ?? null) : null
+    return liveVerse ?? scriptureFromTarget(targetItem)
+  }
+  return useBibleStore.getState().selectedVerse ?? scriptureFromTarget(targetItem)
 }
 
 function findAdjacentVerse(
@@ -90,7 +126,7 @@ async function advanceScripture(
   targetItem: PresentationRenderData | null,
   isLive: boolean
 ): Promise<void> {
-  const current = scriptureFromTarget(targetItem)
+  const current = currentScripture(isLive, targetItem)
   if (!current) return
 
   const bible = useBibleStore.getState()
@@ -128,9 +164,7 @@ function queueScriptureAdvance(
   isLive: boolean
 ): boolean {
   if (!scriptureFromTarget(targetItem)) return false
-  void advanceScripture(delta, targetItem, isLive).catch((error) => {
-    console.warn("[keyboard] scripture navigation failed", error)
-  })
+  chainNavigation(() => advanceScripture(delta, targetItem, isLive))
   return true
 }
 
@@ -142,6 +176,18 @@ function egwParagraphFromTarget(
 
   const egwSlides = useEgwSlideStore.getState()
   return egwSlides.deck[egwSlides.activeIndex]?.paragraph ?? null
+}
+
+// Re-reads the active paragraph from the slide deck so chained advances
+// continue from where the previous one landed, not the keydown snapshot.
+function currentEgwParagraph(
+  targetItem: PresentationRenderData | null
+): EgwParagraph | null {
+  const egwSlides = useEgwSlideStore.getState()
+  return (
+    egwSlides.deck[egwSlides.activeIndex]?.paragraph ??
+    egwParagraphFromTarget(targetItem)
+  )
 }
 
 function findAdjacentEgwParagraph(
@@ -173,7 +219,7 @@ async function advanceEgwParagraph(
   targetItem: PresentationRenderData | null,
   isLive: boolean
 ): Promise<void> {
-  const current = egwParagraphFromTarget(targetItem)
+  const current = currentEgwParagraph(targetItem)
   if (!current) return
 
   let paragraphs = useEgwStore
@@ -203,9 +249,7 @@ function queueEgwParagraphAdvance(
   isLive: boolean
 ): boolean {
   if (!egwParagraphFromTarget(targetItem)) return false
-  void advanceEgwParagraph(delta, targetItem, isLive).catch((error) => {
-    console.warn("[keyboard] EGW navigation failed", error)
-  })
+  chainNavigation(() => advanceEgwParagraph(delta, targetItem, isLive))
   return true
 }
 
@@ -238,6 +282,35 @@ function advanceLiveHymnGroup(delta: number): boolean {
   return false
 }
 
+// Shared deck-advance math for hymn/EGW/sermon decks. They differ only in the
+// backing store, how setDeck is called, and what to return when already at the
+// boundary (hymn/sermon stop; EGW falls through to adjacent-paragraph nav).
+function advanceDeck<T extends Parameters<typeof presentItem>[0]>(
+  delta: number,
+  targetItem: PresentationRenderData | null,
+  isLive: boolean,
+  config: {
+    rawDeck: T[]
+    slides: PresentationDeckSlide[]
+    activeIndex: number
+    setActive: (nextIndex: number) => void
+    stopAtBoundary: boolean
+  }
+): boolean {
+  if (config.rawDeck.length === 0) return false
+  const currentIndex = findDeckIndex(
+    config.slides,
+    presentationDeckSlideId(targetItem),
+    config.activeIndex
+  )
+  const nextIndex = clampDeckIndex(config.slides.length, currentIndex, delta)
+  const next = config.rawDeck[nextIndex]
+  if (!next || nextIndex === currentIndex) return config.stopAtBoundary
+  config.setActive(nextIndex)
+  presentOrPreview(next, isLive)
+  return true
+}
+
 function advanceHymnDeck(
   delta: number,
   targetItem: PresentationRenderData | null,
@@ -245,19 +318,13 @@ function advanceHymnDeck(
 ): boolean {
   restoreQueuedHymnDeckForRenderItem(targetItem)
   const hymnSlides = useHymnSlideStore.getState()
-  if (hymnSlides.deck.length === 0) return false
-  const deck = hymnDeckSlides(hymnSlides.deck)
-  const currentIndex = findDeckIndex(
-    deck,
-    presentationDeckSlideId(targetItem),
-    hymnSlides.activeIndex
-  )
-  const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
-  const next = hymnSlides.deck[nextIndex]
-  if (!next || nextIndex === currentIndex) return true
-  hymnSlides.setDeck(hymnSlides.deck, nextIndex)
-  presentOrPreview(next, isLive)
-  return true
+  return advanceDeck(delta, targetItem, isLive, {
+    rawDeck: hymnSlides.deck,
+    slides: hymnDeckSlides(hymnSlides.deck),
+    activeIndex: hymnSlides.activeIndex,
+    setActive: (nextIndex) => hymnSlides.setDeck(hymnSlides.deck, nextIndex),
+    stopAtBoundary: true,
+  })
 }
 
 function advanceEgwDeck(
@@ -266,19 +333,13 @@ function advanceEgwDeck(
   isLive: boolean
 ): boolean {
   const egwSlides = useEgwSlideStore.getState()
-  if (egwSlides.deck.length === 0) return false
-  const deck = egwDeckSlides(egwSlides.deck)
-  const currentIndex = findDeckIndex(
-    deck,
-    presentationDeckSlideId(targetItem),
-    egwSlides.activeIndex
-  )
-  const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
-  const next = egwSlides.deck[nextIndex]
-  if (!next || nextIndex === currentIndex) return false
-  egwSlides.setDeck(egwSlides.deck, nextIndex)
-  presentOrPreview(next, isLive)
-  return true
+  return advanceDeck(delta, targetItem, isLive, {
+    rawDeck: egwSlides.deck,
+    slides: egwDeckSlides(egwSlides.deck),
+    activeIndex: egwSlides.activeIndex,
+    setActive: (nextIndex) => egwSlides.setDeck(egwSlides.deck, nextIndex),
+    stopAtBoundary: false,
+  })
 }
 
 function advanceSermonDeck(
@@ -287,19 +348,18 @@ function advanceSermonDeck(
   isLive: boolean
 ): boolean {
   const sermonSlides = useSermonSlideStore.getState()
-  if (sermonSlides.deck.length === 0) return false
-  const deck = sermonDeckSlides(sermonSlides.deck)
-  const currentIndex = findDeckIndex(
-    deck,
-    presentationDeckSlideId(targetItem),
-    sermonSlides.activeIndex
-  )
-  const nextIndex = clampDeckIndex(deck.length, currentIndex, delta)
-  const next = sermonSlides.deck[nextIndex]
-  if (!next || nextIndex === currentIndex) return true
-  sermonSlides.setDeck(sermonSlides.deck, nextIndex, sermonSlides.activeItemId)
-  presentOrPreview(next, isLive)
-  return true
+  return advanceDeck(delta, targetItem, isLive, {
+    rawDeck: sermonSlides.deck,
+    slides: sermonDeckSlides(sermonSlides.deck),
+    activeIndex: sermonSlides.activeIndex,
+    setActive: (nextIndex) =>
+      sermonSlides.setDeck(
+        sermonSlides.deck,
+        nextIndex,
+        sermonSlides.activeItemId
+      ),
+    stopAtBoundary: true,
+  })
 }
 
 export function advancePresentationTarget(
@@ -331,4 +391,36 @@ export function advanceCurrentPresentationTarget(delta: number): boolean {
     ? broadcast.liveItem
     : broadcast.previewItem
   return advancePresentationTarget(delta, targetItem, broadcast.isLive)
+}
+
+// Shared ArrowLeft/ArrowRight handler for the preview and live panels. The
+// panels differ only in which target/live state they resolve, so they pass a
+// resolver instead of duplicating the modifier/editable-target guards.
+export function handlePresentationPanelArrowKey(
+  event: KeyboardEvent<HTMLElement>,
+  resolveTarget: () => {
+    item: PresentationRenderData | null
+    isLive: boolean
+  }
+): void {
+  if (
+    event.defaultPrevented ||
+    event.repeat ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    event.shiftKey ||
+    isPresentationNavigationEditableTarget(event.target)
+  ) {
+    return
+  }
+
+  const delta =
+    event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0
+  if (delta === 0) return
+
+  const { item, isLive } = resolveTarget()
+  if (advancePresentationTarget(delta, item, isLive)) {
+    event.preventDefault()
+  }
 }

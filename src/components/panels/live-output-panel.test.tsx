@@ -51,6 +51,7 @@ vi.mock("@/stores/broadcast-store", () => {
     setLive: vi.fn(),
     setReadingModeAutoLive: vi.fn(),
     setLiveTransitionType: setLiveTransitionTypeMock,
+    reportOutputIssue: vi.fn(),
   })
   return { selectActiveTheme, useBroadcastStore }
 })
@@ -171,7 +172,7 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
     )
   })
 
-  it("uses focused arrow keys to navigate live scripture", () => {
+  it("uses focused arrow keys to navigate live scripture", async () => {
     const verse16 = {
       id: 316,
       translation_id: 1,
@@ -202,9 +203,12 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
 
     const panel = renderPanel()
 
-    act(() => {
+    // Navigation is serialized on a promise chain, so flush microtasks before
+    // asserting the (now async) advance resolved.
+    await act(async () => {
       fireEvent.keyDown(panel, { key: "ArrowRight" })
     })
+    await act(async () => {})
 
     expect(presentVerseMock).toHaveBeenCalledWith(verse17, {
       navigate: true,

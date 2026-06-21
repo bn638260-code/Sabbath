@@ -8,6 +8,7 @@ import {
 } from "@/lib/broadcast-video-control"
 import { VIDEO_TRANSPORT_EVENT } from "@/lib/library/library-video"
 import { convertTauriFileSrc, isTauriRuntime } from "@/lib/tauri-runtime"
+import { useBroadcastStore } from "@/stores/broadcast-store"
 import type {
   BroadcastOutputId,
   PresentationRenderData,
@@ -80,7 +81,9 @@ function playVideo(element: HTMLVideoElement): void {
   try {
     const result = element.play()
     if (result && typeof result.catch === "function") {
-      void result.catch(() => undefined)
+      void result.catch((error) =>
+        console.debug("[broadcast-video] play() rejected", error)
+      )
     }
   } catch {
     // jsdom implements media methods as throwing stubs; browsers/Tauri reject
@@ -90,6 +93,21 @@ function playVideo(element: HTMLVideoElement): void {
 
 function isBroadcastOutputId(outputId: string): outputId is BroadcastOutputId {
   return outputId === "main" || outputId === "alt"
+}
+
+function reportTransportListenerFailure(outputId: string, error: unknown): void {
+  console.error(
+    "[broadcast-video] failed to attach video transport listener",
+    error
+  )
+  if (!isTauriRuntime()) return
+  useBroadcastStore.getState().reportOutputIssue({
+    outputId: "global",
+    kind: "broadcast-sync",
+    title: "Video controls unavailable",
+    description: `Could not attach the video transport listener for ${outputId}: ${String(error)}`,
+    id: `global:video-transport:${outputId}`,
+  })
 }
 
 function reportAudioSinkFailure(outputId: string, error: unknown): void {
@@ -209,13 +227,14 @@ export function useBroadcastVideo({
         VIDEO_TRANSPORT_EVENT,
         (event) => applyCommand(event.payload)
       )
-    } catch {
+    } catch (error) {
+      reportTransportListenerFailure(outputId, error)
       return
     }
     return () => {
       void unlisten?.then((fn) => fn())
     }
-  }, [applyCommand, video])
+  }, [applyCommand, outputId, video])
 
   useEffect(() => {
     if (!video) return

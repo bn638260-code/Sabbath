@@ -27,11 +27,9 @@ import { useEgwSlideStore } from "@/stores/egw-slide-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { PresentationDeckControls } from "@/components/panels/presentation-deck-controls"
+import { PresentationArrowControls } from "@/components/panels/presentation-arrow-controls"
 import { presentationDeckKind } from "@/lib/presentation-deck-navigation"
-import {
-  advancePresentationTarget,
-  isPresentationNavigationEditableTarget,
-} from "@/lib/presentation-panel-navigation"
+import { handlePresentationPanelArrowKey } from "@/lib/presentation-panel-navigation"
 import {
   EyeIcon,
   EyeOffIcon,
@@ -189,6 +187,8 @@ function LiveSendControls({
           item={liveItem}
           onNavigate={navigateLiveDeck}
         />
+      ) : isLive && liveItem?.kind === "scripture" ? (
+        <PresentationArrowControls item={liveItem} isLive />
       ) : null}
     </div>
   )
@@ -373,29 +373,11 @@ export function LiveOutputPanel({ className }: { className?: string }) {
 
   const toggleFullscreen = () => setPanelFullscreen(!isFullscreen)
 
-  const handlePanelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (
-      event.defaultPrevented ||
-      event.repeat ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.altKey ||
-      event.shiftKey ||
-      isPresentationNavigationEditableTarget(event.target)
-    ) {
-      return
-    }
-
-    const delta =
-      event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0
-    if (delta === 0) return
-
-    if (
-      advancePresentationTarget(delta, useBroadcastStore.getState().liveItem, true)
-    ) {
-      event.preventDefault()
-    }
-  }
+  const handlePanelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) =>
+    handlePresentationPanelArrowKey(event, () => {
+      const broadcast = useBroadcastStore.getState()
+      return { item: broadcast.liveItem, isLive: broadcast.isLive }
+    })
 
   // Window fullscreen has no built-in Escape handling (unlike the HTML5
   // Fullscreen API), so restore it here.

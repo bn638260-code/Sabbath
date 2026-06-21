@@ -21,9 +21,16 @@ export function QuickVerseSearch({
   onQuickKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
   onQuickVerseClick: (verse: Verse) => void
 }) {
+  // Hide the grey autocomplete hint once the verse results dropdown is open,
+  // so it doesn't linger over the input while matching content is shown.
+  const showGhost =
+    Boolean(quickSuggestion) &&
+    quickSuggestion !== quickInput &&
+    !shouldShowVerseDropdown
+
   return (
     <div className="relative flex-1">
-      {quickSuggestion && quickSuggestion !== quickInput ? (
+      {showGhost ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center px-3">
           <span className="text-xs font-normal">
             <span className="text-foreground">{quickInput}</span>
@@ -43,13 +50,9 @@ export function QuickVerseSearch({
         placeholder="Type: J → John 3:16"
         className={cn(
           "relative h-7 bg-[var(--shell-code-bg)] text-xs",
-          quickSuggestion && quickSuggestion !== quickInput ? "text-transparent" : "",
+          showGhost ? "text-transparent" : "",
         )}
-        style={
-          quickSuggestion && quickSuggestion !== quickInput
-            ? { caretColor: "var(--foreground)" }
-            : undefined
-        }
+        style={showGhost ? { caretColor: "var(--foreground)" } : undefined}
       />
 
       {shouldShowVerseDropdown && quickVersesList.length > 0 ? (

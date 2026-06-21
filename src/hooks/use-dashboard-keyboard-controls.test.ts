@@ -366,7 +366,7 @@ describe("handleDashboardKeyboardEvent", () => {
     )
   })
 
-  it("advances a staged scripture preview with arrow keys", () => {
+  it("advances a staged scripture preview with arrow keys", async () => {
     const verses = [makeVerse(1), makeVerse(2), makeVerse(3)]
     useBibleStore.getState().setCurrentChapter(verses)
     useBroadcastStore.getState().setPreviewItem({
@@ -380,11 +380,15 @@ describe("handleDashboardKeyboardEvent", () => {
       new KeyboardEvent("keydown", { key: "ArrowRight" })
     )
 
-    expect(useBroadcastStore.getState().previewItem?.scripture?.verse).toBe(2)
-    expect(useBibleStore.getState().selectedVerse?.verse).toBe(2)
+    // Scripture navigation is serialized on a promise chain, so it resolves
+    // asynchronously.
+    await vi.waitFor(() => {
+      expect(useBroadcastStore.getState().previewItem?.scripture?.verse).toBe(2)
+      expect(useBibleStore.getState().selectedVerse?.verse).toBe(2)
+    })
   })
 
-  it("advances a live scripture verse with arrow keys", () => {
+  it("advances a live scripture verse with arrow keys", async () => {
     const verses = [makeVerse(1), makeVerse(2), makeVerse(3)]
     useBibleStore.getState().setCurrentChapter(verses)
     useBroadcastStore.setState({
@@ -401,8 +405,10 @@ describe("handleDashboardKeyboardEvent", () => {
       new KeyboardEvent("keydown", { key: "ArrowLeft" })
     )
 
-    expect(useBroadcastStore.getState().liveItem?.scripture?.verse).toBe(1)
-    expect(useBibleStore.getState().selectedVerse?.verse).toBe(1)
+    await vi.waitFor(() => {
+      expect(useBroadcastStore.getState().liveItem?.scripture?.verse).toBe(1)
+      expect(useBibleStore.getState().selectedVerse?.verse).toBe(1)
+    })
   })
 
   it("advances a staged sermon slide preview with arrow keys", () => {
@@ -442,7 +448,7 @@ describe("handleDashboardKeyboardEvent", () => {
     )
   })
 
-  it("advances to the next EGW paragraph after the final paragraph slide", () => {
+  it("advances to the next EGW paragraph after the final paragraph slide", async () => {
     const first = makeEgwParagraph(1)
     const second = makeEgwParagraph(2)
     const deck = [makeEgwSlide(0, first), makeEgwSlide(1, first)]
@@ -464,10 +470,13 @@ describe("handleDashboardKeyboardEvent", () => {
       new KeyboardEvent("keydown", { key: "ArrowRight" })
     )
 
-    expect(useEgwSlideStore.getState().activeIndex).toBe(0)
-    expect(
-      useBroadcastStore.getState().previewItem?.egwParagraph?.paragraph
-    ).toBe(2)
+    // Paragraph-to-paragraph EGW navigation is serialized on a promise chain.
+    await vi.waitFor(() => {
+      expect(useEgwSlideStore.getState().activeIndex).toBe(0)
+      expect(
+        useBroadcastStore.getState().previewItem?.egwParagraph?.paragraph
+      ).toBe(2)
+    })
   })
 
   it("advances a live sermon slide with arrow keys", () => {
