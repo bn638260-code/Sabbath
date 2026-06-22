@@ -130,8 +130,8 @@ describe("verse detection workflow", () => {
       readingModeAutoLive: true,
     })
     useSettingsStore.setState({
-      autoPreviewDetections: true,
       autoMode: true,
+      confidenceThreshold: 0.8,
     })
   })
 
@@ -157,7 +157,7 @@ describe("verse detection workflow", () => {
   })
 
   it("queues an auto-queued direct detection with the active translation", async () => {
-    useSettingsStore.setState({ autoPreviewDetections: false })
+    useSettingsStore.setState({ autoMode: false })
     await handleVerseDetections([makeDetection()])
 
     expect(useQueueStore.getState().items).toEqual([
@@ -181,8 +181,8 @@ describe("verse detection workflow", () => {
     ])
   })
 
-  it("keeps detection and queueing automatic when auto preview is off", async () => {
-    useSettingsStore.setState({ autoPreviewDetections: false })
+  it("keeps detection and queueing automatic when auto mode is off", async () => {
+    useSettingsStore.setState({ autoMode: false })
 
     await handleVerseDetections([makeDetection()])
 
@@ -199,17 +199,19 @@ describe("verse detection workflow", () => {
     ])
   })
 
-  it("does not auto-preview direct detections below 85 percent", async () => {
+  it("does not auto-preview direct detections below the settings threshold", async () => {
+    useSettingsStore.setState({ confidenceThreshold: 0.85 })
     await handleVerseDetections([makeDetection({ confidence: 0.84 })])
 
     expect(useDetectionStore.getState().detections).toHaveLength(1)
     expect(useBibleStore.getState().selectedVerse).toBeNull()
     expect(useBroadcastStore.getState().previewItem).toBeNull()
-    // Auto-preview on ⇒ nothing auto-queues, even below the preview threshold.
+    // Auto mode stages to preview; below-threshold detections still do not queue.
     expect(useQueueStore.getState().items).toHaveLength(0)
   })
 
-  it("auto-previews direct detections at 85 percent", async () => {
+  it("auto-previews direct detections at the settings threshold", async () => {
+    useSettingsStore.setState({ confidenceThreshold: 0.85 })
     await handleVerseDetections([
       makeDetection({ confidence: 0.85, auto_queued: false }),
     ])
@@ -221,7 +223,7 @@ describe("verse detection workflow", () => {
     })
   })
 
-  it("does not auto-queue detections while auto preview is on", async () => {
+  it("does not auto-queue detections while auto mode is staging preview", async () => {
     await handleVerseDetections([makeDetection()])
 
     expect(useBibleStore.getState().selectedVerse).toMatchObject({
@@ -233,7 +235,7 @@ describe("verse detection workflow", () => {
   })
 
   it("queues semantic detections without pending navigation", async () => {
-    useSettingsStore.setState({ autoPreviewDetections: false })
+    useSettingsStore.setState({ autoMode: false })
     await handleVerseDetections([
       makeDetection({
         source: "semantic",
@@ -299,7 +301,7 @@ describe("verse detection workflow", () => {
   })
 
   it("queues chapter-only direct detections without selecting preview", async () => {
-    useSettingsStore.setState({ autoPreviewDetections: false })
+    useSettingsStore.setState({ autoMode: false })
     await handleVerseDetections([
       makeDetection({
         verse_ref: "John 3",
@@ -328,7 +330,7 @@ describe("verse detection workflow", () => {
   })
 
   it("refines a chapter-only queue item instead of adding a duplicate verse", async () => {
-    useSettingsStore.setState({ autoPreviewDetections: false })
+    useSettingsStore.setState({ autoMode: false })
     useQueueStore.setState({
       items: [makeQueueItem()],
       activeIndex: null,
@@ -370,14 +372,6 @@ describe("verse detection workflow", () => {
     expect(useBibleStore.getState().selectedVerse).toBeNull()
     expect(useBibleStore.getState().pendingNavigation).toBeNull()
     expect(useQueueStore.getState().items).toHaveLength(0)
-  })
-
-  it("ignores reading-mode advances when auto preview is off", () => {
-    useSettingsStore.setState({ autoPreviewDetections: false })
-    handleReadingAdvance(makeReadingAdvance())
-
-    expect(useBibleStore.getState().selectedVerse).toBeNull()
-    expect(useBroadcastStore.getState().previewItem).toBeNull()
   })
 
   it("ignores reading-mode advances in manual broadcast mode", () => {
@@ -660,7 +654,7 @@ describe("verse detection workflow", () => {
   })
 
   it("serializes overlapping detection batches", async () => {
-    useSettingsStore.setState({ autoPreviewDetections: false })
+    useSettingsStore.setState({ autoMode: false })
     const order: string[] = []
     invokeMock.mockImplementation(async () => {
       order.push("fetch")
@@ -728,7 +722,7 @@ describe("verse detection workflow", () => {
   })
 
   it("queues text fetched from the current translation", async () => {
-    useSettingsStore.setState({ autoPreviewDetections: false })
+    useSettingsStore.setState({ autoMode: false })
     invokeMock.mockResolvedValueOnce({
       id: 25,
       translation_id: 7,
@@ -778,7 +772,7 @@ describe("verse detection workflow", () => {
   })
 
   it("falls back to loaded current chapter text when verse fetch is unavailable", async () => {
-    useSettingsStore.setState({ autoPreviewDetections: false })
+    useSettingsStore.setState({ autoMode: false })
     useBibleStore.setState({
       currentChapter: [
         {

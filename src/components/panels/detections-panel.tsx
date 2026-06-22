@@ -4,7 +4,6 @@ import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { ConfidenceDot } from "@/components/ui/confidence-dot"
 import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
 import {
   BrainCircuitIcon,
   EyeIcon,
@@ -24,7 +23,6 @@ import {
   presentEgwParagraph,
   createEgwQueueItem,
 } from "@/lib/presentation-workflow"
-import { AUTO_PREVIEW_MIN_CONFIDENCE } from "@/lib/verse-detection-workflow"
 import { loadHymnVoiceControl } from "@/services/hymnal/hymn-voice-control-loader"
 import type {
   DetectionResult,
@@ -239,7 +237,6 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
 export function DetectionsPanel({ className }: { className?: string }) {
   const { detections } = useDetection()
   const confidenceThreshold = useSettingsStore((s) => s.confidenceThreshold)
-  const autoPreviewDetections = useSettingsStore((s) => s.autoPreviewDetections)
   const [semanticStatus, setSemanticStatus] = useState<{
     has_semantic: boolean
     paraphrase_enabled: boolean
@@ -277,20 +274,6 @@ export function DetectionsPanel({ className }: { className?: string }) {
         step={6}
       >
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <label
-            className="inline-flex items-center gap-1.5 rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-[0.5625rem] text-muted-foreground uppercase"
-            title="When on, only direct detections at 85% or higher stage themselves automatically."
-          >
-            <EyeIcon className="size-2.5" />
-            Auto preview {Math.round(AUTO_PREVIEW_MIN_CONFIDENCE * 100)}%+
-            <Switch
-              aria-label="Auto preview detections"
-              checked={autoPreviewDetections}
-              onCheckedChange={(checked) =>
-                useSettingsStore.getState().setAutoPreviewDetections(checked)
-              }
-            />
-          </label>
           <span
             className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-[0.5625rem] text-muted-foreground uppercase"
             title="Semantic detections remain visible from 63%; the threshold controls automatic output only."

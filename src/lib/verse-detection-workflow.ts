@@ -19,8 +19,6 @@ import type {
   Verse,
 } from "@/types"
 
-export const AUTO_PREVIEW_MIN_CONFIDENCE = 0.85
-
 function detectionLikeToVerse({
   book_number,
   book_name,
@@ -130,12 +128,13 @@ async function resolveDetectionVerse(
 }
 
 function selectPreviewDirectHit(
-  detections: DetectionResult[]
+  detections: DetectionResult[],
+  minConfidence: number
 ): DetectionResult | null {
   const directHits = detections.filter(
     (d) =>
       d.source === "direct" &&
-      d.confidence >= AUTO_PREVIEW_MIN_CONFIDENCE &&
+      d.confidence >= minConfidence &&
       !d.is_chapter_only &&
       (isEgwDetection(d) || d.book_number > 0)
   )
@@ -211,8 +210,11 @@ function reportDetectionBatchError(error: unknown): void {
 async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
   useDetectionStore.getState().addDetections(detections)
 
-  const autoPreview = useSettingsStore.getState().autoPreviewDetections
-  const directHit = autoPreview ? selectPreviewDirectHit(detections) : null
+  const settings = useSettingsStore.getState()
+  const autoPreview = settings.autoMode
+  const directHit = autoPreview
+    ? selectPreviewDirectHit(detections, settings.confidenceThreshold)
+    : null
   const resolvedDetections = new WeakMap<
     DetectionResult,
     ResolvedDetectionVerse
@@ -231,8 +233,8 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
     }
   }
 
-  // With auto-preview on, detections only stage to preview; the queue stays
-  // operator-driven (nothing auto-queues, even in Auto broadcast mode).
+  // In Auto mode, detections only stage to preview; the queue stays
+  // operator-driven.
   if (autoPreview) return
 
   for (const detection of detections) {
@@ -256,11 +258,10 @@ export function handleReadingAdvance(advance: ReadingAdvance) {
   if (advance.book_number <= 0) return
 
   // Reading mode streams high-confidence advances while a passage is read.
-  // Only auto-stage them when both auto toggles are on; with either off
-  // (Manual broadcast mode or Auto-preview disabled) the operator drives
-  // preview/live manually.
+  // Only auto-stage them in Auto broadcast mode; in Manual mode the operator
+  // drives preview/live manually.
   const settings = useSettingsStore.getState()
-  if (!settings.autoMode || !settings.autoPreviewDetections) return
+  if (!settings.autoMode) return
 
   const verse = detectionLikeToVerse({
     book_number: advance.book_number,

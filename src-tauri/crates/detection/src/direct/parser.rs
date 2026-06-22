@@ -415,13 +415,13 @@ fn try_verse_only_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<Ve
                             verse_end: None,
                         });
                     }
-                    // "verse" keyword found but no number follows
-                    // e.g., "Genesis verse" (incomplete) → Genesis 1:1
+                    // "verse" keyword found but no number follows.
+                    // Hold the reference so the next segment can provide the verse number.
                     return Some(VerseRef {
                         book_number: book_match.book_number,
                         book_name: book_match.book_name.clone(),
                         chapter: 1,
-                        verse_start: 1,
+                        verse_start: 0,
                         verse_end: None,
                     });
                 }
@@ -1098,12 +1098,12 @@ mod tests {
 
     #[test]
     fn test_incomplete_verse_keyword() {
-        // Pattern: "John verse" (incomplete, no number) → John 1:1
+        // Pattern: "John verse" (incomplete, no number) holds John 1.
         let bm = make_book_match("John", 43, 4);
         let text = "John verse";
         let result = parse_reference(text, &bm).unwrap();
         assert_eq!(result.chapter, 1);
-        assert_eq!(result.verse_start, 1);
+        assert_eq!(result.verse_start, 0);
         assert_eq!(result.verse_end, None);
     }
 

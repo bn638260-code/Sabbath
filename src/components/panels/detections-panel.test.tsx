@@ -122,7 +122,7 @@ describe("DetectionsPanel", () => {
     presentHymnMock.mockClear()
     previewHymnMock.mockClear()
     queueHymnMock.mockClear()
-    useSettingsStore.setState({ autoPreviewDetections: true })
+    useSettingsStore.setState({ autoMode: true })
   })
 
   afterEach(() => {
@@ -141,14 +141,12 @@ describe("DetectionsPanel", () => {
     )
   })
 
-  it("toggles automatic detection preview from the panel header", () => {
+  it("does not render the automatic preview switch in the panel header", () => {
     render(<DetectionsPanel />)
 
-    fireEvent.click(
-      screen.getByRole("switch", { name: /auto preview detections/i })
-    )
-
-    expect(useSettingsStore.getState().autoPreviewDetections).toBe(false)
+    expect(
+      screen.queryByRole("switch", { name: /auto preview detections/i })
+    ).toBeNull()
   })
 
   it("presents a detection without navigating the Bible search panel", () => {

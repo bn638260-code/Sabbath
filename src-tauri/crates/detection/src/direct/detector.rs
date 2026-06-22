@@ -856,9 +856,11 @@ impl DirectDetector {
                 if resolved.verse_start == 0 {
                     // Detect if chapter was explicitly spoken or defaulted.
                     let after_book = text[book_match.end..].trim();
+                    let after_book_lower = after_book.to_lowercase();
+                    let starts_with_verse_keyword = after_book_lower.starts_with("verse");
                     let mut has_explicit_chapter = after_book
                         .starts_with(|c: char| c.is_ascii_digit())
-                        || after_book.to_lowercase().starts_with("chapter");
+                        || after_book_lower.starts_with("chapter");
 
                     // A bare re-mention of a book (no chapter spoken) must not
                     // clobber a chapter already established for the same book.
@@ -877,7 +879,7 @@ impl DirectDetector {
                     self.incomplete = Some(IncompleteRef {
                         verse_ref: resolved.clone(),
                         timestamp: Instant::now(),
-                        chapter_is_default: !has_explicit_chapter,
+                        chapter_is_default: !has_explicit_chapter && !starts_with_verse_keyword,
                     });
                     self.context.update(&resolved);
 
@@ -1125,6 +1127,21 @@ mod tests {
         assert_eq!(results[0].verse_ref.book_name, "Esther");
         assert_eq!(results[0].verse_ref.chapter, 4);
         assert_eq!(results[0].verse_ref.verse_start, 14);
+    }
+
+    #[test]
+    fn dangling_verse_keyword_waits_for_number_instead_of_emitting_verse_one() {
+        let mut detector = DirectDetector::new();
+
+        assert!(detector.detect("John verse").is_empty());
+        assert!(detector.incomplete.is_some());
+
+        let results = detector.detect("five");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "John");
+        assert_eq!(results[0].verse_ref.chapter, 1);
+        assert_eq!(results[0].verse_ref.verse_start, 5);
     }
 
     #[test]
