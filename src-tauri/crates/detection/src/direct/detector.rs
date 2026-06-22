@@ -1161,6 +1161,44 @@ mod tests {
     }
 
     #[test]
+    fn judgment_books_sermon_references_stay_on_spoken_passages() {
+        let mut detector = DirectDetector::new();
+        let mut refs = Vec::new();
+
+        for segment in [
+            "in daniel it says the court was seated the king james says the judgment was set",
+            "what we notice in verse 10 is that at the same time that judgment begins",
+            "let's turn to revelation chapter 20 and we're going to read verse 12",
+            "the books were opened and another book was opened which is the book of life",
+            "let's now turn a few chapters back to chapter 13 revelation chapter 13 and we're going to read verse 8",
+            "what's the name of this book the full name of the book of life the lamb's book of life",
+            "now what we're going to see if we turn to philippians chapter 4",
+            "what is contained in this book philippians 4 and we're going to read verse 3",
+        ] {
+            refs.extend(
+                detector
+                    .detect(segment)
+                    .into_iter()
+                    .map(|detection| {
+                        format!(
+                            "{} {}:{}",
+                            detection.verse_ref.book_name,
+                            detection.verse_ref.chapter,
+                            detection.verse_ref.verse_start
+                        )
+                    }),
+            );
+        }
+
+        assert!(refs.contains(&"Revelation 20:12".to_string()));
+        assert!(refs.contains(&"Revelation 13:8".to_string()));
+        assert!(refs.contains(&"Philippians 4:3".to_string()));
+        assert!(!refs.contains(&"Revelation 1:1".to_string()));
+        assert!(!refs.contains(&"Revelation 3:1".to_string()));
+        assert!(!refs.contains(&"Philippians 4:13".to_string()));
+    }
+
+    #[test]
     fn test_basic_reference() {
         let mut detector = DirectDetector::new();
         let results = detector.detect("Jesus said in John 3:16 that God loved the world");

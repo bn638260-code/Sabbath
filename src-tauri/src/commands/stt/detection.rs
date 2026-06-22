@@ -867,6 +867,15 @@ pub(crate) fn check_reading_mode(app: &AppHandle, transcript: &str, direct_found
                         );
                     }
 
+                    if !change.emit_start_verse {
+                        log::info!(
+                            "[READING] Chapter context moved to {} {}; waiting for verse before UI emit",
+                            change.book_name,
+                            change.new_chapter
+                        );
+                        return true;
+                    }
+
                     // Emit the starting verse of the new chapter
                     let reference = format!(
                         "{} {}:{}",

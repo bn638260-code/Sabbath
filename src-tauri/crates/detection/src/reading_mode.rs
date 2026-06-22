@@ -44,6 +44,11 @@ pub struct ChapterChange {
     /// Optional verse number to start at (e.g., "chapter 3 verse 5" → verse 5)
     /// If None, starts at verse 1
     pub start_verse: Option<i32>,
+    /// Whether the caller should emit the starting verse to the UI immediately.
+    ///
+    /// Bare chapter navigation ("chapter 13") updates reading context but should
+    /// not push verse 1 into preview/live before the actual verse is spoken.
+    pub emit_start_verse: bool,
 }
 
 /// Context for interpreting bare numbers after "chapter" commands.
@@ -270,6 +275,7 @@ impl ReadingMode {
                                     book_name: self.book_name.clone(),
                                     new_chapter: first_num,
                                     start_verse: Some(second_num),
+                                    emit_start_verse: true,
                                 });
                             }
                         }
@@ -282,6 +288,7 @@ impl ReadingMode {
                                 book_name: self.book_name.clone(),
                                 new_chapter: first_num,
                                 start_verse: Some(1),
+                                emit_start_verse: false,
                             });
                         }
                     }
@@ -308,6 +315,7 @@ impl ReadingMode {
                 book_name: self.book_name.clone(),
                 new_chapter,
                 start_verse: None,
+                emit_start_verse: true,
             });
         }
 
@@ -321,6 +329,7 @@ impl ReadingMode {
                     book_name: self.book_name.clone(),
                     new_chapter,
                     start_verse: None,
+                    emit_start_verse: true,
                 });
             }
             return None;
@@ -337,6 +346,7 @@ impl ReadingMode {
                     book_name: self.book_name.clone(),
                     new_chapter: self.chapter,
                     start_verse: Some(verse),
+                    emit_start_verse: true,
                 });
             }
         }
@@ -379,6 +389,7 @@ impl ReadingMode {
             book_name: self.book_name.clone(),
             new_chapter: chapter_num,
             start_verse: verse_num,
+            emit_start_verse: verse_num.is_some(),
         })
     }
 
@@ -1060,6 +1071,7 @@ mod tests {
                 book_name: "Genesis".to_string(),
                 new_chapter: 7,
                 start_verse: None,
+                emit_start_verse: false,
             })
         );
     }
@@ -1071,7 +1083,27 @@ mod tests {
 
         let result = rm.check_chapter_command("let's go to chapter 8");
         assert!(result.is_some());
-        assert_eq!(result.unwrap().new_chapter, 8);
+        let change = result.unwrap();
+        assert_eq!(change.new_chapter, 8);
+        assert!(!change.emit_start_verse);
+    }
+
+    #[test]
+    fn chapter_only_sermon_transition_does_not_emit_verse_one() {
+        let mut rm = ReadingMode::new();
+        let verses: Vec<(i32, String)> =
+            (1..=20).map(|i| (i, format!("Revelation 20 verse {i}."))).collect();
+        rm.start(66, "Revelation", 20, 12, verses);
+
+        let result =
+            rm.check_chapter_command("let's now turn a few chapters back to chapter 13");
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.book_name, "Revelation");
+        assert_eq!(change.new_chapter, 13);
+        assert_eq!(change.start_verse, None);
+        assert!(!change.emit_start_verse);
     }
 
     #[test]
@@ -1097,7 +1129,9 @@ mod tests {
 
         let result = rm.check_chapter_command("next chapter");
         assert!(result.is_some());
-        assert_eq!(result.unwrap().new_chapter, 6);
+        let change = result.unwrap();
+        assert_eq!(change.new_chapter, 6);
+        assert!(change.emit_start_verse);
     }
 
     #[test]
@@ -1107,7 +1141,9 @@ mod tests {
 
         let result = rm.check_chapter_command("previous chapter");
         assert!(result.is_some());
-        assert_eq!(result.unwrap().new_chapter, 4);
+        let change = result.unwrap();
+        assert_eq!(change.new_chapter, 4);
+        assert!(change.emit_start_verse);
     }
 
     #[test]
@@ -1135,6 +1171,7 @@ mod tests {
         let change = result.unwrap();
         assert_eq!(change.new_chapter, 3);
         assert_eq!(change.start_verse, Some(5));
+        assert!(change.emit_start_verse);
     }
 
     #[test]
@@ -1150,6 +1187,7 @@ mod tests {
         let change = result.unwrap();
         assert_eq!(change.new_chapter, 5);
         assert_eq!(change.start_verse, Some(7));
+        assert!(change.emit_start_verse);
     }
 
     #[test]
@@ -1181,6 +1219,7 @@ mod tests {
         let change = result.unwrap();
         assert_eq!(change.new_chapter, 3);
         assert_eq!(change.start_verse, Some(5));
+        assert!(change.emit_start_verse);
     }
 
     #[test]
@@ -1199,6 +1238,7 @@ mod tests {
         let change = result.unwrap();
         assert_eq!(change.new_chapter, 3);
         assert_eq!(change.start_verse, Some(5));
+        assert!(change.emit_start_verse);
     }
 
     #[test]
@@ -1255,6 +1295,7 @@ mod tests {
         let change = result.unwrap();
         assert_eq!(change.new_chapter, 5);
         assert_eq!(change.start_verse, Some(1));
+        assert!(!change.emit_start_verse);
     }
 
     #[test]
@@ -1273,6 +1314,7 @@ mod tests {
         let change = result.unwrap();
         assert_eq!(change.new_chapter, 5);
         assert_eq!(change.start_verse, Some(2));
+        assert!(change.emit_start_verse);
     }
 
     #[test]
@@ -1290,6 +1332,7 @@ mod tests {
         assert!(result.is_some());
         let change = result.unwrap();
         assert_eq!(change.new_chapter, 5);
+        assert!(!change.emit_start_verse);
     }
 
     #[test]
@@ -1308,6 +1351,7 @@ mod tests {
         let change = result.unwrap();
         assert_eq!(change.new_chapter, 3);
         assert_eq!(change.start_verse, Some(5));
+        assert!(change.emit_start_verse);
 
         // Context should be reset to None after full reference
         // Next bare number should be handled by verse navigation

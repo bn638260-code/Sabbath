@@ -9,11 +9,14 @@ import {
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useDetectionStore } from "@/stores/detection-store"
 import { useQueueStore } from "@/stores/queue-store"
+import { useSettingsStore } from "@/stores/settings-store"
+import { useTranscriptStore } from "@/stores/transcript-store"
 import type {
   BroadcastTheme,
   DetectionResult,
   PresentationRenderData,
   QueueItem,
+  ReadingAdvance,
 } from "@/types"
 
 export interface OperatorBroadcastPayload {
@@ -30,10 +33,33 @@ export interface OperatorFlowSnapshot {
   isLive: boolean
   activeThemeId: string
   detectionCount: number
+  connectionStatus: string
+  transcriptPartial: string
+  lastTranscriptFinal: string | null
+}
+
+export interface OperatorFlowTimelineEntry {
+  event: string
+  payload: unknown
+  at: number
+}
+
+type TranscriptReplayPayload = {
+  text: string
+  is_final: boolean
+  confidence: number
+  words: {
+    text: string
+    start: number
+    end: number
+    confidence: number
+    punctuated: string
+  }[]
 }
 
 declare global {
   interface Window {
+    __SABBATHCUE_EVENT_TAP__?: (event: string, payload: unknown) => void
     __SABBATHCUE_OPERATOR_E2E__?: {
       queue: {
         addItems: (items: QueueItem[]) => void
@@ -46,6 +72,19 @@ declare global {
         add: (detection: DetectionResult) => void
         previewFromDetection: (detection: DetectionResult) => void
         queueFromDetection: (detection: DetectionResult) => void
+      }
+      settings: {
+        setAutoMode: (autoMode: boolean) => void
+      }
+      transcription: {
+        connect: () => void
+        disconnect: () => void
+        partial: (text: string, confidence?: number) => void
+        final: (text: string, confidence?: number) => void
+        detections: (detections: DetectionResult[]) => void
+        readingAdvance: (advance: ReadingAdvance) => void
+        timeline: () => OperatorFlowTimelineEntry[]
+        clearTimeline: () => void
       }
       remote: {
         next: () => void
@@ -79,6 +118,36 @@ declare global {
   }
 }
 
+const replayTimeline: OperatorFlowTimelineEntry[] = []
+
+function dispatchReplayEvent(event: string, payload?: unknown) {
+  window.dispatchEvent(
+    new CustomEvent(`sabbathcue:e2e:${event}`, { detail: payload })
+  )
+}
+
+function transcriptPayload(
+  text: string,
+  isFinal: boolean,
+  confidence = 0.95
+): TranscriptReplayPayload {
+  return {
+    text,
+    is_final: isFinal,
+    confidence,
+    words: text
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word, index) => ({
+        text: word,
+        start: index * 0.25,
+        end: index * 0.25 + 0.2,
+        confidence,
+        punctuated: word,
+      })),
+  }
+}
+
 function getActiveTheme(): BroadcastTheme {
   const broadcast = useBroadcastStore.getState()
   return (
@@ -100,6 +169,8 @@ function snapshot(): OperatorFlowSnapshot {
   const queue = useQueueStore.getState()
   const broadcast = useBroadcastStore.getState()
   const detection = useDetectionStore.getState()
+  const transcript = useTranscriptStore.getState()
+  const lastSegment = transcript.segments.at(-1)
 
   return {
     queueLength: queue.items.length,
@@ -109,6 +180,9 @@ function snapshot(): OperatorFlowSnapshot {
     isLive: broadcast.isLive,
     activeThemeId: broadcast.activeThemeId,
     detectionCount: detection.detections.length,
+    connectionStatus: transcript.connectionStatus,
+    transcriptPartial: transcript.currentPartial,
+    lastTranscriptFinal: lastSegment?.text ?? null,
   }
 }
 
@@ -146,6 +220,10 @@ export function installOperatorFlowHarness(): void {
   if (typeof window === "undefined") return
   if (!new URLSearchParams(window.location.search).has("e2e")) return
 
+  window.__SABBATHCUE_EVENT_TAP__ = (event, payload) => {
+    replayTimeline.push({ event, payload, at: Date.now() })
+  }
+
   window.__SABBATHCUE_OPERATOR_E2E__ = {
     queue: {
       addItems: (items) => useQueueStore.getState().addItems(items),
@@ -168,6 +246,32 @@ export function installOperatorFlowHarness(): void {
             source: detection.source === "direct" ? "ai-direct" : "ai-semantic",
           }),
         )
+      },
+    },
+    settings: {
+      setAutoMode: (autoMode) =>
+        useSettingsStore.getState().setAutoMode(autoMode),
+    },
+    transcription: {
+      connect: () => dispatchReplayEvent("stt_connected"),
+      disconnect: () => dispatchReplayEvent("stt_disconnected"),
+      partial: (text, confidence) =>
+        dispatchReplayEvent(
+          "transcript_partial",
+          transcriptPayload(text, false, confidence),
+        ),
+      final: (text, confidence) =>
+        dispatchReplayEvent(
+          "transcript_final",
+          transcriptPayload(text, true, confidence),
+        ),
+      detections: (detections) =>
+        dispatchReplayEvent("verse_detections", detections),
+      readingAdvance: (advance) =>
+        dispatchReplayEvent("reading_mode_verse", advance),
+      timeline: () => [...replayTimeline],
+      clearTimeline: () => {
+        replayTimeline.length = 0
       },
     },
     remote: {

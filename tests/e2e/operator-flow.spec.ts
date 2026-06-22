@@ -260,6 +260,107 @@ test.describe("operator flow harness", () => {
       )
   })
 
+  test("live transcription replay drives transcript, detections, preview, and queue", async ({
+    page,
+  }) => {
+    const firstDetection = {
+      verse_ref: "John 3:16 (KJV)",
+      book_number: 43,
+      book_name: "John",
+      chapter: 3,
+      verse: 16,
+      verse_text: "For God so loved the world.",
+      confidence: 0.95,
+      source: "direct",
+      auto_queued: true,
+      transcript_snippet: "John 3:16",
+      is_chapter_only: false,
+    }
+    const secondDetection = {
+      verse_ref: "John 3:17 (KJV)",
+      book_number: 43,
+      book_name: "John",
+      chapter: 3,
+      verse: 17,
+      verse_text: "For God sent not his Son.",
+      confidence: 0.92,
+      source: "direct",
+      auto_queued: true,
+      transcript_snippet: "John 3:17",
+      is_chapter_only: false,
+    }
+
+    await page.locator('[data-slot="transcript-panel"]').waitFor()
+    await page.locator('[data-slot="detections-panel"]').waitFor()
+
+    await page.evaluate(() => {
+      const harness = window.__SABBATHCUE_OPERATOR_E2E__!
+      harness.queue.clear()
+      harness.transcription.clearTimeline()
+      harness.settings.setAutoMode(true)
+      harness.transcription.connect()
+      harness.transcription.partial("Turn with me to John chapter three")
+    })
+
+    await expect
+      .poll(async () => page.evaluate(() => window.__SABBATHCUE_OPERATOR_E2E__!.snapshot()))
+      .toEqual(
+        expect.objectContaining({
+          connectionStatus: "connected",
+          transcriptPartial: "Turn with me to John chapter three",
+        }),
+      )
+
+    await page.evaluate((detection) => {
+      const harness = window.__SABBATHCUE_OPERATOR_E2E__!
+      harness.transcription.final("John 3:16", 0.97)
+      harness.transcription.detections([detection])
+    }, firstDetection)
+
+    await expect
+      .poll(async () => page.evaluate(() => window.__SABBATHCUE_OPERATOR_E2E__!.snapshot()))
+      .toEqual(
+        expect.objectContaining({
+          transcriptPartial: "",
+          lastTranscriptFinal: "John 3:16",
+          previewReference: "John 3:16 (KJV)",
+          detectionCount: 1,
+          queueLength: 0,
+        }),
+      )
+
+    await page.evaluate((detection) => {
+      const harness = window.__SABBATHCUE_OPERATOR_E2E__!
+      harness.settings.setAutoMode(false)
+      harness.transcription.detections([detection])
+    }, secondDetection)
+
+    await expect
+      .poll(async () => page.evaluate(() => window.__SABBATHCUE_OPERATOR_E2E__!.snapshot()))
+      .toEqual(
+        expect.objectContaining({
+          detectionCount: 2,
+          queueLength: 1,
+        }),
+      )
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() =>
+          window.__SABBATHCUE_OPERATOR_E2E__!
+            .transcription.timeline()
+            .map((entry) => entry.event),
+        ),
+      )
+      .toEqual([
+        "stt_connected",
+        "transcript_partial",
+        "transcript_final",
+        "verse_detections",
+        "verse_detections",
+      ])
+  })
+
   test("theme switch updates active theme id and renders on broadcast output", async ({
     page,
     context,
