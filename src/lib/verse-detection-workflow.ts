@@ -12,6 +12,13 @@ import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useDetectionStore } from "@/stores/detection-store"
 import { useQueueStore } from "@/stores/queue-store"
 import { useSettingsStore } from "@/stores/settings-store"
+import {
+  recordWorkflowTrace,
+  traceDetectionBatchDetails,
+  traceDetectionDetails,
+  traceReadingAdvanceDetails,
+  traceVerseDetails,
+} from "@/lib/workflow-trace"
 import type {
   DetectionResult,
   EgwParagraph,
@@ -155,7 +162,13 @@ async function queueDetectedVerse(
   resolvedDetection?: ResolvedDetectionVerse
 ): Promise<void> {
   if (isEgwDetection(detection)) {
-    if (!detection.auto_queued) return
+    if (!detection.auto_queued) {
+      recordWorkflowTrace("detection.queue.skipped", "EGW detection not queued", {
+        reason: "auto_queued_false",
+        detection: traceDetectionDetails(detection),
+      })
+      return
+    }
 
     useQueueStore.getState().addOrFlashItem(
       createEgwQueueItem(detection.egw_paragraph, {
@@ -163,6 +176,9 @@ async function queueDetectedVerse(
         source: "ai-direct",
       })
     )
+    recordWorkflowTrace("detection.queue.added", "EGW detection queued", {
+      detection: traceDetectionDetails(detection),
+    })
     return
   }
 
@@ -181,10 +197,22 @@ async function queueDetectedVerse(
         verse.text
       )
   ) {
+    recordWorkflowTrace("detection.queue.added", "Existing early reference updated", {
+      action: "update_existing_early_ref",
+      detection: traceDetectionDetails(detection),
+      verse: traceVerseDetails(verse),
+    })
     return
   }
 
-  if (!detection.auto_queued) return
+  if (!detection.auto_queued) {
+    recordWorkflowTrace("detection.queue.skipped", "Detection not queued", {
+      reason: "auto_queued_false",
+      detection: traceDetectionDetails(detection),
+      verse: traceVerseDetails(verse),
+    })
+    return
+  }
 
   useQueueStore.getState().addOrFlashDetectionItem(
     createScriptureQueueItem(verse, {
@@ -194,6 +222,10 @@ async function queueDetectedVerse(
       is_chapter_only: detection.is_chapter_only,
     })
   )
+  recordWorkflowTrace("detection.queue.added", "Detection queued", {
+    detection: traceDetectionDetails(detection),
+    verse: traceVerseDetails(verse),
+  })
 }
 
 let detectionHandlingChain: Promise<void> = Promise.resolve()
@@ -212,6 +244,11 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
 
   const settings = useSettingsStore.getState()
   const autoPreview = settings.autoMode
+  recordWorkflowTrace("detection.batch", "Detection batch entered workflow", {
+    ...traceDetectionBatchDetails(detections),
+    autoMode: settings.autoMode,
+    confidenceThreshold: settings.confidenceThreshold,
+  })
   const directHit = autoPreview
     ? selectPreviewDirectHit(detections, settings.confidenceThreshold)
     : null
@@ -221,6 +258,10 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
   >()
   if (directHit) {
     if (isEgwDetection(directHit)) {
+      recordWorkflowTrace("detection.preview.selected", "EGW direct hit selected", {
+        detection: traceDetectionDetails(directHit),
+        autoQueued: directHit.auto_queued,
+      })
       if (directHit.auto_queued) {
         presentEgwParagraph(directHit.egw_paragraph)
       } else {
@@ -229,13 +270,30 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
     } else {
       const resolved = await resolveDetectionVerse(directHit)
       resolvedDetections.set(directHit, resolved)
+      recordWorkflowTrace("detection.preview.selected", "Direct hit selected for preview", {
+        detection: traceDetectionDetails(directHit),
+        verse: traceVerseDetails(resolved.verse),
+        usedFallback: resolved.usedFallback,
+        fallbackReason: resolved.fallbackReason,
+      })
       selectPreviewVerse(resolved.verse)
     }
+  } else if (autoPreview) {
+    recordWorkflowTrace("detection.preview.skipped", "No direct hit met preview criteria", {
+      count: detections.length,
+      confidenceThreshold: settings.confidenceThreshold,
+    })
   }
 
   // In Auto mode, detections only stage to preview; the queue stays
   // operator-driven.
-  if (autoPreview) return
+  if (autoPreview) {
+    recordWorkflowTrace("detection.queue.skipped", "Auto mode keeps detection queue operator-driven", {
+      reason: "auto_mode_preview_only",
+      count: detections.length,
+    })
+    return
+  }
 
   for (const detection of detections) {
     await queueDetectedVerse(detection, resolvedDetections.get(detection))
@@ -255,13 +313,25 @@ export async function handleVerseDetections(detections: DetectionResult[]) {
 }
 
 export function handleReadingAdvance(advance: ReadingAdvance) {
-  if (advance.book_number <= 0) return
+  if (advance.book_number <= 0) {
+    recordWorkflowTrace("reading.ignored", "Reading advance ignored", {
+      reason: "invalid_book",
+      ...traceReadingAdvanceDetails(advance),
+    })
+    return
+  }
 
   // Reading mode streams high-confidence advances while a passage is read.
   // Only auto-stage them in Auto broadcast mode; in Manual mode the operator
   // drives preview/live manually.
   const settings = useSettingsStore.getState()
-  if (!settings.autoMode) return
+  if (!settings.autoMode) {
+    recordWorkflowTrace("reading.ignored", "Reading advance ignored", {
+      reason: "manual_mode",
+      ...traceReadingAdvanceDetails(advance),
+    })
+    return
+  }
 
   const verse = detectionLikeToVerse({
     book_number: advance.book_number,
@@ -269,6 +339,14 @@ export function handleReadingAdvance(advance: ReadingAdvance) {
     chapter: advance.chapter,
     verse: advance.verse,
     verse_text: advance.verse_text,
+  })
+
+  const broadcast = useBroadcastStore.getState()
+  recordWorkflowTrace("reading.accepted", "Reading advance accepted", {
+    ...traceReadingAdvanceDetails(advance),
+    liveWasOn: broadcast.isLive,
+    readingModeAutoLive: broadcast.readingModeAutoLive,
+    verse: traceVerseDetails(verse),
   })
 
   previewVerseAndMaybeAutoLive(verse, {

@@ -13,6 +13,12 @@ import { useSettingsStore, type SttProvider } from "@/stores/settings-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
 import { handleSermonSlideVoiceControl } from "@/services/slides/sermon-slide-voice-control"
 import { loadHymnVoiceControl } from "@/services/hymnal/hymn-voice-control-loader"
+import {
+  recordWorkflowTrace,
+  traceDetectionBatchDetails,
+  traceReadingAdvanceDetails,
+  traceTranscriptDetails,
+} from "@/lib/workflow-trace"
 import type { DetectionResult, ReadingAdvance } from "@/types"
 import { useTauriEvent } from "./use-tauri-event"
 
@@ -121,6 +127,15 @@ export const transcriptionActions = {
 export async function handleTranscriptFinalPayload(
   payload: TranscriptPartialPayload
 ): Promise<void> {
+  recordWorkflowTrace("transcription.final", "Final transcript received", {
+    ...traceTranscriptDetails({
+      text: payload.text,
+      confidence: payload.confidence,
+      isFinal: true,
+      wordCount: payload.words.length,
+    }),
+  })
+
   const transcriptStore = useTranscriptStore.getState()
   transcriptStore.setPartial("")
   transcriptStore.addSegment({
@@ -141,9 +156,11 @@ export async function handleTranscriptFinalPayload(
 export function useTranscriptionEventBridge() {
   // STT lifecycle events
   useTauriEvent("stt_connected", () => {
+    recordWorkflowTrace("transcription.connected", "STT connected")
     useTranscriptStore.getState().setConnectionStatus("connected")
   })
   useTauriEvent("stt_disconnected", () => {
+    recordWorkflowTrace("transcription.disconnected", "STT disconnected")
     useTranscriptStore.getState().setConnectionStatus("disconnected")
   })
   useTauriEvent<string>("stt_voice_control", (command) => {
@@ -155,6 +172,7 @@ export function useTranscriptionEventBridge() {
     }
   })
   useTauriEvent<string>("stt_error", (msg) => {
+    recordWorkflowTrace("transcription.error", "STT error", { message: msg })
     useTranscriptStore.getState().setConnectionStatus("error")
     toast.error("Transcription error", { description: msg })
   })
@@ -181,6 +199,14 @@ export function useTranscriptionEventBridge() {
   })
 
   useTauriEvent<TranscriptPartialPayload>("transcript_partial", (payload) => {
+    recordWorkflowTrace("transcription.partial", "Partial transcript received", {
+      ...traceTranscriptDetails({
+        text: payload.text,
+        confidence: payload.confidence,
+        isFinal: false,
+        wordCount: payload.words.length,
+      }),
+    })
     useTranscriptStore.getState().setPartial(payload.text)
   })
 
@@ -204,12 +230,18 @@ export function useTranscriptionEventBridge() {
   )
 
   useTauriEvent<DetectionResult[]>("verse_detections", (detections) => {
+    recordWorkflowTrace("detection.event", "Verse detections event received", {
+      ...traceDetectionBatchDetails(detections),
+    })
     profileDetectionEvent("verse_detections", detections.length, () => {
       void handleVerseDetections(detections)
     })
   })
 
   useTauriEvent<ReadingAdvance>("reading_mode_verse", (advance) => {
+    recordWorkflowTrace("reading.event", "Reading-mode verse event received", {
+      ...traceReadingAdvanceDetails(advance),
+    })
     profileDetectionEvent("reading_mode_verse", 1, () => {
       handleReadingAdvance(advance)
     })

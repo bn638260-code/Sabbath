@@ -6,6 +6,12 @@ import {
   presentVerse,
   selectPreviewVerse,
 } from "@/lib/presentation-workflow"
+import {
+  clearWorkflowTrace,
+  exportWorkflowTraceJson,
+  getWorkflowTrace,
+  type WorkflowTraceEntry,
+} from "@/lib/workflow-trace"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useDetectionStore } from "@/stores/detection-store"
 import { useQueueStore } from "@/stores/queue-store"
@@ -104,6 +110,12 @@ declare global {
         setActive: (themeId: string) => void
         getActiveId: () => string
         listNames: () => string[]
+      }
+      workflowTrace: {
+        entries: () => WorkflowTraceEntry[]
+        stages: () => string[]
+        clear: () => void
+        exportJson: () => string
       }
       broadcast: {
         getPreview: () => PresentationRenderData | null
@@ -299,6 +311,12 @@ export function installOperatorFlowHarness(): void {
       setActive: (themeId) => useBroadcastStore.getState().setActiveTheme(themeId),
       getActiveId: () => useBroadcastStore.getState().activeThemeId,
       listNames: () => useBroadcastStore.getState().themes.map((theme) => theme.name),
+    },
+    workflowTrace: {
+      entries: getWorkflowTrace,
+      stages: () => getWorkflowTrace().map((entry) => entry.stage),
+      clear: clearWorkflowTrace,
+      exportJson: exportWorkflowTraceJson,
     },
     broadcast: {
       getPreview: () => useBroadcastStore.getState().previewItem,

@@ -15,6 +15,11 @@ import type {
 import { getPresentationRenderData, getScriptureVerse } from "@/types"
 import { splitTextForReadableSlides } from "@/lib/text-slide-chunking"
 import { useEgwSlideStore } from "@/stores/egw-slide-store"
+import {
+  recordWorkflowTrace,
+  tracePresentationDetails,
+  traceVerseDetails,
+} from "@/lib/workflow-trace"
 
 function activeTranslationLabel(): string {
   const bible = useBibleStore.getState()
@@ -76,6 +81,11 @@ export function selectPreviewVerse(
   const renderData = toScriptureRenderData(item)
   useBroadcastStore.getState().setPreviewItem(renderData)
   bibleActions.selectVerse(verse)
+  recordWorkflowTrace("preview.selected", "Verse selected for preview", {
+    navigate: Boolean(options?.navigate),
+    verse: traceVerseDetails(verse),
+    preview: tracePresentationDetails(renderData),
+  })
 
   if (options?.navigate && verse.book_number > 0) {
     bibleActions.navigateToVerse(verse.book_number, verse.chapter, verse.verse)
@@ -87,7 +97,12 @@ export function selectPreviewItem(
   options?: { navigate?: boolean }
 ) {
   const verse = getScriptureVerse(item)
-  useBroadcastStore.getState().setPreviewItem(toPresentationRenderData(item))
+  const renderData = toPresentationRenderData(item)
+  useBroadcastStore.getState().setPreviewItem(renderData)
+  recordWorkflowTrace("preview.selected", "Item selected for preview", {
+    navigate: Boolean(options?.navigate),
+    preview: tracePresentationDetails(renderData),
+  })
 
   if (verse) {
     bibleActions.selectVerse(verse)
@@ -118,7 +133,12 @@ function commitRenderDataToLive(
   renderData: PresentationRenderData,
   options?: { makeLive?: boolean }
 ) {
-  console.info("[pipeline] commit_live", { reference: renderData.reference })
+  const broadcast = useBroadcastStore.getState()
+  recordWorkflowTrace("live.commit", "Presentation committed to live", {
+    makeLive: options?.makeLive ?? true,
+    liveWasOn: broadcast.isLive,
+    live: tracePresentationDetails(renderData),
+  })
   useBroadcastStore.getState().commitLiveItem(renderData, options)
 }
 
@@ -173,13 +193,15 @@ export function previewVerseAndMaybeAutoLive(
     broadcast.readingModeAutoLive
 
   if (shouldAutoLive) {
+    recordWorkflowTrace("live.auto_commit", "Reading-mode advance auto-committed live", {
+      liveWasOn: broadcast.isLive,
+      readingModeAutoLive: broadcast.readingModeAutoLive,
+      verse: traceVerseDetails(verse),
+    })
     commitVerseToLive(verse, { makeLive: false })
   }
 
   selectPreviewVerse(verse, { navigate: options?.navigate })
-  console.info("[pipeline] preview", {
-    reference: `${verse.book_name} ${verse.chapter}:${verse.verse}`,
-  })
 }
 
 export function egwReference(p: EgwParagraph): string {

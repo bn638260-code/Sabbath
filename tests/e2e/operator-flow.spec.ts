@@ -297,6 +297,7 @@ test.describe("operator flow harness", () => {
       const harness = window.__SABBATHCUE_OPERATOR_E2E__!
       harness.queue.clear()
       harness.transcription.clearTimeline()
+      harness.workflowTrace.clear()
       harness.settings.setAutoMode(true)
       harness.transcription.connect()
       harness.transcription.partial("Turn with me to John chapter three")
@@ -329,6 +330,37 @@ test.describe("operator flow harness", () => {
         }),
       )
 
+    await page.evaluate(() => {
+      const harness = window.__SABBATHCUE_OPERATOR_E2E__!
+      harness.broadcast.setLive(
+        {
+          kind: "scripture",
+          reference: "John 3:16 (KJV)",
+          segments: [{ verseNumber: 16, text: "For God so loved the world." }],
+        },
+        { makeLive: true },
+      )
+      harness.transcription.readingAdvance({
+        book_number: 43,
+        book_name: "John",
+        chapter: 3,
+        verse: 17,
+        verse_text: "For God sent not his Son.",
+        reference: "John 3:17",
+        confidence: 1,
+      })
+    })
+
+    await expect
+      .poll(async () => page.evaluate(() => window.__SABBATHCUE_OPERATOR_E2E__!.snapshot()))
+      .toEqual(
+        expect.objectContaining({
+          previewReference: "John 3:17 (KJV)",
+          liveReference: "John 3:17 (KJV)",
+          isLive: true,
+        }),
+      )
+
     await page.evaluate((detection) => {
       const harness = window.__SABBATHCUE_OPERATOR_E2E__!
       harness.settings.setAutoMode(false)
@@ -357,8 +389,36 @@ test.describe("operator flow harness", () => {
         "transcript_partial",
         "transcript_final",
         "verse_detections",
+        "reading_mode_verse",
         "verse_detections",
       ])
+
+    const workflowStages = await page.evaluate(() =>
+      window.__SABBATHCUE_OPERATOR_E2E__!.workflowTrace.stages(),
+    )
+    expect(workflowStages).toEqual(
+      expect.arrayContaining([
+        "transcription.connected",
+        "transcription.partial",
+        "transcription.final",
+        "detection.event",
+        "detection.batch",
+        "detection.preview.selected",
+        "preview.selected",
+        "reading.event",
+        "reading.accepted",
+        "live.auto_commit",
+        "live.commit",
+        "live.state",
+        "detection.queue.added",
+      ]),
+    )
+    expect(workflowStages.indexOf("transcription.final")).toBeLessThan(
+      workflowStages.indexOf("detection.event"),
+    )
+    expect(workflowStages.indexOf("reading.accepted")).toBeLessThan(
+      workflowStages.indexOf("live.auto_commit"),
+    )
   })
 
   test("theme switch updates active theme id and renders on broadcast output", async ({

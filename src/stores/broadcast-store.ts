@@ -20,6 +20,10 @@ import {
 } from "@/lib/broadcast-video-control"
 import { isTauriRuntime } from "@/lib/tauri-runtime"
 import { restorePresentationDeckForQueueItem } from "@/lib/queued-presentation-deck"
+import {
+  recordWorkflowTrace,
+  tracePresentationDetails,
+} from "@/lib/workflow-trace"
 import { getPresentationRenderData } from "@/types"
 import { useQueueStore } from "@/stores/queue-store"
 
@@ -636,20 +640,40 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   setLive: (isLive) => {
     const shouldStopVideo = !isLive && get().liveItem?.kind === "video"
     set({ isLive })
+    recordWorkflowTrace(
+      "live.state",
+      isLive ? "Live screen shown" : "Live screen hidden",
+      {
+        isLive,
+        live: tracePresentationDetails(get().liveItem),
+      }
+    )
     get().syncBroadcastOutput()
     if (shouldStopVideo) get().sendVideoCommand({ type: "stop" })
   },
   setPreviewItem: (previewItem) => {
     set({ previewItem })
+    recordWorkflowTrace("preview.state", "Preview state updated", {
+      preview: tracePresentationDetails(previewItem),
+    })
   },
   setLiveItem: (liveItem) => {
     set({ liveItem })
+    recordWorkflowTrace("live.state", "Live item state updated", {
+      isLive: get().isLive,
+      live: tracePresentationDetails(liveItem),
+    })
     get().syncBroadcastOutput()
   },
   commitLiveItem: (liveItem, options) => {
     const makeLive = options?.makeLive ?? true
     const previousWasVideo = get().liveItem?.kind === "video"
     set(makeLive ? { liveItem, isLive: true } : { liveItem })
+    recordWorkflowTrace("live.state", "Live commit state applied", {
+      makeLive,
+      isLive: get().isLive,
+      live: tracePresentationDetails(get().liveItem),
+    })
     get().syncBroadcastOutput({
       transitionType: options?.transitionType ?? get().liveTransitionType,
     })
