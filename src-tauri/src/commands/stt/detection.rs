@@ -29,6 +29,10 @@ pub(crate) const PARTIAL_SEMANTIC_DEBOUNCE: Duration = Duration::from_millis(100
 pub(crate) const PARTIAL_SEMANTIC_MIN_WORDS: usize = 3;
 pub(crate) const LIVE_SEMANTIC_CAP: usize = 3;
 const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
+/// Minimum confidence for a live semantic/FTS detection to be emitted. Mirrors
+/// the frontend display floor (`MIN_SEMANTIC_DISPLAY_CONFIDENCE`) so low-confidence
+/// keyword matches never reach the UI or the IPC channel.
+const LIVE_SEMANTIC_MIN_CONFIDENCE: f64 = 0.70;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct DirectReadingCandidate {
@@ -315,6 +319,9 @@ pub(crate) fn finalize_live_semantic_results(
         HashMap::new();
 
     for result in results {
+        if result.confidence < LIVE_SEMANTIC_MIN_CONFIDENCE {
+            continue;
+        }
         let key = semantic_result_key(&result);
         match grouped.get_mut(&key) {
             Some((existing, overlap_count)) => {
@@ -1422,6 +1429,22 @@ mod tests {
             finalized[0].confidence > 0.86,
             "overlap should boost the deduped result"
         );
+    }
+
+    #[test]
+    fn finalize_live_semantic_results_drops_sub_floor_noise() {
+        // Live FTS/semantic search emits ~63-68% keyword matches during prose.
+        // They must be dropped at the source so they never reach the UI or IPC.
+        let results = vec![
+            make_detection_result("John 3:16", 43, 3, 16, 0.86),
+            make_detection_result("Job 23:2", 18, 23, 2, 0.68),
+            make_detection_result("Mark 15:4", 41, 15, 4, 0.64),
+        ];
+
+        let finalized = finalize_live_semantic_results(results);
+
+        assert_eq!(finalized.len(), 1);
+        assert_eq!(finalized[0].verse_ref, "John 3:16");
     }
 
     #[test]

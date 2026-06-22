@@ -366,6 +366,27 @@ describe("verse detection workflow", () => {
     expect(useQueueStore.getState().items).toHaveLength(0)
   })
 
+  it("surfaces reading-mode advances in the detections panel", () => {
+    handleReadingAdvance(makeReadingAdvance())
+
+    const detections = useDetectionStore.getState().detections
+    expect(detections).toHaveLength(1)
+    expect(detections[0]).toMatchObject({
+      verse_ref: "John 3:17",
+      book_number: 43,
+      chapter: 3,
+      verse: 17,
+      source: "direct",
+    })
+  })
+
+  it("does not surface reading-mode advances as detections in manual mode", () => {
+    useSettingsStore.setState({ autoMode: false })
+    handleReadingAdvance(makeReadingAdvance())
+
+    expect(useDetectionStore.getState().detections).toHaveLength(0)
+  })
+
   it("ignores invalid reading-mode advances", () => {
     handleReadingAdvance(makeReadingAdvance({ book_number: 0 }))
 

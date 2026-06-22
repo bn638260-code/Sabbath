@@ -330,6 +330,35 @@ fn is_valid_reference(book_number: i32, chapter: i32) -> bool {
     chapter >= 1 && chapter <= max_ch
 }
 
+/// True when the text immediately following a book match begins with
+/// reference-like content: a colon, a chapter/verse number (digit or spoken),
+/// or the words "chapter"/"verse". Used to gate abbreviation/alias and fuzzy
+/// matches that collide with everyday words ("act", "mic", "pro", "psalm"), so
+/// sermon prose does not fabricate references.
+fn reference_context_follows(text: &str, after: usize) -> bool {
+    let rest = text[after..].trim_start();
+    if rest.starts_with(':') {
+        return true;
+    }
+    let Some(first) = rest
+        .split(|c: char| c.is_whitespace() || c == ':' || c == '-')
+        .find(|token| !token.is_empty())
+    else {
+        return false;
+    };
+    let token = first
+        .trim_matches(|c: char| !c.is_alphanumeric())
+        .to_ascii_lowercase();
+    if token.is_empty() {
+        return false;
+    }
+    token.chars().all(|c| c.is_ascii_digit())
+        || token == "chapter"
+        || token == "verse"
+        || token == "verses"
+        || parser::parse_spoken_number(&token).is_some()
+}
+
 /// Filler phrases commonly found in sermon transcripts that confuse detection.
 /// These are stripped (case-insensitively) before the text reaches the automaton.
 const FILLER_PHRASES: &[&str] = &[
@@ -833,6 +862,15 @@ impl DirectDetector {
 
         // Step 2 & 3: Parse references and resolve context
         for book_match in effective_matches {
+            // Abbreviation/alias and fuzzy matches (e.g. "act", "mic", "pro",
+            // "gal", "psalm") collide with everyday words. Honor them only when an
+            // explicit chapter/verse reference immediately follows. A full
+            // canonical book name is always trusted — it is how a book is spoken.
+            let matched_text = text[book_match.start..book_match.end].to_ascii_lowercase();
+            let is_canonical_name = matched_text == book_match.book_name.to_ascii_lowercase();
+            if !is_canonical_name && !reference_context_follows(text, book_match.end) {
+                continue;
+            }
             if let Some(verse_ref) = parser::parse_reference(text, book_match) {
                 // Resolve any partial references using context
                 let mut resolved = self.context.resolve(&verse_ref);
@@ -1238,6 +1276,63 @@ mod tests {
         assert!(
             refs.iter().all(|r| !r.starts_with("Isaiah ")),
             "unexpected refs: {refs:?}"
+        );
+    }
+
+    #[test]
+    fn common_word_is_does_not_fabricate_isaiah() {
+        // "Is" was registered as an Isaiah alias, so the everyday word "is"
+        // matched Isaiah (case-insensitive, at word boundaries) and fabricated
+        // references like "Isaiah 13:8" from prose such as
+        // "this verse is ... chapter 13 verse 8". Isaiah must only match when
+        // the book name is actually spoken.
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("this is the verse we will read in chapter 13 verse 8");
+        assert!(
+            results.iter().all(|d| d.verse_ref.book_name != "Isaiah"),
+            "unexpected Isaiah detection: {results:?}"
+        );
+    }
+
+    #[test]
+    fn word_like_abbreviations_require_adjacent_reference_context() {
+        // "act"/"mic"/"pro" collide with everyday words. In prose they must not
+        // fabricate a reference even when a chapter/verse appears later in the
+        // sentence (the forward scan used to reach it).
+        let mut detector = DirectDetector::new();
+        assert!(detector
+            .detect("we will act on this in chapter 3 verse 5")
+            .iter()
+            .all(|d| d.verse_ref.book_name != "Acts"));
+
+        let mut detector = DirectDetector::new();
+        assert!(detector
+            .detect("check the mic before chapter 5 verse 2")
+            .iter()
+            .all(|d| d.verse_ref.book_name != "Micah"));
+
+        // A real abbreviated reference (number adjacent) still resolves.
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("Mic 5 verse 2");
+        assert!(
+            results.iter().any(|d| d.verse_ref.book_name == "Micah"
+                && d.verse_ref.chapter == 5
+                && d.verse_ref.verse_start == 2),
+            "expected Micah 5:2, got {results:?}"
+        );
+    }
+
+    #[test]
+    fn spoken_psalm_alias_still_resolves_with_adjacent_number() {
+        // "Psalm" (singular) is a non-canonical alias but the common spoken form;
+        // it must still resolve when the chapter follows immediately.
+        let mut detector = DirectDetector::new();
+        let results = detector.detect("David in Psalm thirty two verse one now says");
+        assert!(
+            results.iter().any(|d| d.verse_ref.book_name == "Psalms"
+                && d.verse_ref.chapter == 32
+                && d.verse_ref.verse_start == 1),
+            "expected Psalms 32:1, got {results:?}"
         );
     }
 

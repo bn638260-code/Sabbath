@@ -11,6 +11,11 @@ interface DetectionResultWithMeta extends DetectionResult {
 }
 
 const MAX_RECENT_DETECTIONS = 5
+// Live semantic/FTS search emits low-confidence keyword matches (~63-68%) during
+// ordinary prose. The panel only surfaces semantic hits at or above this floor so
+// that noise can't crowd real detections out of the recent-detections box. Direct
+// and EGW references carry source "direct" and are always shown.
+const MIN_SEMANTIC_DISPLAY_CONFIDENCE = 0.7
 const MAX_RECENCY_BONUS = 0.01
 const RECENCY_BONUS_WINDOW_MS = 30_000
 // Keep matches actionable through a short live-speaking window, then clear old context.
@@ -45,6 +50,13 @@ function detectionRank(
 
 function sourcePriority(detection: DetectionResultWithMeta): number {
   return detection.source === "direct" ? 1 : 0
+}
+
+function isBelowSemanticFloor(detection: DetectionResult): boolean {
+  return (
+    detection.source === "semantic" &&
+    detection.confidence < MIN_SEMANTIC_DISPLAY_CONFIDENCE
+  )
 }
 
 // "Recent detections" retains the most-recent items so a freshly spoken
@@ -223,6 +235,7 @@ export const useDetectionStore = create<DetectionState>((set) => ({
 
   addDetection: (detection) =>
     set((state) => {
+      if (isBelowSemanticFloor(detection)) return state
       const now = Date.now()
       const existingIndex = state.detections.findIndex((d) =>
         detectionsAreEquivalent(d, detection)
@@ -254,6 +267,7 @@ export const useDetectionStore = create<DetectionState>((set) => ({
 
       // Add incoming with received_at
       for (const d of incoming) {
+        if (isBelowSemanticFloor(d)) continue
         const key = findMapEntryKey(map, d) ?? detectionKey(d)
         const existing = map.get(key)
         if (!existing) {

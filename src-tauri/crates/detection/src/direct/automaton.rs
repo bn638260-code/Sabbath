@@ -27,27 +27,38 @@ impl Default for BookMatcher {
 impl BookMatcher {
     /// Build the automaton from all book names, abbreviations, and aliases.
     pub fn new() -> Self {
+        // Spoken transcripts contain only full words, so ultra-short patterns
+        // ("Is", "Ps", "Re", "Co", …) never represent a spoken book name — they
+        // only collide with everyday words and fabricate references. Require at
+        // least this many characters for abbreviations and aliases. Every
+        // canonical book name is longer than this, so all books stay detectable.
+        const MIN_PATTERN_LEN: usize = 3;
+
         let mut patterns: Vec<String> = Vec::new();
         let mut pattern_map: Vec<(i32, String)> = Vec::new();
 
         for book in BOOKS {
+            let name_lower = book.name.to_ascii_lowercase();
+
             // Add the canonical name
-            patterns.push(book.name.to_ascii_lowercase());
+            patterns.push(name_lower.clone());
             pattern_map.push((book.number, book.name.to_string()));
 
-            // Add the abbreviation (if different from name)
+            // Add the abbreviation (if different from name and long enough)
             let abbr_lower = book.abbreviation.to_ascii_lowercase();
-            if abbr_lower != book.name.to_ascii_lowercase() {
-                patterns.push(abbr_lower);
+            if abbr_lower != name_lower && abbr_lower.chars().count() >= MIN_PATTERN_LEN {
+                patterns.push(abbr_lower.clone());
                 pattern_map.push((book.number, book.name.to_string()));
             }
 
             // Add all aliases
             for alias in book.aliases {
                 let alias_lower = alias.to_ascii_lowercase();
-                // Avoid duplicates with name and abbreviation
-                if alias_lower != book.name.to_ascii_lowercase()
-                    && alias_lower != book.abbreviation.to_ascii_lowercase()
+                // Avoid duplicates with name and abbreviation, and skip patterns
+                // too short to be a spoken book name.
+                if alias_lower != name_lower
+                    && alias_lower != abbr_lower
+                    && alias_lower.chars().count() >= MIN_PATTERN_LEN
                 {
                     patterns.push(alias_lower);
                     pattern_map.push((book.number, book.name.to_string()));
@@ -171,5 +182,44 @@ mod tests {
         let found_books = matcher.find_books("Paul wrote in 1 Corinthians 13");
         assert_eq!(found_books.len(), 1);
         assert_eq!(found_books[0].book_name, "1 Corinthians");
+    }
+
+    #[test]
+    fn two_letter_patterns_are_not_registered() {
+        // Spoken transcripts only contain full words, so ultra-short book
+        // patterns ("Ps", "Re", "Co", "Da", "Ne", …) never represent a spoken
+        // book — they only collide with everyday tokens and fabricate refs.
+        let matcher = BookMatcher::new();
+        for text in [
+            "read the ps now",
+            "re run that",
+            "the co leader",
+            "da plan is good",
+            "we will ne over it",
+        ] {
+            assert!(
+                matcher.find_books(text).is_empty(),
+                "unexpected book match in {text:?}: {:?}",
+                matcher.find_books(text)
+            );
+        }
+    }
+
+    #[test]
+    fn full_book_names_still_match_after_min_length_filter() {
+        let matcher = BookMatcher::new();
+        for (text, book) in [
+            ("Psalms 23", "Psalms"),
+            ("Revelation 1", "Revelation"),
+            ("Colossians 1", "Colossians"),
+            ("Daniel 7", "Daniel"),
+            ("Job 1", "Job"),
+        ] {
+            let found = matcher.find_books(text);
+            assert!(
+                found.iter().any(|m| m.book_name == book),
+                "expected {book} in {text:?}: {found:?}"
+            );
+        }
     }
 }

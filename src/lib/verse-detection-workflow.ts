@@ -51,6 +51,24 @@ function detectionLikeToVerse({
   }
 }
 
+function readingAdvanceToDetection(advance: ReadingAdvance): DetectionResult {
+  return {
+    content_type: "bible",
+    verse_ref: advance.reference,
+    verse_text: advance.verse_text,
+    book_name: advance.book_name,
+    book_number: advance.book_number,
+    chapter: advance.chapter,
+    verse: advance.verse,
+    confidence: advance.confidence,
+    source: "direct",
+    auto_queued: false,
+    transcript_snippet: "",
+    is_chapter_only: false,
+    egw_paragraph: null,
+  }
+}
+
 function findCurrentChapterVerse(detection: DetectionResult): Verse | null {
   const { activeTranslationId, currentChapter } = useBibleStore.getState()
   return (
@@ -348,6 +366,11 @@ export function handleReadingAdvance(advance: ReadingAdvance) {
     readingModeAutoLive: broadcast.readingModeAutoLive,
     verse: traceVerseDetails(verse),
   })
+
+  // Surface the advancing verse in the detections panel — reading mode otherwise
+  // stages straight to preview, leaving the operator with no detection card for
+  // the verse currently being read.
+  useDetectionStore.getState().addDetection(readingAdvanceToDetection(advance))
 
   previewVerseAndMaybeAutoLive(verse, {
     autoLiveWhenAlreadyOn: true,

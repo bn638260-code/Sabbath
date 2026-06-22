@@ -192,7 +192,9 @@ pub const BOOKS: &[BookInfo] = &[
         number: 23,
         name: "Isaiah",
         abbreviation: "Isa",
-        aliases: &["Isa", "Is"],
+        // "Is" is omitted: as a case-insensitive, word-boundary automaton pattern
+        // it matched the everyday word "is" and fabricated Isaiah references.
+        aliases: &["Isa"],
     },
     BookInfo {
         number: 24,

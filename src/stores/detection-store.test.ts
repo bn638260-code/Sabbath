@@ -551,6 +551,72 @@ describe("detection store", () => {
     expect(detections[0].confidence).toBe(0.99)
   })
 
+  it("hides sub-70% semantic hits but keeps direct and EGW below the floor", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetection(
+      makeDetection({
+        verse_ref: "Job 23:2",
+        source: "semantic",
+        confidence: 0.68,
+      })
+    )
+    store.addDetection(
+      makeDetection({
+        verse_ref: "Matthew 7:2",
+        source: "direct",
+        confidence: 0.65,
+      })
+    )
+    store.addDetection(
+      makeDetection({
+        content_type: "egw",
+        verse_ref: "Steps to Christ 1:2",
+        source: "direct",
+        confidence: 0.6,
+      })
+    )
+
+    const refs = useDetectionStore.getState().detections.map((d) => d.verse_ref)
+    expect(refs).not.toContain("Job 23:2")
+    expect(refs).toContain("Matthew 7:2")
+    expect(refs).toContain("Steps to Christ 1:2")
+  })
+
+  it("keeps semantic hits at exactly the 70% floor", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetection(
+      makeDetection({
+        verse_ref: "John 3:16",
+        source: "semantic",
+        confidence: 0.7,
+      })
+    )
+
+    expect(useDetectionStore.getState().detections).toHaveLength(1)
+  })
+
+  it("drops sub-70% semantic noise from a batch without evicting real hits", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetections([
+      makeDetection({
+        verse_ref: "Mark 15:4",
+        source: "semantic",
+        confidence: 0.68,
+      }),
+      makeDetection({
+        verse_ref: "Daniel 7:9",
+        source: "direct",
+        confidence: 1,
+      }),
+    ])
+
+    const refs = useDetectionStore.getState().detections.map((d) => d.verse_ref)
+    expect(refs).toEqual(["Daniel 7:9"])
+  })
+
   it("evictStale removes detections older than the TTL and keeps fresh ones", () => {
     const store = useDetectionStore.getState()
 
