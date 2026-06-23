@@ -1,6 +1,5 @@
 import {
   previewVerseAndMaybeAutoLive,
-  selectPreviewVerse,
   createScriptureQueueItem,
   previewEgwParagraph,
   presentEgwParagraph,
@@ -294,7 +293,7 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
         usedFallback: resolved.usedFallback,
         fallbackReason: resolved.fallbackReason,
       })
-      selectPreviewVerse(resolved.verse)
+      previewVerseAndMaybeAutoLive(resolved.verse, { autoLive: true })
     }
   } else if (autoPreview) {
     recordWorkflowTrace("detection.preview.skipped", "No direct hit met preview criteria", {
@@ -373,6 +372,6 @@ export function handleReadingAdvance(advance: ReadingAdvance) {
   useDetectionStore.getState().addDetection(readingAdvanceToDetection(advance))
 
   previewVerseAndMaybeAutoLive(verse, {
-    autoLiveWhenAlreadyOn: true,
+    autoLive: true,
   })
 }

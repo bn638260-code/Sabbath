@@ -183,22 +183,20 @@ export function previewVerseAndMaybeAutoLive(
   verse: Verse,
   options?: {
     navigate?: boolean
-    autoLiveWhenAlreadyOn?: boolean
+    autoLive?: boolean
   }
 ) {
   const broadcast = useBroadcastStore.getState()
-  const shouldAutoLive =
-    options?.autoLiveWhenAlreadyOn &&
-    broadcast.isLive &&
-    broadcast.readingModeAutoLive
 
-  if (shouldAutoLive) {
-    recordWorkflowTrace("live.auto_commit", "Reading-mode advance auto-committed live", {
+  // Auto-live turns the live output on (and keeps it following) when the
+  // operator has the auto-live toggle enabled.
+  if (options?.autoLive && broadcast.readingModeAutoLive) {
+    recordWorkflowTrace("live.auto_commit", "Auto-live committed verse live", {
       liveWasOn: broadcast.isLive,
       readingModeAutoLive: broadcast.readingModeAutoLive,
       verse: traceVerseDetails(verse),
     })
-    commitVerseToLive(verse, { makeLive: false })
+    commitVerseToLive(verse, { makeLive: true })
   }
 
   selectPreviewVerse(verse, { navigate: options?.navigate })

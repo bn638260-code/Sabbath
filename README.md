@@ -156,14 +156,23 @@ Vosk runs locally on your machine with no API costs or per-minute billing.
 - The model is fetched with `bun run download:vosk`.
 
 **Option 2: Deepgram (Cloud, Paid)**
-Configure the Deepgram API key in app settings. The key is stored in the OS
-keychain and is not written to the settings file.
+The key is stored in the OS keychain, not the settings file.
 
-Get your API key at [deepgram.com](https://deepgram.com/).
+1. Sign up at [console.deepgram.com](https://console.deepgram.com/signup).
+2. In the Console, open the **Projects** dropdown → **Settings** → **API Keys**.
+3. Click **Create a New API Key** and copy the secret — it is shown only once.
+4. Paste it into the app under **Settings → Speech Recognition** (Deepgram).
+
+**Cost:** new accounts get about **R3,280** in free credit, then pay-as-you-go from about **R0.08/min** for streaming — no subscription, no minimums, no card required. Billed in USD (≈ R16.40/$); current rates at [deepgram.com/pricing](https://deepgram.com/pricing).
 
 **Option 3: Gladia (Cloud, Paid)**
-Configure the Gladia API key in app settings. The key is stored in the OS
-keychain.
+The key is stored in the OS keychain.
+
+1. Sign up at [app.gladia.io](https://app.gladia.io).
+2. Open [**API Keys**](https://app.gladia.io/apikeys) — a default key is created for you, or create your own.
+3. Copy the key and paste it into the app under **Settings → Speech Recognition** (Gladia).
+
+**Cost:** the free plan includes **10 hours per month**, then about **R12.30/hour** pay-as-you-go for real-time (less on a committed plan). Billed in USD (≈ R16.40/$); current rates at [gladia.io/pricing](https://gladia.io/pricing).
 
 #### Account verification (Supabase)
 

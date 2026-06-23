@@ -174,13 +174,44 @@ describe("presentation workflow", () => {
     })
 
     previewVerseAndMaybeAutoLive(sampleVerse, {
-      autoLiveWhenAlreadyOn: true,
+      autoLive: true,
     })
     unsubscribe()
 
     expect(previewSelections).toHaveLength(1)
     expect(useBibleStore.getState().selectedVerse).toEqual(sampleVerse)
     expectBroadcastOutputsFor("John 3:16 (KJV)")
+  })
+
+  it("auto-live turns the live output on when it was not already live", async () => {
+    const { useBibleStore } = await import("@/stores/bible-store")
+    const { useBroadcastStore } = await import("@/stores/broadcast-store")
+    const { previewVerseAndMaybeAutoLive } = await import("./presentation-workflow")
+
+    useBibleStore.setState({
+      selectedVerse: null,
+      translations: [
+        {
+          id: 1,
+          abbreviation: "KJV",
+          title: "King James Version",
+          language: "en",
+          is_copyrighted: false,
+          is_downloaded: true,
+        },
+      ],
+      activeTranslationId: 1,
+    })
+    useBroadcastStore.setState({
+      isLive: false,
+      readingModeAutoLive: true,
+      liveItem: null,
+    })
+
+    previewVerseAndMaybeAutoLive(sampleVerse, { autoLive: true })
+
+    expect(useBroadcastStore.getState().isLive).toBe(true)
+    expect(useBibleStore.getState().selectedVerse).toEqual(sampleVerse)
   })
 
   it("commitVerseToLive can refresh the live item without changing live visibility", async () => {

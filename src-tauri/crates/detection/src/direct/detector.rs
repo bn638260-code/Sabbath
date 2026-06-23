@@ -74,7 +74,6 @@ const TRANSLATION_COMMANDS: &[(&str, &str)] = &[
     ("can i have that in kjv", "KJV"),
     ("show me kjv", "KJV"),
     ("king james version", "KJV"),
-    ("king james", "KJV"),
     ("in king james", "KJV"),
     // AMP
     ("give me amp", "AMP"),
@@ -1779,6 +1778,19 @@ mod tests {
         assert_eq!(
             detector.detect_translation_command("new living translation"),
             Some("NLT".to_string())
+        );
+    }
+
+    #[test]
+    fn test_translation_command_ignores_king_james_narration() {
+        let detector = DirectDetector::new();
+        // "the king james says ..." is narration about the KJV reading, not a
+        // command to switch translation. It must not flip the active version.
+        assert_eq!(
+            detector.detect_translation_command(
+                "the court was seated the king james says the judgment was set"
+            ),
+            None
         );
     }
 

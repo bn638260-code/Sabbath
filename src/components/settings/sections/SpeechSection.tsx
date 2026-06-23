@@ -218,11 +218,17 @@ function gladiaKeyAdapter(settings: ReturnType<typeof useGladiaKeySettings>): Ke
 
 function ProviderKeySettings({
   providerName,
-  domain,
+  signupUrl,
+  steps,
+  cost,
+  pricingUrl,
   settings,
 }: {
   providerName: string
-  domain: string
+  signupUrl: string
+  steps: string[]
+  cost: string
+  pricingUrl: string
   settings: KeySettings
 }) {
   const inputType =
@@ -283,10 +289,21 @@ function ProviderKeySettings({
       {settings.keyError ? (
         <p className="text-[0.625rem] text-red-500">{settings.keyError}</p>
       ) : null}
-      <p className="text-[0.625rem] text-muted-foreground">
-        Required for live transcription. Get a key at{" "}
-        <span className="text-primary">{domain}</span>
-      </p>
+      <div className="flex flex-col gap-1.5 text-[0.625rem] text-muted-foreground">
+        <p>
+          Required for live transcription. Get a key at{" "}
+          <span className="text-primary select-all">{signupUrl}</span>:
+        </p>
+        <ol className="ml-3 flex list-decimal flex-col gap-0.5">
+          {steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        <p>
+          Cost: {cost} Current rates at{" "}
+          <span className="text-primary select-all">{pricingUrl}</span>.
+        </p>
+      </div>
     </div>
   )
 }
@@ -375,7 +392,14 @@ export function SpeechSection() {
       {sttProvider === "deepgram" && (
         <ProviderKeySettings
           providerName="Deepgram"
-          domain="deepgram.com"
+          signupUrl="console.deepgram.com"
+          steps={[
+            "Sign up, then open Projects ▸ Settings ▸ API Keys.",
+            "Create a New API Key and copy the secret — it shows only once.",
+            "Paste it above and save.",
+          ]}
+          cost="about R3,280 free credit, then from R0.08/min for streaming (billed in USD)."
+          pricingUrl="deepgram.com/pricing"
           settings={deepgramKeyAdapter(deepgramKeySettings)}
         />
       )}
@@ -383,7 +407,14 @@ export function SpeechSection() {
       {sttProvider === "gladia" && (
         <ProviderKeySettings
           providerName="Gladia"
-          domain="gladia.io"
+          signupUrl="app.gladia.io"
+          steps={[
+            "Sign up and open API Keys.",
+            "Copy the default key (or create one).",
+            "Paste it above and save.",
+          ]}
+          cost="free for 10 hours/month, then about R12.30/hour (billed in USD)."
+          pricingUrl="gladia.io/pricing"
           settings={gladiaKeyAdapter(gladiaKeySettings)}
         />
       )}

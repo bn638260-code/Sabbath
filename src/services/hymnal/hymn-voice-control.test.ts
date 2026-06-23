@@ -6,15 +6,18 @@ import {
   shouldSuppressDuplicateHymnCommand,
 } from "./hymn-voice-control"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
+import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useDetectionStore } from "@/stores/detection-store"
 
 const selectPreviewItemMock = vi.fn()
+const presentItemMock = vi.fn()
 const getHymnByNumberMock = vi.fn()
 const generateHymnScreensMock = vi.fn()
 const addRecentHymnMock = vi.fn()
 
 vi.mock("@/lib/presentation-workflow", () => ({
   selectPreviewItem: (...args: unknown[]) => selectPreviewItemMock(...args),
+  presentItem: (...args: unknown[]) => presentItemMock(...args),
 }))
 
 vi.mock("@/services/hymnal/hymnal-repository", () => ({
@@ -65,11 +68,13 @@ describe("hymn voice control", () => {
   beforeEach(() => {
     resetHymnVoiceControlState()
     selectPreviewItemMock.mockReset()
+    presentItemMock.mockReset()
     getHymnByNumberMock.mockReset()
     generateHymnScreensMock.mockReset()
     addRecentHymnMock.mockReset()
     useHymnSlideStore.getState().setDeck([], 0)
     useDetectionStore.setState({ detections: [] })
+    useBroadcastStore.setState({ readingModeAutoLive: false })
     vi.useFakeTimers()
   })
 
@@ -122,7 +127,22 @@ describe("hymn voice control", () => {
           screenId: "v1-screen-1",
         }),
       )
+      expect(presentItemMock).not.toHaveBeenCalled()
       expect(addRecentHymnMock).toHaveBeenCalledWith("sda-12")
+    })
+
+    it("sends the hymn live instead of preview when auto-live is on", async () => {
+      getHymnByNumberMock.mockResolvedValue(sampleHymn)
+      generateHymnScreensMock.mockReturnValue([sampleScreen])
+      useBroadcastStore.setState({ readingModeAutoLive: true })
+
+      const handled = await handleHymnVoiceControl("please open hymn 12")
+
+      expect(handled).toBe(true)
+      expect(presentItemMock).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "hymn", hymnNumber: 12 }),
+      )
+      expect(selectPreviewItemMock).not.toHaveBeenCalled()
     })
 
     it("adds a hymn detection card to the detection store", async () => {

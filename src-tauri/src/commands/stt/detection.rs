@@ -94,6 +94,45 @@ pub(crate) fn clamp_to_recent_words(text: &str, max_words: usize) -> String {
     words[start..].join(" ")
 }
 
+/// Strip reference-navigation scaffolding ("chapter", "verse", "it says", and
+/// bare numbers) from a transcript window before it is used to build FTS5 /
+/// vector search queries.
+///
+/// When a preacher reads a reference aloud ("chapter 7 verse 9 it says ...")
+/// those framing words otherwise dominate BM25 matching and pollute the
+/// embedding, surfacing irrelevant verses. The spoken reference itself is
+/// already owned by the direct path, so only the surrounding verse content
+/// should drive paraphrase search. Original casing of kept tokens is preserved;
+/// the displayed transcript is unaffected.
+pub(crate) fn strip_reference_scaffolding(text: &str) -> String {
+    let tokens: Vec<&str> = text.split_whitespace().collect();
+    let cores: Vec<String> = tokens
+        .iter()
+        .map(|t| {
+            t.trim_matches(|c: char| !c.is_alphanumeric())
+                .to_lowercase()
+        })
+        .collect();
+    let mut out: Vec<&str> = Vec::new();
+    for (i, token) in tokens.iter().enumerate() {
+        let core = cores[i].as_str();
+        if core.is_empty() {
+            continue;
+        }
+        let digits: String = core.chars().filter(|c| !matches!(c, ',' | '.')).collect();
+        let is_number = !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit());
+        let prev = i.checked_sub(1).map(|p| cores[p].as_str());
+        let next = cores.get(i + 1).map(String::as_str);
+        let is_scaffold = matches!(core, "chapter" | "chapters" | "verse" | "verses")
+            || (core == "it" && next == Some("says"))
+            || (core == "says" && prev == Some("it"));
+        if !is_number && !is_scaffold {
+            out.push(token);
+        }
+    }
+    out.join(" ")
+}
+
 /// True when the transcript window is an explicit scripture reference or a
 /// voice/reading command that the direct + command paths already handle.
 ///
@@ -727,11 +766,21 @@ pub(crate) fn run_semantic_detection(
         return;
     }
 
+    // Build the paraphrase query from verse content only — reference framing
+    // ("chapter 7 verse 9 it says") would otherwise dominate BM25 and the
+    // embedding. A window that is nothing but scaffolding is a bare reference
+    // already owned by the direct path, so there is nothing to search.
+    let query = strip_reference_scaffolding(transcript);
+    if query.split_whitespace().count() < FINAL_SEMANTIC_MIN_WORDS {
+        log::debug!("[DET-TRACE] seq={seq} skip=semantic reason=scaffolding_only");
+        return;
+    }
+
     let t0 = std::time::Instant::now();
     if transcript_logging_enabled() {
         log::info!(
             "[DET-SEMANTIC] Running on: {:?}",
-            truncate_safe(transcript, 80)
+            truncate_safe(&query, 80)
         );
     } else {
         log::info!("[DET-SEMANTIC] Running");
@@ -748,7 +797,7 @@ pub(crate) fn run_semantic_detection(
             app_state
                 .bible_db
                 .as_ref()
-                .and_then(|db| db.search_verses_bm25(transcript, 10).ok()),
+                .and_then(|db| db.search_verses_bm25(&query, 10).ok()),
             app_state.active_translation_id,
         )
     };
@@ -777,7 +826,7 @@ pub(crate) fn run_semantic_detection(
         };
         let semantic_ready = pipeline.has_semantic();
         let paraphrase_enabled = pipeline.use_synonyms();
-        let merged = pipeline.process_hybrid_with_fts(transcript, &fts);
+        let merged = pipeline.process_hybrid_with_fts(&query, &fts);
         (merged, semantic_ready, paraphrase_enabled)
     };
 
@@ -812,7 +861,11 @@ pub(crate) fn run_semantic_detection(
     let results = finalize_live_semantic_results(results);
 
     if results.is_empty() {
-        log::info!("[DET-SEMANTIC] No detections");
+        log::info!(
+            "[DET-TRACE] seq={seq} decision=semantic_none emitted=0 fts_hits={} candidates={}",
+            fts.len(),
+            merged.len()
+        );
         return;
     }
 
@@ -1084,15 +1137,38 @@ mod tests {
         choose_reading_candidate, direct_reading_candidates, enqueue_final_semantic_job,
         enqueue_partial_semantic_job, filter_direct_results_to_scope_if_present,
         filter_semantic_results_to_reading_scope, finalize_live_semantic_results,
-        replace_semantic_job, take_semantic_job, DeepgramSemanticBuffer, DirectReadingCandidate,
-        LIVE_SEMANTIC_CAP, PARTIAL_SEMANTIC_DEBOUNCE, PARTIAL_SEMANTIC_MIN_WORDS,
-        SEMANTIC_WINDOW_SEGMENTS,
+        replace_semantic_job, strip_reference_scaffolding, take_semantic_job,
+        DeepgramSemanticBuffer, DirectReadingCandidate, LIVE_SEMANTIC_CAP,
+        PARTIAL_SEMANTIC_DEBOUNCE, PARTIAL_SEMANTIC_MIN_WORDS, SEMANTIC_WINDOW_SEGMENTS,
     };
     use rhema_detection::{Detection, DetectionSource, MergedDetection, VerseRef};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
     use tokio::sync::Notify;
+
+    #[test]
+    fn strip_reference_scaffolding_drops_framing_keeps_verse_content() {
+        // The Daniel window that polluted BM25 with "chapter/verse/says".
+        assert_eq!(
+            strip_reference_scaffolding(
+                "chapter 7 verse 9 it says I watched till thrones were put in place"
+            ),
+            "I watched till thrones were put in place"
+        );
+        // Pure reference window collapses to nothing (direct path owns it).
+        assert_eq!(strip_reference_scaffolding("chapter 20 verse 12"), "");
+        // Verse prose with no framing is untouched, including spelled-out
+        // numbers and comma-grouped digits.
+        assert_eq!(
+            strip_reference_scaffolding("ten thousand times ten thousand stood before him"),
+            "ten thousand times ten thousand stood before him"
+        );
+        assert_eq!(
+            strip_reference_scaffolding("the court was seated and the books were opened"),
+            "the court was seated and the books were opened"
+        );
+    }
 
     #[test]
     fn semantic_enqueue_skips_reference_and_command_windows() {

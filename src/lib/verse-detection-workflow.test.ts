@@ -403,7 +403,7 @@ describe("verse detection workflow", () => {
     expect(useBroadcastStore.getState().previewItem).toBeNull()
   })
 
-  it("does not auto-live normal direct detections", async () => {
+  it("does not auto-live direct detections when the toggle is off", async () => {
     const detection = {
       verse_ref: "John 3:16",
       verse_text: "For God so loved the world.",
@@ -420,6 +420,7 @@ describe("verse detection workflow", () => {
 
     useBroadcastStore.setState({
       isLive: true,
+      readingModeAutoLive: false,
       liveItem: {
         reference: "Romans 8:1 (KJV)",
         segments: [
@@ -437,6 +438,21 @@ describe("verse detection workflow", () => {
     })
     expect(useBroadcastStore.getState().liveItem?.reference).toBe(
       "Romans 8:1 (KJV)"
+    )
+  })
+
+  it("auto-lives a direct detection when the toggle is on", async () => {
+    useBroadcastStore.setState({
+      isLive: false,
+      readingModeAutoLive: true,
+      liveItem: null,
+    })
+
+    await handleVerseDetections([makeDetection({ auto_queued: false })])
+
+    expect(useBroadcastStore.getState().isLive).toBe(true)
+    expect(useBroadcastStore.getState().liveItem?.reference).toBe(
+      "John 3:16 (KJV)"
     )
   })
 
@@ -509,9 +525,10 @@ describe("verse detection workflow", () => {
     )
   })
 
-  it("does not turn live output on for reading mode when hidden", () => {
+  it("turns live output on for reading mode when the toggle is on and hidden", () => {
     useBroadcastStore.setState({
       isLive: false,
+      readingModeAutoLive: true,
       liveItem: null,
     })
 
@@ -531,6 +548,30 @@ describe("verse detection workflow", () => {
       chapter: 3,
       verse: 17,
     })
+    expect(useBroadcastStore.getState().isLive).toBe(true)
+    expect(useBroadcastStore.getState().liveItem?.reference).toBe(
+      "John 3:17 (KJV)"
+    )
+  })
+
+  it("does not turn live output on for reading mode when the toggle is off", () => {
+    useBroadcastStore.setState({
+      isLive: false,
+      readingModeAutoLive: false,
+      liveItem: null,
+    })
+
+    handleReadingAdvance({
+      book_number: 43,
+      book_name: "John",
+      chapter: 3,
+      verse: 17,
+      verse_text:
+        "For God sent not his Son into the world to condemn the world.",
+      reference: "John 3:17",
+      confidence: 0.9,
+    })
+
     expect(useBroadcastStore.getState().isLive).toBe(false)
     expect(useBroadcastStore.getState().liveItem).toBeNull()
   })

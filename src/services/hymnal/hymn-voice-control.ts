@@ -8,6 +8,7 @@ import {
 } from "@/services/hymnal/hymn-presentation"
 import { addRecentHymn } from "@/services/hymnal/hymnal-history"
 import { getHymnByNumber } from "@/services/hymnal/hymnal-repository"
+import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useDetectionStore } from "@/stores/detection-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useQueueStore } from "@/stores/queue-store"
@@ -185,7 +186,13 @@ export async function handleHymnVoiceControl(text: string): Promise<boolean> {
   if (!loaded) return false
 
   useHymnSlideStore.getState().setDeck(loaded.deck, 0)
-  selectPreviewItem(loaded.deck[0])
+  // Auto-live sends the hymn straight to the live output; otherwise it only
+  // stages to preview for the operator to commit.
+  if (useBroadcastStore.getState().readingModeAutoLive) {
+    presentItem(loaded.deck[0])
+  } else {
+    selectPreviewItem(loaded.deck[0])
+  }
   useDetectionStore.getState().addDetection(createHymnDetection(loaded.hymn))
   addRecentHymn(loaded.hymn.id)
   lastHandled = { hymnNumber, at: Date.now() }

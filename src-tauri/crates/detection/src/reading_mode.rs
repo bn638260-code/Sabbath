@@ -458,8 +458,13 @@ impl ReadingMode {
                     }
                 }
 
-                // Still on current verse, reset match timer
+                // Still on current verse: reset the match timer and clear the
+                // buffer. Otherwise minutes of commentary that re-mentions this
+                // verse's words keep accumulating and eventually cross the next
+                // verse's overlap threshold, auto-advancing to a verse that was
+                // never read.
                 self.last_match_time = Instant::now();
+                self.accumulated_text.clear();
                 return None;
             }
         }
@@ -911,6 +916,27 @@ mod tests {
         let advance = r.unwrap();
         assert_eq!(advance.verse, 29);
         assert_eq!(advance.reference, "Acts 15:29");
+    }
+
+    #[test]
+    fn commentary_repeating_current_verse_does_not_auto_advance() {
+        let mut rm = ReadingMode::new();
+        let verses = vec![
+            (1, "alpha beta gamma delta".to_string()),
+            (2, "one two three four five six seven eight nine ten".to_string()),
+        ];
+        rm.start(1, "Test", 1, 1, verses);
+
+        // Reads verse 1 and drops two stray verse-2 words — stays on verse 1.
+        let r = rm.check_transcript("alpha beta gamma delta one two");
+        assert!(r.is_none());
+
+        // More commentary with two more verse-2 words. The earlier "one two"
+        // must not linger and combine with "three four" to cross verse 2's 40%
+        // overlap and falsely advance.
+        let r = rm.check_transcript("three four");
+        assert!(r.is_none());
+        assert_eq!(rm.current_verse(), Some(1));
     }
 
     #[test]

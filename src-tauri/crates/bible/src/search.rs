@@ -234,16 +234,24 @@ impl BibleDb {
             .map_err(|e| BibleError::Internal(e.to_string()))?;
         let fetch_limit = limit * 4;
 
+        // Query text is spoken content and must not reach release logs (see
+        // `transcript_logging_decision`); log only tier term counts. The query
+        // itself is available in debug builds via the gated app-layer
+        // `[DET-SEMANTIC] Running on:` line.
+
         // Tier 1: Exact phrase match
         let phrase = build_phrase_query(query);
-        log::info!("[FTS5-BM25] Phrase: {phrase:?}");
+        log::debug!("[FTS5-BM25] phrase tier: {} terms", query_terms(query).count());
         let mut all_results = run_fts_query(&conn, &phrase, fetch_limit)?;
 
         // Tier 2: AND with stop words filtered (~5-20ms)
         if dedup_count(&all_results) < limit {
             let and_q = build_and_query(query);
             if !and_q.is_empty() {
-                log::info!("[FTS5-BM25] AND: {and_q:?}");
+                log::debug!(
+                    "[FTS5-BM25] AND tier: {} terms",
+                    and_q.split_whitespace().count()
+                );
                 all_results.extend(run_fts_query(&conn, &and_q, fetch_limit)?);
             }
         }
@@ -252,7 +260,7 @@ impl BibleDb {
         if dedup_count(&all_results) < limit {
             let or_q = build_or_query(query);
             if !or_q.is_empty() {
-                log::info!("[FTS5-BM25] OR: {or_q:?}");
+                log::debug!("[FTS5-BM25] OR tier: {} terms", or_q.matches(" OR ").count() + 1);
                 all_results.extend(run_fts_query(&conn, &or_q, fetch_limit)?);
             }
         }
