@@ -3,6 +3,10 @@ name: Release Desktop Build
 on:
   workflow_dispatch:
 
+env:
+  CARGO_HTTP_MULTIPLEXING: "false"
+  CARGO_NET_RETRY: "10"
+
 jobs:
   windows-release:
     name: Windows installer
@@ -95,14 +99,44 @@ jobs:
         run: cargo test --workspace
 
       - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
+        shell: pwsh
+        run: |
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            cargo +stable install cargo-deny --locked
+            if ($LASTEXITCODE -eq 0) {
+              exit 0
+            }
+
+            if ($attempt -eq 3) {
+              exit $LASTEXITCODE
+            }
+
+            $delaySeconds = 15 * $attempt
+            Write-Warning "cargo-deny install failed on attempt $attempt. Retrying in $delaySeconds seconds."
+            Start-Sleep -Seconds $delaySeconds
+          }
 
       - name: Dependency audit
         working-directory: src-tauri
         run: cargo deny check
 
       - name: Install cargo-cyclonedx
-        run: cargo install cargo-cyclonedx --locked
+        shell: pwsh
+        run: |
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            cargo +stable install cargo-cyclonedx --locked
+            if ($LASTEXITCODE -eq 0) {
+              exit 0
+            }
+
+            if ($attempt -eq 3) {
+              exit $LASTEXITCODE
+            }
+
+            $delaySeconds = 15 * $attempt
+            Write-Warning "cargo-cyclonedx install failed on attempt $attempt. Retrying in $delaySeconds seconds."
+            Start-Sleep -Seconds $delaySeconds
+          }
 
       - name: Generate SBOM
         working-directory: src-tauri

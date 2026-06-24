@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+env:
+  CARGO_HTTP_MULTIPLEXING: "false"
+  CARGO_NET_RETRY: "10"
+
 jobs:
   frontend:
     name: Frontend checks
@@ -182,7 +186,22 @@ jobs:
         run: cargo clippy --workspace --all-targets
 
       - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
+        shell: pwsh
+        run: |
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            cargo +stable install cargo-deny --locked
+            if ($LASTEXITCODE -eq 0) {
+              exit 0
+            }
+
+            if ($attempt -eq 3) {
+              exit $LASTEXITCODE
+            }
+
+            $delaySeconds = 15 * $attempt
+            Write-Warning "cargo-deny install failed on attempt $attempt. Retrying in $delaySeconds seconds."
+            Start-Sleep -Seconds $delaySeconds
+          }
 
       - name: Dependency audit
         working-directory: src-tauri

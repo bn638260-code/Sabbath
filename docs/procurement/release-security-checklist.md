@@ -52,8 +52,8 @@ Each procurement release should produce:
 ## Tools required
 
 ```bash
-cargo install cargo-deny
-cargo install cargo-cyclonedx
+cargo +stable install cargo-deny --locked
+cargo +stable install cargo-cyclonedx --locked
 ```
 
 Automated steps are configured in `.github/workflows/desktop-ci.yml` and
