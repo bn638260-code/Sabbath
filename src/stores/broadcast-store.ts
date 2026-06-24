@@ -1,16 +1,17 @@
 import { create } from "zustand"
 import { emitTo } from "@tauri-apps/api/event"
 import { load, type Store } from "@tauri-apps/plugin-store"
-import { toast } from "sonner"
 import type {
-  BroadcastIssueOutputId,
-  BroadcastOutputIssue,
-  BroadcastOutputIssueKind,
   BroadcastTheme,
   BroadcastTransition,
   BroadcastTransitionType,
   PresentationRenderData,
 } from "@/types"
+import {
+  createOutputIssueSlice,
+  selectLatestOutputIssue,
+  type OutputIssueSlice,
+} from "@/stores/broadcast/output-issue-slice"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 import {
   buildVideoCommand,
@@ -36,7 +37,7 @@ type BroadcastUpdatePayload = {
   transition?: BroadcastTransition
 }
 
-interface BroadcastState {
+interface BroadcastState extends OutputIssueSlice {
   themes: BroadcastTheme[]
   activeThemeId: string
   altActiveThemeId: string
@@ -60,8 +61,6 @@ interface BroadcastState {
   altDisplayMonitorKey: string
   mainProjectorFullscreen: boolean
   altProjectorFullscreen: boolean
-
-  outputIssues: BroadcastOutputIssue[]
 
   // Designer state
   isDesignerOpen: boolean
@@ -103,19 +102,6 @@ interface BroadcastState {
     outputId: string,
     options?: BroadcastSyncOptions
   ) => void
-  reportOutputIssue: (input: {
-    outputId: BroadcastIssueOutputId
-    kind: BroadcastOutputIssueKind
-    title: string
-    description: string
-    id?: string
-  }) => void
-  clearOutputIssue: (id: string) => void
-  clearOutputIssueFor: (
-    outputId: BroadcastIssueOutputId,
-    kind: BroadcastOutputIssueKind
-  ) => void
-  clearOutputIssuesFor: (outputId: BroadcastIssueOutputId) => void
 
   // Projector display setters
   setMainDisplayMonitorIndex: (index: number) => void
@@ -150,14 +136,7 @@ interface BroadcastHydrationPatchInput {
   altProjectorFullscreen?: boolean
 }
 
-export function selectLatestOutputIssue(
-  state: Pick<BroadcastState, "outputIssues">
-): BroadcastOutputIssue | null {
-  if (state.outputIssues.length === 0) return null
-  return state.outputIssues.reduce((latest, issue) =>
-    issue.lastSeenAt > latest.lastSeenAt ? issue : latest
-  )
-}
+export { selectLatestOutputIssue }
 
 function findThemeById(
   themes: BroadcastTheme[],
@@ -203,8 +182,6 @@ function buildBroadcastPayload(
 
 export type VideoEndDecision = "loop" | "advance" | "hold"
 
-const OUTPUT_ISSUE_LIMIT = 20
-const OUTPUT_ISSUE_TTL_MS = 10 * 60 * 1000
 const PREFERRED_AUDIO_DEVICE_STORAGE_KEY =
   "sabbathcue:video:preferred-audio-output-device"
 const reportedLoadFailureIds = new Set<string>()
@@ -340,24 +317,6 @@ function reportSyncFailure(
   })
 }
 
-function dismissOutputIssueToast(id: string): void {
-  try {
-    toast.dismiss(id)
-  } catch {
-    // Sonner uses browser animation APIs that are absent in some unit-test runtimes.
-  }
-}
-
-function pruneOutputIssues(
-  issues: BroadcastOutputIssue[],
-  now = Date.now()
-): BroadcastOutputIssue[] {
-  return issues
-    .filter((issue) => now - issue.lastSeenAt <= OUTPUT_ISSUE_TTL_MS)
-    .sort((a, b) => b.lastSeenAt - a.lastSeenAt)
-    .slice(0, OUTPUT_ISSUE_LIMIT)
-}
-
 function reportLoadFailureOnce(
   id: string,
   input: Parameters<BroadcastState["reportOutputIssue"]>[0]
@@ -426,7 +385,8 @@ function scheduleDraftBroadcast(getState: () => BroadcastState): void {
   draftBroadcastFrame = window.requestAnimationFrame(flush)
 }
 
-export const useBroadcastStore = create<BroadcastState>((set, get) => ({
+export const useBroadcastStore = create<BroadcastState>()((set, get, store) => ({
+  ...createOutputIssueSlice(set, get, store),
   themes: [...BUILTIN_THEMES],
   activeThemeId: BUILTIN_THEMES[0].id,
   altActiveThemeId: BUILTIN_THEMES[0].id,
@@ -448,7 +408,6 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   altDisplayMonitorKey: "",
   mainProjectorFullscreen: false,
   altProjectorFullscreen: false,
-  outputIssues: [],
   isDesignerOpen: false,
   editingThemeId: null,
   renamingThemeId: null,
@@ -559,71 +518,6 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
         })
       }
     )
-  },
-  reportOutputIssue: (input) => {
-    const id = input.id ?? `${input.outputId}:${input.kind}`
-    const now = Date.now()
-    const existing = get().outputIssues.find((issue) => issue.id === id)
-
-    if (existing) {
-      set({
-        outputIssues: pruneOutputIssues(
-          get().outputIssues.map((issue) =>
-            issue.id === id
-              ? {
-                  ...issue,
-                  title: input.title,
-                  description: input.description,
-                  lastSeenAt: now,
-                  count: issue.count + 1,
-                }
-              : issue
-          ),
-          now
-        ),
-      })
-      return
-    }
-
-    const issue: BroadcastOutputIssue = {
-      id,
-      outputId: input.outputId,
-      kind: input.kind,
-      title: input.title,
-      description: input.description,
-      firstSeenAt: now,
-      lastSeenAt: now,
-      count: 1,
-    }
-    set({
-      outputIssues: pruneOutputIssues([...get().outputIssues, issue], now),
-    })
-    toast.error(issue.title, {
-      id,
-      description: issue.description,
-    })
-  },
-  clearOutputIssue: (id) => {
-    set({ outputIssues: get().outputIssues.filter((issue) => issue.id !== id) })
-    dismissOutputIssueToast(id)
-  },
-  clearOutputIssueFor: (outputId, kind) => {
-    const id = `${outputId}:${kind}`
-    set({ outputIssues: get().outputIssues.filter((issue) => issue.id !== id) })
-    dismissOutputIssueToast(id)
-  },
-  clearOutputIssuesFor: (outputId) => {
-    const removed = get().outputIssues.filter(
-      (issue) => issue.outputId === outputId
-    )
-    set({
-      outputIssues: get().outputIssues.filter(
-        (issue) => issue.outputId !== outputId
-      ),
-    })
-    for (const issue of removed) {
-      dismissOutputIssueToast(issue.id)
-    }
   },
   syncBroadcastOutput: (options) => {
     get().syncBroadcastOutputFor("main", options)
