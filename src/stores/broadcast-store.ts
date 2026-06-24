@@ -16,6 +16,10 @@ import {
   createDesignerSlice,
   type DesignerSlice,
 } from "@/stores/broadcast/designer-slice"
+import {
+  createMonitorSlice,
+  type MonitorSlice,
+} from "@/stores/broadcast/monitor-slice"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 import {
   buildVideoCommand,
@@ -40,7 +44,7 @@ type BroadcastUpdatePayload = {
   transition?: BroadcastTransition
 }
 
-interface BroadcastState extends OutputIssueSlice, DesignerSlice {
+interface BroadcastState extends OutputIssueSlice, DesignerSlice, MonitorSlice {
   themes: BroadcastTheme[]
   activeThemeId: string
   altActiveThemeId: string
@@ -56,14 +60,6 @@ interface BroadcastState extends OutputIssueSlice, DesignerSlice {
   videoVolume: number
   autoAdvanceVideoOnEnd: boolean
   preferredAudioOutputDeviceId: string
-
-  // Projector display settings
-  mainDisplayMonitorIndex: number
-  altDisplayMonitorIndex: number
-  mainDisplayMonitorKey: string
-  altDisplayMonitorKey: string
-  mainProjectorFullscreen: boolean
-  altProjectorFullscreen: boolean
 
   // Theme management
   loadThemes: () => void
@@ -98,14 +94,6 @@ interface BroadcastState extends OutputIssueSlice, DesignerSlice {
     outputId: string,
     options?: BroadcastSyncOptions
   ) => void
-
-  // Projector display setters
-  setMainDisplayMonitorIndex: (index: number) => void
-  setAltDisplayMonitorIndex: (index: number) => void
-  setMainDisplayMonitorKey: (key: string) => void
-  setAltDisplayMonitorKey: (key: string) => void
-  setMainProjectorFullscreen: (fullscreen: boolean) => void
-  setAltProjectorFullscreen: (fullscreen: boolean) => void
 }
 
 interface BroadcastHydrationPatchInput {
@@ -273,6 +261,7 @@ function clearLoadFailureReport(id: string): void {
 export const useBroadcastStore = create<BroadcastState>()((set, get, store) => ({
   ...createOutputIssueSlice(set, get, store),
   ...createDesignerSlice(set, get, store),
+  ...createMonitorSlice(set, get, store),
   themes: [...BUILTIN_THEMES],
   activeThemeId: BUILTIN_THEMES[0].id,
   altActiveThemeId: BUILTIN_THEMES[0].id,
@@ -288,12 +277,6 @@ export const useBroadcastStore = create<BroadcastState>()((set, get, store) => (
   videoVolume: 1,
   autoAdvanceVideoOnEnd: true,
   preferredAudioOutputDeviceId: readPreferredAudioOutputDeviceId(),
-  mainDisplayMonitorIndex: 0,
-  altDisplayMonitorIndex: 0,
-  mainDisplayMonitorKey: "",
-  altDisplayMonitorKey: "",
-  mainProjectorFullscreen: false,
-  altProjectorFullscreen: false,
 
   loadThemes: () => {
     set({ themes: [...BUILTIN_THEMES] })
@@ -548,24 +531,6 @@ export const useBroadcastStore = create<BroadcastState>()((set, get, store) => (
       get().commitLiveItem(renderData)
     }
     return decision
-  },
-  setMainDisplayMonitorIndex: (mainDisplayMonitorIndex) => {
-    set({ mainDisplayMonitorIndex })
-  },
-  setAltDisplayMonitorIndex: (altDisplayMonitorIndex) => {
-    set({ altDisplayMonitorIndex })
-  },
-  setMainDisplayMonitorKey: (mainDisplayMonitorKey) => {
-    set({ mainDisplayMonitorKey })
-  },
-  setAltDisplayMonitorKey: (altDisplayMonitorKey) => {
-    set({ altDisplayMonitorKey })
-  },
-  setMainProjectorFullscreen: (mainProjectorFullscreen) => {
-    set({ mainProjectorFullscreen })
-  },
-  setAltProjectorFullscreen: (altProjectorFullscreen) => {
-    set({ altProjectorFullscreen })
   },
 }))
 
