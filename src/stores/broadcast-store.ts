@@ -45,7 +45,7 @@ type BroadcastUpdatePayload = {
   transition?: BroadcastTransition
 }
 
-interface BroadcastState
+export interface BroadcastState
   extends OutputIssueSlice,
     DesignerSlice,
     MonitorSlice,
