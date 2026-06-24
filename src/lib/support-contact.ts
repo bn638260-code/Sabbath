@@ -17,16 +17,16 @@ export const RENEWAL_PLANS = [
   {
     id: "standard",
     name: "Standard",
-    price: "R199",
+    price: "R250",
     term: "per month",
-    emailLabel: "Standard monthly - R199/month",
+    emailLabel: "Standard monthly - R250/month",
   },
   {
     id: "annual",
     name: "Annual",
-    price: "R1,999",
+    price: "R2,500",
     term: "per year",
-    emailLabel: "Annual - R1,999/year",
+    emailLabel: "Annual - R2,500/year",
   },
 ] as const satisfies readonly RenewalPlan[]
 
