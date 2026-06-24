@@ -12,6 +12,10 @@ import {
   selectLatestOutputIssue,
   type OutputIssueSlice,
 } from "@/stores/broadcast/output-issue-slice"
+import {
+  createDesignerSlice,
+  type DesignerSlice,
+} from "@/stores/broadcast/designer-slice"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
 import {
   buildVideoCommand,
@@ -28,7 +32,6 @@ import {
 import { getPresentationRenderData } from "@/types"
 import { useQueueStore } from "@/stores/queue-store"
 
-type SelectedElement = "verse" | "reference" | null
 type BroadcastSyncOptions = { transitionType?: BroadcastTransitionType }
 type BroadcastUpdatePayload = {
   theme: BroadcastTheme
@@ -37,7 +40,7 @@ type BroadcastUpdatePayload = {
   transition?: BroadcastTransition
 }
 
-interface BroadcastState extends OutputIssueSlice {
+interface BroadcastState extends OutputIssueSlice, DesignerSlice {
   themes: BroadcastTheme[]
   activeThemeId: string
   altActiveThemeId: string
@@ -61,13 +64,6 @@ interface BroadcastState extends OutputIssueSlice {
   altDisplayMonitorKey: string
   mainProjectorFullscreen: boolean
   altProjectorFullscreen: boolean
-
-  // Designer state
-  isDesignerOpen: boolean
-  editingThemeId: string | null
-  renamingThemeId: string | null
-  draftTheme: BroadcastTheme | null
-  selectedElement: SelectedElement
 
   // Theme management
   loadThemes: () => void
@@ -110,17 +106,6 @@ interface BroadcastState extends OutputIssueSlice {
   setAltDisplayMonitorKey: (key: string) => void
   setMainProjectorFullscreen: (fullscreen: boolean) => void
   setAltProjectorFullscreen: (fullscreen: boolean) => void
-
-  // Designer actions
-  setDesignerOpen: (open: boolean) => void
-  startEditing: (themeId: string) => void
-  stopEditing: () => void
-  updateDraft: (updates: Partial<BroadcastTheme>) => void
-  updateDraftNested: (path: string, value: unknown) => void
-  saveDraft: () => void
-  discardDraft: () => void
-  setSelectedElement: (el: SelectedElement) => void
-  setRenamingTheme: (id: string | null) => void
 }
 
 interface BroadcastHydrationPatchInput {
@@ -260,63 +245,6 @@ export function buildBroadcastHydrationPatch({
   return patch
 }
 
-function setNestedValue(
-  obj: Record<string, unknown>,
-  path: string,
-  value: unknown
-): Record<string, unknown> {
-  const keys = path.split(".")
-  const isIndex = (key: string) => /^\d+$/.test(key)
-  const result: Record<string, unknown> = Array.isArray(obj)
-    ? ([...obj] as unknown as Record<string, unknown>)
-    : { ...obj }
-
-  let current: Record<string, unknown> | unknown[] = result
-  for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i]
-    const nextKey = keys[i + 1]
-    const currentIndex = isIndex(key) ? Number(key) : key
-    const existing = (current as Record<string, unknown> | unknown[])[
-      currentIndex as keyof typeof current
-    ]
-    const nextContainer = Array.isArray(existing)
-      ? [...existing]
-      : existing && typeof existing === "object"
-        ? { ...(existing as Record<string, unknown>) }
-        : isIndex(nextKey)
-          ? []
-          : {}
-
-    ;(current as Record<string, unknown> | unknown[])[
-      currentIndex as keyof typeof current
-    ] = nextContainer as never
-    current = nextContainer as Record<string, unknown> | unknown[]
-  }
-
-  const lastKey = keys[keys.length - 1]
-  const lastIndex = isIndex(lastKey) ? Number(lastKey) : lastKey
-  ;(current as Record<string, unknown> | unknown[])[
-    lastIndex as keyof typeof current
-  ] = value as never
-
-  return result
-}
-
-function reportSyncFailure(
-  report: BroadcastState["reportOutputIssue"],
-  outputId: "main" | "alt",
-  label: string,
-  error: unknown
-): void {
-  console.warn(`[broadcast-store] emit draft to '${label}' failed`, error)
-  report({
-    outputId,
-    kind: "broadcast-sync",
-    title: "Broadcast sync failed",
-    description: `Could not sync draft to ${label}: ${String(error)}`,
-  })
-}
-
 function reportLoadFailureOnce(
   id: string,
   input: Parameters<BroadcastState["reportOutputIssue"]>[0]
@@ -342,51 +270,9 @@ function clearLoadFailureReport(id: string): void {
   }
 }
 
-function emitDraftToBroadcast(state: BroadcastState): void {
-  if (!state.draftTheme) return
-  const id = state.editingThemeId
-  const report = state.reportOutputIssue
-  if (id === state.activeThemeId) {
-    void emitTo("broadcast", "broadcast:verse-update", {
-      theme: state.draftTheme,
-      item: state.isLive ? state.liveItem : null,
-      opacity: state.opacity,
-    }).catch((error) => reportSyncFailure(report, "main", "broadcast", error))
-  }
-  if (id === state.altActiveThemeId) {
-    void emitTo("broadcast-alt", "broadcast:verse-update", {
-      theme: state.draftTheme,
-      item: state.isLive ? state.liveItem : null,
-      opacity: state.opacity,
-    }).catch((error) =>
-      reportSyncFailure(report, "alt", "broadcast-alt", error)
-    )
-  }
-}
-
-let draftBroadcastFrame: number | null = null
-
-function scheduleDraftBroadcast(getState: () => BroadcastState): void {
-  if (draftBroadcastFrame !== null) return
-
-  const flush = () => {
-    draftBroadcastFrame = null
-    emitDraftToBroadcast(getState())
-  }
-
-  if (
-    typeof window === "undefined" ||
-    typeof window.requestAnimationFrame !== "function"
-  ) {
-    flush()
-    return
-  }
-
-  draftBroadcastFrame = window.requestAnimationFrame(flush)
-}
-
 export const useBroadcastStore = create<BroadcastState>()((set, get, store) => ({
   ...createOutputIssueSlice(set, get, store),
+  ...createDesignerSlice(set, get, store),
   themes: [...BUILTIN_THEMES],
   activeThemeId: BUILTIN_THEMES[0].id,
   altActiveThemeId: BUILTIN_THEMES[0].id,
@@ -408,11 +294,6 @@ export const useBroadcastStore = create<BroadcastState>()((set, get, store) => (
   altDisplayMonitorKey: "",
   mainProjectorFullscreen: false,
   altProjectorFullscreen: false,
-  isDesignerOpen: false,
-  editingThemeId: null,
-  renamingThemeId: null,
-  draftTheme: null,
-  selectedElement: null,
 
   loadThemes: () => {
     set({ themes: [...BUILTIN_THEMES] })
@@ -686,86 +567,6 @@ export const useBroadcastStore = create<BroadcastState>()((set, get, store) => (
   setAltProjectorFullscreen: (altProjectorFullscreen) => {
     set({ altProjectorFullscreen })
   },
-
-  // Designer
-  setDesignerOpen: (isDesignerOpen) => {
-    if (!isDesignerOpen) {
-      set({
-        isDesignerOpen,
-        editingThemeId: null,
-        draftTheme: null,
-        selectedElement: null,
-      })
-    } else {
-      set({ isDesignerOpen })
-    }
-  },
-  startEditing: (themeId) => {
-    const theme = get().themes.find((t) => t.id === themeId)
-    if (!theme) return
-    set({
-      editingThemeId: themeId,
-      draftTheme: { ...theme, updatedAt: Date.now() },
-      selectedElement: null,
-    })
-  },
-  stopEditing: () => {
-    set({
-      editingThemeId: null,
-      draftTheme: null,
-      selectedElement: null,
-    })
-  },
-  updateDraft: (updates) => {
-    set((s) => ({
-      draftTheme: s.draftTheme
-        ? { ...s.draftTheme, ...updates, updatedAt: Date.now() }
-        : null,
-    }))
-    scheduleDraftBroadcast(get)
-  },
-  updateDraftNested: (path, value) => {
-    set((s) => ({
-      draftTheme: s.draftTheme
-        ? (setNestedValue(
-            s.draftTheme as unknown as Record<string, unknown>,
-            path,
-            value
-          ) as unknown as BroadcastTheme)
-        : null,
-    }))
-    scheduleDraftBroadcast(get)
-  },
-  saveDraft: () => {
-    const { draftTheme } = get()
-    if (!draftTheme) return
-    // If editing a builtin, save as a new custom theme
-    if (draftTheme.builtin) {
-      const customTheme = {
-        ...draftTheme,
-        id: crypto.randomUUID(),
-        name: `${draftTheme.name} (Custom)`,
-        builtin: false,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
-      set((s) => ({
-        themes: [...s.themes, customTheme],
-        editingThemeId: customTheme.id,
-        draftTheme: customTheme,
-      }))
-    } else {
-      get().saveTheme(draftTheme)
-    }
-  },
-  discardDraft: () => {
-    const { editingThemeId } = get()
-    if (editingThemeId) {
-      get().startEditing(editingThemeId)
-    }
-  },
-  setSelectedElement: (selectedElement) => set({ selectedElement }),
-  setRenamingTheme: (id) => set({ renamingThemeId: id }),
 }))
 
 // ── Theme persistence via tauri-plugin-store ──
