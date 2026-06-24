@@ -4,6 +4,13 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { useLibraryStore } from "@/stores/library-store"
 import { SongEditor } from "./SongEditor"
 
+vi.mock("@/lib/library/library-persistence", () => ({
+  loadLibrarySnapshot: vi
+    .fn()
+    .mockResolvedValue({ assets: [], collections: [] }),
+  saveLibrarySnapshot: vi.fn().mockResolvedValue(undefined),
+}))
+
 describe("SongEditor", () => {
   beforeEach(() => {
     useLibraryStore.setState({ assets: [], collections: [] })
