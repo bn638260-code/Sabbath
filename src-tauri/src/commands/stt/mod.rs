@@ -4,6 +4,7 @@
 )]
 
 mod detection;
+mod detection_logic;
 mod provider;
 mod utils;
 mod voice;

@@ -7,8 +7,19 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Notify;
 
 use crate::state::AppState;
-use rhema_detection::{DetectionMerger, DirectDetector, MergedDetection, ReadingMode, VerseRef};
+use rhema_detection::{DetectionMerger, DirectDetector, ReadingMode};
 
+// Re-export the helpers that were previously `pub(crate)` in this module so
+// other modules (and the test module) keep importing them from here.
+pub(crate) use super::detection_logic::{
+    clamp_to_recent_words, strip_reference_scaffolding, transcript_defers_to_direct,
+    DirectReadingCandidate,
+};
+use super::detection_logic::{
+    choose_reading_candidate, direct_reading_candidates,
+    filter_direct_results_to_scope_if_present, filter_semantic_results_to_reading_scope,
+    should_restart_reading,
+};
 use super::utils::{transcript_logging_enabled, truncate_safe};
 
 /// Check whether the operator has paused detection suggestions.
@@ -34,152 +45,12 @@ const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
 /// keyword matches never reach the UI or the IPC channel.
 const LIVE_SEMANTIC_MIN_CONFIDENCE: f64 = 0.70;
 
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct DirectReadingCandidate {
-    verse_ref: VerseRef,
-    confidence: f64,
-    is_chapter_only: bool,
-}
-
 /// Maximum trailing words of the rolling transcript window fed to live
 /// semantic + FTS5 detection.
 pub(crate) const LIVE_DETECTION_WINDOW_WORDS: usize = 12;
 
 /// Clear the rolling detection window after this much silence between finals.
 pub(crate) const WINDOW_RESET_GAP: Duration = Duration::from_secs(8);
-
-fn is_direct_reading_handoff(detection: &rhema_detection::Detection) -> bool {
-    detection.confidence >= 0.90 || detection.is_chapter_only
-}
-
-fn direct_reading_candidates(merged: &[MergedDetection]) -> Vec<DirectReadingCandidate> {
-    merged
-        .iter()
-        .filter(|merged| is_direct_reading_handoff(&merged.detection))
-        .map(|merged| DirectReadingCandidate {
-            verse_ref: merged.detection.verse_ref.clone(),
-            confidence: merged.detection.confidence,
-            is_chapter_only: merged.detection.is_chapter_only,
-        })
-        .collect()
-}
-
-fn choose_reading_candidate(
-    candidates: &[DirectReadingCandidate],
-    active_scope: Option<(i32, i32)>,
-) -> Option<DirectReadingCandidate> {
-    if let Some((book_number, chapter)) = active_scope {
-        if let Some(candidate) = candidates.iter().find(|candidate| {
-            candidate.verse_ref.book_number == book_number && candidate.verse_ref.chapter == chapter
-        }) {
-            return Some(candidate.clone());
-        }
-
-        if let Some(candidate) = candidates
-            .iter()
-            .find(|candidate| candidate.verse_ref.book_number == book_number)
-        {
-            return Some(candidate.clone());
-        }
-    }
-
-    candidates.first().cloned()
-}
-
-/// Decide whether a fresh direct detection should (re)start reading mode.
-///
-/// Same book+chapter normally means "already tracking this" — but a specific
-/// verse reference (not a bare chapter default) that names a different verse
-/// than the current position re-anchors reading mode to it. Without this, a
-/// chapter-only hit ("Malachi 3" → 3:1) pins the cursor at verse 1 even after
-/// the speaker announces "verses 16-18", and stray word-overlap can then
-/// false-advance to a nearby low verse. Chapter-only hits never re-anchor, so
-/// this cannot thrash the cursor back to verse 1.
-fn should_restart_reading(
-    active: bool,
-    current_book: i32,
-    current_chapter: i32,
-    current_verse: Option<i32>,
-    candidate: &DirectReadingCandidate,
-) -> bool {
-    let recent = &candidate.verse_ref;
-
-    if !active {
-        // Not active (fresh or paused) — any explicit reference (re)starts.
-        return true;
-    }
-
-    if current_book == recent.book_number && current_chapter == recent.chapter {
-        // Re-anchor only to a specific verse that differs from where we are.
-        return !candidate.is_chapter_only && current_verse != Some(recent.verse_start);
-    }
-
-    if current_book != recent.book_number {
-        // Different book — only an explicit, high-confidence reference restarts.
-        return candidate.confidence >= 0.90 || candidate.is_chapter_only;
-    }
-
-    // Same book, different chapter — natural progression.
-    true
-}
-
-/// Return the last `max_words` whitespace-delimited words of `text`, re-joined
-/// with single spaces.
-pub(crate) fn clamp_to_recent_words(text: &str, max_words: usize) -> String {
-    let words: Vec<&str> = text.split_whitespace().collect();
-    let start = words.len().saturating_sub(max_words);
-    words[start..].join(" ")
-}
-
-/// Strip reference-navigation scaffolding ("chapter", "verse", "it says", and
-/// bare numbers) from a transcript window before it is used to build FTS5 /
-/// vector search queries.
-///
-/// When a preacher reads a reference aloud ("chapter 7 verse 9 it says ...")
-/// those framing words otherwise dominate BM25 matching and pollute the
-/// embedding, surfacing irrelevant verses. The spoken reference itself is
-/// already owned by the direct path, so only the surrounding verse content
-/// should drive paraphrase search. Original casing of kept tokens is preserved;
-/// the displayed transcript is unaffected.
-pub(crate) fn strip_reference_scaffolding(text: &str) -> String {
-    let tokens: Vec<&str> = text.split_whitespace().collect();
-    let cores: Vec<String> = tokens
-        .iter()
-        .map(|t| {
-            t.trim_matches(|c: char| !c.is_alphanumeric())
-                .to_lowercase()
-        })
-        .collect();
-    let mut out: Vec<&str> = Vec::new();
-    for (i, token) in tokens.iter().enumerate() {
-        let core = cores[i].as_str();
-        if core.is_empty() {
-            continue;
-        }
-        let digits: String = core.chars().filter(|c| !matches!(c, ',' | '.')).collect();
-        let is_number = !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit());
-        let prev = i.checked_sub(1).map(|p| cores[p].as_str());
-        let next = cores.get(i + 1).map(String::as_str);
-        let is_scaffold = matches!(core, "chapter" | "chapters" | "verse" | "verses")
-            || (core == "it" && next == Some("says"))
-            || (core == "says" && prev == Some("it"));
-        if !is_number && !is_scaffold {
-            out.push(token);
-        }
-    }
-    out.join(" ")
-}
-
-/// True when the transcript window is an explicit scripture reference or a
-/// voice/reading command that the direct + command paths already handle.
-///
-/// Live semantic (fuzzy) search defers to those paths for such utterances, so
-/// the detections panel reflects what was actually spoken instead of keyword
-/// noise from BM25 matching on reference words like "chapter"/"verse".
-pub(crate) fn transcript_defers_to_direct(text: &str) -> bool {
-    crate::commands::transcript_router::looks_like_complete_reference(text)
-        || rhema_detection::is_voice_command_utterance(text)
-}
 
 /// Take the latest pending semantic job from a shared slot, recovering from
 /// poisoned locks so the worker doesn't die permanently.
@@ -466,23 +337,6 @@ fn active_reading_bible_scope(app: &AppHandle) -> Option<(i32, i32, String)> {
     ))
 }
 
-fn filter_semantic_results_to_reading_scope(
-    results: Vec<crate::commands::detection::DetectionResult>,
-    scope: Option<(i32, i32)>,
-) -> Vec<crate::commands::detection::DetectionResult> {
-    let Some((book_number, chapter)) = scope else {
-        return results;
-    };
-
-    results
-        .into_iter()
-        .filter(|result| {
-            result.content_type != "bible"
-                || (result.book_number == book_number && result.chapter == chapter)
-        })
-        .collect()
-}
-
 fn filter_live_semantic_results_to_reading_scope(
     app: &AppHandle,
     results: Vec<crate::commands::detection::DetectionResult>,
@@ -501,32 +355,6 @@ fn filter_live_semantic_results_to_reading_scope(
     }
 
     results
-}
-
-fn filter_direct_results_to_scope_if_present(
-    results: Vec<crate::commands::detection::DetectionResult>,
-    scope: Option<(i32, i32)>,
-) -> Vec<crate::commands::detection::DetectionResult> {
-    let Some((book_number, chapter)) = scope else {
-        return results;
-    };
-
-    let has_active_match = results.iter().any(|result| {
-        result.content_type == "bible"
-            && result.book_number == book_number
-            && result.chapter == chapter
-    });
-    if !has_active_match {
-        return results;
-    }
-
-    results
-        .into_iter()
-        .filter(|result| {
-            result.content_type != "bible"
-                || (result.book_number == book_number && result.chapter == chapter)
-        })
-        .collect()
 }
 
 fn filter_live_direct_results_to_reading_scope(
