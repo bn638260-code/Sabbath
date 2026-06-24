@@ -32,7 +32,7 @@ export function BroadcastSettings({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { status: assetStatus, loading: assetsLoading, refresh: refreshAssets } = useAssets()
+  const { status: assetStatus } = useAssets()
   const ndiSdkInstalled = Boolean(assetStatus?.ndi_sdk)
 
   const [monitors, setMonitors] = useState<MonitorInfo[]>([])
@@ -165,8 +165,6 @@ export function BroadcastSettings({
             monitorsRefreshing={refreshing}
             onRefreshMonitors={() => void fetchMonitors()}
             ndiSdkInstalled={ndiSdkInstalled}
-            assetsLoading={assetsLoading}
-            onRefreshAssets={() => void refreshAssets()}
           />
           <BroadcastOutputCard
             title="Alternate Output"
@@ -176,8 +174,6 @@ export function BroadcastSettings({
             monitorsRefreshing={refreshing}
             onRefreshMonitors={() => void fetchMonitors()}
             ndiSdkInstalled={ndiSdkInstalled}
-            assetsLoading={assetsLoading}
-            onRefreshAssets={() => void refreshAssets()}
           />
         </div>
       </DialogContent>

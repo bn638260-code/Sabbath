@@ -89,7 +89,7 @@ export function HelpSection() {
             <div>
               <p className="text-sm font-medium">Contact developer</p>
               <p className="text-xs text-muted-foreground">
-                Renew access or send a support request
+                Renew access, request cancellation, or send a support request
               </p>
             </div>
           </div>

@@ -271,6 +271,35 @@ mod tests {
     }
 
     #[test]
+    fn active_provider_transcripts_keep_pipeline_direct_accuracy() {
+        let cases = [
+            ("vosk", "john chapter three verse sixteen"),
+            ("deepgram", "John 3:16"),
+            ("gladia", "John three sixteen"),
+        ];
+
+        for (provider, transcript) in cases {
+            let mut pipeline = DetectionPipeline::new();
+            let results = pipeline.process_direct(transcript);
+            assert_eq!(results.len(), 1, "{provider} direct transcript");
+            assert_eq!(results[0].detection.verse_ref.book_name, "John", "{provider}");
+            assert_eq!(results[0].detection.verse_ref.chapter, 3, "{provider}");
+            assert_eq!(
+                results[0].detection.verse_ref.verse_start,
+                16,
+                "{provider}"
+            );
+            assert!(
+                matches!(
+                    results[0].detection.source,
+                    DetectionSource::DirectReference
+                ),
+                "{provider} transcript should stay direct"
+            );
+        }
+    }
+
+    #[test]
     fn test_pipeline_no_match() {
         let mut pipeline = DetectionPipeline::new();
         let results = pipeline.process("The weather is nice today");
@@ -325,6 +354,53 @@ mod tests {
         assert!(results
             .iter()
             .all(|r| matches!(r.detection.source, DetectionSource::Semantic { .. })));
+    }
+
+    #[test]
+    fn active_provider_transcripts_keep_pipeline_semantic_accuracy() {
+        let cases = [
+            ("vosk", "for god so loved the world and gave his son"),
+            (
+                "deepgram",
+                "God loved the world enough to give his only Son.",
+            ),
+            (
+                "gladia",
+                "God loved the world so much that he gave his only son",
+            ),
+        ];
+
+        for (provider, transcript) in cases {
+            let mut pipeline = DetectionPipeline::new();
+            let mut semantic = SemanticDetector::new(
+                Box::new(StubEmbedder::new(128)),
+                Box::new(FakeIndex {
+                    results: vec![SearchResult {
+                        verse_id: 43_003_016,
+                        similarity: 0.88,
+                    }],
+                }),
+            );
+            semantic.set_use_synonyms(false);
+            pipeline.set_semantic(semantic);
+
+            let results = pipeline.process_semantic(transcript);
+
+            assert_eq!(results.len(), 1, "{provider} semantic transcript");
+            assert_eq!(
+                results[0].detection.verse_id,
+                Some(43_003_016),
+                "{provider}"
+            );
+            assert!(
+                matches!(
+                    results[0].detection.source,
+                    DetectionSource::Semantic { .. }
+                ),
+                "{provider} transcript should stay semantic"
+            );
+            assert!(results[0].detection.confidence >= 0.88, "{provider}");
+        }
     }
 
     #[test]

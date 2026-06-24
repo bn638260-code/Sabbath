@@ -21,8 +21,8 @@ export function BroadcastSection() {
               Broadcast outputs
             </p>
             <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-              Manage projector targets, fullscreen output, NDI routing, and the
-              active themes used on your audience displays.
+              Manage HDMI projector targets, fullscreen output, and the active
+              themes used on your audience displays. NDI is coming soon.
             </p>
           </div>
           <Button

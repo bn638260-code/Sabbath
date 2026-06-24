@@ -76,4 +76,30 @@ describe("support-contact", () => {
     expect(options.body).toContain("Payment/reference:\nChurch name:")
     expect(url).toContain("subject=SabbathCue+Annual+renewal")
   })
+
+  it("builds a cancellation request with the access disclaimer", async () => {
+    const { buildCancellationEmailOptions, buildSupportEmailUrl } =
+      await import("@/lib/support-contact")
+
+    const options = buildCancellationEmailOptions({
+      accountEmail: "media@example.com",
+    })
+    const url = buildSupportEmailUrl(options)
+
+    expect(options.subject).toBe("SabbathCue cancellation request")
+    expect(options.body).toContain(
+      "Please cancel my SabbathCue subscription/renewal."
+    )
+    expect(options.body).toContain("Account email: media@example.com")
+    expect(options.body).toContain(
+      "does not refund the current paid period"
+    )
+    expect(options.body).toContain(
+      "access remains active until the subscribed period ends"
+    )
+    expect(options.body).toContain(
+      "access will be disabled unless I renew"
+    )
+    expect(url).toContain("subject=SabbathCue+cancellation+request")
+  })
 })

@@ -159,4 +159,35 @@ describe("supabase account lib", () => {
     expect(result).toEqual({ ok: true })
     expect(mockRpc).toHaveBeenCalledWith("delete_own_account")
   })
+
+  it("requestAccountCancellation records a backend cancellation request", async () => {
+    mockRpc.mockResolvedValue({ data: { status: "requested" }, error: null })
+
+    const { requestAccountCancellation } = await import(
+      "@/lib/supabase/account"
+    )
+    const result = await requestAccountCancellation("user@example.com")
+
+    expect(result).toEqual({ ok: true })
+    expect(mockRpc).toHaveBeenCalledWith("request_account_cancellation", {
+      p_account_email: "user@example.com",
+    })
+  })
+
+  it("requestAccountCancellation surfaces RPC errors", async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "Not authenticated" },
+    })
+
+    const { requestAccountCancellation } = await import(
+      "@/lib/supabase/account"
+    )
+    const result = await requestAccountCancellation("user@example.com")
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Not authenticated",
+    })
+  })
 })

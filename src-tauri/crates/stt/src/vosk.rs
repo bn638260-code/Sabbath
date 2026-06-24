@@ -251,7 +251,7 @@ mod tests {
         let json = vosk_grammar_json().expect("grammar JSON should be valid");
         let parsed: Vec<String> =
             serde_json::from_str(&json).expect("grammar JSON must parse as string array");
-        for cue in ["hymn", "song", "number", "sda"] {
+        for cue in ["hymn", "hymnal", "song", "number", "sda", "adventist"] {
             assert!(
                 parsed.iter().any(|p| p == cue),
                 "grammar must include hymn cue word '{cue}'"
@@ -325,13 +325,10 @@ mod tests {
     #[test]
     #[ignore = "requires Python, the vosk package, and a local model download"]
     fn local_worker_preflight_succeeds_when_model_is_installed() {
-        let model_path = project_root()
-            .join("models")
-            .join("vosk")
-            .join("vosk-model-small-en-us");
+        let model_path = installed_vosk_model_path();
         let worker_path = project_root().join("scripts").join("vosk_worker.py");
 
-        if !model_path.exists() || !worker_path.exists() {
+        if !model_has_required_files(&model_path) || !worker_path.exists() {
             eprintln!(
                 "Skipping local Vosk preflight: model={} worker={}",
                 model_path.display(),
@@ -350,6 +347,29 @@ mod tests {
             .join("..")
             .join("..")
             .join("..")
+    }
+
+    fn model_has_required_files(model_path: &Path) -> bool {
+        model_path.join("am").join("final.mdl").exists()
+            && model_path.join("conf").join("model.conf").exists()
+            && model_path.join("graph").join("HCLr.fst").exists()
+            && model_path.join("graph").join("Gr.fst").exists()
+    }
+
+    fn installed_vosk_model_path() -> PathBuf {
+        let model_root = project_root()
+            .join("models")
+            .join("vosk")
+            .join("vosk-model-en-us-0.22-lgraph");
+        let nested_model_root = model_root.join("vosk-model-en-us-0.22-lgraph");
+
+        if model_has_required_files(&model_root) {
+            model_root
+        } else if model_has_required_files(&nested_model_root) {
+            nested_model_root
+        } else {
+            model_root
+        }
     }
 
     #[test]
@@ -414,13 +434,10 @@ mod tests {
     /// Skips (with a note) when local assets are missing, e.g. on CI.
     #[test]
     fn bundled_worker_preflight_reports_ready() {
-        let model_path = project_root()
-            .join("models")
-            .join("vosk")
-            .join("vosk-model-small-en-us");
+        let model_path = installed_vosk_model_path();
         let worker_path = project_root().join("sidecars").join("vosk_worker.exe");
 
-        if !model_path.exists() || !worker_path.exists() {
+        if !model_has_required_files(&model_path) || !worker_path.exists() {
             eprintln!(
                 "Skipping bundled Vosk preflight: model={} worker={}",
                 model_path.display(),

@@ -32,6 +32,13 @@ $ArchivePath = Join-Path $ModelsRoot $SelectedModel["Archive"]
 $ExtractedDir = Join-Path $ExtractRoot $SelectedModel["ExtractedDirectory"]
 $ModelUrl = $SelectedModel["Url"]
 $ExpectedSha256 = $SelectedModel["ExpectedSha256"]
+$KnownModelDirectories = @(
+  $SelectedModel["Directory"],
+  $SelectedModel["ExtractedDirectory"],
+  "vosk-model-en-us-0.22-lgraph",
+  "vosk-model-small-en-us-0.15",
+  "vosk-model-small-en-us"
+) | Select-Object -Unique
 
 function Test-VoskModelDir {
   param([string]$Path)
@@ -42,6 +49,26 @@ function Test-VoskModelDir {
     (Test-Path (Join-Path $Path "graph\HCLr.fst")) -and
     (Test-Path (Join-Path $Path "graph\Gr.fst"))
   )
+}
+
+function Resolve-VoskModelDir {
+  param(
+    [string]$Path,
+    [string[]]$KnownDirectories
+  )
+
+  if (Test-VoskModelDir $Path) {
+    return $Path
+  }
+
+  foreach ($DirectoryName in $KnownDirectories) {
+    $NestedPath = Join-Path $Path $DirectoryName
+    if (Test-VoskModelDir $NestedPath) {
+      return $NestedPath
+    }
+  }
+
+  return $null
 }
 
 function Get-Sha256Hex {
@@ -60,8 +87,9 @@ function Get-Sha256Hex {
   }
 }
 
-if ((-not $Force) -and (Test-VoskModelDir $ModelDir)) {
-  Write-Host "Vosk model already exists: $ModelDir"
+$ReadyModelDir = Resolve-VoskModelDir -Path $ModelDir -KnownDirectories $KnownModelDirectories
+if ((-not $Force) -and $ReadyModelDir) {
+  Write-Host "Vosk model already exists: $ReadyModelDir"
   exit 0
 }
 
@@ -102,12 +130,19 @@ if ($ExpectedSha256) {
 Remove-Item -LiteralPath $ExtractRoot -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive -LiteralPath $ArchivePath -DestinationPath $ExtractRoot -Force
 
-if (-not (Test-VoskModelDir $ExtractedDir)) {
+$ResolvedExtractedDir = Resolve-VoskModelDir -Path $ExtractedDir -KnownDirectories $KnownModelDirectories
+if (-not $ResolvedExtractedDir) {
   throw "Extracted Vosk model is missing required files: $ExtractedDir"
 }
 
 Remove-Item -LiteralPath $ModelDir -Recurse -Force -ErrorAction SilentlyContinue
-Move-Item -LiteralPath $ExtractedDir -Destination $ModelDir
+New-Item -ItemType Directory -Force -Path $ModelDir | Out-Null
+Get-ChildItem -LiteralPath $ResolvedExtractedDir -Force |
+  Move-Item -Destination $ModelDir
 Remove-Item -LiteralPath $ExtractRoot -Recurse -Force -ErrorAction SilentlyContinue
+
+if (-not (Test-VoskModelDir $ModelDir)) {
+  throw "Prepared Vosk model is missing required files: $ModelDir"
+}
 
 Write-Host "Vosk model ready: $ModelDir"

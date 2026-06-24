@@ -2,7 +2,6 @@
 import { act } from "react"
 import { renderHook, waitFor, type RenderHookResult } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { NdiSessionInfo } from "@/types"
 import type { BroadcastOutputCommandState } from "./use-broadcast-output-settings"
 
 const mockInvoke = vi.fn()
@@ -78,8 +77,6 @@ function baseDeps() {
     onError: vi.fn(),
     onIssue: vi.fn(),
     clearOutputIssueFor: vi.fn(),
-    onNdiSdkMissing: vi.fn(),
-    emitPostStartNdiConfig: vi.fn(),
   }
 }
 
@@ -225,73 +222,16 @@ describe("use-broadcast-output-settings commands", () => {
   })
 
   describe("runToggleBroadcastNdi", () => {
-    it("starts NDI after ensuring the broadcast window", async () => {
-      const session: NdiSessionInfo = {
-        sourceName: "SabbathCue Output",
-        resolution: "r1080p",
-        frameRate: "fps24",
-        alphaMode: "straightAlpha",
-        width: 1920,
-        height: 1080,
-        fps: 24,
-      }
-      mockInvoke.mockResolvedValue(session)
-
+    it("blocks inactive NDI starts as coming soon", async () => {
       const { runToggleBroadcastNdi } = await loadCommandModule()
       const deps = baseDeps()
 
       await runToggleBroadcastNdi(baseState(), deps)
 
-      expect(mockInvoke.mock.calls.map((call) => call[0])).toEqual([
-        "ensure_broadcast_window",
-        "start_ndi",
-      ])
-      expect(mockInvoke).toHaveBeenCalledWith("ensure_broadcast_window", {
-        outputId: "main",
-      })
-      expect(mockInvoke).toHaveBeenCalledWith("start_ndi", {
-        outputId: "main",
-        request: {
-          sourceName: "SabbathCue Output",
-          resolution: "r1080p",
-          frameRate: "fps24",
-          alphaMode: "straightAlpha",
-        },
-      })
-      expect(deps.onNdiActiveChange).toHaveBeenCalledWith(true)
-      expect(mockEmitTo).toHaveBeenCalledWith("broadcast", "broadcast:ndi-config", {
-        active: true,
-        fps: 24,
-        width: 1920,
-        height: 1080,
-      })
-    })
-
-    it("reports post-start NDI config emit failures", async () => {
-      const session: NdiSessionInfo = {
-        sourceName: "SabbathCue Output",
-        resolution: "r1080p",
-        frameRate: "fps24",
-        alphaMode: "straightAlpha",
-        width: 1920,
-        height: 1080,
-        fps: 24,
-      }
-      mockInvoke.mockResolvedValue(session)
-      mockEmitTo.mockRejectedValueOnce(new Error("webview missing"))
-
-      const { runToggleBroadcastNdi } = await loadCommandModule()
-      const deps = baseDeps()
-
-      await runToggleBroadcastNdi(baseState(), deps)
-      await Promise.resolve()
-
-      expect(deps.onIssue).toHaveBeenCalledWith(
-        expect.objectContaining({
-          outputId: "main",
-          kind: "ndi-config",
-          title: "NDI config sync failed",
-        }),
+      expect(mockInvoke).not.toHaveBeenCalled()
+      expect(deps.onError).toHaveBeenCalledWith(
+        "NDI output is coming soon.",
+        "Use External Display over HDMI while NDI is being verified.",
       )
     })
 
@@ -311,14 +251,17 @@ describe("use-broadcast-output-settings commands", () => {
       expect(deps.onNdiActiveChange).toHaveBeenCalledWith(false)
     })
 
-    it("does not invoke NDI commands when the SDK is missing", async () => {
+    it("blocks inactive NDI starts even when the SDK is missing", async () => {
       const { runToggleBroadcastNdi } = await loadCommandModule()
       const deps = baseDeps()
 
       await runToggleBroadcastNdi(baseState({ ndiSdkInstalled: false }), deps)
 
       expect(mockInvoke).not.toHaveBeenCalled()
-      expect(deps.onNdiSdkMissing).toHaveBeenCalled()
+      expect(deps.onError).toHaveBeenCalledWith(
+        "NDI output is coming soon.",
+        "Use External Display over HDMI while NDI is being verified.",
+      )
     })
   })
 
@@ -514,21 +457,9 @@ describe("use-broadcast-output-settings commands", () => {
       vi.useRealTimers()
     }, 10_000)
 
-    it("ignores duplicate NDI toggle calls while the first command is pending", async () => {
-      let startCalls = 0
+    it("does not start NDI from the hook toggle while inactive", async () => {
       mockInvoke.mockImplementation(async (command: string) => {
-        if (command === "start_ndi") {
-          startCalls += 1
-          return {
-            sourceName: "SabbathCue Output",
-            resolution: "r1080p",
-            frameRate: "fps24",
-            alphaMode: "straightAlpha",
-            width: 1920,
-            height: 1080,
-            fps: 24,
-          }
-        }
+        if (command === "get_ndi_status") return null
         return undefined
       })
       mockGetAllWindows.mockResolvedValue([])
@@ -541,7 +472,11 @@ describe("use-broadcast-output-settings commands", () => {
         await Promise.all([toggle?.(), toggle?.()])
       })
 
-      expect(startCalls).toBe(1)
+      expect(mockInvoke.mock.calls.filter((call) => call[0] === "start_ndi")).toHaveLength(0)
+      expect(mockToastError).toHaveBeenCalledWith(
+        "NDI output is coming soon.",
+        { description: "Use External Display over HDMI while NDI is being verified." },
+      )
       cleanup()
     })
 
@@ -653,10 +588,8 @@ describe("use-broadcast-output-settings commands", () => {
       cleanup()
     })
 
-    it("keeps the master toggle pending while joining an in-flight NDI toggle", async () => {
-      const startNdi = createDeferred<NdiSessionInfo>()
+    it("does not enable an inactive NDI output from the master toggle", async () => {
       mockInvoke.mockImplementation(async (command: string) => {
-        if (command === "start_ndi") return startNdi.promise
         if (command === "get_ndi_status") return null
         return undefined
       })
@@ -672,43 +605,21 @@ describe("use-broadcast-output-settings commands", () => {
       expect(toggleNdi).toBeDefined()
       expect(toggleEnabled).toBeDefined()
 
-      let ndiToggle: Promise<unknown> | undefined
-      await act(async () => {
-        ndiToggle = toggleNdi?.()
-        await Promise.resolve()
-        await Promise.resolve()
-      })
-
       let enabledToggle: Promise<unknown> | undefined
       await act(async () => {
         enabledToggle = toggleEnabled?.(true)
         await Promise.resolve()
       })
 
-      expect(result.current?.ndiPending).toBe(true)
-      expect(result.current?.enabledPending).toBe(true)
-      expect(mockInvoke.mock.calls.filter((call) => call[0] === "start_ndi")).toHaveLength(1)
-
-      let duplicateEnabledToggle: Promise<unknown> | undefined
       await act(async () => {
-        duplicateEnabledToggle = result.current?.handleToggleEnabled(true)
-        await Promise.resolve()
-      })
-      expect(mockInvoke.mock.calls.filter((call) => call[0] === "start_ndi")).toHaveLength(1)
-
-      startNdi.resolve({
-        sourceName: "SabbathCue Output",
-        resolution: "r1080p",
-        frameRate: "fps24",
-        alphaMode: "straightAlpha",
-        width: 1920,
-        height: 1080,
-        fps: 24,
-      })
-      await act(async () => {
-        await Promise.all([ndiToggle, enabledToggle, duplicateEnabledToggle])
+        await enabledToggle
       })
 
+      expect(mockInvoke.mock.calls.filter((call) => call[0] === "start_ndi")).toHaveLength(0)
+      expect(mockToastError).toHaveBeenCalledWith(
+        "NDI output is coming soon.",
+        { description: "Use External Display over HDMI while NDI is being verified." },
+      )
       expect(result.current?.ndiPending).toBe(false)
       expect(result.current?.enabledPending).toBe(false)
       cleanup()

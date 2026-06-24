@@ -22,8 +22,13 @@ import type {
 const VALID_HYMN_NUMBERS: Set<number> = new Set(SDA_HYMNAL_INDEX.map((hymn) => hymn.number))
 const DEDUPE_WINDOW_MS = 5000
 
-const HYMN_CUE_PATTERN =
-  /\b(?:sda\s+(?:hymn|song)|(?:hymn|song))(?:\s+number)?\s+([a-z0-9][a-z0-9\s-]*)/i
+const HYMN_CUE_WORD_PATTERN = "(?:hymn|hymns|hymnal|hymnals|song|songs)"
+const HYMN_COLLECTION_PATTERN =
+  "(?:sda|adventist|seventh(?:\\s|-)?day\\s+adventist)"
+const HYMN_CUE_PATTERN = new RegExp(
+  `\\b(?:${HYMN_COLLECTION_PATTERN}\\s+${HYMN_CUE_WORD_PATTERN}|${HYMN_CUE_WORD_PATTERN})(?:\\s+number)?\\s+([a-z0-9][a-z0-9\\s-]*)`,
+  "i"
+)
 
 const ONES: Record<string, number> = {
   zero: 0,

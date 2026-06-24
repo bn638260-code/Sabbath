@@ -928,16 +928,22 @@ mod tests {
              INSERT INTO translations VALUES
                (1, 'KJV', 'King James', 'en', 0, 1),
                (2, 'NKJV', 'New King James', 'en', 1, 1),
-               (3, 'NLT', 'New Living Translation', 'en', 1, 1);
+               (3, 'NLT', 'New Living Translation', 'en', 1, 1),
+               (4, 'SpaRV', 'Reina-Valera', 'es', 0, 1),
+               (5, 'FreJND', 'J.N. Darby French', 'fr', 0, 1);
              INSERT INTO books VALUES
                (1, 1, 43, 'John', 'Jn', 'NT'),
                (2, 2, 43, 'John', 'Jn', 'NT'),
-               (3, 3, 43, 'John', 'Jn', 'NT');
+               (3, 3, 43, 'John', 'Jn', 'NT'),
+               (4, 4, 43, 'Juan', 'Jn', 'NT'),
+               (5, 5, 43, 'Jean', 'Jn', 'NT');
              INSERT INTO verses VALUES
                (100, 1, 43, 'John', 'Jn', 3, 16, 'KJV John 3:16 text.'),
                (101, 1, 43, 'John', 'Jn', 3, 17, 'KJV John 3:17 text.'),
                (200, 2, 43, 'John', 'Jn', 3, 16, 'NKJV John 3:16 text.'),
-               (300, 3, 43, 'John', 'Jn', 3, 16, 'NLT John 3:16 text.');
+               (300, 3, 43, 'John', 'Jn', 3, 16, 'NLT John 3:16 text.'),
+               (400, 4, 43, 'Juan', 'Jn', 3, 16, 'SpaRV Juan 3:16 text.'),
+               (500, 5, 43, 'Jean', 'Jn', 3, 16, 'FreJND Jean 3:16 text.');
              INSERT INTO egw_books (book_number, title, abbreviation, chapter_count) VALUES
                (1, 'Patriarchs and Prophets', 'PP', 2),
                (2, 'The Desire of Ages', 'DA', 1);
@@ -999,6 +1005,23 @@ mod tests {
     }
 
     #[test]
+    fn to_result_resolves_semantic_vector_id_to_spanish_and_french_active_translations() {
+        for (translation_id, expected_ref, expected_text) in [
+            (4, "Juan 3:16", "SpaRV Juan 3:16 text."),
+            (5, "Jean 3:16", "FreJND Jean 3:16 text."),
+        ] {
+            let fixture = fixture_state(translation_id);
+            let merged = semantic_merged_with_verse_id(100);
+
+            let result = to_result(&fixture.state, &merged);
+
+            assert_eq!(result.verse_ref, expected_ref);
+            assert_eq!(result.verse_text, expected_text);
+            assert_eq!(result.source, "semantic");
+        }
+    }
+
+    #[test]
     fn to_result_resolves_direct_reference_to_active_translation() {
         let fixture = fixture_state(2);
         let merged = direct_merged_with_reference(43, 3, 16);
@@ -1009,6 +1032,23 @@ mod tests {
         assert_eq!(result.verse_text, "NKJV John 3:16 text.");
         assert_eq!(result.source, "direct");
         assert!(result.auto_queued);
+    }
+
+    #[test]
+    fn to_result_resolves_direct_reference_to_spanish_and_french_active_translations() {
+        for (translation_id, expected_ref, expected_text) in [
+            (4, "Juan 3:16", "SpaRV Juan 3:16 text."),
+            (5, "Jean 3:16", "FreJND Jean 3:16 text."),
+        ] {
+            let fixture = fixture_state(translation_id);
+            let merged = direct_merged_with_reference(43, 3, 16);
+
+            let result = to_result(&fixture.state, &merged);
+
+            assert_eq!(result.verse_ref, expected_ref);
+            assert_eq!(result.verse_text, expected_text);
+            assert_eq!(result.source, "direct");
+        }
     }
 
     #[test]

@@ -130,9 +130,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            models/vosk/vosk-model-small-en-us
-            models/vosk/vosk-model-small-en-us-0.15.zip
-          key: vosk-model-small-en-us-0.15
+            models/vosk/vosk-model-en-us-0.22-lgraph
+            models/vosk/vosk-model-en-us-0.22-lgraph.zip
+          key: vosk-model-en-us-0.22-lgraph
 
       - name: Download Vosk model
         run: bun run download:vosk

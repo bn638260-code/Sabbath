@@ -80,9 +80,9 @@ describe("broadcast-output-settings", () => {
       })
     })
 
-    it("defaults alternate output to NDI", () => {
+    it("defaults alternate output to external display", () => {
       expect(getDefaultOutputSettings("alt")).toEqual({
-        outputType: "ndi",
+        outputType: "display",
         ndiSourceName: DEFAULT_NDI_ALT_SOURCE_NAME,
         ndiResolution: "r1080p",
         ndiFrameRate: "fps24",

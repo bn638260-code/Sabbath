@@ -426,6 +426,27 @@ describe("use-transcription", () => {
       expect(state.currentPartial).toBe("")
       expect(handleHymnVoiceControlMock).toHaveBeenCalledWith("hymn 12")
     })
+
+    it("invokes hymn voice control for Adventist hymnal cue variants", async () => {
+      const { handleTranscriptFinalPayload } = await loadModules()
+
+      for (const text of [
+        "SDA hymn 100",
+        "Adventist hymn 100",
+        "Seventh-day Adventist hymnal 100",
+      ]) {
+        handleHymnVoiceControlMock.mockClear()
+
+        await handleTranscriptFinalPayload({
+          text,
+          is_final: true,
+          confidence: 0.95,
+          words: [],
+        })
+
+        expect(handleHymnVoiceControlMock).toHaveBeenCalledWith(text)
+      }
+    })
   })
 
   describe("stt_error integration contract", () => {

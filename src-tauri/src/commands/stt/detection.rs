@@ -1389,6 +1389,8 @@ mod tests {
         assert!(defers("Romans 8 verse 5"));
         // Voice/reading commands.
         assert!(defers("Hymn number 46"));
+        assert!(defers("Adventist hymnal 100"));
+        assert!(defers("Seventh-day Adventist hymnal one hundred"));
         assert!(defers("I need the new living translation."));
         assert!(defers("King James Version"));
         assert!(defers("let's go to the next verse"));

@@ -8,7 +8,7 @@ use rhema_stt::{DeepgramClient, GladiaClient, SttConfig, SttProvider, VoskProvid
 
 pub(crate) fn missing_vosk_model_error(model_path: &Path) -> String {
     format!(
-        "Vosk model not found at {}. Reinstall the app, or place the small English Vosk model in <app data>\\models\\vosk\\{} (or set SABBATHCUE_VOSK_MODEL_DIR).",
+        "Vosk model not found at {}. Reinstall the app, or place the English Vosk model in <app data>\\models\\vosk\\{} (or set SABBATHCUE_VOSK_MODEL_DIR).",
         model_path.display(),
         asset_paths::VOSK_MODEL_DIRNAME
     )
@@ -156,6 +156,7 @@ mod tests {
         assert!(error.contains("C:\\app\\models\\vosk\\missing"));
         assert!(error.contains("SABBATHCUE_VOSK_MODEL_DIR"));
         assert!(error.contains(asset_paths::VOSK_MODEL_DIRNAME));
+        assert!(!error.contains("small English Vosk model"));
     }
 
     #[test]

@@ -39,6 +39,10 @@ export interface RenewalEmailOptions {
   accountEmail?: string | null
 }
 
+export interface CancellationEmailOptions {
+  accountEmail?: string | null
+}
+
 function optionsFromInput(
   input?: string | SupportEmailOptions
 ): SupportEmailOptions {
@@ -82,6 +86,30 @@ export function buildRenewalEmailOptions(
       `Account email: ${accountEmail}`,
       "Payment/reference:",
       "Church name:",
+      "",
+      "Thank you.",
+    ].join("\n"),
+  }
+}
+
+export function buildCancellationEmailOptions(
+  options: CancellationEmailOptions = {}
+): SupportEmailOptions {
+  const accountEmail = options.accountEmail?.trim() ?? ""
+
+  return {
+    subject: "SabbathCue cancellation request",
+    body: [
+      "Hi Fanele,",
+      "",
+      "Please cancel my SabbathCue subscription/renewal.",
+      "",
+      `Account email: ${accountEmail}`,
+      "Current plan:",
+      "Church name:",
+      "Requested cancellation date:",
+      "",
+      "I understand that cancellation does not refund the current paid period. My app access remains active until the subscribed period ends. After that period is over, SabbathCue access will be disabled unless I renew.",
       "",
       "Thank you.",
     ].join("\n"),

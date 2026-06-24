@@ -117,6 +117,36 @@ mod tests {
     }
 
     #[test]
+    fn active_provider_semantic_policy_matches_production_matrix() {
+        let providers = ["vosk", "deepgram", "gladia"];
+
+        for provider in providers {
+            assert!(
+                final_semantic_detection_allowed(provider, 0.90),
+                "{provider} high-confidence final should run semantic detection"
+            );
+            assert!(
+                !partial_semantic_detection_enabled_for_provider(Some(true), provider),
+                "{provider} partial semantic detection should respect low power mode"
+            );
+        }
+
+        assert!(partial_semantic_detection_enabled_for_provider(
+            None, "vosk"
+        ));
+        assert!(partial_semantic_detection_enabled_for_provider(
+            None, "deepgram"
+        ));
+        assert!(!partial_semantic_detection_enabled_for_provider(
+            None, "gladia"
+        ));
+
+        assert!(final_semantic_detection_allowed("vosk", 0.40));
+        assert!(final_semantic_detection_allowed("deepgram", 0.40));
+        assert!(!final_semantic_detection_allowed("gladia", 0.40));
+    }
+
+    #[test]
     fn gladia_low_confidence_finals_do_not_run_semantic_detection() {
         assert!(!final_semantic_detection_allowed("gladia", 0.40));
         assert!(final_semantic_detection_allowed("gladia", 0.50));

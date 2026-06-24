@@ -334,6 +334,27 @@ mod tests {
     }
 
     #[test]
+    fn active_provider_finals_route_hymn_commands_authoritatively() {
+        for provider in ["vosk", "deepgram", "gladia"] {
+            let mut router = TranscriptRouter::default();
+            let route = router.route(TranscriptRouteInput {
+                provider,
+                kind: TranscriptEventKind::Final,
+                transcript: "Seventh-day Adventist hymnal 100",
+                confidence: Some(0.95),
+            });
+
+            assert!(route.emit_transcript, "{provider}");
+            assert_eq!(
+                route.authoritative_detection.as_deref(),
+                Some("Seventh-day Adventist hymnal 100"),
+                "{provider}"
+            );
+            assert!(route.suppress_reason.is_none(), "{provider}");
+        }
+    }
+
+    #[test]
     fn deepgram_partial_complete_reference_can_detect_authoritatively() {
         let mut router = TranscriptRouter::default();
         let route = router.route(TranscriptRouteInput {

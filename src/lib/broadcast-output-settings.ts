@@ -13,6 +13,10 @@ import type {
 
 export type BroadcastOutputType = "display" | "ndi"
 
+export const NDI_COMING_SOON_MESSAGE = "NDI output is coming soon."
+export const NDI_COMING_SOON_DESCRIPTION =
+  "Use External Display over HDMI while NDI is being verified."
+
 export const NDI_RESOLUTION_OPTIONS: Array<{ value: NdiResolution; label: string }> = [
   { value: "r1080p", label: "1080p (1920×1080)" },
   { value: "r720p", label: "720p (1280×720)" },
@@ -101,7 +105,7 @@ export function buildNdiStartRequest(
 export function getDefaultOutputSettings(outputId: BroadcastOutputId): BroadcastOutputDefaults {
   if (outputId === "alt") {
     return {
-      outputType: "ndi",
+      outputType: "display",
       ndiSourceName: DEFAULT_NDI_ALT_SOURCE_NAME,
       ndiResolution: "r1080p",
       ndiFrameRate: "fps24",

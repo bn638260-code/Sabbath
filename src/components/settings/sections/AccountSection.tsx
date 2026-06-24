@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import {
+  BanIcon,
   CalendarPlusIcon,
   LogOutIcon,
   RefreshCwIcon,
@@ -16,8 +17,13 @@ import {
   adminSetSuspended,
   deleteOwnAccount,
   fetchIsAdmin,
+  requestAccountCancellation,
   type AdminAccountRow,
 } from "@/lib/supabase/account"
+import {
+  buildCancellationEmailOptions,
+  openSupportEmail,
+} from "@/lib/support-contact"
 import { useVerificationStore } from "@/stores/verification-store"
 import { AnnouncementsAdminPanel } from "@/components/settings/sections/AnnouncementsAdminPanel"
 
@@ -253,6 +259,8 @@ export function AccountSection() {
   const signOut = useVerificationStore((s) => s.signOut)
   const [isAdmin, setIsAdmin] = useState(false)
   const [checkingAdmin, setCheckingAdmin] = useState(true)
+  const [confirmingCancellation, setConfirmingCancellation] = useState(false)
+  const [requestingCancellation, setRequestingCancellation] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -281,6 +289,30 @@ export function AccountSection() {
     }
   }
 
+  async function handleRequestCancellation() {
+    setRequestingCancellation(true)
+    const result = await requestAccountCancellation(verifiedEmail)
+    try {
+      await openSupportEmail(
+        buildCancellationEmailOptions({ accountEmail: verifiedEmail })
+      )
+      toast.success(
+        result.ok
+          ? "Cancellation request saved. Email opened for your records."
+          : "Cancellation email opened. Backend request could not be saved."
+      )
+      setConfirmingCancellation(false)
+    } catch {
+      toast.error(
+        result.ok
+          ? "Cancellation request saved. Could not open your email app."
+          : "Could not save the request or open your email app. Contact support manually."
+      )
+    } finally {
+      setRequestingCancellation(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="glass-panel flex items-center justify-between p-4">
@@ -304,6 +336,55 @@ export function AccountSection() {
           <LogOutIcon className="mr-1.5 size-3.5" />
           Sign out
         </Button>
+      </div>
+
+      <div className="glass-panel space-y-3 p-4">
+        <div>
+          <p className="text-sm font-medium">Cancel subscription</p>
+          <p className="text-xs text-muted-foreground">
+            Request cancellation of renewal/access. The request is saved to
+            your account and does not delete your service history.
+          </p>
+        </div>
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] p-3 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">Cancellation disclaimer</p>
+          <p className="mt-1">
+            No refunds are issued for the current paid period. Your app access
+            remains active until the subscribed period ends; after that,
+            SabbathCue access is disabled unless renewed.
+          </p>
+        </div>
+        {confirmingCancellation ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={requestingCancellation}
+              onClick={() => void handleRequestCancellation()}
+            >
+              {requestingCancellation
+                ? "Opening email..."
+                : "Send cancellation request"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={requestingCancellation}
+              onClick={() => setConfirmingCancellation(false)}
+            >
+              Keep subscription
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmingCancellation(true)}
+          >
+            <BanIcon className="mr-1.5 size-3.5" />
+            Request cancellation
+          </Button>
+        )}
       </div>
 
       <div className="glass-panel space-y-3 p-4">

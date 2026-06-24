@@ -78,6 +78,13 @@ const sectionComponents: Record<SettingsSection, ComponentType> = {
   help: HelpSection,
 }
 
+const sectionDataTour: Partial<Record<SettingsSection, string>> = {
+  speech: "settings-section-speech",
+  broadcast: "settings-section-broadcast",
+  themes: "settings-section-themes",
+  account: "settings-section-account",
+}
+
 export function SettingsPage() {
   const activeSection = useSettingsNavigationStore((s) => s.activeSection)
   const setActiveSection = useSettingsNavigationStore((s) => s.setActiveSection)
@@ -133,13 +140,7 @@ export function SettingsPage() {
 
         <section
           id={`settings-section-${activeSection}`}
-          data-tour={
-            activeSection === "account"
-              ? "settings-section-account"
-              : activeSection === "speech"
-                ? "settings-section-speech"
-                : undefined
-          }
+          data-tour={sectionDataTour[activeSection]}
           className="glass-panel min-h-0 overflow-y-auto p-5 scrollbar-thin"
         >
           <h3 className="mb-4 border-b border-[var(--border-subtle)] pb-2 font-mono text-xs font-bold uppercase tracking-wider text-foreground">

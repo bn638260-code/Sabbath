@@ -48,7 +48,7 @@ const MISSING_DEEPGRAM_KEY_MARKER = "No Deepgram API key"
 const MISSING_GLADIA_KEY_MARKER = "No Gladia API key"
 const NOT_RUNNING_ERROR = "Transcription is not running"
 const MAYBE_HYMN_CUE_PATTERN =
-  /\b(?:sda\s+(?:hymn|song)|(?:hymn|song))(?:\s+number)?\s+[a-z0-9]/i
+  /\b(?:(?:sda|adventist|seventh(?:\s|-)?day\s+adventist)\s+(?:hymn|hymns|hymnal|hymnals|song|songs)|(?:hymn|hymns|hymnal|hymnals|song|songs))(?:\s+number)?\s+[a-z0-9]/i
 
 export const transcriptionActions = {
   async start(

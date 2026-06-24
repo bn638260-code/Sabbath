@@ -6,7 +6,7 @@ export const HELP_LEGAL_COPYRIGHT_HOLDER = HELP_LEGAL_CREATOR
 export const HELP_LEGAL_APP_VERSION = packageJson.version
 
 /** Update this when the Terms and Conditions text materially changes. */
-export const HELP_LEGAL_TERMS_LAST_UPDATED = "10 June 2026"
+export const HELP_LEGAL_TERMS_LAST_UPDATED = "24 June 2026"
 
 export const HELP_LEGAL_AGREEMENT_NOTICE =
   `By downloading, installing, launching, or continuing to use ${APP_DISPLAY_NAME}, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions and the Copyright notice below. If you do not agree, do not install or use the application.`
@@ -27,9 +27,19 @@ export const HELP_GUIDE_SECTIONS = [
       "Live Desk - transcript, preview, live output, recent detections, queue, and manual search.",
       "Run Service Flow - step through a prepared service plan during worship.",
       "Service Schedules - build service-plan items and attach sermon slides or media before worship.",
-      "Broadcast Control - configure NDI, projector windows, themes, and live presentation.",
+      "Broadcast Control - configure HDMI/projector windows, themes, and live presentation.",
       "SDA Hymns Search - find hymns, build lyric slides, and send them live.",
       "Church Library - manage themes, images, songs, slide templates, and media assets.",
+    ],
+  },
+  {
+    title: "Account, billing, and cancellation",
+    items: [
+      "Open System Settings > Account to sign out, request subscription cancellation, or delete your account.",
+      "Request cancellation if you want to stop renewal/access after the current subscribed period.",
+      "Cancellation does not refund the current paid period.",
+      "Your app access remains active until the subscribed period ends. After that, access is disabled unless renewed.",
+      "Deleting your account is separate from cancelling renewal and permanently removes your account and registered devices.",
     ],
   },
   {
@@ -71,7 +81,10 @@ export const HELP_GUIDE_SECTIONS = [
       "Use themes and display modes to match your church's visual style.",
       "Find hymnal lyrics and custom song slides in SDA Hymns Search, then present them from the hymn deck in Run Service Flow.",
       "Attach sermon slides in Service Schedules, then present them from Run Service Flow.",
-      "Test your output on a secondary monitor or NDI receiver before going live.",
+      "For HDMI, connect the projector or TV to the computer, then set Windows to Extend these displays instead of Duplicate.",
+      "In Broadcast Settings, choose HDMI / Display, click Refresh, select the projector monitor, turn on Fullscreen projector, then Open Preview.",
+      "Test the HDMI output on the real projector or TV before going live.",
+      "NDI output is coming soon and is not currently available for services.",
     ],
   },
   {
@@ -109,31 +122,35 @@ export const TERMS_SECTIONS = [
     body: `Optional cloud speech recognition and other online services require separate accounts, API keys, and data processing by third parties. Your use of those services is governed by their terms and privacy policies. We are not responsible for outages, pricing changes, or data handling by third-party providers.`,
   },
   {
-    title: "6. User responsibilities",
+    title: "6. Payments, cancellation, and access",
+    body: `Paid access is provided for the subscribed period selected at renewal. You may request cancellation of renewal/access from Settings > Account or by contacting support. Cancellation does not refund the current paid period. Access remains available until the subscribed period ends; after that period is over, access to ${APP_DISPLAY_NAME} is disabled unless you renew.`,
+  },
+  {
+    title: "7. User responsibilities",
     body: `You are responsible for: (a) the accuracy of verses and lyrics you display to a congregation; (b) obtaining any permissions required for live streaming or recording; (c) securing API keys and local data on your devices; and (d) using the App in a manner consistent with your church's policies and applicable law.`,
   },
   {
-    title: "7. Prohibited uses",
+    title: "8. Prohibited uses",
     body: `You may not use the App to infringe copyright, harass others, distribute malware, interfere with the App's operation, attempt unauthorised access to systems, or misrepresent detected scripture as authoritative without human review in safety-critical contexts.`,
   },
   {
-    title: "8. Disclaimer of warranties",
+    title: "9. Disclaimer of warranties",
     body: `THE APP IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, ACCURACY OF VERSE DETECTION, OR NON-INFRINGEMENT. SPEECH RECOGNITION AND AUTOMATIC VERSE DETECTION MAY PRODUCE ERRORS; ALWAYS VERIFY REFERENCES BEFORE PROJECTING THEM PUBLICLY.`,
   },
   {
-    title: "9. Limitation of liability",
+    title: "10. Limitation of liability",
     body: `TO THE MAXIMUM EXTENT PERMITTED BY LAW, ${HELP_LEGAL_COPYRIGHT_HOLDER.toUpperCase()} AND CONTRIBUTORS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF DATA, REVENUE, GOODWILL, OR MINISTRY OPPORTUNITY, ARISING FROM YOUR USE OF OR INABILITY TO USE THE APP, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.`,
   },
   {
-    title: "10. Termination",
+    title: "11. Termination",
     body: `We may suspend or terminate your licence if you breach these Terms. You may stop using the App at any time by uninstalling it. Sections that by their nature should survive termination (including intellectual property, disclaimers, and limitation of liability) will remain in effect.`,
   },
   {
-    title: "11. Changes",
+    title: "12. Changes",
     body: `We may update these Terms from time to time. Material changes will be reflected in the App. Continued use after changes are published constitutes acceptance of the revised Terms.`,
   },
   {
-    title: "12. Contact",
+    title: "13. Contact",
     body: `Questions about these Terms may be directed to the copyright holder: ${HELP_LEGAL_CREATOR}.`,
   },
 ] as const

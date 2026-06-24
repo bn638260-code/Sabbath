@@ -128,7 +128,7 @@ export const TUTORIAL_STEPS: Step[] = [
     target: '[data-slot="live-output-panel"]',
     title: "Live Display",
     content:
-      "The live output. Presented verses appear here and on connected displays or NDI outputs.",
+      "The live output. Presented verses appear here and on connected HDMI displays.",
     placement: "bottom",
   },
   {
@@ -136,8 +136,20 @@ export const TUTORIAL_STEPS: Step[] = [
     target: '[data-tour="broadcast"]',
     title: "Broadcast",
     content:
-      "Open Broadcast Control to configure NDI output, display windows, and resolution for your production setup.",
+      "Open Broadcast Control to configure HDMI display windows, fullscreen projector output, and themes. NDI is coming soon.",
     placement: "right",
+  },
+  {
+    ...STEP_DEFAULTS,
+    target: '[data-tour="settings-section-broadcast"]',
+    title: "HDMI Projector Setup",
+    content:
+      "Connect the projector or TV by HDMI, set Windows display mode to Extend, then use Broadcast Settings to Refresh displays, select the HDMI monitor, turn on fullscreen projector output, and open Preview before service.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="settings-section-broadcast"]', {
+        settingsSection: "broadcast",
+      }),
   },
   {
     ...STEP_DEFAULTS,
@@ -145,8 +157,20 @@ export const TUTORIAL_STEPS: Step[] = [
     target: '[data-tour="theme"]',
     title: "Themes",
     content:
-      "Pick an accent from the header swatches, or open Theme designer from Broadcast Control for full slide styling.",
+      "Use the header theme selector to switch the app accent quickly. For the live screen, open Theme Settings or Broadcast Control > Theme designer to adjust fonts, backgrounds, lower thirds, and slide positioning.",
     placement: "bottom",
+  },
+  {
+    ...STEP_DEFAULTS,
+    target: '[data-tour="settings-section-themes"]',
+    title: "Theme Designer",
+    content:
+      "Open Theme Settings when you want deeper live-output styling. The designer controls how verses look on the HDMI/projector screen, not just the controller accent.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="settings-section-themes"]', {
+        settingsSection: "themes",
+      }),
   },
   {
     ...STEP_DEFAULTS,
@@ -161,7 +185,7 @@ export const TUTORIAL_STEPS: Step[] = [
     target: '[data-tour="settings-section-speech"]',
     title: "Cloud API keys",
     content:
-      "Deepgram and Gladia require your own paid third-party accounts; they are not free or included with SabbathCue. Create an account with the provider, generate an API key in that provider's dashboard, then paste it in Settings > Speech Recognition before choosing that cloud provider.",
+      "Deepgram and Gladia require your own paid third-party accounts; they are not free or included with SabbathCue. Create an account with the provider, generate an API key in that provider's dashboard, then paste it into the key field in Settings > Speech Recognition, press Save, and choose that cloud provider. Vosk is local and does not need an API key.",
     placement: "left",
     before: () =>
       prepareTarget('[data-tour="settings-section-speech"]', {
@@ -173,7 +197,7 @@ export const TUTORIAL_STEPS: Step[] = [
     target: '[data-tour="settings-section-account"]',
     title: "Your Account",
     content:
-      "Settings > Account shows the email you signed in with. From there you can sign out, manage your account, and your sign-in works on up to 2 machines.",
+      "Settings > Account shows the email you signed in with. From there you can sign out, request subscription cancellation, or delete your account. Cancellation has no refund for the current paid period; access stays active until the subscribed period ends, then disables unless renewed.",
     placement: "left",
     before: () =>
       prepareTarget('[data-tour="settings-section-account"]', {

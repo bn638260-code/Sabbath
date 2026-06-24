@@ -402,6 +402,9 @@ pub(crate) fn deepgram_keyterms() -> Vec<String> {
         "spirit of prophecy".to_string(),
         "Adventist".to_string(),
         "Psalm".to_string(),
+        "SDA hymn".to_string(),
+        "Adventist hymn".to_string(),
+        "Adventist hymnal".to_string(),
         "hymn number".to_string(),
         "scripture reading".to_string(),
         "responsive reading".to_string(),
@@ -667,6 +670,8 @@ mod tests {
         assert_eq!(terms.first().map(String::as_str), Some("Jesus"));
         assert!(terms.iter().any(|term| term == "Psalm"));
         assert!(terms.iter().any(|term| term == "John"));
+        assert!(terms.iter().any(|term| term == "SDA hymn"));
+        assert!(terms.iter().any(|term| term == "Adventist hymnal"));
     }
 
     #[tokio::test]

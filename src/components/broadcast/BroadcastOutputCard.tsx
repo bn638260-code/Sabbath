@@ -7,17 +7,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import {
-  NDI_ALPHA_OPTIONS,
-  NDI_FRAME_RATE_OPTIONS,
-  NDI_RESOLUTION_OPTIONS,
+  NDI_COMING_SOON_DESCRIPTION,
+  NDI_COMING_SOON_MESSAGE,
 } from "@/lib/broadcast-output-settings"
 import { cn } from "@/lib/utils"
 import type { BroadcastOutputSettingsModel } from "@/hooks/use-broadcast-output-settings"
 import type { MonitorInfo } from "@/hooks/use-broadcast-output-settings"
-import type { NdiAlphaMode, NdiFrameRate, NdiResolution } from "@/types"
 import {
   MonitorIcon,
   CastIcon,
@@ -29,50 +26,9 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import {
-  DEFAULT_NDI_ALT_SOURCE_NAME,
-  DEFAULT_NDI_SOURCE_NAME,
-} from "@/lib/app-brand"
-import {
   broadcastOutputBlockedReason,
   canEnableBroadcastOutput,
 } from "@/lib/broadcast-output-readiness"
-
-function NdiSdkStatus({
-  installed,
-  loading,
-  onRefresh,
-}: {
-  installed: boolean
-  loading: boolean
-  onRefresh: () => void
-}) {
-  return (
-    <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] p-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground">NDI SDK</span>
-        <div className="flex items-center gap-1.5">
-          <Badge variant={installed ? "default" : "secondary"} className="text-[0.625rem]">
-            {loading ? "Checking" : installed ? "Installed" : "Missing"}
-          </Badge>
-          <Button
-            variant="ghost"
-            size="xs"
-            className="h-6 px-2"
-            disabled={loading}
-            onClick={onRefresh}
-          >
-            <RefreshCwIcon className={cn("size-3", loading && "animate-spin")} />
-          </Button>
-        </div>
-      </div>
-      {!loading && !installed ? (
-        <p className="mt-1.5 rounded bg-[var(--shell-code-bg)] px-2 py-1 font-mono text-[0.625rem] text-muted-foreground">
-          bun run download:ndi-sdk
-        </p>
-      ) : null}
-    </div>
-  )
-}
 
 export interface BroadcastOutputCardProps {
   title: string
@@ -82,8 +38,6 @@ export interface BroadcastOutputCardProps {
   monitorsRefreshing: boolean
   onRefreshMonitors: () => void
   ndiSdkInstalled: boolean
-  assetsLoading: boolean
-  onRefreshAssets: () => void
 }
 
 function OutputTypeSelector({
@@ -110,15 +64,15 @@ function OutputTypeSelector({
           )}
         >
           <MonitorIcon className="size-3.5" />
-          External Display
+          HDMI / Display
         </button>
         <button
           type="button"
-          disabled={settingsLocked}
-          onClick={() => model.setOutputType("ndi")}
+          disabled
+          title={NDI_COMING_SOON_MESSAGE}
           className={cn(
             "flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-all",
-            settingsLocked && "cursor-not-allowed opacity-50",
+            "cursor-not-allowed opacity-50",
             model.outputType === "ndi"
               ? "border-lime-500/50 bg-lime-500/15 text-lime-400"
               : "border-[var(--border-subtle)] bg-[var(--shell-code-bg)] text-muted-foreground hover:text-foreground",
@@ -126,6 +80,9 @@ function OutputTypeSelector({
         >
           <RadioIcon className="size-3.5" />
           NDI
+          <Badge variant="secondary" className="ml-1 text-[0.55rem]">
+            Soon
+          </Badge>
         </button>
       </div>
     </div>
@@ -185,6 +142,16 @@ function DisplayOutputSettings({
         </Select>
       </div>
 
+      <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] px-3 py-2 text-xs text-muted-foreground">
+        <p className="font-medium text-foreground">HDMI setup</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-4">
+          <li>Connect the HDMI cable from this computer to the projector or TV.</li>
+          <li>In Windows display settings, choose Extend these displays.</li>
+          <li>Click Refresh, select the HDMI monitor, then use Open Preview.</li>
+          <li>Turn on Fullscreen projector before the service starts.</li>
+        </ol>
+      </div>
+
       <div className="flex items-center justify-between gap-2">
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <Maximize2Icon className="size-3.5" />
@@ -222,110 +189,37 @@ function DisplayOutputSettings({
 
 function NdiOutputSettings({
   model,
-  ndiSdkInstalled,
-  assetsLoading,
-  onRefreshAssets,
-  defaultNdiSourceName,
 }: {
   model: BroadcastOutputSettingsModel
-  ndiSdkInstalled: boolean
-  assetsLoading: boolean
-  onRefreshAssets: () => void
-  defaultNdiSourceName: string
 }) {
   return (
     <div className="space-y-3">
-      <NdiSdkStatus
-        installed={ndiSdkInstalled}
-        loading={assetsLoading}
-        onRefresh={onRefreshAssets}
-      />
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">Resolution</label>
-          <Select
-            value={model.ndiResolution}
-            onValueChange={(value) => model.setNdiResolution(value as NdiResolution)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {NDI_RESOLUTION_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="rounded-md border border-amber-500/25 bg-amber-500/10 p-3">
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-[0.625rem]">
+            Coming soon
+          </Badge>
+          <p className="text-xs font-medium text-amber-50">
+            {NDI_COMING_SOON_MESSAGE}
+          </p>
         </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">Frame Rate</label>
-          <Select
-            value={model.ndiFrameRate}
-            onValueChange={(value) => model.setNdiFrameRate(value as NdiFrameRate)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {NDI_FRAME_RATE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <p className="mt-2 text-xs leading-relaxed text-amber-100/80">
+          {NDI_COMING_SOON_DESCRIPTION}
+        </p>
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Alpha Channel</label>
-        <Select
-          value={model.ndiAlphaMode}
-          onValueChange={(value) => model.setNdiAlphaMode(value as NdiAlphaMode)}
+      {model.ndiActive ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full gap-1.5 border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400"
+          onClick={model.handleToggleNdi}
+          disabled={model.ndiPending}
         >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {NDI_ALPHA_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Source Name</label>
-        <Input
-          value={model.ndiSourceName}
-          onChange={(e) => model.setNdiSourceName(e.target.value)}
-          placeholder={defaultNdiSourceName}
-        />
-      </div>
-
-      <Button
-        variant="outline"
-        size="sm"
-        className={cn(
-          "w-full gap-1.5",
-          model.ndiActive &&
-            "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400",
-        )}
-        onClick={model.handleToggleNdi}
-        disabled={
-          model.ndiPending ||
-          (!model.ndiActive && !assetsLoading && !ndiSdkInstalled)
-        }
-      >
-        <CastIcon className="size-3.5" />
-        {model.ndiActive ? "Stop NDI" : "Start NDI"}
-      </Button>
+          <CastIcon className="size-3.5" />
+          Stop NDI
+        </Button>
+      ) : null}
     </div>
   )
 }
@@ -338,11 +232,7 @@ export function BroadcastOutputCard({
   monitorsRefreshing,
   onRefreshMonitors,
   ndiSdkInstalled,
-  assetsLoading,
-  onRefreshAssets,
 }: BroadcastOutputCardProps) {
-  const defaultNdiSourceName =
-    model.outputId === "alt" ? DEFAULT_NDI_ALT_SOURCE_NAME : DEFAULT_NDI_SOURCE_NAME
   const canEnable = canEnableBroadcastOutput(model, monitors, ndiSdkInstalled)
   const blockedReason = broadcastOutputBlockedReason(
     model,
@@ -413,13 +303,7 @@ export function BroadcastOutputCard({
           settingsLocked={settingsLocked}
         />
       ) : (
-        <NdiOutputSettings
-          model={model}
-          ndiSdkInstalled={ndiSdkInstalled}
-          assetsLoading={assetsLoading}
-          onRefreshAssets={onRefreshAssets}
-          defaultNdiSourceName={defaultNdiSourceName}
-        />
+        <NdiOutputSettings model={model} />
       )}
     </div>
   )

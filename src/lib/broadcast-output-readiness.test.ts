@@ -32,20 +32,37 @@ describe("broadcast output readiness", () => {
     ).toContain("display")
   })
 
-  it("blocks NDI output when the SDK is missing", () => {
+  it("blocks inactive NDI output as coming soon", () => {
     expect(
       canEnableBroadcastOutput(
         { enabled: false, outputType: "ndi", ndiActive: false },
         [],
-        false,
+        true,
       ),
     ).toBe(false)
     expect(
       broadcastOutputBlockedReason(
         { enabled: false, outputType: "ndi", ndiActive: false },
         [],
-        false,
+        true,
       ),
-    ).toContain("NDI SDK")
+    ).toContain("coming soon")
+  })
+
+  it("blocks stale active NDI state while the feature is coming soon", () => {
+    expect(
+      canEnableBroadcastOutput(
+        { enabled: false, outputType: "ndi", ndiActive: true },
+        [{ key: "m1", name: "Display", width: 1920, height: 1080, x: 0, y: 0 }],
+        true,
+      ),
+    ).toBe(false)
+    expect(
+      broadcastOutputBlockedReason(
+        { enabled: false, outputType: "ndi", ndiActive: true },
+        [{ key: "m1", name: "Display", width: 1920, height: 1080, x: 0, y: 0 }],
+        true,
+      ),
+    ).toContain("coming soon")
   })
 })

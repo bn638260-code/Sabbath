@@ -133,3 +133,23 @@ export async function adminDeleteAccount(
     return { ok: false, message: "Unable to reach the account service." }
   }
 }
+
+export async function requestAccountCancellation(
+  accountEmail?: string | null
+): Promise<AccountActionResult> {
+  try {
+    const supabase = getSupabaseClient()
+    const { error } = await supabase.rpc("request_account_cancellation", {
+      p_account_email: accountEmail ?? null,
+    })
+    if (error) {
+      return {
+        ok: false,
+        message: failureMessage(error, "Cancellation request failed."),
+      }
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, message: "Unable to reach the account service." }
+  }
+}

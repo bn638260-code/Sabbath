@@ -8,9 +8,10 @@ import {
 } from "@/components/broadcast/broadcast-settings-wiring"
 import {
   buildNdiConfigPayload,
-  buildNdiStartRequest,
   getBroadcastWindowLabel,
   getDefaultOutputSettings,
+  NDI_COMING_SOON_DESCRIPTION,
+  NDI_COMING_SOON_MESSAGE,
   type BroadcastOutputType,
 } from "@/lib/broadcast-output-settings"
 import { useBroadcastStore } from "@/stores/broadcast-store"
@@ -19,7 +20,6 @@ import type {
   NdiAlphaMode,
   NdiFrameRate,
   NdiResolution,
-  NdiSessionInfo,
 } from "@/types"
 import { toast } from "sonner"
 
@@ -204,80 +204,37 @@ export async function runToggleBroadcastNdi(
   state: BroadcastOutputCommandState,
   deps: {
     invoke: typeof invokeTauri
-    syncBroadcastOutputFor: (outputId: string) => void
     emitNdiConfig: (active: boolean, frameRate: NdiFrameRate, resolution: NdiResolution) => void
-    emitPostStartNdiConfig: (session: NdiSessionInfo) => void
     onNdiActiveChange: (active: boolean) => void
     onError: (title: string, error: unknown) => void
-    onNdiSdkMissing: () => void
-    onIssue?: (input: {
-      outputId: BroadcastOutputId
-      kind: "ndi-config"
-      title: string
-      description: string
-    }) => void
   },
 ): Promise<void> {
   const {
     outputId,
     isPreviewOpen,
     ndiActive,
-    ndiSdkInstalled,
-    ndiSourceName,
     ndiResolution,
     ndiFrameRate,
-    ndiAlphaMode,
   } = state
 
   try {
-    if (!ndiActive && !ndiSdkInstalled) {
-      deps.onNdiSdkMissing()
+    if (!ndiActive) {
+      deps.onError(NDI_COMING_SOON_MESSAGE, NDI_COMING_SOON_DESCRIPTION)
       return
     }
 
-    const windowLabel = getBroadcastWindowLabel(outputId)
-
-    if (ndiActive) {
-      await deps.invoke("stop_ndi", { outputId })
-      deps.emitNdiConfig(false, ndiFrameRate, ndiResolution)
-      deps.onNdiActiveChange(false)
-      if (!isPreviewOpen) {
-        await deps
-          .invoke("close_broadcast_window", { outputId })
-          .catch((error) =>
-            console.warn(
-              `[broadcast-settings] close ${outputId} window after NDI stop failed`,
-              error,
-            ),
-          )
-      }
-    } else {
-      await deps.invoke("ensure_broadcast_window", { outputId })
-      const request = buildNdiStartRequest(ndiSourceName, ndiResolution, ndiFrameRate, ndiAlphaMode)
-      const session = await deps.invoke<NdiSessionInfo>("start_ndi", {
-        outputId,
-        request,
-      })
-      deps.onNdiActiveChange(true)
-      deps.syncBroadcastOutputFor(outputId)
-      void emitTo(windowLabel, "broadcast:ndi-config", {
-        active: true,
-        fps: session.fps,
-        width: session.width,
-        height: session.height,
-      }).catch((error) => {
-        console.warn(`[broadcast-settings] emit post-start sync (${outputId}) failed`, error)
-        deps.onIssue?.({
-          outputId,
-          kind: "ndi-config",
-          title: "NDI config sync failed",
-          description: `Could not sync started NDI config to ${windowLabel}: ${String(error)}`,
-        })
-      })
-      setTimeout(() => {
-        deps.syncBroadcastOutputFor(outputId)
-        deps.emitNdiConfig(true, ndiFrameRate, ndiResolution)
-      }, 300)
+    await deps.invoke("stop_ndi", { outputId })
+    deps.emitNdiConfig(false, ndiFrameRate, ndiResolution)
+    deps.onNdiActiveChange(false)
+    if (!isPreviewOpen) {
+      await deps
+        .invoke("close_broadcast_window", { outputId })
+        .catch((error) =>
+          console.warn(
+            `[broadcast-settings] close ${outputId} window after NDI stop failed`,
+            error,
+          ),
+        )
     }
   } catch (error) {
     deps.onError(
@@ -595,12 +552,6 @@ export function useBroadcastOutputSettings(
       onError: showBroadcastError,
       onIssue: useBroadcastStore.getState().reportOutputIssue,
       clearOutputIssueFor: useBroadcastStore.getState().clearOutputIssueFor,
-      onNdiSdkMissing: () => {
-        toast.error("NDI SDK is missing", {
-          description: "Run bun run download:ndi-sdk, then refresh SDK status.",
-        })
-      },
-      emitPostStartNdiConfig: () => {},
     }),
     [syncNdiConfigToOutput],
   )
@@ -662,10 +613,10 @@ export function useBroadcastOutputSettings(
             )
             return
           }
-          if (outputType === "ndi" && !ndiSdkInstalled && !ndiActive) {
+          if (outputType === "ndi" && !ndiActive) {
             showBroadcastError(
-              "NDI SDK is missing",
-              "Run bun run download:ndi-sdk, then refresh SDK status.",
+              NDI_COMING_SOON_MESSAGE,
+              NDI_COMING_SOON_DESCRIPTION,
             )
             return
           }
@@ -699,7 +650,6 @@ export function useBroadcastOutputSettings(
       handleTogglePreview,
       monitors.length,
       ndiActive,
-      ndiSdkInstalled,
       outputId,
       outputType,
     ],

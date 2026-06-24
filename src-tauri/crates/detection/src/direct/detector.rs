@@ -464,7 +464,10 @@ fn is_hymn_or_song_number_command(text: &str) -> bool {
     let tokens: Vec<&str> = normalized.split_whitespace().collect();
 
     for (index, token) in tokens.iter().enumerate() {
-        if !matches!(*token, "hymn" | "hymns" | "song" | "songs") {
+        if !matches!(
+            *token,
+            "hymn" | "hymns" | "hymnal" | "hymnals" | "song" | "songs"
+        ) {
             continue;
         }
 
@@ -1674,8 +1677,36 @@ mod tests {
         let mut detector = DirectDetector::new();
 
         assert!(detector.detect("hymn 12").is_empty());
+        assert!(detector.detect("Adventist hymnal 100").is_empty());
+        assert!(detector.detect("Seventh-day Adventist hymnal one hundred").is_empty());
         assert!(detector.detect("song two hundred fifty one").is_empty());
         assert!(detector.detect("please open song number 251").is_empty());
+    }
+
+    #[test]
+    fn active_stt_provider_reference_variants_stay_direct_accurate() {
+        let cases = [
+            ("vosk", "john chapter three verse sixteen"),
+            ("deepgram", "John 3:16"),
+            ("gladia", "John three sixteen"),
+        ];
+
+        for (provider, transcript) in cases {
+            let mut detector = DirectDetector::new();
+            let results = detector.detect(transcript);
+            assert_eq!(
+                results.len(),
+                1,
+                "{provider} transcript should produce one direct reference"
+            );
+            assert_eq!(results[0].verse_ref.book_name, "John", "{provider}");
+            assert_eq!(results[0].verse_ref.chapter, 3, "{provider}");
+            assert_eq!(results[0].verse_ref.verse_start, 16, "{provider}");
+            assert!(
+                matches!(results[0].source, DetectionSource::DirectReference),
+                "{provider} transcript should stay on the direct path"
+            );
+        }
     }
 
     #[test]
