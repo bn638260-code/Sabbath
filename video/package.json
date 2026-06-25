@@ -1,0 +1,24 @@
+{
+  "name": "sabbathcue-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion launch video for SabbathCue (16:9 film + 9:16 social cut).",
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render LaunchFilm out/launch-16x9.mp4",
+    "render:social": "remotion render SocialCut out/social-9x16.mp4",
+    "render:all": "npm run render && npm run render:social",
+    "still": "remotion still LaunchFilm out/frame-hook.png --frame=120"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "@remotion/google-fonts": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.5.0"
+  }
+}
