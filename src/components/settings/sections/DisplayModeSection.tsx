@@ -78,6 +78,10 @@ export function DisplayModeSection() {
             Only verses above this threshold are sent live automatically.
             Semantic and testimony-based suggestions still appear for review.
           </p>
+          <p className="text-[0.625rem] font-medium text-foreground">
+            Tip: 90% gives the best results — high-certainty verses go live
+            while everything else waits for your review.
+          </p>
         </div>
       )}
     </div>

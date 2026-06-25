@@ -40,3 +40,8 @@ required-features = ["precompute-bin"]
 name = "score_distribution"
 path = "src/bin/score_distribution.rs"
 required-features = ["precompute-bin"]
+
+[[bin]]
+name = "detection_accuracy"
+path = "src/bin/detection_accuracy.rs"
+required-features = ["precompute-bin"]

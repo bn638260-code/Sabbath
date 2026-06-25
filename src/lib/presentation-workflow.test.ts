@@ -249,6 +249,74 @@ describe("presentation workflow", () => {
     expectBroadcastOutputsFor("John 3:16 (KJV)")
   })
 
+  it("refreshLiveTranslation re-commits the live verse in the active translation", async () => {
+    const { useBibleStore } = await import("@/stores/bible-store")
+    const { useBroadcastStore } = await import("@/stores/broadcast-store")
+    const { bibleActions } = await import("@/hooks/use-bible")
+    const { refreshLiveTranslation } = await import("./presentation-workflow")
+
+    const nivVerse: Verse = {
+      ...sampleVerse,
+      translation_id: 2,
+      text: "For God so loved the world (NIV).",
+    }
+    const fetchVerseSpy = vi
+      .spyOn(bibleActions, "fetchVerse")
+      .mockResolvedValue(nivVerse)
+
+    useBibleStore.setState({
+      translations: [
+        {
+          id: 2,
+          abbreviation: "NIV",
+          title: "New International Version",
+          language: "en",
+          is_copyrighted: true,
+          is_downloaded: true,
+        },
+      ],
+      activeTranslationId: 2,
+    })
+    useBroadcastStore.setState({
+      isLive: true,
+      liveItem: {
+        kind: "scripture",
+        reference: "John 3:16 (KJV)",
+        segments: [{ verseNumber: 16, text: "For God so loved the world." }],
+        scripture: sampleVerse,
+      },
+    })
+
+    emitToMock.mockClear()
+    await refreshLiveTranslation()
+
+    expect(fetchVerseSpy).toHaveBeenCalledWith(43, 3, 16)
+    expect(useBroadcastStore.getState().isLive).toBe(true)
+    expect(useBroadcastStore.getState().liveItem?.reference).toBe("John 3:16 (NIV)")
+    expect(useBroadcastStore.getState().liveItem?.segments[0]?.text).toBe(
+      "For God so loved the world (NIV).",
+    )
+    expectBroadcastOutputsFor("John 3:16 (NIV)")
+  })
+
+  it("refreshLiveTranslation does nothing when the live output is not scripture", async () => {
+    const { useBroadcastStore } = await import("@/stores/broadcast-store")
+    const { bibleActions } = await import("@/hooks/use-bible")
+    const { refreshLiveTranslation } = await import("./presentation-workflow")
+
+    useBroadcastStore.setState({
+      isLive: true,
+      liveItem: { kind: "hymn", reference: "#1 Praise", segments: [] },
+    })
+    const fetchVerseSpy = vi.spyOn(bibleActions, "fetchVerse")
+    emitToMock.mockClear()
+
+    await refreshLiveTranslation()
+
+    expect(fetchVerseSpy).not.toHaveBeenCalled()
+    expect(emitToMock).not.toHaveBeenCalled()
+  })
+
   it("presentItem broadcasts non-scripture presentation data to both outputs", async () => {
     const { useBroadcastStore } = await import("@/stores/broadcast-store")
     const { presentItem } = await import("./presentation-workflow")

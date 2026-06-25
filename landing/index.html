@@ -516,6 +516,7 @@ footer a:hover{color:var(--paper)}
       <p class="eyebrow">Honest expectations</p>
       <h2>It won't catch every verse. <em>It will change how your service looks.</em></h2>
       <p>SabbathCue is AI, and AI isn't perfect — now and then it'll miss a reference or ask your operator for a quick confirm. But across a whole service it puts the right verse on screen faster and more often than someone scrambling alone. Your team ends up ahead: fewer missed references, less frantic searching, a cleaner stream. <b style="color:var(--paper);font-weight:500">Better, not flawless — and a real step up from doing it all by hand.</b></p>
+      <p>In our own 50-case benchmark — spoken references, verbatim quotes, paraphrases, and ordinary announcements run through the live detection path — at the recommended 90% threshold SabbathCue <b style="color:var(--paper);font-weight:500">caught 100% of clearly-spoken references, made the right call 86% of the time overall, and the verse it put on screen was correct ~92% of the time.</b> Every announcement and bit of small talk was correctly ignored. Paraphrases it's unsure about are surfaced for your operator rather than auto-fired. Measured on an authored test set, not live services.</p>
     </div>
   </section>
 
@@ -542,8 +543,8 @@ footer a:hover{color:var(--paper)}
       <div class="step reveal">
         <div class="step-num">03 · DETECTION</div>
         <h3>Detect</h3>
-        <p>Three strategies in ensemble: direct reference parsing, AI semantic matching against ~31,000 verse embeddings for quoted passages, and a reading mode that locks to the chapter being preached.</p>
-        <p class="tech">AHO-CORASICK · MiniLM EMBEDDINGS</p>
+        <p>Three strategies in ensemble: direct reference parsing, AI semantic matching against ~31,000 verse embeddings for quoted passages, and a reading mode that locks to the chapter being preached. The semantic model is an industry-standard sentence-transformer (MiniLM) that runs entirely on the CPU — fast and light enough for modest booth PCs, with no GPU required.</p>
+        <p class="tech">AHO-CORASICK · MiniLM EMBEDDINGS · CPU-ONLY</p>
       </div>
       <div class="step reveal">
         <div class="step-num">04 · OUTPUT</div>
@@ -570,7 +571,7 @@ footer a:hover{color:var(--paper)}
       <p>Designed around how live church production actually works — fast hands, loud rooms, and zero time for fiddling.</p>
     </div>
     <div class="feat-grid">
-      <div class="feat reveal"><span class="ico">🎙</span><h3>Voice-controlled translations</h3><p>The preacher says “read in Spanish” or “switch to KJV” and the overlay changes translation instantly — no operator action needed. Voice commands are in English.</p></div>
+      <div class="feat reveal"><span class="ico">🎙</span><h3>Voice-controlled translations</h3><p>The preacher says “read in Spanish” or “switch to KJV” and the overlay changes translation instantly — no operator action needed. References are recognized from English speech, then displayed in any bundled language: English, Spanish, French, or Portuguese. Switch by voice, from the booth, or over remote control — the verse already on screen reflows into the new language.</p></div>
       <div class="feat reveal"><span class="ico">◧</span><h3>Theme designer</h3><p>A visual canvas editor for your overlays: gradients, images, transparency, text styling, shadows, outlines, and precise positioning to match your brand.</p></div>
       <div class="feat reveal"><span class="ico">≡</span><h3>Verse queue</h3><p>Stack upcoming scriptures before the service, reorder with drag-and-drop, and fire them in sequence. Duplicates flash so you never double-queue.</p></div>
       <div class="feat reveal"><span class="ico">⌨</span><h3>Quick navigation</h3><p>Keyboard-first verse entry with autocomplete — type “J”, get Joshua, Tab through book → chapter → verse. Faster than the preacher can say it.</p></div>

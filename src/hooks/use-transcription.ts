@@ -6,6 +6,7 @@ import {
   handleReadingAdvance,
   handleVerseDetections,
 } from "@/lib/verse-detection-workflow"
+import { refreshLiveTranslation } from "@/lib/presentation-workflow"
 import { useAudioStore } from "@/stores/audio-store"
 import { useBibleStore } from "@/stores/bible-store"
 import { useDetectionStore } from "@/stores/detection-store"
@@ -237,6 +238,7 @@ export function useTranscriptionEventBridge() {
     "translation_command",
     (data) => {
       useBibleStore.getState().setActiveTranslation(data.translation_id)
+      void refreshLiveTranslation()
       if (import.meta.env.DEV) {
         console.log(`[VOICE] Translation switched to ${data.abbreviation}`)
       }

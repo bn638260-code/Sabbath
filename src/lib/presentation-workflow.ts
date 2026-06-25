@@ -202,6 +202,25 @@ export function previewVerseAndMaybeAutoLive(
   selectPreviewVerse(verse, { navigate: options?.navigate })
 }
 
+// When the active translation changes (e.g. a "read in NIV" voice command),
+// the live output holds a snapshot in the old translation. Re-fetch the live
+// verse in the new translation and re-commit it without toggling live on/off,
+// mirroring how the preview panel refreshes itself on translation change.
+export async function refreshLiveTranslation(): Promise<void> {
+  const broadcast = useBroadcastStore.getState()
+  const live = broadcast.liveItem
+  if (!broadcast.isLive || live?.kind !== "scripture" || !live.scripture) {
+    return
+  }
+  const { book_number, chapter, verse } = live.scripture
+  if (book_number <= 0 || chapter <= 0 || verse <= 0) return
+
+  const refreshed = await bibleActions.fetchVerse(book_number, chapter, verse)
+  if (refreshed) {
+    commitVerseToLive(refreshed, { makeLive: false })
+  }
+}
+
 export function egwReference(p: EgwParagraph): string {
   return `${p.book_title} ${p.chapter}:${p.paragraph}`
 }

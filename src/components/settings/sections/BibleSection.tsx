@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useBibleStore } from "@/stores/bible-store"
+import { refreshLiveTranslation } from "@/lib/presentation-workflow"
 
 interface TranslationInfo {
   id: number
@@ -45,6 +46,7 @@ export function BibleSection() {
       await invokeTauri("set_active_translation", { translationId: id })
       setActiveId(id)
       useBibleStore.getState().setActiveTranslation(id)
+      void refreshLiveTranslation()
     } catch (e) {
       console.error("Failed to set translation:", e)
     }

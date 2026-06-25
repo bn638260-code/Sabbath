@@ -92,6 +92,19 @@ const TRANSLATION_COMMANDS: &[(&str, &str)] = &[
     ("amplified translation", "AMP"),
     ("in amplified version", "AMP"),
     ("in amplified translation", "AMP"),
+    // English — maps to the bundled public-domain KJV. Listed after ESV's
+    // "english standard version" so that specific phrase still wins.
+    ("give me english", "KJV"),
+    ("read in english", "KJV"),
+    ("switch to english", "KJV"),
+    ("back to english", "KJV"),
+    ("in english", "KJV"),
+    ("can i have it in english", "KJV"),
+    ("can i have that in english", "KJV"),
+    ("show me english", "KJV"),
+    // Note: bare "english version"/"english translation" are intentionally
+    // omitted — they would shadow "contemporary english version" (CEV) and
+    // "new english translation" (NET). The bare word "english" is handled below.
     // SpaRV (Spanish - Reina-Valera 1909)
     ("give me reina valera", "SpaRV"),
     ("read in reina valera", "SpaRV"),
@@ -706,6 +719,7 @@ impl DirectDetector {
                 "nkjv" | "njkv" => Some("NKJV"),
                 "nlt" => Some("NLT"),
                 "kjv" => Some("KJV"),
+                "english" => Some("KJV"),
                 "amp" | "amplified" => Some("AMP"),
                 "sparv" | "spanish" => Some("SpaRV"),
                 "frejnd" | "french" => Some("FreJND"),
@@ -2045,6 +2059,61 @@ mod tests {
         assert_eq!(
             detector.detect_translation_command("in portuguese"),
             Some("PorBLivre".to_string())
+        );
+    }
+
+    #[test]
+    fn test_translation_command_english_maps_to_kjv() {
+        let detector = DirectDetector::new();
+        for phrase in [
+            "read in english",
+            "switch to english",
+            "back to english",
+            "give me english",
+            "in english",
+            "english version",
+            "english", // bare word
+        ] {
+            assert_eq!(
+                detector.detect_translation_command(phrase),
+                Some("KJV".to_string()),
+                "phrase: {phrase}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_translation_command_english_does_not_shadow_esv() {
+        // The specific "english standard version" phrase must still resolve to
+        // ESV even though a generic English -> KJV command now exists.
+        let detector = DirectDetector::new();
+        assert_eq!(
+            detector.detect_translation_command("read in english standard version"),
+            Some("ESV".to_string())
+        );
+        assert_eq!(
+            detector.detect_translation_command("can i have it in esv"),
+            Some("ESV".to_string())
+        );
+    }
+
+    #[test]
+    fn test_translation_command_spanish_english_round_trip() {
+        // A pastor switches to Spanish mid-sermon, then asks to come back to
+        // English — both directions must be recognized by voice command.
+        let detector = DirectDetector::new();
+        assert_eq!(
+            detector.detect_translation_command("read in spanish"),
+            Some("SpaRV".to_string())
+        );
+        assert_eq!(
+            detector.detect_translation_command("switch to english"),
+            Some("KJV".to_string())
+        );
+        // The explicit-version path back to English still works too.
+        assert_eq!(
+            detector.detect_translation_command("switch to kjv"),
+            Some("KJV".to_string())
         );
     }
 
