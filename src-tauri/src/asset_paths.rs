@@ -9,10 +9,13 @@ const SOFFICE_FIXED_CANDIDATES: &[&str] = &[
     r"C:\Program Files\LibreOffice\program\soffice.exe",
     r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
 ];
-pub const PREFERRED_EMBEDDINGS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2.bin";
-pub const PREFERRED_EMBEDDING_IDS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2-ids.bin";
-const LEGACY_EMBEDDINGS_FILENAME: &str = "kjv-minilm-l6-v2.bin";
-const LEGACY_EMBEDDING_IDS_FILENAME: &str = "kjv-minilm-l6-v2-ids.bin";
+pub const PREFERRED_EMBEDDINGS_FILENAME: &str = "kjv-nkjv-nlt-gte-small.bin";
+pub const PREFERRED_EMBEDDING_IDS_FILENAME: &str = "kjv-nkjv-nlt-gte-small-ids.bin";
+// Fallback to the MiniLM embeddings when the gte-small index is absent. Must
+// stay paired with the model fallback in `onnx_model_path` so the query model
+// and the verse index always come from the same embedding space.
+const LEGACY_EMBEDDINGS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2.bin";
+const LEGACY_EMBEDDING_IDS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2-ids.bin";
 #[cfg(test)]
 const VOSK_SMALL_MODEL_DIRNAME: &str = "vosk-model-small-en-us";
 const VOSK_MODEL_DIRNAMES: &[&str] = &[
@@ -229,6 +232,27 @@ pub fn resolve_soffice() -> Option<PathBuf> {
 pub fn onnx_model_path(app: &AppHandle) -> PathBuf {
     first_existing(
         [
+            // Preferred: gte-small (int8 ONNX) — higher accuracy at MiniLM-class
+            // efficiency. MiniLM remains below as a fallback.
+            app_data_dir(app).ok().map(|p| {
+                p.join("models")
+                    .join("gte-small")
+                    .join("onnx")
+                    .join("model_quantized.onnx")
+            }),
+            app.path().resource_dir().ok().map(|p| {
+                p.join("models")
+                    .join("gte-small")
+                    .join("onnx")
+                    .join("model_quantized.onnx")
+            }),
+            Some(
+                dev_root()
+                    .join("models")
+                    .join("gte-small")
+                    .join("onnx")
+                    .join("model_quantized.onnx"),
+            ),
             app_data_dir(app).ok().map(|p| {
                 p.join("models")
                     .join("minilm-l6-v2-int8")
@@ -284,6 +308,15 @@ pub fn onnx_model_path(app: &AppHandle) -> PathBuf {
 pub fn tokenizer_path(app: &AppHandle) -> PathBuf {
     first_existing(
         [
+            // Preferred: gte-small tokenizer (must match the gte-small model).
+            app_data_dir(app)
+                .ok()
+                .map(|p| p.join("models").join("gte-small").join("tokenizer.json")),
+            app.path()
+                .resource_dir()
+                .ok()
+                .map(|p| p.join("models").join("gte-small").join("tokenizer.json")),
+            Some(dev_root().join("models").join("gte-small").join("tokenizer.json")),
             app_data_dir(app)
                 .ok()
                 .map(|p| p.join("models").join("minilm-l6-v2").join("tokenizer.json")),

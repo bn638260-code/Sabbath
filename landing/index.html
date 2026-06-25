@@ -516,7 +516,7 @@ footer a:hover{color:var(--paper)}
       <p class="eyebrow">Honest expectations</p>
       <h2>It won't catch every verse. <em>It will change how your service looks.</em></h2>
       <p>SabbathCue is AI, and AI isn't perfect — now and then it'll miss a reference or ask your operator for a quick confirm. But across a whole service it puts the right verse on screen faster and more often than someone scrambling alone. Your team ends up ahead: fewer missed references, less frantic searching, a cleaner stream. <b style="color:var(--paper);font-weight:500">Better, not flawless — and a real step up from doing it all by hand.</b></p>
-      <p>In our own 50-case benchmark — spoken references, verbatim quotes, paraphrases, and ordinary announcements run through the live detection path — at the recommended 90% threshold SabbathCue <b style="color:var(--paper);font-weight:500">caught 100% of clearly-spoken references, made the right call 86% of the time overall, and the verse it put on screen was correct ~92% of the time.</b> Every announcement and bit of small talk was correctly ignored. Paraphrases it's unsure about are surfaced for your operator rather than auto-fired. Measured on an authored test set, not live services.</p>
+      <p>In our own 106-case benchmark — spoken references, verbatim quotes, paraphrases, and ordinary announcements run through the live detection path — at the recommended 90% threshold SabbathCue <b style="color:var(--paper);font-weight:500">caught 100% of clearly-spoken references and ~95% of all quoted or referenced scripture, putting the right verse on screen ~92% of the time overall, with ~90% of displayed verses correct.</b> Loose paraphrases it's unsure about are surfaced for your operator rather than auto-fired, and the auto-live threshold lets you trade a little reach for tighter precision. Measured on an authored test set, not live services.</p>
     </div>
   </section>
 
@@ -543,8 +543,8 @@ footer a:hover{color:var(--paper)}
       <div class="step reveal">
         <div class="step-num">03 · DETECTION</div>
         <h3>Detect</h3>
-        <p>Three strategies in ensemble: direct reference parsing, AI semantic matching against ~31,000 verse embeddings for quoted passages, and a reading mode that locks to the chapter being preached. The semantic model is an industry-standard sentence-transformer (MiniLM) that runs entirely on the CPU — fast and light enough for modest booth PCs, with no GPU required.</p>
-        <p class="tech">AHO-CORASICK · MiniLM EMBEDDINGS · CPU-ONLY</p>
+        <p>Three strategies in ensemble: direct reference parsing, AI semantic matching against ~31,000 verse embeddings for quoted passages, and a reading mode that locks to the chapter being preached. The semantic model is an industry-standard sentence-transformer (GTE-small) that runs entirely on the CPU — fast and light enough for modest booth PCs, with no GPU required.</p>
+        <p class="tech">AHO-CORASICK · GTE-SMALL EMBEDDINGS · CPU-ONLY</p>
       </div>
       <div class="step reveal">
         <div class="step-num">04 · OUTPUT</div>

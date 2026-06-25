@@ -24,26 +24,23 @@ fn resources_do_not_include_removed_sherpa_assets() {
 }
 
 #[test]
-fn resources_bundle_only_int8_minilm_onnx_model() {
+fn resources_bundle_only_quantized_gte_small_onnx_model() {
     let resources = tauri_bundle_resources();
-    let minilm_model_resources = resources
+    let onnx_model_resources = resources
         .iter()
         .filter_map(|(source, target)| {
             let target = target.as_str()?;
-            let source_is_minilm_onnx =
-                source.contains("models/minilm-l6-v2") && source.ends_with(".onnx");
-            let target_is_minilm_onnx =
-                target.contains("models/minilm-l6-v2") && target.ends_with(".onnx");
-            (source_is_minilm_onnx || target_is_minilm_onnx).then_some((source.as_str(), target))
+            (source.ends_with(".onnx") || target.ends_with(".onnx"))
+                .then_some((source.as_str(), target))
         })
         .collect::<Vec<_>>();
 
     assert_eq!(
-        minilm_model_resources,
+        onnx_model_resources,
         vec![(
-            "../models/minilm-l6-v2-int8/onnx/model_quantized.onnx",
-            "models/minilm-l6-v2-int8/onnx/model_quantized.onnx"
+            "../models/gte-small/onnx/model_quantized.onnx",
+            "models/gte-small/onnx/model_quantized.onnx"
         )],
-        "production bundle must ship only the INT8 MiniLM ONNX model"
+        "production bundle must ship only the quantized gte-small ONNX model"
     );
 }
