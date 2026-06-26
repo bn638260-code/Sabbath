@@ -29,6 +29,13 @@ pub struct SemanticDetector {
     chunker: Chunker,
     cache: EmbeddingCache,
     confidence_threshold: f64,
+    /// Minimum *displayed* confidence (raw best cosine similarity) for a
+    /// semantic suggestion to be emitted. Unlike `confidence_threshold` — which
+    /// gates candidacy on the compressed ensemble score — this gates the value
+    /// the operator actually sees, so it can be calibrated per embedding model
+    /// (e.g. `gte-small`'s noise floor sits ~0.86, far above `MiniLM`'s). Default 0
+    /// is a no-op; the app sets it for the active model.
+    display_floor: f64,
     #[allow(dead_code)]
     synonym_expander: SynonymExpander,
     ensemble: EnsembleSearcher,
@@ -46,6 +53,7 @@ impl SemanticDetector {
             chunker: Chunker::new(),
             cache: EmbeddingCache::new(DEFAULT_CACHE_CAPACITY),
             confidence_threshold: DEFAULT_CONFIDENCE_THRESHOLD,
+            display_floor: 0.0,
             synonym_expander: SynonymExpander::new(),
             ensemble: EnsembleSearcher::new(),
             use_synonyms: true,
@@ -176,6 +184,12 @@ impl SemanticDetector {
             });
         }
 
+        // Drop suggestions whose displayed confidence (raw best similarity)
+        // falls below the model-calibrated floor. This is what keeps inflated
+        // low-separation hits (e.g. gte-small scoring ordinary speech ~0.86
+        // against an unrelated verse) out of the operator's view.
+        detections.retain(|d| d.confidence >= self.display_floor);
+
         // Ensemble results keep their score ranking; direct results are sorted
         // above. Cap to the top semantic suggestions either way.
         detections.truncate(MAX_SEMANTIC_DETECTIONS);
@@ -187,6 +201,12 @@ impl SemanticDetector {
     /// included in the output.
     pub fn set_confidence_threshold(&mut self, threshold: f64) {
         self.confidence_threshold = threshold;
+    }
+
+    /// Set the minimum displayed confidence (raw best similarity) for an
+    /// emitted suggestion. Calibrated per embedding model by the caller.
+    pub fn set_display_floor(&mut self, floor: f64) {
+        self.display_floor = floor;
     }
 
     /// Direct query -> results for manual semantic search.
@@ -330,6 +350,44 @@ mod tests {
             "displayed confidence should reflect raw best similarity, not the compressed ensemble score"
         );
         assert!(detections[0].confidence <= 1.0);
+    }
+
+    #[test]
+    fn test_display_floor_drops_inflated_low_separation_hits() {
+        // gte-small regression: noise text matches a verse at raw cosine ~0.86,
+        // which clears the candidacy threshold and would surface as a high-
+        // confidence suggestion. The semantic display floor must drop it.
+        let fake_results = vec![SearchResult {
+            verse_id: 1001,
+            similarity: 0.86,
+        }];
+
+        let mut detector = SemanticDetector::new(
+            Box::new(StubEmbedder::new(128)),
+            Box::new(FakeIndex {
+                results: fake_results,
+            }),
+        );
+        detector.set_display_floor(0.92);
+
+        // Below the floor: suppressed entirely.
+        assert!(detector
+            .detect("good morning church it is wonderful to be together today")
+            .is_empty());
+
+        // A strong verbatim-style hit (0.96) still passes the same floor.
+        detector.index = Box::new(FakeIndex {
+            results: vec![SearchResult {
+                verse_id: 1002,
+                similarity: 0.96,
+            }],
+        });
+        assert_eq!(
+            detector
+                .detect("for God so loved the world that he gave his only begotten son")
+                .len(),
+            1
+        );
     }
 
     #[test]

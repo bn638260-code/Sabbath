@@ -42,10 +42,10 @@
       "../sidecars/vosk_worker.*": "scripts/",
       "../scripts/vosk_worker.py": "scripts/vosk_worker.py",
       "../models/vosk/vosk-model-en-us-0.22-lgraph": "models/vosk/vosk-model-en-us-0.22-lgraph",
-      "../models/gte-small/tokenizer.json": "models/gte-small/tokenizer.json",
-      "../models/gte-small/onnx/model_quantized.onnx": "models/gte-small/onnx/model_quantized.onnx",
-      "../embeddings/kjv-nkjv-nlt-gte-small.bin": "embeddings/kjv-nkjv-nlt-gte-small.bin",
-      "../embeddings/kjv-nkjv-nlt-gte-small-ids.bin": "embeddings/kjv-nkjv-nlt-gte-small-ids.bin"
+      "../models/minilm-l6-v2/tokenizer.json": "models/minilm-l6-v2/tokenizer.json",
+      "../models/minilm-l6-v2-int8/onnx/model_quantized.onnx": "models/minilm-l6-v2-int8/onnx/model_quantized.onnx",
+      "../embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin": "embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin",
+      "../embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin": "embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin"
     },
     "icon": [
       "icons/32x32.png",
