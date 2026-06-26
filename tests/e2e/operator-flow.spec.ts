@@ -302,6 +302,9 @@ test.describe("operator flow harness", () => {
       harness.transcription.clearTimeline()
       harness.workflowTrace.clear()
       harness.settings.setAutoMode(true)
+      // Pin the auto-preview threshold below the mock detections (0.95/0.92) so
+      // this test doesn't depend on the global default, which can change.
+      harness.settings.setConfidenceThreshold(0.9)
       harness.transcription.connect()
       harness.transcription.partial("Turn with me to John chapter three")
     })

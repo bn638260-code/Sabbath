@@ -81,6 +81,7 @@ declare global {
       }
       settings: {
         setAutoMode: (autoMode: boolean) => void
+        setConfidenceThreshold: (confidenceThreshold: number) => void
       }
       transcription: {
         connect: () => void
@@ -263,6 +264,8 @@ export function installOperatorFlowHarness(): void {
     settings: {
       setAutoMode: (autoMode) =>
         useSettingsStore.getState().setAutoMode(autoMode),
+      setConfidenceThreshold: (confidenceThreshold) =>
+        useSettingsStore.getState().setConfidenceThreshold(confidenceThreshold),
     },
     transcription: {
       connect: () => dispatchReplayEvent("stt_connected"),
