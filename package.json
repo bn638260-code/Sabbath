@@ -33,7 +33,7 @@
     "quantize:model": "bun run data/download-model.ts",
     "precompute:embeddings-onnx": "python3 data/precompute-embeddings-onnx.py",
     "precompute:embeddings-py": "python3 data/precompute-embeddings.py",
-    "precompute:embeddings": "cd src-tauri && cargo run -p rhema-detection --features precompute-bin --release --bin precompute -- --model ../models/minilm-l6-v2-int8/onnx/model_quantized.onnx --tokenizer ../models/minilm-l6-v2/tokenizer.json --verses ../data/verses-for-embedding.json --output-embeddings ../embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin --output-ids ../embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin",
+    "precompute:embeddings": "cargo run --manifest-path src-tauri/Cargo.toml -p rhema-detection --features precompute-bin --release --bin precompute -- --model models/minilm-l6-v2-int8/onnx/model_quantized.onnx --tokenizer models/minilm-l6-v2/tokenizer.json --verses data/verses-for-embedding.json --output-embeddings embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin --output-ids embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin",
     "download:vosk": "powershell -ExecutionPolicy Bypass -File scripts/download-vosk-model.ps1",
     "download:whisper": "node data/download-whisper.mjs",
     "build:vosk-sidecar": "powershell -ExecutionPolicy Bypass -File scripts/build-vosk-sidecar.ps1",
