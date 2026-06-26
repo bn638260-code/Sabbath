@@ -20,12 +20,6 @@ export function blackoutOutput(): void {
   clearLiveOutput()
 }
 
-export function fadeLiveOutputToBlack(): void {
-  const broadcast = useBroadcastStore.getState()
-  broadcast.setLive(false, { transitionType: "fade" })
-  broadcast.setLiveItem(null)
-}
-
 export function toggleLiveOutputVisibility(): void {
   const broadcast = useBroadcastStore.getState()
   broadcast.setLive(!broadcast.isLive)

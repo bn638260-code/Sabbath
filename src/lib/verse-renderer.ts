@@ -179,7 +179,7 @@ export function textForPresentation(
 ): string {
   const kind = presentationKind(data)
 
-  if (kind === "hymn") {
+  if (kind === "hymn" || kind === "slideDeck") {
     return data.segments.map((segment) => segment.text.trim()).filter(Boolean).join("\n")
   }
 

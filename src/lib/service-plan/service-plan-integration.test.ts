@@ -112,6 +112,8 @@ describe("service plan shell integration", () => {
     expect(slides).toContain("importPowerPointSlides")
     expect(slides).toContain("slidesToAttachments")
     expect(slides).toContain("Import PowerPoint")
+    expect(slides).toContain("kept as")
+    expect(slides).toContain("because no text was found")
 
     const helper = readSource("src/lib/powerpoint-import.ts")
     expect(helper).toContain("convert_powerpoint_to_pdf")

@@ -82,6 +82,9 @@ declare global {
       settings: {
         setAutoMode: (autoMode: boolean) => void
         setConfidenceThreshold: (confidenceThreshold: number) => void
+        setSemanticConfidenceThreshold: (
+          semanticConfidenceThreshold: number
+        ) => void
       }
       transcription: {
         connect: () => void
@@ -123,7 +126,10 @@ declare global {
         getLive: () => PresentationRenderData | null
         getPayload: () => OperatorBroadcastPayload
         setPreview: (item: PresentationRenderData | null) => void
-        setLive: (item: PresentationRenderData | null, options?: { makeLive?: boolean }) => void
+        setLive: (
+          item: PresentationRenderData | null,
+          options?: { makeLive?: boolean }
+        ) => void
         applyPayload: (payload: OperatorBroadcastPayload) => void
       }
       snapshot: () => OperatorFlowSnapshot
@@ -209,7 +215,7 @@ function navigateQueue(direction: "next" | "prev") {
       const liveReference = useBroadcastStore.getState().liveItem?.reference
       if (!liveReference) return 0
       const index = queue.items.findIndex(
-        (item) => item.presentation.reference === liveReference,
+        (item) => item.presentation.reference === liveReference
       )
       return index >= 0 ? index : 0
     })()
@@ -257,7 +263,7 @@ export function installOperatorFlowHarness(): void {
             reference: detection.verse_ref,
             confidence: detection.confidence,
             source: detection.source === "direct" ? "ai-direct" : "ai-semantic",
-          }),
+          })
         )
       },
     },
@@ -266,6 +272,10 @@ export function installOperatorFlowHarness(): void {
         useSettingsStore.getState().setAutoMode(autoMode),
       setConfidenceThreshold: (confidenceThreshold) =>
         useSettingsStore.getState().setConfidenceThreshold(confidenceThreshold),
+      setSemanticConfidenceThreshold: (semanticConfidenceThreshold) =>
+        useSettingsStore
+          .getState()
+          .setSemanticConfidenceThreshold(semanticConfidenceThreshold),
     },
     transcription: {
       connect: () => dispatchReplayEvent("stt_connected"),
@@ -273,12 +283,12 @@ export function installOperatorFlowHarness(): void {
       partial: (text, confidence) =>
         dispatchReplayEvent(
           "transcript_partial",
-          transcriptPayload(text, false, confidence),
+          transcriptPayload(text, false, confidence)
         ),
       final: (text, confidence) =>
         dispatchReplayEvent(
           "transcript_final",
-          transcriptPayload(text, true, confidence),
+          transcriptPayload(text, true, confidence)
         ),
       detections: (detections) =>
         dispatchReplayEvent("verse_detections", detections),
@@ -297,7 +307,9 @@ export function installOperatorFlowHarness(): void {
       setTheme: (name) => {
         const theme = useBroadcastStore
           .getState()
-          .themes.find((entry) => entry.name.toLowerCase() === name.toLowerCase())
+          .themes.find(
+            (entry) => entry.name.toLowerCase() === name.toLowerCase()
+          )
         if (!theme) return false
         useBroadcastStore.getState().setActiveTheme(theme.id)
         return true
@@ -311,9 +323,11 @@ export function installOperatorFlowHarness(): void {
     },
     theme: {
       add: (theme) => useBroadcastStore.getState().saveTheme(theme),
-      setActive: (themeId) => useBroadcastStore.getState().setActiveTheme(themeId),
+      setActive: (themeId) =>
+        useBroadcastStore.getState().setActiveTheme(themeId),
       getActiveId: () => useBroadcastStore.getState().activeThemeId,
-      listNames: () => useBroadcastStore.getState().themes.map((theme) => theme.name),
+      listNames: () =>
+        useBroadcastStore.getState().themes.map((theme) => theme.name),
     },
     workflowTrace: {
       entries: getWorkflowTrace,
@@ -340,7 +354,9 @@ export function installOperatorFlowHarness(): void {
           useBroadcastStore.getState().setOpacity(payload.opacity)
         }
         if (payload.item) {
-          useBroadcastStore.getState().commitLiveItem(payload.item, { makeLive: true })
+          useBroadcastStore
+            .getState()
+            .commitLiveItem(payload.item, { makeLive: true })
         }
       },
     },
@@ -369,7 +385,10 @@ export function makeHarnessDetection(reference = "John 3:16"): DetectionResult {
   }
 }
 
-export function makeHarnessQueueItem(reference = "John 3:16 (KJV)", verse = 16): QueueItem {
+export function makeHarnessQueueItem(
+  reference = "John 3:16 (KJV)",
+  verse = 16
+): QueueItem {
   return createScriptureQueueItem(
     createPresentationItem({
       id: verse,
@@ -379,8 +398,11 @@ export function makeHarnessQueueItem(reference = "John 3:16 (KJV)", verse = 16):
       book_abbreviation: "Jn",
       chapter: 3,
       verse,
-      text: verse === 16 ? "For God so loved the world." : "For God sent not his Son.",
+      text:
+        verse === 16
+          ? "For God so loved the world."
+          : "For God sent not his Son.",
     }).verse,
-    { reference },
+    { reference }
   )
 }

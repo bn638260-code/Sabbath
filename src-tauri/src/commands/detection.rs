@@ -27,10 +27,11 @@ pub(crate) const FTS5_CONFIDENCE_DECAY: f64 = 0.04;
 /// FTS5 results below this confidence are not included.
 pub(crate) const FTS5_MIN_CONFIDENCE: f64 = 0.50;
 
-/// Detection results at or above this confidence are visible to operators.
+/// Direct detection results at or above this confidence are visible to operators.
 /// Auto-live/auto-queue uses the UI threshold separately.
 pub(crate) const OPERATOR_DETECTION_THRESHOLD: f64 = 0.70;
 
+const DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD: f64 = 0.65;
 const AUTO_QUEUE_DISABLED_THRESHOLD: f64 = f64::INFINITY;
 
 /// Serializable detection result for the frontend
@@ -777,26 +778,45 @@ pub fn update_detection_settings(
     pipeline_state: State<'_, Mutex<DetectionPipeline>>,
     auto_mode: bool,
     confidence_threshold: f64,
+    semantic_confidence_threshold: Option<f64>,
     cooldown_ms: u64,
 ) -> Result<(), String> {
     if !confidence_threshold.is_finite() {
         return Err("confidence_threshold must be finite".into());
     }
+    if let Some(threshold) = semantic_confidence_threshold {
+        if !threshold.is_finite() {
+            return Err("semantic_confidence_threshold must be finite".into());
+        }
+    }
     let threshold = confidence_threshold.clamp(0.0, 1.0);
+    let semantic_threshold = semantic_confidence_threshold
+        .unwrap_or(DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD)
+        .clamp(0.0, 1.0);
     let auto_threshold = auto_mode.then_some(threshold);
 
     {
         let mut merger = merger_state.lock().map_err(|e| e.to_string())?;
-        apply_detection_settings_to_merger(&mut merger, auto_threshold, cooldown_ms);
+        apply_detection_settings_to_merger(
+            &mut merger,
+            auto_threshold,
+            semantic_threshold,
+            cooldown_ms,
+        );
     }
 
     {
         let mut pipeline = pipeline_state.lock().map_err(|e| e.to_string())?;
-        apply_detection_settings_to_merger(pipeline.merger_mut(), auto_threshold, cooldown_ms);
+        apply_detection_settings_to_merger(
+            pipeline.merger_mut(),
+            auto_threshold,
+            semantic_threshold,
+            cooldown_ms,
+        );
     }
 
     log::info!(
-        "[DET] Settings updated: auto_mode={auto_mode}, operator_threshold={OPERATOR_DETECTION_THRESHOLD:.2}, auto_threshold={}, cooldown_ms={}",
+        "[DET] Settings updated: auto_mode={auto_mode}, operator_threshold={OPERATOR_DETECTION_THRESHOLD:.2}, semantic_threshold={semantic_threshold:.2}, auto_threshold={}, cooldown_ms={}",
         auto_threshold.map_or_else(|| "disabled".to_string(), |value| format!("{value:.2}")),
         cooldown_ms.clamp(250, 60_000)
     );
@@ -807,9 +827,11 @@ pub fn update_detection_settings(
 fn apply_detection_settings_to_merger(
     merger: &mut rhema_detection::DetectionMerger,
     auto_threshold: Option<f64>,
+    semantic_threshold: f64,
     cooldown_ms: u64,
 ) {
     merger.set_confidence_threshold(OPERATOR_DETECTION_THRESHOLD);
+    merger.set_semantic_confidence_threshold(semantic_threshold);
     merger.set_auto_queue_threshold(auto_threshold.unwrap_or(AUTO_QUEUE_DISABLED_THRESHOLD));
     merger.set_cooldown_ms(cooldown_ms.clamp(250, 60_000));
 }
@@ -987,12 +1009,21 @@ mod tests {
     fn detection_settings_keep_semantic_results_visible_below_auto_threshold() {
         let mut merger = DetectionMerger::new();
 
-        apply_detection_settings_to_merger(&mut merger, Some(0.80), 2500);
+        apply_detection_settings_to_merger(
+            &mut merger,
+            Some(0.80),
+            DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD,
+            2500,
+        );
 
         let results = merger.merge(vec![], vec![semantic_detection(0.79)]);
 
         assert!(
             (merger.confidence_threshold() - OPERATOR_DETECTION_THRESHOLD).abs() < f64::EPSILON
+        );
+        assert!(
+            (merger.semantic_confidence_threshold() - DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD).abs()
+                < f64::EPSILON
         );
         assert!((merger.auto_queue_threshold() - 0.80).abs() < f64::EPSILON);
         assert_eq!(results.len(), 1);
@@ -1003,13 +1034,37 @@ mod tests {
     fn manual_mode_disables_auto_queue_without_hiding_semantic_results() {
         let mut merger = DetectionMerger::new();
 
-        apply_detection_settings_to_merger(&mut merger, None, 2500);
+        apply_detection_settings_to_merger(
+            &mut merger,
+            None,
+            DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD,
+            2500,
+        );
 
         let results = merger.merge(vec![], vec![semantic_detection(0.79)]);
 
         assert_eq!(results.len(), 1);
         assert!(!results[0].auto_queued);
         assert!(merger.auto_queue_threshold().is_infinite());
+    }
+
+    #[test]
+    fn detection_settings_apply_semantic_visibility_threshold() {
+        let mut merger = DetectionMerger::new();
+
+        apply_detection_settings_to_merger(&mut merger, Some(0.85), 0.65, 2500);
+
+        assert!(
+            (merger.confidence_threshold() - OPERATOR_DETECTION_THRESHOLD).abs() < f64::EPSILON
+        );
+        assert!((merger.semantic_confidence_threshold() - 0.65).abs() < f64::EPSILON);
+        assert!(merger
+            .merge(vec![], vec![semantic_detection(0.64)])
+            .is_empty());
+        assert_eq!(
+            merger.merge(vec![], vec![semantic_detection(0.65)]).len(),
+            1
+        );
     }
 
     #[test]
@@ -1108,7 +1163,12 @@ mod tests {
             "please read Patriarchs and Prophets chapter one paragraph two",
         );
         let mut merger = DetectionMerger::new();
-        apply_detection_settings_to_merger(&mut merger, Some(0.80), 2500);
+        apply_detection_settings_to_merger(
+            &mut merger,
+            Some(0.80),
+            DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD,
+            2500,
+        );
 
         apply_egw_auto_queue(&mut results, &mut merger);
 
@@ -1121,7 +1181,12 @@ mod tests {
         let fixture = fixture_state(1);
         let mut results = detect_egw_references(&fixture.state, "PP 1:2");
         let mut merger = DetectionMerger::new();
-        apply_detection_settings_to_merger(&mut merger, None, 2500);
+        apply_detection_settings_to_merger(
+            &mut merger,
+            None,
+            DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD,
+            2500,
+        );
 
         apply_egw_auto_queue(&mut results, &mut merger);
 

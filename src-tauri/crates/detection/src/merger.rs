@@ -6,6 +6,9 @@ use crate::types::{Detection, DetectionSource};
 /// Default confidence threshold — detections below this are dropped.
 const DEFAULT_CONFIDENCE_THRESHOLD: f64 = 0.45;
 
+/// Default semantic visibility threshold - semantic suggestions below this are dropped.
+const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD: f64 = 0.65;
+
 /// Default auto-queue threshold — detections above this are auto-queued.
 const DEFAULT_AUTO_QUEUE_THRESHOLD: f64 = 0.98;
 
@@ -38,6 +41,7 @@ pub struct AutoQueueCooldown {
 /// the user with too many auto-displayed results.
 pub struct DetectionMerger {
     confidence_threshold: f64,
+    semantic_confidence_threshold: f64,
     auto_queue_threshold: f64,
     cooldown_ms: u64,
     cooldown: AutoQueueCooldown,
@@ -51,6 +55,7 @@ impl DetectionMerger {
     pub fn with_cooldown(cooldown: AutoQueueCooldown) -> Self {
         Self {
             confidence_threshold: DEFAULT_CONFIDENCE_THRESHOLD,
+            semantic_confidence_threshold: DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD,
             auto_queue_threshold: DEFAULT_AUTO_QUEUE_THRESHOLD,
             cooldown_ms: DEFAULT_COOLDOWN_MS,
             cooldown,
@@ -62,7 +67,7 @@ impl DetectionMerger {
     /// 1. Combine all detections.
     /// 2. Dedup: if direct and semantic found the same verse, keep direct.
     /// 3. Sort direct references before semantic suggestions, then by confidence.
-    /// 4. Drop anything below `confidence_threshold`.
+    /// 4. Drop anything below its source-specific visibility threshold.
     /// 5. Mark `auto_queued = true` for the highest-ranked eligible item
     ///    (only one auto-queue per merge pass).
     /// 6. Apply cooldown: if last auto-display was < `cooldown_ms` ago,
@@ -102,8 +107,8 @@ impl DetectionMerger {
             })
         });
 
-        // 4. Drop below threshold
-        deduped.retain(|d| d.confidence >= self.confidence_threshold);
+        // 4. Drop below source-specific visibility thresholds.
+        deduped.retain(|d| d.confidence >= self.visibility_threshold(d));
 
         // 5 & 6. Build merged list with auto-queue decisions.
         // Only the highest-ranked eligible detection per merge pass can auto-queue.
@@ -158,6 +163,11 @@ impl DetectionMerger {
         self.confidence_threshold = threshold;
     }
 
+    /// Update the minimum confidence threshold for semantic suggestions.
+    pub fn set_semantic_confidence_threshold(&mut self, threshold: f64) {
+        self.semantic_confidence_threshold = threshold;
+    }
+
     /// Update the auto-queue threshold.
     pub fn set_auto_queue_threshold(&mut self, threshold: f64) {
         self.auto_queue_threshold = threshold;
@@ -172,8 +182,19 @@ impl DetectionMerger {
         self.confidence_threshold
     }
 
+    pub fn semantic_confidence_threshold(&self) -> f64 {
+        self.semantic_confidence_threshold
+    }
+
     pub fn auto_queue_threshold(&self) -> f64 {
         self.auto_queue_threshold
+    }
+
+    fn visibility_threshold(&self, detection: &Detection) -> f64 {
+        match detection.source {
+            DetectionSource::DirectReference => self.confidence_threshold,
+            DetectionSource::Semantic { .. } => self.semantic_confidence_threshold,
+        }
     }
 }
 
@@ -333,7 +354,7 @@ mod tests {
         let semantic = vec![
             make_semantic_id_detection(1001, 0.72),
             make_semantic_id_detection(1002, 0.81),
-            make_semantic_id_detection(1003, 0.64),
+            make_semantic_id_detection(1003, 0.66),
         ];
 
         let results = merger.merge(vec![], semantic);
@@ -455,22 +476,63 @@ mod tests {
                 "John",
                 3,
                 16,
-                0.50,
-                DetectionSource::Semantic { similarity: 0.50 },
+                0.65,
+                DetectionSource::Semantic { similarity: 0.65 },
             ),
             make_detection(
                 45,
                 "Romans",
                 8,
                 28,
-                0.20, // below 0.35 threshold
-                DetectionSource::Semantic { similarity: 0.20 },
+                0.64,
+                DetectionSource::Semantic { similarity: 0.64 },
             ),
         ];
 
         let results = merger.merge(direct, semantic);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].detection.verse_ref.book_name, "John");
+    }
+
+    #[test]
+    fn test_merger_uses_separate_direct_and_semantic_visibility_thresholds() {
+        let mut merger = DetectionMerger::new();
+        merger.set_confidence_threshold(0.70);
+        merger.set_semantic_confidence_threshold(0.65);
+
+        let direct = vec![make_detection(
+            43,
+            "John",
+            3,
+            16,
+            0.69,
+            DetectionSource::DirectReference,
+        )];
+        let semantic = vec![
+            make_detection(
+                45,
+                "Romans",
+                8,
+                28,
+                0.66,
+                DetectionSource::Semantic { similarity: 0.66 },
+            ),
+            make_detection(
+                66,
+                "Revelation",
+                21,
+                4,
+                0.64,
+                DetectionSource::Semantic { similarity: 0.64 },
+            ),
+        ];
+
+        let results = merger.merge(direct, semantic);
+
+        assert_eq!(merger.confidence_threshold(), 0.70);
+        assert_eq!(merger.semantic_confidence_threshold(), 0.65);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].detection.verse_ref.book_name, "Romans");
     }
 
     #[test]
@@ -547,13 +609,13 @@ mod tests {
             "John",
             3,
             16,
-            0.50,
-            DetectionSource::Semantic { similarity: 0.50 },
+            0.65,
+            DetectionSource::Semantic { similarity: 0.65 },
         )];
 
         let results = merger.merge(vec![], semantic);
         assert_eq!(results.len(), 1);
-        // 0.50 < 0.98 auto_queue_threshold
+        // 0.65 < 0.98 auto_queue_threshold
         assert!(!results[0].auto_queued);
     }
 
@@ -583,8 +645,8 @@ mod tests {
                 "Genesis",
                 1,
                 1,
-                0.60,
-                DetectionSource::Semantic { similarity: 0.60 },
+                0.66,
+                DetectionSource::Semantic { similarity: 0.66 },
             ),
         ];
 
@@ -596,7 +658,7 @@ mod tests {
         ));
         assert!((results[0].detection.confidence - 0.90).abs() < f64::EPSILON);
         assert!((results[1].detection.confidence - 0.95).abs() < f64::EPSILON);
-        assert!((results[2].detection.confidence - 0.60).abs() < f64::EPSILON);
+        assert!((results[2].detection.confidence - 0.66).abs() < f64::EPSILON);
     }
 
     #[test]

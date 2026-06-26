@@ -3,10 +3,17 @@ import { Slider } from "@/components/ui/slider"
 import { useSettingsStore } from "@/stores/settings-store"
 
 export function DisplayModeSection() {
-  const { autoMode, setAutoMode, confidenceThreshold, setConfidenceThreshold } =
-    useSettingsStore()
+  const {
+    autoMode,
+    setAutoMode,
+    confidenceThreshold,
+    setConfidenceThreshold,
+    semanticConfidenceThreshold,
+    setSemanticConfidenceThreshold,
+  } = useSettingsStore()
 
   const thresholdPercent = Math.round(confidenceThreshold * 100)
+  const semanticThresholdPercent = Math.round(semanticConfidenceThreshold * 100)
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,11 +64,32 @@ export function DisplayModeSection() {
         </RadioGroup>
       </div>
 
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+            Semantic detection
+          </label>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {semanticThresholdPercent}%
+          </span>
+        </div>
+        <Slider
+          min={35}
+          max={100}
+          step={1}
+          value={[semanticThresholdPercent]}
+          onValueChange={([v]) => setSemanticConfidenceThreshold(v / 100)}
+        />
+        <p className="text-[0.625rem] text-muted-foreground">
+          Semantic verse suggestions below this confidence stay hidden.
+        </p>
+      </div>
+
       {autoMode && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-              Auto-live Threshold
+              Auto-live
             </label>
             <span className="text-xs text-muted-foreground tabular-nums">
               {thresholdPercent}%
@@ -75,12 +103,12 @@ export function DisplayModeSection() {
             onValueChange={([v]) => setConfidenceThreshold(v / 100)}
           />
           <p className="text-[0.625rem] text-muted-foreground">
-            Only verses above this threshold are sent live automatically.
-            Semantic and testimony-based suggestions still appear for review.
+            Only detections at or above this confidence are sent live
+            automatically.
           </p>
           <p className="text-[0.625rem] font-medium text-foreground">
-            Tip: 98% keeps autocue conservative - exact references go live
-            while uncertain semantic suggestions wait for review.
+            Tip: 85% balances hands-free output with review for uncertain
+            suggestions.
           </p>
         </div>
       )}

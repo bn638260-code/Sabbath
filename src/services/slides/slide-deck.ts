@@ -8,6 +8,32 @@ import type {
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif"])
 
+function normalizedTextLines(lines: string[] | undefined): string[] {
+  return (lines ?? [])
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+}
+
+export function slideWithExtractedTextTheme(
+  slide: SlideDeckPresentationItemData
+): SlideDeckPresentationItemData {
+  const lines = normalizedTextLines(slide.extractedTextLines)
+  if (lines.length === 0) return { ...slide, applyTheme: true }
+
+  const title = lines[0]
+  const bodyLines = lines.slice(1)
+  return {
+    ...slide,
+    reference: title,
+    sectionLabel: title,
+    slidePath: "",
+    segments: (bodyLines.length > 0 ? bodyLines : [title]).map((text) => ({
+      text,
+    })),
+    applyTheme: true,
+  }
+}
+
 export function inferDeckSourceType(path: string): SlideDeck["sourceType"] {
   const lower = path.toLowerCase()
   if (lower.endsWith(".pdf")) return "pdf"

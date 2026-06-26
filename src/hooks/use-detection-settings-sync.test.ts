@@ -45,7 +45,8 @@ describe("useDetectionSettingsSync", () => {
     invokeMock.mockRejectedValueOnce(new Error("backend offline"))
 
     const { useSettingsStore } = await import("@/stores/settings-store")
-    const { useDetectionSettingsSync } = await import("./use-detection-settings-sync")
+    const { useDetectionSettingsSync } =
+      await import("./use-detection-settings-sync")
 
     function Probe() {
       useDetectionSettingsSync()
@@ -61,13 +62,45 @@ describe("useDetectionSettingsSync", () => {
     expect(invokeMock).toHaveBeenCalledWith("update_detection_settings", {
       autoMode: useSettingsStore.getState().autoMode,
       confidenceThreshold: useSettingsStore.getState().confidenceThreshold,
+      semanticConfidenceThreshold:
+        useSettingsStore.getState().semanticConfidenceThreshold,
       cooldownMs: useSettingsStore.getState().cooldownMs,
     })
     expect(reportOutputIssueMock).toHaveBeenCalledWith(
       expect.objectContaining({
         outputId: "global",
         kind: "detection-settings",
-      }),
+      })
     )
+  })
+
+  it("syncs semantic threshold changes to the backend", async () => {
+    const { useSettingsStore } = await import("@/stores/settings-store")
+    const { useDetectionSettingsSync } =
+      await import("./use-detection-settings-sync")
+
+    function Probe() {
+      useDetectionSettingsSync()
+      return null
+    }
+
+    await act(async () => {
+      root.render(React.createElement(Probe))
+      await Promise.resolve()
+    })
+
+    invokeMock.mockClear()
+
+    await act(async () => {
+      useSettingsStore.getState().setSemanticConfidenceThreshold(0.72)
+      await Promise.resolve()
+    })
+
+    expect(invokeMock).toHaveBeenCalledWith("update_detection_settings", {
+      autoMode: useSettingsStore.getState().autoMode,
+      confidenceThreshold: useSettingsStore.getState().confidenceThreshold,
+      semanticConfidenceThreshold: 0.72,
+      cooldownMs: useSettingsStore.getState().cooldownMs,
+    })
   })
 })

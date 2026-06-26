@@ -240,19 +240,9 @@ pub fn run() {
                                         "Verse embeddings loaded ({} vectors, corpus={semantic_corpus}; semantic hits resolve to active translation)",
                                         index.len(),
                                     );
-                                    let mut semantic = rhema_detection::SemanticDetector::new(
+                                    let semantic = rhema_detection::SemanticDetector::new(
                                         Box::new(embedder),
                                         Box::new(index),
-                                    );
-                                    // Calibrate the operator-facing suggestion
-                                    // floor to the active model's similarity
-                                    // distribution (gte-small runs hot).
-                                    let floor =
-                                        asset_paths::semantic_display_floor(&model_path);
-                                    semantic.set_display_floor(floor);
-                                    log::info!(
-                                        "Semantic display floor set to {floor:.2} for model {}",
-                                        model_path.display()
                                     );
                                     pipeline.set_semantic(semantic);
                                 }

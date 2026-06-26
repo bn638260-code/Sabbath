@@ -75,7 +75,8 @@ describe("settings store", () => {
     expect(state.autoPreviewDetections).toBe(false)
     // Defaults remain for keys with null
     expect(state.autoMode).toBe(false)
-    expect(state.confidenceThreshold).toBe(0.98)
+    expect(state.confidenceThreshold).toBe(0.85)
+    expect(state.semanticConfidenceThreshold).toBe(0.65)
   })
 
   it("hydrate with no persisted values falls back to defaults", async () => {
@@ -92,7 +93,7 @@ describe("settings store", () => {
     expect(after.autoPreviewDetections).toBe(true)
   })
 
-  it("migrates the legacy default confidence threshold to the conservative default", async () => {
+  it("migrates the legacy default confidence threshold to the auto-live default", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "confidenceThreshold") return 0.8
       return null
@@ -102,7 +103,7 @@ describe("settings store", () => {
       await import("./settings-store")
     await hydrateSettings()
 
-    expect(useSettingsStore.getState().confidenceThreshold).toBe(0.98)
+    expect(useSettingsStore.getState().confidenceThreshold).toBe(0.85)
   })
 
   it("does not trust persisted Deepgram key status when keychain status is unavailable", async () => {
@@ -307,6 +308,7 @@ describe("settings store", () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "gain") return 0
       if (key === "confidenceThreshold") return 0
+      if (key === "semanticConfidenceThreshold") return 0
       if (key === "cooldownMs") return 0
       return null
     })
@@ -318,6 +320,7 @@ describe("settings store", () => {
     const state = useSettingsStore.getState()
     expect(state.gain).toBe(0)
     expect(state.confidenceThreshold).toBe(0)
+    expect(state.semanticConfidenceThreshold).toBe(0)
     expect(state.cooldownMs).toBe(0)
     // Non-zero-keyed fields stay at defaults
     expect(state.sttProvider).toBe("vosk")

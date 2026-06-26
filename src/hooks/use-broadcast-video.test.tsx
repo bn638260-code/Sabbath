@@ -42,7 +42,7 @@ function TestBroadcastVideoWithItem({
   item,
 }: {
   video: HTMLVideoElement
-  item: PresentationRenderData
+  item: PresentationRenderData | null
 }) {
   useBroadcastVideo({ video, item, outputId: "operator" })
   return null
@@ -193,6 +193,39 @@ describe("useBroadcastVideo", () => {
 
     await act(async () => {
       videoListenerRef.current?.({ payload: { type: "stop" } })
+    })
+
+    expect(pause).toHaveBeenCalled()
+    expect(load).toHaveBeenCalled()
+    expect(video.getAttribute("src")).toBeNull()
+  })
+
+  it("unloads an ended native video when a non-video item replaces it", async () => {
+    const video = document.createElement("video")
+    const load = vi.fn()
+    const pause = vi.fn()
+    Object.defineProperties(video, {
+      duration: { value: 10 },
+      load: { value: load },
+      pause: { value: pause },
+      play: { value: vi.fn().mockResolvedValue(undefined) },
+    })
+    const nextItem: PresentationRenderData = {
+      kind: "scripture",
+      reference: "John 3:16",
+      segments: [{ text: "For God so loved the world", verseNumber: 16 }],
+    }
+
+    await act(async () => {
+      root.render(<TestBroadcastVideoWithItem video={video} item={videoItem} />)
+    })
+
+    video.currentTime = 10
+    pause.mockClear()
+    load.mockClear()
+
+    await act(async () => {
+      root.render(<TestBroadcastVideoWithItem video={video} item={nextItem} />)
     })
 
     expect(pause).toHaveBeenCalled()

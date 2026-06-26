@@ -604,6 +604,62 @@ describe("broadcast store sync", () => {
     )
   })
 
+  it("stops an ended video before replacing it with a non-video live item", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    useBroadcastStore.setState({
+      isLive: true,
+      liveItem: {
+        kind: "video",
+        reference: "Welcome Video",
+        segments: [{ text: "Welcome Video" }],
+        video: {
+          source: "local",
+          videoId: "video-1",
+          title: "Welcome Video",
+          videoPath: "C:\\Videos\\welcome.mp4",
+        },
+      },
+      videoTransport: {
+        outputId: "main",
+        currentTime: 12,
+        duration: 12,
+        paused: true,
+        muted: false,
+        volume: 1,
+        loop: false,
+        ended: true,
+      },
+    })
+
+    const nextItem = {
+      kind: "scripture" as const,
+      reference: "John 3:16",
+      segments: [{ text: "For God so loved the world", verseNumber: 16 }],
+    }
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().commitLiveItem(nextItem)
+
+    expect(useBroadcastStore.getState().videoTransport).toBeNull()
+    const stopIndex = emitToMock.mock.calls.findIndex(
+      (call) =>
+        call[0] === "broadcast" &&
+        call[1] === "broadcast:video-control" &&
+        call[2]?.type === "stop"
+    )
+    const updateIndex = emitToMock.mock.calls.findIndex(
+      (call) => call[0] === "broadcast" && call[1] === "broadcast:verse-update"
+    )
+    expect(stopIndex).toBeGreaterThanOrEqual(0)
+    expect(updateIndex).toBeGreaterThanOrEqual(0)
+    expect(stopIndex).toBeLessThan(updateIndex)
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast-alt",
+      "broadcast:video-control",
+      { type: "stop" }
+    )
+  })
+
   it("fades to black when hiding live output with a fade transition", async () => {
     const { useBroadcastStore } = await import("./broadcast-store")
     useBroadcastStore.setState({

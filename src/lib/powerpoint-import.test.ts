@@ -9,9 +9,14 @@ vi.mock("@/lib/tauri-runtime", () => ({
   invokeTauri: (...args: unknown[]) => mockInvoke(...args),
 }))
 
-vi.mock("@/lib/pdf-slide-renderer", () => ({
-  renderPdfToSlides: (...args: unknown[]) => mockRender(...args),
-}))
+vi.mock("@/lib/pdf-slide-renderer", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/pdf-slide-renderer")>()
+  return {
+    ...actual,
+    renderPdfToSlides: (...args: unknown[]) => mockRender(...args),
+  }
+})
 
 async function loadModule() {
   vi.resetModules()
@@ -29,10 +34,19 @@ describe("importPowerPointSlides", () => {
   })
 
   it("converts the deck and returns ordered, labelled slides", async () => {
-    mockInvoke.mockResolvedValue({ fileName: "Sermon.pptx", pdfBase64: "PDF64" })
+    mockInvoke.mockResolvedValue({
+      fileName: "Sermon.pptx",
+      pdfBase64: "PDF64",
+    })
     mockRender.mockResolvedValue([
-      { index: 0, dataUrl: "data:img0", width: 4, height: 3 },
-      { index: 1, dataUrl: "data:img1", width: 4, height: 3 },
+      {
+        index: 0,
+        dataUrl: "data:img0",
+        width: 4,
+        height: 3,
+        textLines: ["Sermon title", "First point"],
+      },
+      { index: 1, dataUrl: "data:img1", width: 4, height: 3, textLines: [] },
     ])
 
     const { importPowerPointSlides } = await loadModule()
@@ -43,8 +57,18 @@ describe("importPowerPointSlides", () => {
     })
     expect(mockRender).toHaveBeenCalledWith("PDF64")
     expect(slides).toEqual([
-      { index: 0, dataUrl: "data:img0", label: "Sermon — Slide 1" },
-      { index: 1, dataUrl: "data:img1", label: "Sermon — Slide 2" },
+      {
+        index: 0,
+        dataUrl: "data:img0",
+        label: "Sermon — Slide 1",
+        textLines: ["Sermon title", "First point"],
+      },
+      {
+        index: 1,
+        dataUrl: "data:img1",
+        label: "Sermon — Slide 2",
+        textLines: [],
+      },
     ])
   })
 })
@@ -54,8 +78,13 @@ describe("slidesToAttachments", () => {
     const { slidesToAttachments } = await loadModule()
     const attachments = slidesToAttachments(
       [
-        { index: 0, dataUrl: "data:a", label: "Deck — Slide 1" },
-        { index: 1, dataUrl: "data:b", label: "Deck — Slide 2" },
+        {
+          index: 0,
+          dataUrl: "data:a",
+          label: "Deck — Slide 1",
+          textLines: ["Title", "Body"],
+        },
+        { index: 1, dataUrl: "data:b", label: "Deck — Slide 2", textLines: [] },
       ],
       3
     )
@@ -64,6 +93,10 @@ describe("slidesToAttachments", () => {
     expect(attachments.map((a) => a.thumbnailUrl)).toEqual(["data:a", "data:b"])
     expect(attachments.every((a) => a.kind === "slide")).toBe(true)
     expect(attachments.every((a) => a.status === "ready")).toBe(true)
+    expect(attachments.map((a) => a.extractedTextLines)).toEqual([
+      ["Title", "Body"],
+      [],
+    ])
     expect(attachments[0].label).toBe("Deck — Slide 1")
     expect(attachments[0].id).not.toBe(attachments[1].id)
   })
@@ -71,6 +104,20 @@ describe("slidesToAttachments", () => {
   it("returns no attachments for an empty slide list", async () => {
     const { slidesToAttachments } = await loadModule()
     expect(slidesToAttachments([], 0)).toEqual([])
+  })
+})
+
+describe("extractPdfTextLines", () => {
+  it("groups positioned text into readable slide lines", async () => {
+    const { extractPdfTextLines } = await import("./pdf-slide-renderer")
+
+    expect(
+      extractPdfTextLines([
+        { str: "Second", transform: [1, 0, 0, 1, 10, 20] },
+        { str: "line", transform: [1, 0, 0, 1, 60, 20] },
+        { str: "Title", transform: [1, 0, 0, 1, 10, 40] },
+      ])
+    ).toEqual(["Title", "Second line"])
   })
 })
 

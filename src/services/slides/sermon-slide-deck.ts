@@ -1,4 +1,5 @@
 import type { ServiceAttachment, ServiceItem, SlideDeckPresentationItemData } from "@/types"
+import { slideWithExtractedTextTheme } from "@/services/slides/slide-deck"
 
 const IMAGE_KINDS = new Set<ServiceAttachment["kind"]>(["slide"])
 
@@ -19,7 +20,7 @@ export function buildSermonSlideDeck(
 
   return slides.map((slide, index) => {
     const label = slide.label.trim() || `Slide ${index + 1}`
-    return {
+    const deckSlide: SlideDeckPresentationItemData = {
       kind: "slideDeck",
       deckId: `sermon-slides-${item.id}`,
       deckTitle: item.title,
@@ -32,6 +33,10 @@ export function buildSermonSlideDeck(
       reference: `${item.title} - ${label}`,
       segments: [{ text: label }],
       applyTheme: item.slidesApplyTheme || undefined,
+      extractedTextLines: slide.extractedTextLines,
     }
+    return item.slidesApplyTheme
+      ? slideWithExtractedTextTheme(deckSlide)
+      : deckSlide
   })
 }

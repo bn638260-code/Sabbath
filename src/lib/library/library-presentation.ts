@@ -10,6 +10,7 @@ import { videoAssetToPresentation } from "@/lib/library/library-video"
 import { songDocToDeck } from "@/lib/library/song-doc"
 import { presentItem, selectPreviewItem } from "@/lib/presentation-workflow"
 import { createHymnDeckQueueItems } from "@/services/hymnal/hymn-presentation"
+import { slideWithExtractedTextTheme } from "@/services/slides/slide-deck"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useQueueStore } from "@/stores/queue-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
@@ -31,7 +32,7 @@ function deckWithApplyTheme(
   applyTheme: boolean | undefined
 ): SlideDeckPresentationItemData[] {
   if (!applyTheme) return deck
-  return deck.map((slide) => ({ ...slide, applyTheme: true }))
+  return deck.map((slide) => slideWithExtractedTextTheme(slide))
 }
 
 function imagePresentation(asset: Extract<LibraryAsset, { type: "image" }>) {

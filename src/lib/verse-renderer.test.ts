@@ -57,6 +57,16 @@ describe("textForPresentation", () => {
       "Nature and revelation alike testify",
     )
   })
+
+  it("keeps themed slide-deck text lines separate", () => {
+    const slide = {
+      kind: "slideDeck",
+      reference: "Theme title",
+      segments: [{ text: "First point" }, { text: "- Bullet" }],
+    } as unknown as PresentationRenderData
+
+    expect(textForPresentation(slide, false)).toBe("First point\n- Bullet")
+  })
 })
 
 describe("clampCornerRadius", () => {

@@ -8,8 +8,7 @@ export const HELP_LEGAL_APP_VERSION = packageJson.version
 /** Update this when the Terms and Conditions text materially changes. */
 export const HELP_LEGAL_TERMS_LAST_UPDATED = "24 June 2026"
 
-export const HELP_LEGAL_AGREEMENT_NOTICE =
-  `By downloading, installing, launching, or continuing to use ${APP_DISPLAY_NAME}, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions and the Copyright notice below. If you do not agree, do not install or use the application.`
+export const HELP_LEGAL_AGREEMENT_NOTICE = `By downloading, installing, launching, or continuing to use ${APP_DISPLAY_NAME}, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions and the Copyright notice below. If you do not agree, do not install or use the application.`
 
 export const HELP_GUIDE_SECTIONS = [
   {
@@ -66,10 +65,10 @@ export const HELP_GUIDE_SECTIONS = [
     title: "Auto detection do's and don'ts",
     items: [
       "Do enable Auto mode only when you are comfortable with high-confidence matches going to live output.",
-      "Do keep the Auto-live threshold near the default 80% unless your room needs a stricter or looser setting.",
+      "Do keep the Auto-live threshold near the default 85% unless your room needs a stricter or looser setting.",
       "Do say Ellen White references as book, chapter, and paragraph, for example 'Patriarchs and Prophets chapter one paragraph two'.",
       "Do use Manual mode for important services where every slide must be reviewed before display.",
-      "Don't expect semantic suggestions below the Auto-live threshold to go live; they stay visible for review.",
+      "Don't expect semantic suggestions below the Auto-live threshold to go live; those above the Semantic detection threshold stay visible for review.",
       "Don't leave stale suggestions in the box during a new topic; Recent detections auto-clear after 10 seconds and can be cleared manually.",
       "Don't treat automatic detections as final authority; verify the reference before relying on it publicly.",
     ],

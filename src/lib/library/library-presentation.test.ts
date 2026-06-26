@@ -83,6 +83,24 @@ describe("library presentation helpers", () => {
     )
   })
 
+  it("uses extracted slide text when applying theme to a library PowerPoint deck", () => {
+    const asset = slideTemplateAsset()
+    asset.applyTheme = true
+    asset.deck[0] = {
+      ...asset.deck[0],
+      extractedTextLines: ["Theme title", "First point"],
+    }
+
+    const themed = libraryAssetToFirstPresentation(asset)
+
+    expect(themed?.renderData).toMatchObject({
+      reference: "Theme title",
+      slideImageUrl: "",
+      segments: [{ text: "First point" }],
+      applyTheme: true,
+    })
+  })
+
   it("creates one ordered queue item for each slide in a slide-template asset", () => {
     const items = createQueueItemsForLibraryAsset(slideTemplateAsset())
 

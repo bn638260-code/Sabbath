@@ -16,6 +16,7 @@ export interface ImportedSlide {
   index: number
   dataUrl: string
   label: string
+  textLines: string[]
 }
 
 function deckBaseName(fileName: string): string {
@@ -41,6 +42,7 @@ export async function importPowerPointSlides(
     index: slide.index,
     dataUrl: slide.dataUrl,
     label: `${base} — Slide ${slide.index + 1}`,
+    textLines: slide.textLines,
   }))
 }
 
@@ -59,5 +61,6 @@ export function slidesToAttachments(
     status: "ready",
     thumbnailUrl: slide.dataUrl,
     order: startOrder + offset,
+    extractedTextLines: slide.textLines,
   }))
 }

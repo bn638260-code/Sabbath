@@ -40,7 +40,6 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import type { BroadcastTransitionType } from "@/types"
-import { fadeLiveOutputToBlack } from "@/lib/operator-actions"
 
 const LIVE_TRANSITION_OPTIONS: {
   value: BroadcastTransitionType
@@ -168,17 +167,6 @@ function LiveSendControls({
         }
         className="[&_button]:px-2"
       />
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={!isLive}
-        className="gap-2"
-        onClick={fadeLiveOutputToBlack}
-        title="Fade live output to black"
-      >
-        <EyeOffIcon className="size-3.5" />
-        Fade Black
-      </Button>
       <EmergencyLiveButton />
       <Button
         size="sm"

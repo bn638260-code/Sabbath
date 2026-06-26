@@ -65,6 +65,72 @@ describe("sermon slide deck", () => {
     expect(themed.every((slide) => slide.applyTheme === true)).toBe(true)
   })
 
+  it("uses extracted PowerPoint text as themed slide content", () => {
+    const themed = buildSermonSlideDeck({
+      ...item(),
+      slidesApplyTheme: true,
+      attachments: item().attachments.map((attachment) =>
+        attachment.id === "slide-1"
+          ? {
+              ...attachment,
+              extractedTextLines: ["Main title", "First point", "- Bullet"],
+            }
+          : attachment
+      ),
+    })
+
+    expect(themed[0]).toMatchObject({
+      reference: "Main title",
+      sectionLabel: "Main title",
+      slidePath: "",
+      applyTheme: true,
+      segments: [{ text: "First point" }, { text: "- Bullet" }],
+    })
+  })
+
+  it("shows original slide images again when theme conversion is off", () => {
+    const deck = buildSermonSlideDeck({
+      ...item(),
+      slidesApplyTheme: false,
+      attachments: item().attachments.map((attachment) =>
+        attachment.id === "slide-1"
+          ? {
+              ...attachment,
+              extractedTextLines: ["Main title", "First point"],
+            }
+          : attachment
+      ),
+    })
+
+    expect(deck[0]).toMatchObject({
+      reference: "Sermon - Opening",
+      slidePath: "data:image/png;base64,one",
+      segments: [{ text: "Opening" }],
+    })
+    expect(deck[0].applyTheme).toBeUndefined()
+  })
+
+  it("falls back to the original image when no PowerPoint text was found", () => {
+    const themed = buildSermonSlideDeck({
+      ...item(),
+      slidesApplyTheme: true,
+      attachments: item().attachments.map((attachment) =>
+        attachment.id === "slide-1"
+          ? {
+              ...attachment,
+              extractedTextLines: [],
+            }
+          : attachment
+      ),
+    })
+
+    expect(themed[0]).toMatchObject({
+      slidePath: "data:image/png;base64,one",
+      applyTheme: true,
+      segments: [{ text: "Opening" }],
+    })
+  })
+
   it("ignores non-slide media and slides without image data", () => {
     const attachments = getOrderedSermonSlideAttachments({
       ...item(),

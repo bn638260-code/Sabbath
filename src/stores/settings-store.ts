@@ -5,7 +5,8 @@ import { useBroadcastStore } from "@/stores/broadcast-store"
 
 export type SttProvider = "deepgram" | "gladia" | "vosk"
 
-const DEFAULT_CONFIDENCE_THRESHOLD = 0.98
+const DEFAULT_CONFIDENCE_THRESHOLD = 0.85
+const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD = 0.65
 const LEGACY_DEFAULT_CONFIDENCE_THRESHOLD = 0.8
 
 interface SettingsState {
@@ -16,6 +17,7 @@ interface SettingsState {
   autoMode: boolean
   autoPreviewDetections: boolean
   confidenceThreshold: number
+  semanticConfidenceThreshold: number
   cooldownMs: number
   onboardingComplete: boolean
   sttProvider: SttProvider
@@ -30,6 +32,7 @@ interface SettingsState {
   setAutoMode: (auto: boolean) => void
   setAutoPreviewDetections: (enabled: boolean) => void
   setConfidenceThreshold: (threshold: number) => void
+  setSemanticConfidenceThreshold: (threshold: number) => void
   setCooldownMs: (ms: number) => void
   setOnboardingComplete: (complete: boolean) => void
   setSttProvider: (provider: SttProvider) => void
@@ -44,6 +47,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   autoMode: false,
   autoPreviewDetections: true,
   confidenceThreshold: DEFAULT_CONFIDENCE_THRESHOLD,
+  semanticConfidenceThreshold: DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD,
   cooldownMs: 2500,
   onboardingComplete: false,
   sttProvider: "vosk",
@@ -57,6 +61,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setAutoPreviewDetections: (autoPreviewDetections) =>
     set({ autoPreviewDetections }),
   setConfidenceThreshold: (confidenceThreshold) => set({ confidenceThreshold }),
+  setSemanticConfidenceThreshold: (semanticConfidenceThreshold) =>
+    set({ semanticConfidenceThreshold }),
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
   setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
   setSttProvider: (sttProvider) => set({ sttProvider }),
@@ -69,6 +75,7 @@ const PERSISTED_KEYS = [
   "autoMode",
   "autoPreviewDetections",
   "confidenceThreshold",
+  "semanticConfidenceThreshold",
   "cooldownMs",
   "onboardingComplete",
   "sttProvider",

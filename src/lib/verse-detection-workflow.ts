@@ -25,8 +25,6 @@ import type {
   Verse,
 } from "@/types"
 
-const SEMANTIC_AUTO_PREVIEW_CONFIDENCE = 0.98
-
 function detectionLikeToVerse({
   book_number,
   book_name,
@@ -168,7 +166,8 @@ function bestDetection(detections: DetectionResult[]): DetectionResult | null {
 
 function selectPreviewHit(
   detections: DetectionResult[],
-  minConfidence: number
+  minConfidence: number,
+  semanticMinConfidence: number
 ): DetectionResult | null {
   const directHits = detections.filter(
     (d) =>
@@ -180,15 +179,15 @@ function selectPreviewHit(
   const directHit = bestDetection(directHits)
   if (directHit) return directHit
 
-  const semanticMinConfidence = Math.max(
+  const semanticAutoLiveThreshold = Math.max(
     minConfidence,
-    SEMANTIC_AUTO_PREVIEW_CONFIDENCE
+    semanticMinConfidence
   )
   return bestDetection(
     detections.filter(
       (d) =>
         d.source === "semantic" &&
-        d.confidence >= semanticMinConfidence &&
+        d.confidence >= semanticAutoLiveThreshold &&
         !d.is_chapter_only &&
         d.book_number > 0
     )
@@ -201,10 +200,14 @@ async function queueDetectedVerse(
 ): Promise<void> {
   if (isEgwDetection(detection)) {
     if (!detection.auto_queued) {
-      recordWorkflowTrace("detection.queue.skipped", "EGW detection not queued", {
-        reason: "auto_queued_false",
-        detection: traceDetectionDetails(detection),
-      })
+      recordWorkflowTrace(
+        "detection.queue.skipped",
+        "EGW detection not queued",
+        {
+          reason: "auto_queued_false",
+          detection: traceDetectionDetails(detection),
+        }
+      )
       return
     }
 
@@ -235,11 +238,15 @@ async function queueDetectedVerse(
         verse.text
       )
   ) {
-    recordWorkflowTrace("detection.queue.added", "Existing early reference updated", {
-      action: "update_existing_early_ref",
-      detection: traceDetectionDetails(detection),
-      verse: traceVerseDetails(verse),
-    })
+    recordWorkflowTrace(
+      "detection.queue.added",
+      "Existing early reference updated",
+      {
+        action: "update_existing_early_ref",
+        detection: traceDetectionDetails(detection),
+        verse: traceVerseDetails(verse),
+      }
+    )
     return
   }
 
@@ -286,9 +293,14 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
     ...traceDetectionBatchDetails(detections),
     autoMode: settings.autoMode,
     confidenceThreshold: settings.confidenceThreshold,
+    semanticConfidenceThreshold: settings.semanticConfidenceThreshold,
   })
   const previewHit = autoPreview
-    ? selectPreviewHit(detections, settings.confidenceThreshold)
+    ? selectPreviewHit(
+        detections,
+        settings.confidenceThreshold,
+        settings.semanticConfidenceThreshold
+      )
     : null
   const resolvedDetections = new WeakMap<
     DetectionResult,
@@ -296,10 +308,14 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
   >()
   if (previewHit) {
     if (isEgwDetection(previewHit)) {
-      recordWorkflowTrace("detection.preview.selected", "EGW direct hit selected", {
-        detection: traceDetectionDetails(previewHit),
-        autoQueued: previewHit.auto_queued,
-      })
+      recordWorkflowTrace(
+        "detection.preview.selected",
+        "EGW direct hit selected",
+        {
+          detection: traceDetectionDetails(previewHit),
+          autoQueued: previewHit.auto_queued,
+        }
+      )
       if (previewHit.auto_queued) {
         presentEgwParagraph(previewHit.egw_paragraph)
       } else {
@@ -308,28 +324,41 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
     } else {
       const resolved = await resolveDetectionVerse(previewHit)
       resolvedDetections.set(previewHit, resolved)
-      recordWorkflowTrace("detection.preview.selected", "Detection selected for preview", {
-        detection: traceDetectionDetails(previewHit),
-        verse: traceVerseDetails(resolved.verse),
-        usedFallback: resolved.usedFallback,
-        fallbackReason: resolved.fallbackReason,
-      })
+      recordWorkflowTrace(
+        "detection.preview.selected",
+        "Detection selected for preview",
+        {
+          detection: traceDetectionDetails(previewHit),
+          verse: traceVerseDetails(resolved.verse),
+          usedFallback: resolved.usedFallback,
+          fallbackReason: resolved.fallbackReason,
+        }
+      )
       previewVerseAndMaybeAutoLive(resolved.verse, { autoLive: true })
     }
   } else if (autoPreview) {
-    recordWorkflowTrace("detection.preview.skipped", "No trusted hit met preview criteria", {
-      count: detections.length,
-      confidenceThreshold: settings.confidenceThreshold,
-    })
+    recordWorkflowTrace(
+      "detection.preview.skipped",
+      "No trusted hit met preview criteria",
+      {
+        count: detections.length,
+        confidenceThreshold: settings.confidenceThreshold,
+        semanticConfidenceThreshold: settings.semanticConfidenceThreshold,
+      }
+    )
   }
 
   // In Auto mode, detections only stage to preview; the queue stays
   // operator-driven.
   if (autoPreview) {
-    recordWorkflowTrace("detection.queue.skipped", "Auto mode keeps detection queue operator-driven", {
-      reason: "auto_mode_preview_only",
-      count: detections.length,
-    })
+    recordWorkflowTrace(
+      "detection.queue.skipped",
+      "Auto mode keeps detection queue operator-driven",
+      {
+        reason: "auto_mode_preview_only",
+        count: detections.length,
+      }
+    )
     return
   }
 

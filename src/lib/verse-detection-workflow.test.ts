@@ -131,7 +131,8 @@ describe("verse detection workflow", () => {
     })
     useSettingsStore.setState({
       autoMode: true,
-      confidenceThreshold: 0.8,
+      confidenceThreshold: 0.85,
+      semanticConfidenceThreshold: 0.65,
     })
   })
 
@@ -223,7 +224,7 @@ describe("verse detection workflow", () => {
     })
   })
 
-  it("does not auto-preview semantic Bible detections at the direct threshold", async () => {
+  it("does not auto-preview semantic Bible detections below the auto-live threshold", async () => {
     useSettingsStore.setState({ confidenceThreshold: 0.85 })
     await handleVerseDetections([
       makeDetection({
@@ -234,7 +235,7 @@ describe("verse detection workflow", () => {
         book_number: 27,
         chapter: 7,
         verse: 10,
-        confidence: 0.9,
+        confidence: 0.84,
         auto_queued: false,
         transcript_snippet: "the court was seated and the books were opened",
       }),
@@ -245,7 +246,7 @@ describe("verse detection workflow", () => {
     expect(useQueueStore.getState().items).toHaveLength(0)
   })
 
-  it("auto-previews semantic Bible detections only at the strict semantic floor", async () => {
+  it("auto-previews semantic Bible detections at the auto-live threshold", async () => {
     useSettingsStore.setState({ confidenceThreshold: 0.85 })
     await handleVerseDetections([
       makeDetection({
@@ -256,7 +257,7 @@ describe("verse detection workflow", () => {
         book_number: 27,
         chapter: 7,
         verse: 10,
-        confidence: 0.98,
+        confidence: 0.85,
         auto_queued: false,
         transcript_snippet: "the court was seated and the books were opened",
       }),

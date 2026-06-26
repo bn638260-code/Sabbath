@@ -226,7 +226,7 @@ export function AddAssetMenu({ onCreateSong }: AddAssetMenuProps) {
 }
 
 function createSlideTemplateAsset(
-  slides: Array<{ index: number; dataUrl: string; label: string }>,
+  slides: Array<{ index: number; dataUrl: string; label: string; textLines: string[] }>
 ): LibraryAsset {
   const id = crypto.randomUUID()
   const deck: SlideDeckPresentationItemData[] = slides.map((slide) => ({
@@ -239,6 +239,7 @@ function createSlideTemplateAsset(
     slidePath: slide.dataUrl,
     reference: slide.label,
     segments: [{ text: slide.label }],
+    extractedTextLines: slide.textLines,
   }))
   return {
     id,

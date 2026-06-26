@@ -237,6 +237,9 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
 export function DetectionsPanel({ className }: { className?: string }) {
   const { detections } = useDetection()
   const confidenceThreshold = useSettingsStore((s) => s.confidenceThreshold)
+  const semanticConfidenceThreshold = useSettingsStore(
+    (s) => s.semanticConfidenceThreshold
+  )
   const [semanticStatus, setSemanticStatus] = useState<{
     has_semantic: boolean
     paraphrase_enabled: boolean
@@ -276,13 +279,14 @@ export function DetectionsPanel({ className }: { className?: string }) {
         <div className="flex flex-wrap items-center justify-end gap-2">
           <span
             className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-[0.5625rem] text-muted-foreground uppercase"
-            title="Semantic detections remain visible from 70%; the threshold controls automatic output only."
+            title="Semantic detection controls visible suggestions; Auto-live controls automatic output."
           >
             <BrainCircuitIcon className="size-2.5" />
             {semanticStatus?.has_semantic ? "Semantic" : "Keyword"}
             {semanticStatus?.paraphrase_enabled
               ? " + paraphrase"
-              : ""} auto {Math.round(confidenceThreshold * 100)}%
+              : ""} semantic {Math.round(semanticConfidenceThreshold * 100)}%
+            {" / "}auto {Math.round(confidenceThreshold * 100)}%
           </span>
           <button
             onClick={() => detectionActions.clearDetections()}

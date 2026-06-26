@@ -25,6 +25,7 @@ export interface ServiceAttachment {
   sizeBytes?: number
   order?: number
   deckId?: string
+  extractedTextLines?: string[]
 }
 
 export interface ServiceChecklistItem {

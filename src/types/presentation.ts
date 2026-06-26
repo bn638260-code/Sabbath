@@ -148,6 +148,7 @@ export interface SlideDeckPresentationItemData {
   segments: PresentationSegment[]
   /** Per-deck toggle: render the slide inside the active theme rather than full-bleed on black. */
   applyTheme?: boolean
+  extractedTextLines?: string[]
 }
 
 export type PresentationItem =

@@ -5,6 +5,7 @@ export interface RenderedSlide {
   dataUrl: string
   width: number
   height: number
+  textLines: string[]
 }
 
 export interface RenderPdfOptions {
@@ -24,6 +25,93 @@ function base64ToBytes(base64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i)
   }
   return bytes
+}
+
+interface PdfTextRun {
+  text: string
+  x: number | null
+  y: number | null
+  index: number
+  hasEOL: boolean
+}
+
+function textRunFromItem(item: unknown, index: number): PdfTextRun | null {
+  if (!item || typeof item !== "object") return null
+  const candidate = item as {
+    str?: unknown
+    transform?: unknown
+    hasEOL?: unknown
+  }
+  if (typeof candidate.str !== "string") return null
+  const text = candidate.str.replace(/\s+/g, " ").trim()
+  if (!text) return null
+  const transform = Array.isArray(candidate.transform)
+    ? candidate.transform
+    : null
+  const x = typeof transform?.[4] === "number" ? transform[4] : null
+  const y = typeof transform?.[5] === "number" ? transform[5] : null
+  return {
+    text,
+    x,
+    y,
+    index,
+    hasEOL: candidate.hasEOL === true,
+  }
+}
+
+function pushLine(lines: string[], value: string): void {
+  const line = value.replace(/\s+/g, " ").trim()
+  if (line) lines.push(line)
+}
+
+function linesFromContentOrder(runs: PdfTextRun[]): string[] {
+  const lines: string[] = []
+  let current = ""
+  for (const run of runs) {
+    current = current ? `${current} ${run.text}` : run.text
+    if (run.hasEOL) {
+      pushLine(lines, current)
+      current = ""
+    }
+  }
+  pushLine(lines, current)
+  return lines
+}
+
+export function extractPdfTextLines(items: unknown[]): string[] {
+  const runs = items.flatMap((item, index) => {
+    const run = textRunFromItem(item, index)
+    return run ? [run] : []
+  })
+  if (runs.length === 0) return []
+
+  const positioned = runs.every((run) => run.x !== null && run.y !== null)
+  if (!positioned) return linesFromContentOrder(runs)
+
+  const groups: Array<{ y: number; firstIndex: number; runs: PdfTextRun[] }> =
+    []
+  for (const run of runs) {
+    const group = groups.find((entry) => Math.abs(entry.y - run.y!) <= 3)
+    if (group) {
+      group.runs.push(run)
+      group.firstIndex = Math.min(group.firstIndex, run.index)
+    } else {
+      groups.push({ y: run.y!, firstIndex: run.index, runs: [run] })
+    }
+  }
+
+  return groups
+    .sort((a, b) => b.y - a.y || a.firstIndex - b.firstIndex)
+    .map((group) =>
+      group.runs
+        .sort((a, b) => a.x! - b.x! || a.index - b.index)
+        .map((run) => run.text)
+        .join(" ")
+    )
+    .flatMap((line) => {
+      const trimmed = line.replace(/\s+/g, " ").trim()
+      return trimmed ? [trimmed] : []
+    })
 }
 
 // pdfjs-dist is heavy; load it (and its worker) lazily so it never enters the
@@ -54,6 +142,13 @@ async function renderDocument(
     const page = await doc.getPage(pageNumber)
     try {
       const viewport = page.getViewport({ scale })
+      let textLines: string[] = []
+      try {
+        const textContent = await page.getTextContent()
+        textLines = extractPdfTextLines(textContent.items)
+      } catch {
+        textLines = []
+      }
       const canvas = document.createElement("canvas")
       canvas.width = Math.ceil(viewport.width)
       canvas.height = Math.ceil(viewport.height)
@@ -67,6 +162,7 @@ async function renderDocument(
         dataUrl: canvas.toDataURL("image/png"),
         width: canvas.width,
         height: canvas.height,
+        textLines,
       })
     } finally {
       page.cleanup()

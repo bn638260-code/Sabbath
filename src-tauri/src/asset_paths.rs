@@ -61,37 +61,10 @@ fn named_asset_candidates(roots: &[PathBuf], subdir: &str, filenames: &[&str]) -
         .collect()
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum SemanticAssetFamily {
-    GteSmall,
-    MiniLmL6V2,
-}
-
-fn semantic_asset_family(path: &Path) -> Option<SemanticAssetFamily> {
-    let path = path.to_string_lossy().to_ascii_lowercase();
-    if path.contains("gte-small") {
-        Some(SemanticAssetFamily::GteSmall)
-    } else if path.contains("minilm-l6-v2") {
-        Some(SemanticAssetFamily::MiniLmL6V2)
-    } else {
-        None
-    }
-}
-
-/// Minimum displayed semantic confidence (raw best cosine similarity) for the
-/// active embedding model. `gte-small`'s cosine distribution is compressed and
-/// high — ordinary speech matches unrelated verses at ~0.86 — so its operator
-/// floor must sit well above `MiniLM`'s, whose noise lands near 0.60. Returns 0.0
-/// for unknown families (no extra gating; the merger's operator floor applies).
-///
-/// Calibrated against the `score_distribution` / `detection_accuracy` bins:
-/// 0.92 is the knee for `gte-small` (silences ~20/22 noise, keeps 24/26 verbatim
-/// quotes); `MiniLM` is already well-separated by the merger floor, so 0.0 here.
-pub fn semantic_display_floor(model_path: &Path) -> f64 {
-    match semantic_asset_family(model_path) {
-        Some(SemanticAssetFamily::GteSmall) => 0.92,
-        Some(SemanticAssetFamily::MiniLmL6V2) | None => 0.0,
-    }
+fn is_minilm_asset(path: &Path) -> bool {
+    path.to_string_lossy()
+        .to_ascii_lowercase()
+        .contains("minilm-l6-v2")
 }
 
 pub fn semantic_assets_are_compatible(
@@ -100,13 +73,9 @@ pub fn semantic_assets_are_compatible(
     embeddings_path: &Path,
     ids_path: &Path,
 ) -> bool {
-    let Some(model_family) = semantic_asset_family(model_path) else {
-        return false;
-    };
-
-    [tokenizer_path, embeddings_path, ids_path]
+    [model_path, tokenizer_path, embeddings_path, ids_path]
         .iter()
-        .all(|path| semantic_asset_family(path) == Some(model_family))
+        .all(|path| is_minilm_asset(path))
 }
 
 fn is_vosk_model_dir(path: &Path) -> bool {
@@ -575,52 +544,32 @@ mod tests {
     }
 
     #[test]
-    fn semantic_assets_are_compatible_accepts_matching_gte_assets() {
+    fn semantic_assets_are_compatible_accepts_matching_minilm_assets() {
         assert!(semantic_assets_are_compatible(
-            Path::new("models/gte-small/onnx/model_quantized.onnx"),
-            Path::new("models/gte-small/tokenizer.json"),
-            Path::new("embeddings/kjv-nkjv-nlt-gte-small.bin"),
-            Path::new("embeddings/kjv-nkjv-nlt-gte-small-ids.bin"),
-        ));
-    }
-
-    #[test]
-    fn semantic_assets_are_compatible_rejects_gte_model_with_legacy_index() {
-        assert!(!semantic_assets_are_compatible(
-            Path::new("models/gte-small/onnx/model_quantized.onnx"),
-            Path::new("models/gte-small/tokenizer.json"),
+            Path::new("models/minilm-l6-v2-int8/onnx/model_quantized.onnx"),
+            Path::new("models/minilm-l6-v2-int8/tokenizer.json"),
             Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin"),
             Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin"),
         ));
     }
 
     #[test]
-    fn semantic_display_floor_is_model_aware() {
-        // gte-small runs hot, so it needs the high operator floor; MiniLM is
-        // already well-separated by the merger floor; unknown gets no gating.
-        assert!(
-            (semantic_display_floor(Path::new("models/gte-small/onnx/model_quantized.onnx"))
-                - 0.92)
-                .abs()
-                < f64::EPSILON
-        );
-        assert_eq!(
-            semantic_display_floor(Path::new("models/minilm-l6-v2-int8/onnx/model_quantized.onnx")),
-            0.0
-        );
-        assert_eq!(
-            semantic_display_floor(Path::new("models/unknown/model.onnx")),
-            0.0
-        );
+    fn semantic_assets_are_compatible_rejects_unknown_model_family() {
+        assert!(!semantic_assets_are_compatible(
+            Path::new("models/unknown/onnx/model_quantized.onnx"),
+            Path::new("models/minilm-l6-v2-int8/tokenizer.json"),
+            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin"),
+            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin"),
+        ));
     }
 
     #[test]
-    fn semantic_assets_are_compatible_rejects_mixed_model_and_tokenizer() {
+    fn semantic_assets_are_compatible_rejects_unknown_tokenizer_family() {
         assert!(!semantic_assets_are_compatible(
-            Path::new("models/gte-small/onnx/model_quantized.onnx"),
-            Path::new("models/minilm-l6-v2/tokenizer.json"),
-            Path::new("embeddings/kjv-nkjv-nlt-gte-small.bin"),
-            Path::new("embeddings/kjv-nkjv-nlt-gte-small-ids.bin"),
+            Path::new("models/minilm-l6-v2-int8/onnx/model_quantized.onnx"),
+            Path::new("models/unknown/tokenizer.json"),
+            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin"),
+            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin"),
         ));
     }
 }

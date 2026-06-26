@@ -310,6 +310,12 @@ export const useBroadcastStore = create<BroadcastState>()((set, get, store) => (
           ? { liveItem, isLive: true, videoTransport: null }
           : { liveItem, videoTransport: null }
       )
+    } else if (previousWasVideo) {
+      set(
+        makeLive
+          ? { liveItem, isLive: true, videoTransport: null }
+          : { liveItem, videoTransport: null }
+      )
     } else {
       set(makeLive ? { liveItem, isLive: true } : { liveItem })
     }
@@ -318,13 +324,14 @@ export const useBroadcastStore = create<BroadcastState>()((set, get, store) => (
       isLive: get().isLive,
       live: tracePresentationDetails(get().liveItem),
     })
+    if (previousWasVideo && liveItem.kind !== "video") {
+      get().sendVideoCommand({ type: "stop" })
+    }
     get().syncBroadcastOutput({
       transitionType: options?.transitionType ?? get().liveTransitionType,
     })
     if (liveItem.kind === "video") {
       get().sendVideoCommand({ type: "load", item: liveItem })
-    } else if (previousWasVideo) {
-      get().sendVideoCommand({ type: "stop" })
     }
   },
   setReadingModeAutoLive: (readingModeAutoLive) => {

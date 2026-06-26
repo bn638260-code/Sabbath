@@ -92,6 +92,13 @@ export function SermonSlidesEditor({
   const [slideLimitLabel, setSlideLimitLabel] = useState(() =>
     formatAttachmentLimit("slide", FALLBACK_ATTACHMENT_LIMITS),
   )
+  const imageFallbackCount = applyTheme
+    ? slides.filter(
+        (slide) =>
+          Array.isArray(slide.extractedTextLines) &&
+          slide.extractedTextLines.length === 0
+      ).length
+    : 0
 
   useEffect(() => {
     void loadServiceAttachmentLimits().then((limits) => {
@@ -259,6 +266,14 @@ export function SermonSlidesEditor({
           />
           Apply current theme to these slides
         </label>
+      ) : null}
+
+      {imageFallbackCount > 0 ? (
+        <p className="text-[0.625rem] text-muted-foreground">
+          {imageFallbackCount}{" "}
+          {imageFallbackCount === 1 ? "slide was" : "slides were"} kept as
+          images because no text was found.
+        </p>
       ) : null}
 
       {errorMessage ? (
