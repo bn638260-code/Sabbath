@@ -9,7 +9,7 @@
 //!
 //! Usage (from repo root, so the default asset paths resolve):
 //!   cargo run -p rhema-detection --features precompute-bin --release \
-//!     --bin detection_accuracy -- [--threshold 0.90] \
+//!     --bin `detection_accuracy` -- [--threshold 0.90] \
 //!     [--model PATH] [--tokenizer PATH] [--embeddings PATH] [--ids PATH] [--verses PATH]
 
 use std::collections::HashMap;
@@ -17,9 +17,7 @@ use std::path::PathBuf;
 
 use rhema_bible::BibleDb;
 use rhema_detection::semantic::embedder::TextEmbedder;
-use rhema_detection::{
-    DetectionPipeline, HnswVectorIndex, OnnxEmbedder, SemanticDetector,
-};
+use rhema_detection::{DetectionPipeline, HnswVectorIndex, OnnxEmbedder, SemanticDetector};
 
 /// One labeled case: (category, utterance, expected reference or None for noise).
 type Case = (&'static str, &'static str, Option<&'static str>);
@@ -30,65 +28,248 @@ type Case = (&'static str, &'static str, Option<&'static str>);
 /// (ordinary sermon/announcement speech that must NOT fire).
 const CASES: &[Case] = &[
     // --- direct: explicit "Book chapter:verse" references ---
-    ("direct", "Let's turn to John 3:16 this morning", Some("John 3:16")),
-    ("direct", "Our text today is Romans 8:28", Some("Romans 8:28")),
-    ("direct", "Open your Bibles to Genesis 1:1", Some("Genesis 1:1")),
+    (
+        "direct",
+        "Let's turn to John 3:16 this morning",
+        Some("John 3:16"),
+    ),
+    (
+        "direct",
+        "Our text today is Romans 8:28",
+        Some("Romans 8:28"),
+    ),
+    (
+        "direct",
+        "Open your Bibles to Genesis 1:1",
+        Some("Genesis 1:1"),
+    ),
     ("direct", "Turn with me to Psalm 23:1", Some("Psalms 23:1")),
-    ("direct", "Reading from Philippians 4:13", Some("Philippians 4:13")),
+    (
+        "direct",
+        "Reading from Philippians 4:13",
+        Some("Philippians 4:13"),
+    ),
     ("direct", "Consider Proverbs 3:5", Some("Proverbs 3:5")),
     ("direct", "Matthew 5:16 tells us", Some("Matthew 5:16")),
     ("direct", "As we see in Isaiah 53:5", Some("Isaiah 53:5")),
-    ("direct", "Look at First Corinthians 13:4", Some("1 Corinthians 13:4")),
-    ("direct", "It is found in Hebrews 11:1", Some("Hebrews 11:1")),
-    ("direct", "From the book of Jeremiah 29:11", Some("Jeremiah 29:11")),
+    (
+        "direct",
+        "Look at First Corinthians 13:4",
+        Some("1 Corinthians 13:4"),
+    ),
+    (
+        "direct",
+        "It is found in Hebrews 11:1",
+        Some("Hebrews 11:1"),
+    ),
+    (
+        "direct",
+        "From the book of Jeremiah 29:11",
+        Some("Jeremiah 29:11"),
+    ),
     ("direct", "Ephesians 2:8 reminds us", Some("Ephesians 2:8")),
     // --- spoken: number words instead of digits ---
-    ("spoken", "John chapter three verse sixteen", Some("John 3:16")),
-    ("spoken", "Romans chapter eight verse twenty eight", Some("Romans 8:28")),
-    ("spoken", "Psalm chapter twenty three verse one", Some("Psalms 23:1")),
-    ("spoken", "Genesis chapter one verse one", Some("Genesis 1:1")),
-    ("spoken", "Matthew chapter five verse sixteen", Some("Matthew 5:16")),
-    ("spoken", "First Corinthians chapter thirteen verse four", Some("1 Corinthians 13:4")),
-    ("spoken", "Philippians chapter four verse thirteen", Some("Philippians 4:13")),
-    ("spoken", "Proverbs chapter three verse five", Some("Proverbs 3:5")),
+    (
+        "spoken",
+        "John chapter three verse sixteen",
+        Some("John 3:16"),
+    ),
+    (
+        "spoken",
+        "Romans chapter eight verse twenty eight",
+        Some("Romans 8:28"),
+    ),
+    (
+        "spoken",
+        "Psalm chapter twenty three verse one",
+        Some("Psalms 23:1"),
+    ),
+    (
+        "spoken",
+        "Genesis chapter one verse one",
+        Some("Genesis 1:1"),
+    ),
+    (
+        "spoken",
+        "Matthew chapter five verse sixteen",
+        Some("Matthew 5:16"),
+    ),
+    (
+        "spoken",
+        "First Corinthians chapter thirteen verse four",
+        Some("1 Corinthians 13:4"),
+    ),
+    (
+        "spoken",
+        "Philippians chapter four verse thirteen",
+        Some("Philippians 4:13"),
+    ),
+    (
+        "spoken",
+        "Proverbs chapter three verse five",
+        Some("Proverbs 3:5"),
+    ),
     // --- quote: near-verbatim KJV text, no spoken reference ---
-    ("quote", "For God so loved the world that he gave his only begotten Son", Some("John 3:16")),
-    ("quote", "The Lord is my shepherd I shall not want", Some("Psalms 23:1")),
-    ("quote", "In the beginning God created the heaven and the earth", Some("Genesis 1:1")),
-    ("quote", "I can do all things through Christ which strengtheneth me", Some("Philippians 4:13")),
-    ("quote", "Trust in the Lord with all thine heart and lean not unto thine own understanding", Some("Proverbs 3:5")),
-    ("quote", "For all have sinned and come short of the glory of God", Some("Romans 3:23")),
-    ("quote", "The wages of sin is death but the gift of God is eternal life", Some("Romans 6:23")),
-    ("quote", "I am the way the truth and the life", Some("John 14:6")),
-    ("quote", "Be still and know that I am God", Some("Psalms 46:10")),
-    ("quote", "Now faith is the substance of things hoped for the evidence of things not seen", Some("Hebrews 11:1")),
-    ("quote", "Let your light so shine before men that they may see your good works", Some("Matthew 5:16")),
-    ("quote", "And we know that all things work together for good to them that love God", Some("Romans 8:28")),
+    (
+        "quote",
+        "For God so loved the world that he gave his only begotten Son",
+        Some("John 3:16"),
+    ),
+    (
+        "quote",
+        "The Lord is my shepherd I shall not want",
+        Some("Psalms 23:1"),
+    ),
+    (
+        "quote",
+        "In the beginning God created the heaven and the earth",
+        Some("Genesis 1:1"),
+    ),
+    (
+        "quote",
+        "I can do all things through Christ which strengtheneth me",
+        Some("Philippians 4:13"),
+    ),
+    (
+        "quote",
+        "Trust in the Lord with all thine heart and lean not unto thine own understanding",
+        Some("Proverbs 3:5"),
+    ),
+    (
+        "quote",
+        "For all have sinned and come short of the glory of God",
+        Some("Romans 3:23"),
+    ),
+    (
+        "quote",
+        "The wages of sin is death but the gift of God is eternal life",
+        Some("Romans 6:23"),
+    ),
+    (
+        "quote",
+        "I am the way the truth and the life",
+        Some("John 14:6"),
+    ),
+    (
+        "quote",
+        "Be still and know that I am God",
+        Some("Psalms 46:10"),
+    ),
+    (
+        "quote",
+        "Now faith is the substance of things hoped for the evidence of things not seen",
+        Some("Hebrews 11:1"),
+    ),
+    (
+        "quote",
+        "Let your light so shine before men that they may see your good works",
+        Some("Matthew 5:16"),
+    ),
+    (
+        "quote",
+        "And we know that all things work together for good to them that love God",
+        Some("Romans 8:28"),
+    ),
     // --- para: paraphrase, same meaning, different words ---
-    ("para", "God loved us so much that he sent his only son to save everyone who believes", Some("John 3:16")),
-    ("para", "the Lord looks after me like a shepherd so I never go without", Some("Psalms 23:1")),
-    ("para", "we are saved by grace through faith and not by our own works", Some("Ephesians 2:8")),
-    ("para", "let your light shine so people can see your good deeds", Some("Matthew 5:16")),
-    ("para", "give all your worries to God because he genuinely cares about you", Some("1 Peter 5:7")),
-    ("para", "everyone has sinned and fallen short of God's glory", Some("Romans 3:23")),
-    ("para", "I have learned to be content no matter what situation I am in", Some("Philippians 4:11")),
-    ("para", "the joy of the Lord is my strength", Some("Nehemiah 8:10")),
+    (
+        "para",
+        "God loved us so much that he sent his only son to save everyone who believes",
+        Some("John 3:16"),
+    ),
+    (
+        "para",
+        "the Lord looks after me like a shepherd so I never go without",
+        Some("Psalms 23:1"),
+    ),
+    (
+        "para",
+        "we are saved by grace through faith and not by our own works",
+        Some("Ephesians 2:8"),
+    ),
+    (
+        "para",
+        "let your light shine so people can see your good deeds",
+        Some("Matthew 5:16"),
+    ),
+    (
+        "para",
+        "give all your worries to God because he genuinely cares about you",
+        Some("1 Peter 5:7"),
+    ),
+    (
+        "para",
+        "everyone has sinned and fallen short of God's glory",
+        Some("Romans 3:23"),
+    ),
+    (
+        "para",
+        "I have learned to be content no matter what situation I am in",
+        Some("Philippians 4:11"),
+    ),
+    (
+        "para",
+        "the joy of the Lord is my strength",
+        Some("Nehemiah 8:10"),
+    ),
     // --- noise: ordinary speech that must NOT fire a verse ---
-    ("noise", "good morning church it is so wonderful to be together today", None),
-    ("noise", "as we continue our sermon series this morning let us settle our hearts", None),
-    ("noise", "the offering plates will be passed down each row in just a moment", None),
-    ("noise", "a big thank you to the worship team for leading us so beautifully", None),
-    ("noise", "please remember the fellowship lunch in the hall after the service", None),
-    ("noise", "we have some announcements about the youth retreat next weekend", None),
-    ("noise", "let us stand together and greet one another with a smile", None),
-    ("noise", "the parking lot will be repaved starting on monday", None),
-    ("noise", "our guest speaker travelled a long way to be with us today", None),
-    ("noise", "please silence your phones before we begin the message", None),
-
+    (
+        "noise",
+        "good morning church it is so wonderful to be together today",
+        None,
+    ),
+    (
+        "noise",
+        "as we continue our sermon series this morning let us settle our hearts",
+        None,
+    ),
+    (
+        "noise",
+        "the offering plates will be passed down each row in just a moment",
+        None,
+    ),
+    (
+        "noise",
+        "a big thank you to the worship team for leading us so beautifully",
+        None,
+    ),
+    (
+        "noise",
+        "please remember the fellowship lunch in the hall after the service",
+        None,
+    ),
+    (
+        "noise",
+        "we have some announcements about the youth retreat next weekend",
+        None,
+    ),
+    (
+        "noise",
+        "let us stand together and greet one another with a smile",
+        None,
+    ),
+    (
+        "noise",
+        "the parking lot will be repaved starting on monday",
+        None,
+    ),
+    (
+        "noise",
+        "our guest speaker travelled a long way to be with us today",
+        None,
+    ),
+    (
+        "noise",
+        "please silence your phones before we begin the message",
+        None,
+    ),
     // ===== Expanded validation set (harder + more diverse) =====
     // --- direct: more books, including numbered and less-common ---
     ("direct", "Please turn to Acts 2:38", Some("Acts 2:38")),
-    ("direct", "We're looking at Galatians 5:22 today", Some("Galatians 5:22")),
+    (
+        "direct",
+        "We're looking at Galatians 5:22 today",
+        Some("Galatians 5:22"),
+    ),
     ("direct", "Second Timothy 3:16", Some("2 Timothy 3:16")),
     ("direct", "Let's read Exodus 20:3", Some("Exodus 20:3")),
     ("direct", "Open to Revelation 21:4", Some("Revelation 21:4")),
@@ -98,57 +279,237 @@ const CASES: &[Case] = &[
     ("direct", "Reading Colossians 3:23", Some("Colossians 3:23")),
     ("direct", "First John 4:8", Some("1 John 4:8")),
     ("direct", "Daniel 3:17", Some("Daniel 3:17")),
-    ("direct", "The blessing in Numbers 6:24", Some("Numbers 6:24")),
+    (
+        "direct",
+        "The blessing in Numbers 6:24",
+        Some("Numbers 6:24"),
+    ),
     // --- spoken: number words ---
-    ("spoken", "Acts chapter two verse thirty eight", Some("Acts 2:38")),
-    ("spoken", "Galatians chapter five verse twenty two", Some("Galatians 5:22")),
-    ("spoken", "Exodus chapter twenty verse three", Some("Exodus 20:3")),
-    ("spoken", "Revelation chapter twenty one verse four", Some("Revelation 21:4")),
+    (
+        "spoken",
+        "Acts chapter two verse thirty eight",
+        Some("Acts 2:38"),
+    ),
+    (
+        "spoken",
+        "Galatians chapter five verse twenty two",
+        Some("Galatians 5:22"),
+    ),
+    (
+        "spoken",
+        "Exodus chapter twenty verse three",
+        Some("Exodus 20:3"),
+    ),
+    (
+        "spoken",
+        "Revelation chapter twenty one verse four",
+        Some("Revelation 21:4"),
+    ),
     ("spoken", "James chapter one verse five", Some("James 1:5")),
-    ("spoken", "Joshua chapter one verse nine", Some("Joshua 1:9")),
-    ("spoken", "second Timothy chapter three verse sixteen", Some("2 Timothy 3:16")),
-    ("spoken", "first John chapter four verse eight", Some("1 John 4:8")),
+    (
+        "spoken",
+        "Joshua chapter one verse nine",
+        Some("Joshua 1:9"),
+    ),
+    (
+        "spoken",
+        "second Timothy chapter three verse sixteen",
+        Some("2 Timothy 3:16"),
+    ),
+    (
+        "spoken",
+        "first John chapter four verse eight",
+        Some("1 John 4:8"),
+    ),
     // --- quote: verbatim KJV, varied verses ---
-    ("quote", "But the fruit of the Spirit is love, joy, peace, longsuffering", Some("Galatians 5:22")),
-    ("quote", "All scripture is given by inspiration of God and is profitable for doctrine", Some("2 Timothy 3:16")),
-    ("quote", "I am the resurrection and the life", Some("John 11:25")),
-    ("quote", "Come unto me all ye that labour and are heavy laden and I will give you rest", Some("Matthew 11:28")),
-    ("quote", "The Lord bless thee and keep thee", Some("Numbers 6:24")),
-    ("quote", "Have not I commanded thee Be strong and of a good courage", Some("Joshua 1:9")),
-    ("quote", "He hath shewed thee O man what is good", Some("Micah 6:8")),
-    ("quote", "And God shall wipe away all tears from their eyes", Some("Revelation 21:4")),
-    ("quote", "If any of you lack wisdom let him ask of God", Some("James 1:5")),
-    ("quote", "In my Father's house are many mansions", Some("John 14:2")),
+    (
+        "quote",
+        "But the fruit of the Spirit is love, joy, peace, longsuffering",
+        Some("Galatians 5:22"),
+    ),
+    (
+        "quote",
+        "All scripture is given by inspiration of God and is profitable for doctrine",
+        Some("2 Timothy 3:16"),
+    ),
+    (
+        "quote",
+        "I am the resurrection and the life",
+        Some("John 11:25"),
+    ),
+    (
+        "quote",
+        "Come unto me all ye that labour and are heavy laden and I will give you rest",
+        Some("Matthew 11:28"),
+    ),
+    (
+        "quote",
+        "The Lord bless thee and keep thee",
+        Some("Numbers 6:24"),
+    ),
+    (
+        "quote",
+        "Have not I commanded thee Be strong and of a good courage",
+        Some("Joshua 1:9"),
+    ),
+    (
+        "quote",
+        "He hath shewed thee O man what is good",
+        Some("Micah 6:8"),
+    ),
+    (
+        "quote",
+        "And God shall wipe away all tears from their eyes",
+        Some("Revelation 21:4"),
+    ),
+    (
+        "quote",
+        "If any of you lack wisdom let him ask of God",
+        Some("James 1:5"),
+    ),
+    (
+        "quote",
+        "In my Father's house are many mansions",
+        Some("John 14:2"),
+    ),
     ("quote", "Let not your heart be troubled", Some("John 14:1")),
-    ("quote", "Greater love hath no man than this than to lay down his life", Some("John 15:13")),
-    ("quote", "Study to shew thyself approved unto God", Some("2 Timothy 2:15")),
-    ("quote", "Thy word is a lamp unto my feet and a light unto my path", Some("Psalms 119:105")),
+    (
+        "quote",
+        "Greater love hath no man than this than to lay down his life",
+        Some("John 15:13"),
+    ),
+    (
+        "quote",
+        "Study to shew thyself approved unto God",
+        Some("2 Timothy 2:15"),
+    ),
+    (
+        "quote",
+        "Thy word is a lamp unto my feet and a light unto my path",
+        Some("Psalms 119:105"),
+    ),
     // --- para: looser paraphrases (the hard category) ---
-    ("para", "the spirit produces love joy and peace in our lives", Some("Galatians 5:22")),
-    ("para", "every part of scripture is breathed out by God and useful for teaching", Some("2 Timothy 3:16")),
-    ("para", "come to me everyone who is tired and burdened and I will give you rest", Some("Matthew 11:28")),
-    ("para", "God will wipe away every tear and there will be no more death or pain", Some("Revelation 21:4")),
-    ("para", "what does God require of you but to act justly love mercy and walk humbly", Some("Micah 6:8")),
-    ("para", "don't be anxious about anything but pray about everything", Some("Philippians 4:6")),
-    ("para", "we live by faith and not by what we can see", Some("2 Corinthians 5:7")),
-    ("para", "seek first the kingdom of God and his righteousness", Some("Matthew 6:33")),
-    ("para", "if we confess our sins he is faithful and just to forgive us", Some("1 John 1:9")),
-    ("para", "whatever you do work at it with all your heart as for the Lord", Some("Colossians 3:23")),
+    (
+        "para",
+        "the spirit produces love joy and peace in our lives",
+        Some("Galatians 5:22"),
+    ),
+    (
+        "para",
+        "every part of scripture is breathed out by God and useful for teaching",
+        Some("2 Timothy 3:16"),
+    ),
+    (
+        "para",
+        "come to me everyone who is tired and burdened and I will give you rest",
+        Some("Matthew 11:28"),
+    ),
+    (
+        "para",
+        "God will wipe away every tear and there will be no more death or pain",
+        Some("Revelation 21:4"),
+    ),
+    (
+        "para",
+        "what does God require of you but to act justly love mercy and walk humbly",
+        Some("Micah 6:8"),
+    ),
+    (
+        "para",
+        "don't be anxious about anything but pray about everything",
+        Some("Philippians 4:6"),
+    ),
+    (
+        "para",
+        "we live by faith and not by what we can see",
+        Some("2 Corinthians 5:7"),
+    ),
+    (
+        "para",
+        "seek first the kingdom of God and his righteousness",
+        Some("Matthew 6:33"),
+    ),
+    (
+        "para",
+        "if we confess our sins he is faithful and just to forgive us",
+        Some("1 John 1:9"),
+    ),
+    (
+        "para",
+        "whatever you do work at it with all your heart as for the Lord",
+        Some("Colossians 3:23"),
+    ),
     // --- noise: theme-laden sentences that must NOT fire a verse ---
-    ("noise", "this morning I want us to think about what faith really means in our daily lives", None),
-    ("noise", "the choir will sing two songs before the message today", None),
-    ("noise", "let us pray together as we open God's word this morning", None),
-    ("noise", "god has been so good to our church family this whole year", None),
-    ("noise", "we believe in grace and mercy and the love of our savior every day", None),
-    ("noise", "turn and tell your neighbour good morning and God bless you", None),
-    ("noise", "the building fund is almost at our goal praise the Lord", None),
-    ("noise", "next week we begin a new series on the life of David", None),
-    ("noise", "i remember when i first gave my heart to the Lord as a child", None),
-    ("noise", "there is real power in prayer and in coming together as one", None),
-    ("noise", "let me share a quick story about a missionary i met overseas", None),
-    ("noise", "please stand as we welcome our visitors and first time guests", None),
+    (
+        "noise",
+        "this morning I want us to think about what faith really means in our daily lives",
+        None,
+    ),
+    (
+        "noise",
+        "the choir will sing two songs before the message today",
+        None,
+    ),
+    (
+        "noise",
+        "let us pray together as we open God's word this morning",
+        None,
+    ),
+    (
+        "noise",
+        "god has been so good to our church family this whole year",
+        None,
+    ),
+    (
+        "noise",
+        "we believe in grace and mercy and the love of our savior every day",
+        None,
+    ),
+    (
+        "noise",
+        "turn and tell your neighbour good morning and God bless you",
+        None,
+    ),
+    (
+        "noise",
+        "the building fund is almost at our goal praise the Lord",
+        None,
+    ),
+    (
+        "noise",
+        "next week we begin a new series on the life of David",
+        None,
+    ),
+    (
+        "noise",
+        "i remember when i first gave my heart to the Lord as a child",
+        None,
+    ),
+    (
+        "noise",
+        "there is real power in prayer and in coming together as one",
+        None,
+    ),
+    (
+        "noise",
+        "let me share a quick story about a missionary i met overseas",
+        None,
+    ),
+    (
+        "noise",
+        "please stand as we welcome our visitors and first time guests",
+        None,
+    ),
 ];
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "diagnostic bin keeps the benchmark flow in one readable script"
+)]
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "benchmark case counts are small enough for exact f64 metric math"
+)]
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let threshold: f64 = arg(&args, "--threshold")
@@ -240,9 +601,17 @@ fn main() {
     }
 
     let total = CASES.len();
-    let precision = if tp + fp == 0 { 1.0 } else { tp as f64 / (tp + fp) as f64 };
+    let precision = if tp + fp == 0 {
+        1.0
+    } else {
+        tp as f64 / (tp + fp) as f64
+    };
     let positives = CASES.iter().filter(|(_, _, e)| e.is_some()).count();
-    let recall = if positives == 0 { 0.0 } else { tp as f64 / positives as f64 };
+    let recall = if positives == 0 {
+        0.0
+    } else {
+        tp as f64 / positives as f64
+    };
     let accuracy = (tp + tn) as f64 / total as f64;
 
     println!("\nBy category (correct / total):");
@@ -257,10 +626,22 @@ fn main() {
     println!("  false positives (wrong/noise live):  {fp}");
     println!("  false negatives (missed, held back):  {fn_}");
     println!("  true negatives (correctly silent):   {tn}");
-    println!("\nHeadline metrics ({total} cases, threshold {:.0}%):", threshold * 100.0);
-    println!("  Precision (of what goes live, % correct): {:.1}%", precision * 100.0);
-    println!("  Recall    (of spoken verses, % caught):   {:.1}%", recall * 100.0);
-    println!("  Accuracy  (correct decisions overall):    {:.1}%", accuracy * 100.0);
+    println!(
+        "\nHeadline metrics ({total} cases, threshold {:.0}%):",
+        threshold * 100.0
+    );
+    println!(
+        "  Precision (of what goes live, % correct): {:.1}%",
+        precision * 100.0
+    );
+    println!(
+        "  Recall    (of spoken verses, % caught):   {:.1}%",
+        recall * 100.0
+    );
+    println!(
+        "  Accuracy  (correct decisions overall):    {:.1}%",
+        accuracy * 100.0
+    );
 }
 
 /// Build a (book, chapter, verse) reference string for a detection: direct

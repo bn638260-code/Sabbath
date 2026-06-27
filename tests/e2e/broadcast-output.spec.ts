@@ -206,3 +206,80 @@ test("broadcast output switches to the native video overlay for video payloads",
     )
     .toBeGreaterThan(9000)
 })
+
+test("broadcast output exits a playing video through the selected transition when a non-video item replaces it", async ({
+  page,
+}) => {
+  await page.goto("/broadcast-output.html?output=main&e2e=1", {
+    waitUntil: "domcontentloaded",
+  })
+
+  await page.waitForFunction(() => Boolean(window.__SABBATHCUE_BROADCAST_TEST__), null, {
+    timeout: 15_000,
+  })
+
+  // A video is live on the external monitor first.
+  await page.evaluate(
+    ({ theme, item }) => {
+      window.__SABBATHCUE_BROADCAST_TEST__?.render({ theme, item })
+    },
+    { theme, item: videoItem },
+  )
+
+  const video = page.locator("video")
+  await expect(video).toBeVisible()
+  await expect(video).toHaveJSProperty("src", videoItem.video.url)
+
+  // The operator pushes a non-video item live with the selected (fade)
+  // transition. This is the original bug: the app updated but the external
+  // monitor kept rendering the video.
+  await page.evaluate(
+    ({ theme, item }) => {
+      window.__SABBATHCUE_BROADCAST_TEST__?.render({
+        theme,
+        item,
+        transition: theme.transition,
+      })
+    },
+    { theme, item: verse },
+  )
+
+  // The external monitor must not leave any visible video overlay behind. A
+  // stale, still-displayed <video> (even with an empty source) renders as a
+  // full-screen black box over the canvas, which is the original bug: the app
+  // updated but the external monitor kept showing the (now black) video.
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        () =>
+          Array.from(document.querySelectorAll("video")).filter(
+            (v) => getComputedStyle(v).display !== "none",
+          ).length,
+      ),
+    )
+    .toBe(0)
+
+  // ...and paint the new scripture content on the canvas (gold reference +
+  // bright verse text over the dark theme background).
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const canvas = document.querySelector("canvas")
+        const ctx = canvas?.getContext("2d")
+        if (!canvas || !ctx) return 0
+
+        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        let nonBackgroundPixels = 0
+        for (let i = 0; i < data.length; i += 4 * 100) {
+          const r = data[i]
+          const g = data[i + 1]
+          const b = data[i + 2]
+          if (!(r === 17 && g === 24 && b === 39) && !(r === 0 && g === 0 && b === 0)) {
+            nonBackgroundPixels++
+          }
+        }
+        return nonBackgroundPixels
+      }),
+    )
+    .toBeGreaterThan(25)
+})

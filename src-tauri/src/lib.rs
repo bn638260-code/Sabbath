@@ -9,6 +9,9 @@ use std::io;
 use std::panic;
 use std::sync::{Mutex, Once};
 
+use rhema_detection::semantic::embedder::TextEmbedder;
+use rhema_detection::semantic::index::VectorIndex;
+
 static PANIC_HOOK: Once = Once::new();
 
 fn install_panic_hook() {
@@ -212,8 +215,6 @@ pub fn run() {
                     return Ok(());
                 }
 
-                use rhema_detection::semantic::embedder::TextEmbedder;
-                use rhema_detection::semantic::index::VectorIndex;
                 match rhema_detection::OnnxEmbedder::load(&model_path, &tokenizer_path) {
                     Ok(embedder) => {
                         log::info!("ONNX embedding model loaded");

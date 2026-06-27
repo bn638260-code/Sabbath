@@ -9,13 +9,12 @@ use rhema_detection::{DetectionMerger, DirectDetector, ReadingMode};
 
 // Re-export the helpers that were previously `pub(crate)` in this module so
 // other modules (and the test module) keep importing them from here.
+use super::detection_logic::{
+    choose_reading_candidate, direct_reading_candidates, filter_direct_results_to_scope_if_present,
+    filter_semantic_results_to_reading_scope, should_restart_reading,
+};
 pub(crate) use super::detection_logic::{
     clamp_to_recent_words, strip_reference_scaffolding, DirectReadingCandidate,
-};
-use super::detection_logic::{
-    choose_reading_candidate, direct_reading_candidates,
-    filter_direct_results_to_scope_if_present, filter_semantic_results_to_reading_scope,
-    should_restart_reading,
 };
 // Re-export the job-scheduling machinery so mod.rs and the test module keep
 // importing it from this module.

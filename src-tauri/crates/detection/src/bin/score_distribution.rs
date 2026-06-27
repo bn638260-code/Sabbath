@@ -4,7 +4,7 @@
 //! is not part of the app runtime.
 //!
 //! Usage (from repo root, so the default asset paths resolve):
-//!   cargo run -p rhema-detection --features precompute-bin --bin score_distribution -- \
+//!   cargo run -p rhema-detection --features precompute-bin --bin `score_distribution` -- \
 //!     [--model PATH] [--tokenizer PATH] [--embeddings PATH] [--ids PATH] \
 //!     [--verses PATH] [--input PROBES.txt]
 //!
@@ -155,17 +155,17 @@ fn main() {
         let Some(rows) = by_category.get(category) else {
             continue;
         };
-        let mut raws: Vec<f64> = rows.iter().map(|(r, _)| *r).collect();
-        raws.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let mut raw_scores: Vec<f64> = rows.iter().map(|(r, _)| *r).collect();
+        raw_scores.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let pass_raw = rows.iter().filter(|(r, _)| *r >= NEW_FLOOR).count();
         let pass_score = rows.iter().filter(|(_, s)| *s >= OLD_SCORE_FLOOR).count();
         println!(
             "  {:<6} {:>4}  {:>5.3}/{:>5.3}/{:>5.3}  {:>11}/{}  {:>13}/{}",
             category,
             rows.len(),
-            raws[0],
-            raws[raws.len() / 2],
-            raws[raws.len() - 1],
+            raw_scores[0],
+            raw_scores[raw_scores.len() / 2],
+            raw_scores[raw_scores.len() - 1],
             pass_raw,
             rows.len(),
             pass_score,

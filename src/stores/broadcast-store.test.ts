@@ -662,4 +662,84 @@ describe("broadcast store sync", () => {
     )
   })
 
+  it("exits a playing video through the selected animation on the external monitor when a non-video item is pushed live", async () => {
+    const { useBroadcastStore } = await import("./broadcast-store")
+    const theme = useBroadcastStore.getState().themes[0]
+    useBroadcastStore.setState({
+      activeThemeId: theme.id,
+      altActiveThemeId: theme.id,
+      isLive: true,
+      liveTransitionType: "fade",
+      liveItem: {
+        kind: "video",
+        reference: "Welcome Video",
+        segments: [{ text: "Welcome Video" }],
+        video: {
+          source: "local",
+          videoId: "video-1",
+          title: "Welcome Video",
+          videoPath: "C:\\Videos\\welcome.mp4",
+        },
+      },
+      // The original bug: the video was *actively playing* (not ended) on the
+      // external monitor when a different item was pushed live.
+      videoTransport: {
+        outputId: "main",
+        currentTime: 4,
+        duration: 30,
+        paused: false,
+        muted: false,
+        volume: 1,
+        loop: false,
+        ended: false,
+      },
+    })
+
+    const nextItem = {
+      kind: "scripture" as const,
+      reference: "John 3:16",
+      segments: [{ text: "For God so loved the world", verseNumber: 16 }],
+    }
+
+    emitToMock.mockClear()
+    useBroadcastStore.getState().commitLiveItem(nextItem)
+
+    // Both external monitor windows must be told to stop the playing video so
+    // the stale frame is cleared (the app side previously updated while the
+    // external monitor kept showing the video).
+    const externalStopIndex = emitToMock.mock.calls.findIndex(
+      (call) =>
+        call[0] === "broadcast" &&
+        call[1] === "broadcast:video-control" &&
+        call[2]?.type === "stop"
+    )
+    expect(externalStopIndex).toBeGreaterThanOrEqual(0)
+    expect(emitToMock).toHaveBeenCalledWith(
+      "broadcast-alt",
+      "broadcast:video-control",
+      { type: "stop" }
+    )
+
+    // The external monitor must then receive the new content carrying the
+    // *selected* animated transition, so it exits the video gracefully rather
+    // than cutting or freezing.
+    const externalUpdateIndex = emitToMock.mock.calls.findIndex(
+      (call) => call[0] === "broadcast" && call[1] === "broadcast:verse-update"
+    )
+    const externalUpdateCall = emitToMock.mock.calls[externalUpdateIndex]
+    expect(externalUpdateCall?.[2].item).toMatchObject({
+      reference: "John 3:16",
+    })
+    expect(externalUpdateCall?.[2].transition).toMatchObject({ type: "fade" })
+    expect(externalUpdateCall?.[2].transition.duration).toBeGreaterThan(0)
+
+    // Order matters: stop must precede the animated update or the external
+    // monitor would keep rendering the old video underneath the transition.
+    expect(externalStopIndex).toBeLessThan(externalUpdateIndex)
+
+    // Transport state is cleared so operator controls don't linger on the
+    // now-stopped video.
+    expect(useBroadcastStore.getState().videoTransport).toBeNull()
+  })
+
 })

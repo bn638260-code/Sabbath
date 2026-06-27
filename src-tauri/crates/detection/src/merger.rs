@@ -529,8 +529,8 @@ mod tests {
 
         let results = merger.merge(direct, semantic);
 
-        assert_eq!(merger.confidence_threshold(), 0.70);
-        assert_eq!(merger.semantic_confidence_threshold(), 0.65);
+        assert!((merger.confidence_threshold() - 0.70).abs() < f64::EPSILON);
+        assert!((merger.semantic_confidence_threshold() - 0.65).abs() < f64::EPSILON);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].detection.verse_ref.book_name, "Romans");
     }

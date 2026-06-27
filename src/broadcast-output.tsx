@@ -110,7 +110,7 @@ function BroadcastCanvas() {
         }}
       />
       <video
-        key={videoItem?.video?.videoId ?? "video"}
+        key={`video-${videoItem?.video?.videoId ?? "none"}`}
         ref={setVideoElement}
         className={videoTransition}
         playsInline
@@ -126,7 +126,7 @@ function BroadcastCanvas() {
         }}
       />
       <iframe
-        key={videoItem?.video?.videoId ?? "youtube"}
+        key={`youtube-${videoItem?.video?.videoId ?? "none"}`}
         ref={setYoutubeFrame}
         className={videoTransition}
         title={videoItem?.reference ?? "YouTube video"}

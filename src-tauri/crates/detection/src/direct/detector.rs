@@ -718,8 +718,7 @@ impl DirectDetector {
                 "nasb" => Some("NASB"),
                 "nkjv" | "njkv" => Some("NKJV"),
                 "nlt" => Some("NLT"),
-                "kjv" => Some("KJV"),
-                "english" => Some("KJV"),
+                "kjv" | "english" => Some("KJV"),
                 "amp" | "amplified" => Some("AMP"),
                 "sparv" | "spanish" => Some("SpaRV"),
                 "frejnd" | "french" => Some("FreJND"),
@@ -1692,7 +1691,9 @@ mod tests {
 
         assert!(detector.detect("hymn 12").is_empty());
         assert!(detector.detect("Adventist hymnal 100").is_empty());
-        assert!(detector.detect("Seventh-day Adventist hymnal one hundred").is_empty());
+        assert!(detector
+            .detect("Seventh-day Adventist hymnal one hundred")
+            .is_empty());
         assert!(detector.detect("song two hundred fifty one").is_empty());
         assert!(detector.detect("please open song number 251").is_empty());
     }

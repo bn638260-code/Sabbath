@@ -5,7 +5,7 @@ import {
   getQueuedHymnDeckForRenderItem,
   restoreQueuedHymnDeckForRenderItem,
 } from "@/lib/queued-hymn-deck"
-import { previewQueuedItem } from "@/lib/queue-presentation"
+import { presentQueuedItem, previewQueuedItem } from "@/lib/queue-presentation"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useQueueStore } from "@/stores/queue-store"
@@ -103,5 +103,36 @@ describe("queued hymn deck presentation", () => {
     expect(restoreQueuedHymnDeckForRenderItem(renderItem)).toBe(true)
     expect(useHymnSlideStore.getState().deck).toBe(queuedDeck)
     expect(useHymnSlideStore.getState().activeIndex).toBe(2)
+  })
+
+  it("previews and presents queued video material through the broadcast store", () => {
+    const videoItem: QueueItem = {
+      id: "queue-video",
+      confidence: 1,
+      source: "manual",
+      added_at: 1,
+      presentation: {
+        kind: "video",
+        videoId: "video-queue",
+        title: "Welcome Video",
+        source: "url",
+        url: "https://cdn.example.com/welcome.mp4",
+        reference: "Welcome Video",
+        segments: [{ text: "Welcome Video" }],
+      },
+    }
+
+    previewQueuedItem(videoItem)
+    expect(useBroadcastStore.getState().previewItem).toMatchObject({
+      kind: "video",
+      reference: "Welcome Video",
+    })
+
+    presentQueuedItem(videoItem)
+    expect(useBroadcastStore.getState().isLive).toBe(true)
+    expect(useBroadcastStore.getState().liveItem).toMatchObject({
+      kind: "video",
+      reference: "Welcome Video",
+    })
   })
 })

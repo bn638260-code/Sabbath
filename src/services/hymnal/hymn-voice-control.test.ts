@@ -101,6 +101,11 @@ describe("hymn voice control", () => {
       expect(parseHymnCommand("SDA hymnal one hundred")).toBe(100)
     })
 
+    it("accepts natural service speech around hymn commands", () => {
+      expect(parseHymnCommand("can we please open song twelve")).toBe(12)
+      expect(parseHymnCommand("we will open with SDA hymn number one hundred")).toBe(100)
+    })
+
     it("rejects bare numbers and scripture-like text", () => {
       expect(parseHymnCommand("12")).toBeNull()
       expect(parseHymnCommand("John 3 16")).toBeNull()

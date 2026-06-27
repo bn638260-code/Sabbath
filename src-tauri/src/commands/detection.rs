@@ -1212,6 +1212,21 @@ mod tests {
     }
 
     #[test]
+    fn detect_egw_references_handles_noisy_spoken_human_intro() {
+        let fixture = fixture_state(1);
+
+        let results = detect_egw_references(
+            &fixture.state,
+            "um can we go to patriarchs and prophets chapter one paragraph two please",
+        );
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].content_type, "egw");
+        assert_eq!(results[0].verse_ref, "Patriarchs and Prophets 1:2");
+        assert_eq!(results[0].source, "direct");
+    }
+
+    #[test]
     fn detect_egw_references_finds_abbreviation_colon_style_reference() {
         let fixture = fixture_state(1);
 

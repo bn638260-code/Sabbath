@@ -220,7 +220,16 @@ impl DetectionPipeline {
             vector_keys.insert(key);
         }
 
+        let semantic_confidence_threshold = self.merger.semantic_confidence_threshold();
+        semantic_detections.retain(|detection| {
+            detection.verse_id.is_none() || detection.confidence >= semantic_confidence_threshold
+        });
+
+        self.merger
+            .set_semantic_confidence_threshold(FTS5_MIN_CONFIDENCE);
         let mut merged = self.merger.merge(vec![], semantic_detections);
+        self.merger
+            .set_semantic_confidence_threshold(semantic_confidence_threshold);
         merged.truncate(LIVE_SEMANTIC_CAP);
         merged
     }
@@ -302,13 +311,12 @@ mod tests {
             let mut pipeline = DetectionPipeline::new();
             let results = pipeline.process_direct(transcript);
             assert_eq!(results.len(), 1, "{provider} direct transcript");
-            assert_eq!(results[0].detection.verse_ref.book_name, "John", "{provider}");
-            assert_eq!(results[0].detection.verse_ref.chapter, 3, "{provider}");
             assert_eq!(
-                results[0].detection.verse_ref.verse_start,
-                16,
+                results[0].detection.verse_ref.book_name, "John",
                 "{provider}"
             );
+            assert_eq!(results[0].detection.verse_ref.chapter, 3, "{provider}");
+            assert_eq!(results[0].detection.verse_ref.verse_start, 16, "{provider}");
             assert!(
                 matches!(
                     results[0].detection.source,
@@ -317,6 +325,22 @@ mod tests {
                 "{provider} transcript should stay direct"
             );
         }
+    }
+
+    #[test]
+    fn natural_speech_with_direct_reference_mistake_stays_direct() {
+        let mut pipeline = DetectionPipeline::new();
+        let results = pipeline
+            .process_direct("pastor said let's read from Filipians chapter four verse thirteen");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].detection.verse_ref.book_name, "Philippians");
+        assert_eq!(results[0].detection.verse_ref.chapter, 4);
+        assert_eq!(results[0].detection.verse_ref.verse_start, 13);
+        assert!(matches!(
+            results[0].detection.source,
+            DetectionSource::DirectReference
+        ));
     }
 
     #[test]
@@ -424,6 +448,31 @@ mod tests {
     }
 
     #[test]
+    fn human_quote_with_common_word_mistake_stays_semantic() {
+        let mut pipeline = DetectionPipeline::new();
+        let mut semantic = SemanticDetector::new(
+            Box::new(StubEmbedder::new(128)),
+            Box::new(FakeIndex {
+                results: vec![SearchResult {
+                    verse_id: 19_023_001,
+                    similarity: 0.89,
+                }],
+            }),
+        );
+        semantic.set_use_synonyms(false);
+        pipeline.set_semantic(semantic);
+
+        let results = pipeline.process_semantic("the lord is my shepard I shall not want");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].detection.verse_id, Some(19_023_001));
+        assert!(matches!(
+            results[0].detection.source,
+            DetectionSource::Semantic { .. }
+        ));
+    }
+
+    #[test]
     fn test_pipeline_auto_queue_for_direct() {
         let mut pipeline = DetectionPipeline::new();
         let results = pipeline.process("John 3:16");
@@ -481,6 +530,26 @@ mod tests {
 
         // Should return empty when no FTS5 results
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn quoted_verse_text_with_misheard_word_surfaces_fts_match() {
+        let mut pipeline = DetectionPipeline::new();
+        let fts_results = vec![Bm25Result {
+            book_number: 19,
+            book_name: "Psalms".to_string(),
+            chapter: 23,
+            verse: 1,
+            rank: -16.0,
+        }];
+
+        let results = pipeline
+            .process_hybrid_with_fts("the lord is my shepard I shall not want", &fts_results);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].detection.verse_ref.book_name, "Psalms");
+        assert_eq!(results[0].detection.verse_ref.chapter, 23);
+        assert_eq!(results[0].detection.verse_ref.verse_start, 1);
     }
 
     #[test]

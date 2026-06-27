@@ -10,6 +10,13 @@ fn tauri_bundle_resources() -> serde_json::Map<String, Value> {
         .expect("bundle.resources must be a JSON object")
 }
 
+fn is_minilm_onnx(path: &str) -> bool {
+    path.contains("models/minilm-l6-v2")
+        && std::path::Path::new(path)
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("onnx"))
+}
+
 #[test]
 fn resources_do_not_include_removed_sherpa_assets() {
     let resources = tauri_bundle_resources();
@@ -30,11 +37,7 @@ fn resources_bundle_only_int8_minilm_onnx_model() {
         .iter()
         .filter_map(|(source, target)| {
             let target = target.as_str()?;
-            let source_is_minilm_onnx =
-                source.contains("models/minilm-l6-v2") && source.ends_with(".onnx");
-            let target_is_minilm_onnx =
-                target.contains("models/minilm-l6-v2") && target.ends_with(".onnx");
-            (source_is_minilm_onnx || target_is_minilm_onnx).then_some((source.as_str(), target))
+            (is_minilm_onnx(source) || is_minilm_onnx(target)).then_some((source.as_str(), target))
         })
         .collect::<Vec<_>>();
 
