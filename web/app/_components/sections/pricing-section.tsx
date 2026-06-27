@@ -27,7 +27,12 @@ export function PricingSection() {
               </p>
             </div>
             <div>
-              <Button href={SITE.repo.download} variant="primary">
+              <Button
+                href={SITE.repo.download}
+                target="_self"
+                download
+                variant="primary"
+              >
                 Download
               </Button>
             </div>

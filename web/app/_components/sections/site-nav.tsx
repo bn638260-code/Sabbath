@@ -83,7 +83,13 @@ export function SiteNav({ stars }: { stars: number }) {
               </span>
             </span>
           </Button>
-          <Button href={SITE.repo.download} variant="primary" size="md">
+          <Button
+            href={SITE.repo.download}
+            target="_self"
+            download
+            variant="primary"
+            size="md"
+          >
             Download
           </Button>
         </div>
@@ -133,6 +139,8 @@ export function SiteNav({ stars }: { stars: number }) {
             </Button>
             <Button
               href={SITE.repo.download}
+              target="_self"
+              download
               variant="primary"
               size="md"
               className="justify-center"
