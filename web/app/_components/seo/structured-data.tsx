@@ -44,7 +44,7 @@ export function StructuredData() {
         operatingSystem: SITE.operatingSystems.join(", "),
         downloadUrl: SITE.repo.download,
         installUrl: SITE.repo.download,
-        softwareVersion: "latest",
+        softwareVersion: SITE.repo.installerVersion,
         license: "https://opensource.org/licenses/MIT",
         isAccessibleForFree: true,
         offers: {

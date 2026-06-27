@@ -1,4 +1,7 @@
 import { APP_DISPLAY_NAME } from "./app-brand";
+import { getWindowsInstallerDownloadConfig } from "./windows-installer-download";
+
+const windowsInstaller = getWindowsInstallerDownloadConfig();
 
 export const SITE = {
   name: APP_DISPLAY_NAME,
@@ -19,8 +22,9 @@ export const SITE = {
     name: "SabbathCue",
     url: "https://github.com/BongaNdlovu/SabbathCue",
     releasesLatest: "https://github.com/BongaNdlovu/sabbathcue-releases/releases/latest",
-    download:
-      "https://pub-f00266e4b83341dea437c0114752f536.r2.dev/SabbathCue_0.1.6_x64-setup%20(2).exe",
+    download: windowsInstaller.url,
+    downloadFilename: windowsInstaller.saveAsFilename,
+    installerVersion: windowsInstaller.version,
     discussions: "https://github.com/BongaNdlovu/SabbathCue/discussions",
     stars: { fallback: 0 },
   },

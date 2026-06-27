@@ -8,6 +8,10 @@ export default defineConfig({
     },
   },
   test: {
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "web/app/**/*.{test,spec}.{ts,tsx}",
+    ],
     exclude: [...configDefaults.exclude, "tests/e2e/**"],
     setupFiles: ["./src/test/setup.ts"],
     testTimeout: 10000,

@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - 'web/**'
+      - 'scripts/verify-windows-installer-download.mjs'
       - '.github/workflows/deploy-web.yml'
   pull_request:
     branches: [main]
     paths:
       - 'web/**'
+      - 'scripts/verify-windows-installer-download.mjs'
       - '.github/workflows/deploy-web.yml'
   workflow_dispatch:
 
@@ -45,6 +47,9 @@ jobs:
             nextjs-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}-
 
       - run: bun install --frozen-lockfile
+
+      - name: Verify Windows installer on Cloudflare R2
+        run: node ../scripts/verify-windows-installer-download.mjs
 
       - run: bun run build
         env:

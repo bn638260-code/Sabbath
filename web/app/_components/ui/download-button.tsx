@@ -2,7 +2,7 @@
 
 import { IconBrandWindows } from "@tabler/icons-react";
 import { Button } from "./button";
-import { SITE } from "../../_lib/site";
+import { windowsInstallerDownloadLinkProps } from "../../_lib/windows-installer-download";
 
 export function DownloadButton({
   size = "md",
@@ -15,11 +15,12 @@ export function DownloadButton({
   // labelled for Windows rather than guessing the visitor's platform.
   // target="_self" + download keeps the click in the current tab so the
   // browser triggers a download instead of flashing a blank "_blank" tab.
+  const downloadLink = windowsInstallerDownloadLinkProps();
   return (
     <Button
-      href={SITE.repo.download}
-      target="_self"
-      download
+      href={downloadLink.href}
+      target={downloadLink.target}
+      download={downloadLink.download}
       variant="primary"
       size={size}
       className={className}

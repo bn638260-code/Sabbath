@@ -6,6 +6,7 @@ import { IconBrandGithub, IconMenu2, IconX } from "@tabler/icons-react";
 import { Button } from "../ui/button";
 import { SabbathCueLogo } from "../ui/sabbathcue-logo";
 import { SITE } from "../../_lib/site";
+import { windowsInstallerDownloadLinkProps } from "../../_lib/windows-installer-download";
 import { cn } from "../../_lib/utils";
 
 type NavLink = { href: string; label: string; external?: boolean };
@@ -20,6 +21,7 @@ const LINKS: ReadonlyArray<NavLink> = [
 ];
 
 export function SiteNav({ stars }: { stars: number }) {
+  const downloadLink = windowsInstallerDownloadLinkProps();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -84,9 +86,9 @@ export function SiteNav({ stars }: { stars: number }) {
             </span>
           </Button>
           <Button
-            href={SITE.repo.download}
-            target="_self"
-            download
+            href={downloadLink.href}
+            target={downloadLink.target}
+            download={downloadLink.download}
             variant="primary"
             size="md"
           >
@@ -138,9 +140,9 @@ export function SiteNav({ stars }: { stars: number }) {
               GitHub <span className="text-muted-foreground">• {formatStars(stars)}</span>
             </Button>
             <Button
-              href={SITE.repo.download}
-              target="_self"
-              download
+              href={downloadLink.href}
+              target={downloadLink.target}
+              download={downloadLink.download}
               variant="primary"
               size="md"
               className="justify-center"

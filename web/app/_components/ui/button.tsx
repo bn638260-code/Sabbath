@@ -50,14 +50,19 @@ export function Button({
   const classes = cn(base, sizes[size], variants[variant], className);
 
   if ("href" in rest && rest.href) {
-    const { href, target, rel, ...anchorRest } = rest as AsLink;
+    const { href, target, rel, download, ...anchorRest } = rest as AsLink;
     const isExternal = /^https?:\/\//.test(href);
     if (isExternal) {
+      const defaultTarget = download ? "_self" : "_blank";
       return (
         <a
           href={href}
-          target={target ?? "_blank"}
-          rel={rel ?? "noopener noreferrer"}
+          target={target ?? defaultTarget}
+          rel={
+            rel ??
+            (defaultTarget === "_blank" ? "noopener noreferrer" : undefined)
+          }
+          download={download}
           className={classes}
           {...anchorRest}
         >

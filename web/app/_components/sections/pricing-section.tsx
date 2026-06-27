@@ -2,9 +2,10 @@ import { Button } from "../ui/button";
 import { Container } from "../ui/container";
 import { Reveal } from "../ui/reveal";
 import { SectionHeading } from "./section-heading";
-import { SITE } from "../../_lib/site";
+import { windowsInstallerDownloadLinkProps } from "../../_lib/windows-installer-download";
 
 export function PricingSection() {
+  const downloadLink = windowsInstallerDownloadLinkProps();
   return (
     <section
       id="pricing"
@@ -28,9 +29,9 @@ export function PricingSection() {
             </div>
             <div>
               <Button
-                href={SITE.repo.download}
-                target="_self"
-                download
+                href={downloadLink.href}
+                target={downloadLink.target}
+                download={downloadLink.download}
                 variant="primary"
               >
                 Download
