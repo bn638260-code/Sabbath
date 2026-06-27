@@ -83,7 +83,7 @@ export function SiteNav({ stars }: { stars: number }) {
               </span>
             </span>
           </Button>
-          <Button href={SITE.repo.releasesLatest} variant="primary" size="md">
+          <Button href={SITE.repo.download} variant="primary" size="md">
             Download
           </Button>
         </div>
@@ -132,7 +132,7 @@ export function SiteNav({ stars }: { stars: number }) {
               GitHub <span className="text-muted-foreground">• {formatStars(stars)}</span>
             </Button>
             <Button
-              href={SITE.repo.releasesLatest}
+              href={SITE.repo.download}
               variant="primary"
               size="md"
               className="justify-center"

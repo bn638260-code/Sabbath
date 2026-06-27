@@ -19,6 +19,8 @@ export const SITE = {
     name: "SabbathCue",
     url: "https://github.com/BongaNdlovu/SabbathCue",
     releasesLatest: "https://github.com/BongaNdlovu/sabbathcue-releases/releases/latest",
+    download:
+      "https://pub-f00266e4b83341dea437c0114752f536.r2.dev/SabbathCue_0.1.6_x64-setup%20(2).exe",
     discussions: "https://github.com/BongaNdlovu/SabbathCue/discussions",
     stars: { fallback: 0 },
   },
