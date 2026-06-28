@@ -32,6 +32,9 @@ const EXPECTED_TRANSLATIONS = [
   "PorBLivre.json",
 ]
 
+/** Manual-only source — run `bun run convert:afrikaans-bible` before building. */
+const MANUAL_TRANSLATIONS = ["Afr1953.json"]
+
 const CROSS_REFS_URL = "https://a.openbible.info/data/cross-references.zip"
 
 async function downloadFile(url: string, dest: string): Promise<void> {
@@ -160,6 +163,16 @@ async function main() {
   await downloadCrossRefs()
 
   console.log("\n✅ All source data downloaded!\n")
+  const missingManual = MANUAL_TRANSLATIONS.filter(
+    (f) => !existsSync(join(SOURCES_DIR, f)),
+  )
+  if (missingManual.length > 0) {
+    console.log(
+      "ℹ️  Optional manual translations missing:",
+      missingManual.join(", "),
+    )
+    console.log("   Run: bun run convert:afrikaans-bible\n")
+  }
 }
 
 main().catch((err) => {

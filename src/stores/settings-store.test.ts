@@ -326,6 +326,22 @@ describe("settings store", () => {
     expect(state.sttProvider).toBe("vosk")
   })
 
+  it("hydrates persisted Soniox provider and Afrikaans language", async () => {
+    mockGet.mockImplementation(async (key: string) => {
+      if (key === "sttProvider") return "soniox"
+      if (key === "sttLanguage") return "af"
+      return null
+    })
+
+    const { hydrateSettings, useSettingsStore } =
+      await import("./settings-store")
+    await hydrateSettings()
+
+    const state = useSettingsStore.getState()
+    expect(state.sttProvider).toBe("soniox")
+    expect(state.sttLanguage).toBe("af")
+  })
+
   it("persist handles save rejection gracefully", async () => {
     mockGet.mockResolvedValue(null)
     mockSave.mockRejectedValue(new Error("disk error"))

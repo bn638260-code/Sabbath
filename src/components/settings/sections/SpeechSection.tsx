@@ -6,7 +6,8 @@ import { Switch } from "@/components/ui/switch"
 import { useAssets } from "@/hooks/use-assets"
 import { useDeepgramKeySettings } from "@/hooks/use-deepgram-key-settings"
 import { useGladiaKeySettings } from "@/hooks/use-gladia-key-settings"
-import { useSettingsStore, type SttProvider } from "@/stores/settings-store"
+import { useSonioxKeySettings } from "@/hooks/use-soniox-key-settings"
+import { useSettingsStore, type SttLanguage, type SttProvider } from "@/stores/settings-store"
 import { CheckIcon, DownloadIcon, HardDriveIcon, ZapIcon } from "lucide-react"
 
 function ProviderOption({
@@ -69,6 +70,12 @@ function ProviderSelector({
           activeProvider={sttProvider}
           title="Cloud (Gladia)"
           description="Uses Gladia Solaria-1 for real-time streaming transcription. Requires an API key and internet connection. Runs English-only live captions through the same verse detection pipeline."
+        />
+        <ProviderOption
+          value="soniox"
+          activeProvider={sttProvider}
+          title="Cloud (Soniox, Afrikaans)"
+          description="Uses Soniox stt-rt-v5 for real-time Afrikaans transcription with language_hints and endpoint detection. Requires an API key and internet connection."
         />
         <ProviderOption
           value="vosk"
@@ -308,6 +315,39 @@ function ProviderKeySettings({
   )
 }
 
+function SonioxLanguageSelector({
+  sttLanguage,
+  switchingStt,
+}: {
+  sttLanguage: SttLanguage
+  switchingStt: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+        Soniox language
+      </label>
+      <RadioGroup
+        value={sttLanguage}
+        onValueChange={(value) =>
+          useSettingsStore.getState().setSttLanguage(value as SttLanguage)
+        }
+        disabled={switchingStt}
+        className="gap-2"
+      >
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs">
+          <RadioGroupItem value="af" />
+          Afrikaans (af)
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs">
+          <RadioGroupItem value="en" />
+          English (en)
+        </label>
+      </RadioGroup>
+    </div>
+  )
+}
+
 function PerformanceSetting({ lowPowerMode }: { lowPowerMode: boolean }) {
   return (
     <div className="flex flex-col gap-2">
@@ -346,6 +386,7 @@ function PerformanceSetting({ lowPowerMode }: { lowPowerMode: boolean }) {
 
 export function SpeechSection() {
   const lowPowerMode = useSettingsStore((s) => s.lowPowerMode)
+  const sttLanguage = useSettingsStore((s) => s.sttLanguage)
   const deepgramKeySettings = useDeepgramKeySettings()
   const {
     sttProvider,
@@ -353,6 +394,7 @@ export function SpeechSection() {
     handleProviderChange,
   } = deepgramKeySettings
   const gladiaKeySettings = useGladiaKeySettings(handleProviderChange)
+  const sonioxKeySettings = useSonioxKeySettings(handleProviderChange)
 
   const {
     status: assetStatus,
@@ -417,6 +459,39 @@ export function SpeechSection() {
           pricingUrl="gladia.io/pricing"
           settings={gladiaKeyAdapter(gladiaKeySettings)}
         />
+      )}
+
+      {sttProvider === "soniox" && (
+        <>
+          <SonioxLanguageSelector
+            sttLanguage={sttLanguage}
+            switchingStt={switchingStt}
+          />
+          <ProviderKeySettings
+            providerName="Soniox"
+            signupUrl="console.soniox.com"
+            steps={[
+              "Sign up at Soniox and create an API key.",
+              "Copy the key — it shows only once.",
+              "Paste it above and save.",
+            ]}
+            cost="pay-as-you-go streaming; see Soniox pricing for current rates."
+            pricingUrl="soniox.com/pricing"
+            settings={{
+              hasApiKey: sonioxKeySettings.hasSonioxApiKey,
+              keyValue: sonioxKeySettings.keyValue,
+              setKeyValue: sonioxKeySettings.setKeyValue,
+              editingSavedKey: sonioxKeySettings.editingSavedKey,
+              setEditingSavedKey: sonioxKeySettings.setEditingSavedKey,
+              saved: sonioxKeySettings.saved,
+              keyError: sonioxKeySettings.keyError,
+              displayedKeyValue: sonioxKeySettings.displayedKeyValue,
+              keyActionLabel: sonioxKeySettings.keyActionLabel,
+              handleKeyAction: sonioxKeySettings.handleKeyAction,
+              handleClearKey: sonioxKeySettings.handleClearKey,
+            }}
+          />
+        </>
       )}
 
       <PerformanceSetting lowPowerMode={lowPowerMode} />

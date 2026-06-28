@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use futures_util::FutureExt;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Notify;
 
 use crate::events::{
@@ -26,6 +26,7 @@ use crate::events::{
 };
 use crate::state::AppState;
 use rhema_audio::{new_gain_handle, set_gain, AudioConfig, AudioFrame, GainHandle};
+use rhema_detection::DirectDetector;
 use rhema_stt::TranscriptEvent;
 
 use self::detection::{
@@ -110,6 +111,7 @@ pub async fn start_transcription(
     device_id: Option<String>,
     gain: Option<f32>,
     provider: Option<String>,
+    stt_language: Option<String>,
     low_power: Option<bool>,
 ) -> Result<(), String> {
     // Guard: already running?
@@ -126,10 +128,24 @@ pub async fn start_transcription(
     }
 
     let provider_name = provider.as_deref().unwrap_or("vosk");
+    let stt_language = stt_language.as_deref().unwrap_or("en");
+
+    {
+        let detector_state: State<'_, Mutex<DirectDetector>> = app.state();
+        if let Ok(mut detector) = detector_state.lock() {
+            detector.set_stt_language(stt_language);
+        }
+    }
 
     // Build the STT provider.
-    let stt_provider =
-        match build_stt_provider(provider_name, &app, device_id.as_deref(), gain).await {
+    let stt_provider = match build_stt_provider(
+        provider_name,
+        &app,
+        device_id.as_deref(),
+        gain,
+        Some(stt_language),
+    )
+    .await {
             Ok(provider) => provider,
             Err(error) => {
                 log::error!(

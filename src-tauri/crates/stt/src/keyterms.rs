@@ -390,3 +390,95 @@ pub fn verse_only_keyterms() -> Vec<String> {
     terms.dedup();
     terms
 }
+
+/// Afrikaans Bible book names and reference terms for Soniox context boosting.
+pub fn afrikaans_bible_keyterms() -> Vec<String> {
+    let books = [
+        "Genesis",
+        "Eksodus",
+        "Levitikus",
+        "Numeri",
+        "Deuteronomium",
+        "Josua",
+        "Rigters",
+        "Rut",
+        "1 Samuel",
+        "2 Samuel",
+        "1 Konings",
+        "2 Konings",
+        "1 Kronieke",
+        "2 Kronieke",
+        "Esra",
+        "Nehemia",
+        "Ester",
+        "Job",
+        "Psalms",
+        "Spreuke",
+        "Prediker",
+        "Hooglied",
+        "Jesaja",
+        "Jeremia",
+        "Klaagliedere",
+        "Esegiël",
+        "Daniël",
+        "Hosea",
+        "Joël",
+        "Amos",
+        "Obadja",
+        "Jona",
+        "Miga",
+        "Nahum",
+        "Habakuk",
+        "Sefanja",
+        "Haggai",
+        "Sagaria",
+        "Maleagi",
+        "Matteus",
+        "Markus",
+        "Lukas",
+        "Johannes",
+        "Handelinge",
+        "Romeine",
+        "1 Korintiërs",
+        "2 Korintiërs",
+        "Galasiërs",
+        "Effesiërs",
+        "Filippense",
+        "Kolossense",
+        "1 Tessalonisense",
+        "2 Tessalonisense",
+        "1 Timoteus",
+        "2 Timoteus",
+        "Titus",
+        "Filemon",
+        "Hebreërs",
+        "Jakobus",
+        "1 Petrus",
+        "2 Petrus",
+        "1 Johannes",
+        "2 Johannes",
+        "3 Johannes",
+        "Judas",
+        "Openbaring",
+    ];
+    let mut terms: Vec<String> = books.iter().map(|name| (*name).to_string()).collect();
+    terms.extend(
+        [
+            "Psalm",
+            "hoofstuk",
+            "vers",
+            "Bybel",
+            "Jesus",
+            "Christus",
+            "God",
+            "Heer",
+            "Heilige Gees",
+            "Sabbat",
+        ]
+        .iter()
+        .map(|term| (*term).to_string()),
+    );
+    terms.sort();
+    terms.dedup();
+    terms
+}

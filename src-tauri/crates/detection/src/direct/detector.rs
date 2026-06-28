@@ -143,6 +143,19 @@ const TRANSLATION_COMMANDS: &[(&str, &str)] = &[
     ("portuguese version", "PorBLivre"),
     ("portuguese translation", "PorBLivre"),
     ("biblia livre", "PorBLivre"),
+    // Afr1953 (Afrikaans 1933/1953)
+    ("give me afrikaans", "Afr1953"),
+    ("read in afrikaans", "Afr1953"),
+    ("switch to afrikaans", "Afr1953"),
+    ("in afrikaans", "Afr1953"),
+    ("can i have it in afrikaans", "Afr1953"),
+    ("can i have that in afrikaans", "Afr1953"),
+    ("show me afrikaans", "Afr1953"),
+    ("afrikaans bybel", "Afr1953"),
+    ("afrikaans bible", "Afr1953"),
+    ("afrikaans vertaling", "Afr1953"),
+    ("1933 bybel", "Afr1953"),
+    ("1953 bybel", "Afr1953"),
     // MSG (The Message)
     ("give me message", "MSG"),
     ("give me the message", "MSG"),
@@ -675,12 +688,22 @@ pub struct DirectDetector {
 
 impl DirectDetector {
     pub fn new() -> Self {
+        Self::for_stt_language("en")
+    }
+
+    pub fn for_stt_language(language: &str) -> Self {
         DirectDetector {
-            matcher: BookMatcher::new(),
+            matcher: BookMatcher::for_stt_language(language),
             context: ReferenceContext::new(),
             incomplete: None,
             recent_detections: VecDeque::with_capacity(5),
         }
+    }
+
+    /// Rebuild the book matcher when STT language changes.
+    pub fn set_stt_language(&mut self, language: &str) {
+        self.matcher = BookMatcher::for_stt_language(language);
+        self.incomplete = None;
     }
 
     /// Recent detections for context tracking.
@@ -2348,5 +2371,24 @@ mod tests {
         assert!(!results.is_empty());
         assert_eq!(results[0].verse_ref.chapter, 3);
         assert_eq!(results[0].verse_ref.verse_start, 15);
+    }
+
+    #[test]
+    fn afrikaans_detects_johannes_3_vers_16() {
+        let mut detector = DirectDetector::for_stt_language("af");
+        let results = detector.detect("Johannes 3 vers 16");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Johannes");
+        assert_eq!(results[0].verse_ref.chapter, 3);
+        assert_eq!(results[0].verse_ref.verse_start, 16);
+    }
+
+    #[test]
+    fn afrikaans_translation_command() {
+        let detector = DirectDetector::for_stt_language("af");
+        assert_eq!(
+            detector.detect_translation_command("switch to afrikaans please"),
+            Some("Afr1953".into())
+        );
     }
 }

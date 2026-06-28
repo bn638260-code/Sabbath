@@ -25,7 +25,7 @@ import { join } from "node:path"
 const DATA_DIR = import.meta.dir
 const DB_PATH = join(DATA_DIR, "rhema.db")
 const OUTPUT_PATH = join(DATA_DIR, "verses-for-embedding.json")
-const EMBEDDING_TRANSLATIONS = ["KJV", "NKJV", "NLT"] as const
+const EMBEDDING_TRANSLATIONS = ["KJV", "NKJV", "NLT", "Afr1953"] as const
 
 type TranslationRow = {
   id: number

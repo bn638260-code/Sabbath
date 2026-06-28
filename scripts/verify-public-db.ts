@@ -15,6 +15,7 @@ const expected = [
   "SpaRV",
   "FreJND",
   "PorBLivre",
+  "Afr1953",
 ] as const
 
 const expectedSet = new Set<string>(expected)

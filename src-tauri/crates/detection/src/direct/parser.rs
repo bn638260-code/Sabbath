@@ -90,7 +90,7 @@ pub fn parse_reference(text: &str, book_match: &BookMatch) -> Option<VerseRef> {
 
     // Try pattern: just a number (chapter only)
     // e.g., "Genesis 3" → Genesis 3:0 (incomplete, waiting for verse)
-    if let Some(chapter) = token_to_number(&tokens[0]) {
+    if let Some((chapter, _)) = consume_number_at(&tokens, 0) {
         return Some(VerseRef {
             book_number: book_match.book_number,
             book_name: book_match.book_name.clone(),
@@ -106,7 +106,7 @@ pub fn parse_reference(text: &str, book_match: &BookMatch) -> Option<VerseRef> {
 fn is_dangling_chapter_keyword(tokens: &[Token]) -> bool {
     tokens
         .last()
-        .is_some_and(|token| matches!(token, Token::Word(word) if word == "chapter"))
+        .is_some_and(|token| matches!(token, Token::Word(word) if is_chapter_keyword(word)))
 }
 
 /// A token from the text after the book name.
@@ -116,6 +116,18 @@ enum Token {
     Number(i32),
     Colon,
     Dash,
+}
+
+fn is_chapter_keyword(word: &str) -> bool {
+    matches!(word, "chapter" | "hoofstuk")
+}
+
+fn is_verse_keyword(word: &str) -> bool {
+    matches!(word, "verse" | "verses" | "vers")
+}
+
+fn is_number_connector(word: &str) -> bool {
+    matches!(word, "and" | "en")
 }
 
 /// Tokenize text into words, numbers, colons, and dashes.
@@ -231,11 +243,11 @@ fn try_correction_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<Ve
     // Look for chapter/verse before correction
     for i in 0..correction_idx {
         if let Token::Word(w) = &tokens[i] {
-            if w == "chapter" {
+            if is_chapter_keyword(w) {
                 if let Some((ch, _)) = consume_number(tokens, i + 1) {
                     initial_chapter = Some(ch);
                 }
-            } else if w == "verse" || w == "verses" {
+            } else if is_verse_keyword(w) {
                 if let Some((v, _)) = consume_number(tokens, i + 1) {
                     initial_verse = Some(v);
                 }
@@ -250,11 +262,11 @@ fn try_correction_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<Ve
     // Look for chapter/verse after correction
     for i in (correction_idx + 1)..tokens.len() {
         if let Token::Word(w) = &tokens[i] {
-            if w == "chapter" {
+            if is_chapter_keyword(w) {
                 if let Some((ch, _)) = consume_number(tokens, i + 1) {
                     corrected_chapter = Some(ch);
                 }
-            } else if w == "verse" || w == "verses" {
+            } else if is_verse_keyword(w) {
                 if let Some((v, _)) = consume_number(tokens, i + 1) {
                     corrected_verse = Some(v);
                 }
@@ -289,7 +301,7 @@ fn try_correction_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<Ve
 fn try_chapter_verse_spoken(tokens: &[Token], book_match: &BookMatch) -> Option<VerseRef> {
     for i in 0..tokens.len() {
         if let Token::Word(w) = &tokens[i] {
-            if w == "chapter" {
+            if is_chapter_keyword(w) {
                 // Next token(s) should be a number (digit or spoken)
                 if let Some((chapter, next_idx)) = consume_number(tokens, i + 1) {
                     // Scan forward (up to 15 tokens) looking for "verse" keyword.
@@ -298,7 +310,7 @@ fn try_chapter_verse_spoken(tokens: &[Token], book_match: &BookMatch) -> Option<
                     let scan_limit = (next_idx + 15).min(tokens.len());
                     for j in next_idx..scan_limit {
                         if let Token::Word(vw) = &tokens[j] {
-                            if vw == "verse" || vw == "verses" {
+                            if is_verse_keyword(vw) {
                                 if let Some((verse, verse_next)) = consume_number(tokens, j + 1) {
                                     let verse_end = scan_verse_end(tokens, verse_next);
                                     return Some(VerseRef {
@@ -350,7 +362,7 @@ fn scan_verse_end(tokens: &[Token], start: usize) -> Option<i32> {
             if next < tokens.len() {
                 // "to verse 16" pattern
                 if let Token::Word(vw) = &tokens[next] {
-                    if vw == "verse" || vw == "verses" {
+                    if is_verse_keyword(vw) {
                         if let Some((end, _)) = consume_number(tokens, next + 1) {
                             return Some(end);
                         }
@@ -371,7 +383,7 @@ fn scan_verse_end(tokens: &[Token], start: usize) -> Option<i32> {
 fn try_verse_only_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<VerseRef> {
     for i in 0..tokens.len() {
         if let Token::Word(w) = &tokens[i] {
-            if w == "verse" || w == "verses" {
+            if is_verse_keyword(w) {
                 // Check if this is NOT preceded by a resolved chapter number.
                 // Need to check for:
                 // 1. Direct number before verse: "3 verse 1" or "Romans 8 and verse 28"
@@ -392,7 +404,7 @@ fn try_verse_only_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<Ve
                                 break;
                             }
                             Token::Word(w)
-                                if w == "chapter" && consume_number(tokens, j + 1).is_some() =>
+                                if is_chapter_keyword(w) && consume_number(tokens, j + 1).is_some() =>
                             {
                                 found = true;
                                 break;
@@ -440,7 +452,7 @@ fn try_number_verse_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<
             let scan_limit = (next_idx + 10).min(tokens.len());
             for j in next_idx..scan_limit {
                 if let Token::Word(w) = &tokens[j] {
-                    if w == "verse" || w == "verses" {
+                    if is_verse_keyword(w) {
                         if let Some((verse, verse_next)) = consume_number(tokens, j + 1) {
                             let verse_end = scan_verse_end(tokens, verse_next);
                             return Some(VerseRef {
@@ -465,7 +477,7 @@ fn try_spoken_numbers(tokens: &[Token], book_match: &BookMatch) -> Option<VerseR
     if let Some((chapter, next_idx)) = consume_number(tokens, 0) {
         if next_idx < tokens.len() {
             if let Token::Word(w) = &tokens[next_idx] {
-                if w == "verse" || w == "verses" {
+                if is_verse_keyword(w) {
                     if let Some((verse, verse_next)) = consume_number(tokens, next_idx + 1) {
                         let mut verse_end = None;
                         if verse_next < tokens.len() {
@@ -534,15 +546,6 @@ fn try_two_numbers(tokens: &[Token], book_match: &BookMatch) -> Option<VerseRef>
     None
 }
 
-/// Try to extract a number from a single token.
-fn token_to_number(token: &Token) -> Option<i32> {
-    match token {
-        Token::Number(n) => Some(*n),
-        Token::Word(w) => parse_spoken_number(w),
-        _ => None,
-    }
-}
-
 /// Try to consume a number at the given token position.
 /// Returns (number, `next_token_index`) if successful.
 /// Handles both digit tokens and spoken number words (including compounds like "thirty two").
@@ -569,12 +572,27 @@ fn consume_number_at(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
     if let Token::Word(w) = &tokens[start] {
         if let Some(n) = parse_spoken_number(w) {
             // Check if this is "hundred" — if so, look for more
-            if w == "hundred" {
+            if w == "hundred" || w == "honderd" {
                 // Shouldn't start with "hundred" alone without context
                 return Some((n, start + 1));
             }
 
             // If n >= 100, it's already compound (e.g., won't happen with single words)
+            // Afrikaans inverted form: "drie en twintig" → 23
+            if (1..=19).contains(&n) && start + 2 < tokens.len() {
+                if let Token::Word(connector) = &tokens[start + 1] {
+                    if is_number_connector(connector) {
+                        if let Token::Word(tens_w) = &tokens[start + 2] {
+                            if let Some(tens) = parse_spoken_number(tens_w) {
+                                if (20..=90).contains(&tens) && tens % 10 == 0 {
+                                    return Some((tens + n, start + 3));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // If n is a tens value (20, 30, ..., 90), look for a ones digit next
             if n >= 20 && n % 10 == 0 && start + 1 < tokens.len() {
                 if let Token::Word(next_w) = &tokens[start + 1] {
@@ -584,7 +602,7 @@ fn consume_number_at(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
                             // Check for "hundred" after tens+ones
                             if start + 2 < tokens.len() {
                                 if let Token::Word(hw) = &tokens[start + 2] {
-                                    if hw == "hundred" {
+                                    if hw == "hundred" || hw == "honderd" {
                                         // e.g., "one hundred" — but we're at "thirty two hundred"?
                                         // This is unusual, so skip
                                         return Some((combined, start + 2));
@@ -600,13 +618,13 @@ fn consume_number_at(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
             // Check if next word is "hundred"
             if (1..=9).contains(&n) && start + 1 < tokens.len() {
                 if let Token::Word(next_w) = &tokens[start + 1] {
-                    if next_w == "hundred" {
+                    if next_w == "hundred" || next_w == "honderd" {
                         let base = n * 100;
                         // Look for more after "hundred"
                         if start + 2 < tokens.len() {
                             if let Token::Word(w2) = &tokens[start + 2] {
                                 // Skip optional "and"
-                                let skip = usize::from(w2 == "and");
+                                let skip = usize::from(is_number_connector(w2));
                                 if let Some((rest, rest_idx)) =
                                     consume_number_at(tokens, start + 2 + skip)
                                 {
@@ -638,35 +656,36 @@ fn consume_number_at(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
 /// and "hundred". Returns None if the word is not a recognized number.
 pub fn parse_spoken_number(word: &str) -> Option<i32> {
     match word.to_lowercase().as_str() {
-        "zero" => Some(0),
-        "one" => Some(1),
-        "two" => Some(2),
-        "three" => Some(3),
-        "four" => Some(4),
-        "five" => Some(5),
-        "six" => Some(6),
-        "seven" => Some(7),
-        "eight" => Some(8),
-        "nine" => Some(9),
-        "ten" => Some(10),
-        "eleven" => Some(11),
-        "twelve" => Some(12),
-        "thirteen" => Some(13),
-        "fourteen" => Some(14),
-        "fifteen" => Some(15),
-        "sixteen" => Some(16),
-        "seventeen" => Some(17),
-        "eighteen" => Some(18),
-        "nineteen" => Some(19),
-        "twenty" => Some(20),
-        "thirty" => Some(30),
-        "forty" => Some(40),
-        "fifty" => Some(50),
-        "sixty" => Some(60),
-        "seventy" => Some(70),
-        "eighty" => Some(80),
-        "ninety" => Some(90),
-        "hundred" => Some(100),
+        // English
+        "zero" | "nul" => Some(0),
+        "one" | "een" => Some(1),
+        "two" | "twee" => Some(2),
+        "three" | "drie" => Some(3),
+        "four" | "vier" => Some(4),
+        "five" | "vyf" => Some(5),
+        "six" | "ses" => Some(6),
+        "seven" | "sewe" => Some(7),
+        "eight" | "agt" => Some(8),
+        "nine" | "nege" => Some(9),
+        "ten" | "tien" => Some(10),
+        "eleven" | "elf" => Some(11),
+        "twelve" | "twaalf" => Some(12),
+        "thirteen" | "dertien" => Some(13),
+        "fourteen" | "veertien" => Some(14),
+        "fifteen" | "vyftien" => Some(15),
+        "sixteen" | "sestien" => Some(16),
+        "seventeen" | "sewentien" => Some(17),
+        "eighteen" | "agtien" => Some(18),
+        "nineteen" | "negentien" => Some(19),
+        "twenty" | "twintig" => Some(20),
+        "thirty" | "dertig" => Some(30),
+        "forty" | "veertig" => Some(40),
+        "fifty" | "vyftig" => Some(50),
+        "sixty" | "sestig" => Some(60),
+        "seventy" | "sewentig" => Some(70),
+        "eighty" | "tagtig" => Some(80),
+        "ninety" | "negentig" => Some(90),
+        "hundred" | "honderd" => Some(100),
         _ => None,
     }
 }
@@ -698,7 +717,7 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
     // Pattern 1: "chapter N [... verse M]"
     for i in 0..tokens.len() {
         if let Token::Word(w) = &tokens[i] {
-            if w == "chapter" {
+            if is_chapter_keyword(w) {
                 if let Some((chapter, next_idx)) = consume_number(&tokens, i + 1) {
                     if chapter <= 0 {
                         continue;
@@ -707,7 +726,7 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
                     let scan_limit = (next_idx + 15).min(tokens.len());
                     for j in next_idx..scan_limit {
                         if let Token::Word(vw) = &tokens[j] {
-                            if vw == "verse" || vw == "verses" {
+                            if is_verse_keyword(vw) {
                                 if let Some((verse, _)) = consume_number(&tokens, j + 1) {
                                     if verse > 0 && verse <= 176 {
                                         return Some(Continuation::ChapterAndVerse(chapter, verse));
@@ -726,7 +745,7 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
     // Pattern 2: "verse N" / "verses N" anywhere in text
     for i in 0..tokens.len() {
         if let Token::Word(w) = &tokens[i] {
-            if w == "verse" || w == "verses" {
+            if is_verse_keyword(w) {
                 if let Some((verse, _)) = consume_number(&tokens, i + 1) {
                     if verse > 0 && verse <= 176 {
                         return Some(Continuation::VerseOnly(verse));
@@ -760,7 +779,7 @@ fn starts_with_dangling_number_verse(tokens: &[Token]) -> bool {
         return false;
     };
 
-    (word == "verse" || word == "verses") && consume_number(tokens, next_idx + 1).is_none()
+    (is_verse_keyword(word)) && consume_number(tokens, next_idx + 1).is_none()
 }
 
 #[cfg(test)]
@@ -1200,5 +1219,39 @@ mod tests {
             try_extract_continuation("something unrelated here", false),
             None
         );
+    }
+
+    #[test]
+    fn afrikaans_johannes_3_vers_16() {
+        let bm = make_book_match("Johannes", 43, 8);
+        let text = "Johannes 3 vers 16";
+        let result = parse_reference(text, &bm).unwrap();
+        assert_eq!(result.chapter, 3);
+        assert_eq!(result.verse_start, 16);
+    }
+
+    #[test]
+    fn afrikaans_johannes_drie_sestien() {
+        let bm = make_book_match("Johannes", 43, 8);
+        let text = "Johannes drie sestien";
+        let result = parse_reference(text, &bm).unwrap();
+        assert_eq!(result.chapter, 3);
+        assert_eq!(result.verse_start, 16);
+    }
+
+    #[test]
+    fn afrikaans_psalm_drie_en_twintig() {
+        let bm = make_book_match("Psalms", 19, 5);
+        let text = "Psalm drie en twintig";
+        let result = parse_reference(text, &bm).unwrap();
+        assert_eq!(result.chapter, 23);
+        assert_eq!(result.verse_start, 0);
+    }
+
+    #[test]
+    fn afrikaans_number_words() {
+        assert_eq!(parse_spoken_number("drie"), Some(3));
+        assert_eq!(parse_spoken_number("sestien"), Some(16));
+        assert_eq!(parse_spoken_number("twintig"), Some(20));
     }
 }

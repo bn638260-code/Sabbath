@@ -46,6 +46,19 @@ const BOOK_ABBREVS: Record<string, string> = {
   Hebrews: "Heb", James: "Jas", "1 Peter": "1Pet", "2 Peter": "2Pet",
   "1 John": "1John", "2 John": "2John", "3 John": "3John", Jude: "Jude",
   Revelation: "Rev",
+  Eksodus: "Exod", Levitikus: "Lev", Numeri: "Num", Deuteronomium: "Deut",
+  Josua: "Josh", Rigters: "Judg", Rut: "Ruth", "1 Konings": "1Kgs", "2 Konings": "2Kgs",
+  "1 Kronieke": "1Chr", "2 Kronieke": "2Chr", Nehemia: "Neh", Ester: "Esth",
+  "Spreuke van Salomo": "Prov", Prediker: "Eccl", "Hooglied van Salomo": "Song",
+  Jesaja: "Isa", "Klaagliedere van Jeremia": "Lam", Esegiël: "Ezek", Daniël: "Dan",
+  Obadja: "Obad", Miga: "Mic", Habakuk: "Hab", Sefanja: "Zeph", Sagaria: "Zech",
+  Maleagi: "Mal", Matteus: "Matt", Markus: "Mark", Lukas: "Luke", Johannes: "John",
+  "Die handelinge van die apostels": "Acts", Romeine: "Rom", "1 Korintiërs": "1Cor",
+  "2 Korintiërs": "2Cor", Galasiërs: "Gal", Effesiërs: "Eph", Filippense: "Phil",
+  Kolossense: "Col", "1 Tessalonisense": "1Thess", "2 Tessalonisense": "2Thess",
+  "1 Timoteus": "1Tim", "2 Timoteus": "2Tim", Filemon: "Phlm", Hebreërs: "Heb",
+  Jakobus: "Jas", "1 Petrus": "1Pet", "2 Petrus": "2Pet", "1 Johannes": "1John",
+  "2 Johannes": "2John", "3 Johannes": "3John", Judas: "Jude", "Die openbaring": "Rev",
 }
 
 interface ScrollmapperJSON {
@@ -80,6 +93,15 @@ const TRANSLATIONS_META: Array<{
   { file: "SpaRV.json", abbreviation: "SpaRV", title: "Reina-Valera 1909", language: "es", license: "Public Domain", isCopyrighted: false, includeInPublicRelease: true },
   { file: "FreJND.json", abbreviation: "FreJND", title: "J.N. Darby French 1885", language: "fr", license: "Public Domain", isCopyrighted: false, includeInPublicRelease: true },
   { file: "PorBLivre.json", abbreviation: "PorBLivre", title: "Biblia Livre", language: "pt", license: "Public Domain", isCopyrighted: false, includeInPublicRelease: true },
+  {
+    file: "Afr1953.json",
+    abbreviation: "Afr1953",
+    title: "Afrikaans 1933/1953 Bybel",
+    language: "af",
+    license: "godlytalias Bible-Database (GPL v3); text © Bible Society of South Africa",
+    isCopyrighted: true,
+    includeInPublicRelease: true,
+  },
 ]
 
 type ParsedOsis = { book: number; chapter: number; verse: number }

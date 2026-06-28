@@ -3,7 +3,8 @@ import { load, type Store } from "@tauri-apps/plugin-store"
 import { isTauriRuntime, invokeTauri } from "@/lib/tauri-runtime"
 import { useBroadcastStore } from "@/stores/broadcast-store"
 
-export type SttProvider = "deepgram" | "gladia" | "vosk"
+export type SttProvider = "deepgram" | "gladia" | "soniox" | "vosk"
+export type SttLanguage = "en" | "af"
 
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.85
 const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD = 0.65
@@ -21,6 +22,8 @@ interface SettingsState {
   cooldownMs: number
   onboardingComplete: boolean
   sttProvider: SttProvider
+  sttLanguage: SttLanguage
+  hasSonioxApiKey: boolean
   /** Reduce CPU/RAM use on weaker machines (semantic detection runs on
    *  finished sentences only). */
   lowPowerMode: boolean
@@ -36,12 +39,15 @@ interface SettingsState {
   setCooldownMs: (ms: number) => void
   setOnboardingComplete: (complete: boolean) => void
   setSttProvider: (provider: SttProvider) => void
+  setSttLanguage: (language: SttLanguage) => void
+  setHasSonioxApiKey: (has: boolean) => void
   setLowPowerMode: (enabled: boolean) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   hasDeepgramApiKey: false,
   hasGladiaApiKey: false,
+  hasSonioxApiKey: false,
   audioDeviceId: null,
   gain: 1.0,
   autoMode: false,
@@ -51,10 +57,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   cooldownMs: 2500,
   onboardingComplete: false,
   sttProvider: "vosk",
+  sttLanguage: "en",
   lowPowerMode: false,
 
   setHasDeepgramApiKey: (hasDeepgramApiKey) => set({ hasDeepgramApiKey }),
   setHasGladiaApiKey: (hasGladiaApiKey) => set({ hasGladiaApiKey }),
+  setHasSonioxApiKey: (hasSonioxApiKey) => set({ hasSonioxApiKey }),
   setAudioDeviceId: (audioDeviceId) => set({ audioDeviceId }),
   setGain: (gain) => set({ gain }),
   setAutoMode: (autoMode) => set({ autoMode }),
@@ -66,6 +74,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
   setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
   setSttProvider: (sttProvider) => set({ sttProvider }),
+  setSttLanguage: (sttLanguage) => set({ sttLanguage }),
   setLowPowerMode: (lowPowerMode) => set({ lowPowerMode }),
 }))
 
@@ -79,16 +88,27 @@ const PERSISTED_KEYS = [
   "cooldownMs",
   "onboardingComplete",
   "sttProvider",
+  "sttLanguage",
   "lowPowerMode",
 ] as const satisfies readonly (keyof SettingsState)[]
 
 function parseSttProvider(value: unknown): SttProvider {
-  if (value === "deepgram" || value === "gladia" || value === "vosk") {
+  if (
+    value === "deepgram" ||
+    value === "gladia" ||
+    value === "soniox" ||
+    value === "vosk"
+  ) {
     return value
   }
   // Migrate removed/legacy local providers (whisper, faster-whisper,
   // legacy-whisper, sherpa) to the supported local model.
   return "vosk"
+}
+
+function parseSttLanguage(value: unknown): SttLanguage {
+  if (value === "af") return "af"
+  return "en"
 }
 
 function parseConfidenceThreshold(value: unknown): unknown {
@@ -143,6 +163,8 @@ export function hydrateSettings(): Promise<void> {
         if (value !== undefined && value !== null) {
           if (key === "sttProvider") {
             patch.sttProvider = parseSttProvider(value)
+          } else if (key === "sttLanguage") {
+            patch.sttLanguage = parseSttLanguage(value)
           } else if (key === "confidenceThreshold") {
             ;(patch as Record<string, unknown>)[key] =
               parseConfidenceThreshold(value)
@@ -154,12 +176,14 @@ export function hydrateSettings(): Promise<void> {
 
       // Resolve keyring-backed secret presence (Deepgram + Gladia) and write only a boolean flag.
       // Best-effort and independent: if a command isn't available (web/dev), keep the default.
-      const [deepgram, gladia] = await Promise.all([
+      const [deepgram, gladia, soniox] = await Promise.all([
         invokeTauri<boolean>("has_deepgram_api_key").catch(() => undefined),
         invokeTauri<boolean>("has_gladia_api_key").catch(() => undefined),
+        invokeTauri<boolean>("has_soniox_api_key").catch(() => undefined),
       ])
       if (deepgram !== undefined) patch.hasDeepgramApiKey = deepgram
       if (gladia !== undefined) patch.hasGladiaApiKey = gladia
+      if (soniox !== undefined) patch.hasSonioxApiKey = soniox
 
       if (Object.keys(patch).length > 0) {
         useSettingsStore.setState(patch)

@@ -1,3 +1,4 @@
+pub mod af_books;
 pub mod automaton;
 pub mod books;
 pub mod context;

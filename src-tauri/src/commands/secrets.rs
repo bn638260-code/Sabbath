@@ -200,6 +200,71 @@ pub fn clear_gladia_api_key() -> Result<(), String> {
         .map_err(|e| format!("Could not remove Gladia API key from OS keychain: {e}"))
 }
 
+pub fn normalize_soniox_api_key(api_key: &str) -> String {
+    api_key
+        .trim()
+        .trim_matches(|c| matches!(c, '"' | '\'' | '`'))
+        .to_string()
+}
+
+#[command]
+pub fn has_soniox_api_key() -> Result<bool, String> {
+    has_soniox_api_key_with_store(&DEFAULT_STORE)
+}
+
+pub fn has_soniox_api_key_with_store(store: &dyn KeychainStore) -> Result<bool, String> {
+    match store.get_password("soniox_api_key") {
+        Ok(pw) => Ok(!pw.trim().is_empty()),
+        Err(keyring::Error::NoEntry) => Ok(false),
+        Err(e) => Err(format!(
+            "Could not read Soniox API key from OS keychain: {e}"
+        )),
+    }
+}
+
+#[command]
+pub fn set_soniox_api_key(api_key: String) -> Result<(), String> {
+    set_soniox_api_key_with_store(&DEFAULT_STORE, &api_key)
+}
+
+pub fn set_soniox_api_key_with_store(
+    store: &dyn KeychainStore,
+    api_key: &str,
+) -> Result<(), String> {
+    let normalized = normalize_soniox_api_key(api_key);
+    if normalized.is_empty() {
+        return Err("API key cannot be empty".into());
+    }
+    store
+        .set_password("soniox_api_key", &normalized)
+        .map_err(|e| {
+            log::error!("[KEYCHAIN] Failed to store Soniox API key: {e}");
+            format!("Could not store Soniox API key in OS keychain: {e}")
+        })?;
+    Ok(())
+}
+
+#[command]
+pub fn clear_soniox_api_key() -> Result<(), String> {
+    DEFAULT_STORE
+        .delete_password("soniox_api_key")
+        .map_err(|e| format!("Could not remove Soniox API key from OS keychain: {e}"))
+}
+
+pub fn get_soniox_api_key_or_empty() -> Result<String, String> {
+    get_soniox_api_key_or_empty_with_store(&DEFAULT_STORE)
+}
+
+pub fn get_soniox_api_key_or_empty_with_store(store: &dyn KeychainStore) -> Result<String, String> {
+    match store.get_password("soniox_api_key") {
+        Ok(key) => Ok(normalize_soniox_api_key(&key)),
+        Err(keyring::Error::NoEntry) => Ok(String::new()),
+        Err(e) => Err(format!(
+            "Could not read Soniox API key from OS keychain: {e}"
+        )),
+    }
+}
+
 #[command]
 pub fn has_remote_http_token() -> Result<bool, String> {
     has_remote_http_token_with_store(&DEFAULT_STORE)

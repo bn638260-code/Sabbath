@@ -4,7 +4,7 @@ use tauri::AppHandle;
 
 use crate::asset_paths;
 use crate::commands::secrets;
-use rhema_stt::{DeepgramClient, GladiaClient, SttConfig, SttProvider, VoskProvider};
+use rhema_stt::{DeepgramClient, GladiaClient, SonioxClient, SttConfig, SttProvider, VoskProvider};
 
 pub(crate) fn missing_vosk_model_error(model_path: &Path) -> String {
     format!(
@@ -70,7 +70,7 @@ async fn build_vosk_provider(
 
 fn removed_provider_error(provider_name: &str) -> String {
     format!(
-        "The {provider_name} speech-to-text provider has been removed. Choose Vosk, Deepgram, or Gladia."
+        "The {provider_name} speech-to-text provider has been removed. Choose Vosk, Deepgram, Gladia, or Soniox."
     )
 }
 
@@ -79,6 +79,7 @@ pub(crate) async fn build_stt_provider(
     app: &AppHandle,
     device_id: Option<&str>,
     gain: Option<f32>,
+    stt_language: Option<&str>,
 ) -> Result<Box<dyn SttProvider>, String> {
     match provider_name {
         "vosk" => build_vosk_provider(app, device_id).await,
@@ -136,10 +137,36 @@ pub(crate) async fn build_stt_provider(
 
             Ok(Box::new(DeepgramClient::new(stt_config)))
         }
+        "soniox" => {
+            let resolved_api_key = secrets::get_soniox_api_key_or_empty()?;
+
+            if resolved_api_key.is_empty() {
+                log::warn!(
+                    "[STT-MODEL] failed provider=soniox model=stt-rt-v5 reason=missing_api_key"
+                );
+                return Err("No Soniox API key configured. Set it in Settings.".into());
+            }
+
+            let model = rhema_stt::SONIOX_MODEL;
+            let language = stt_language.unwrap_or("en");
+            log::info!(
+                "[STT-MODEL] selected provider=soniox model={model} language={language} source=remote api_key_configured=true device_id={device_id:?} gain={gain:?}"
+            );
+
+            let stt_config = SttConfig {
+                api_key: resolved_api_key,
+                model: model.to_string(),
+                sample_rate: 16_000,
+                encoding: "pcm_s16le".to_string(),
+                language: Some(language.to_string()),
+            };
+
+            Ok(Box::new(SonioxClient::new(stt_config)))
+        }
         _ => {
             log::warn!("[STT-MODEL] failed provider={provider_name} reason=unknown_provider");
             Err(format!(
-                "Unknown speech-to-text provider \"{provider_name}\". Choose Vosk, Deepgram, or Gladia."
+                "Unknown speech-to-text provider \"{provider_name}\". Choose Vosk, Deepgram, Gladia, or Soniox."
             ))
         }
     }
@@ -183,7 +210,7 @@ mod tests {
 
         assert_eq!(
             error,
-            "The faster-whisper speech-to-text provider has been removed. Choose Vosk, Deepgram, or Gladia."
+            "The faster-whisper speech-to-text provider has been removed. Choose Vosk, Deepgram, Gladia, or Soniox."
         );
     }
 }

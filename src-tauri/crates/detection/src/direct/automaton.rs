@@ -1,5 +1,6 @@
 use aho_corasick::{AhoCorasick, MatchKind};
 
+use super::af_books::AF_BOOKS;
 use super::books::BOOKS;
 
 /// A match of a Bible book name found in text.
@@ -27,6 +28,19 @@ impl Default for BookMatcher {
 impl BookMatcher {
     /// Build the automaton from all book names, abbreviations, and aliases.
     pub fn new() -> Self {
+        Self::for_stt_language("en")
+    }
+
+    /// Build a matcher for the given STT language (`en` or `af`).
+    pub fn for_stt_language(language: &str) -> Self {
+        let books: &[super::books::BookInfo] = match language {
+            "af" => AF_BOOKS,
+            _ => BOOKS,
+        };
+        Self::from_books(books)
+    }
+
+    fn from_books(books: &[super::books::BookInfo]) -> Self {
         // Spoken transcripts contain only full words, so ultra-short patterns
         // ("Is", "Ps", "Re", "Co", …) never represent a spoken book name — they
         // only collide with everyday words and fabricate references. Require at
@@ -37,7 +51,7 @@ impl BookMatcher {
         let mut patterns: Vec<String> = Vec::new();
         let mut pattern_map: Vec<(i32, String)> = Vec::new();
 
-        for book in BOOKS {
+        for book in books {
             let name_lower = book.name.to_ascii_lowercase();
 
             // Add the canonical name
