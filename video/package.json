@@ -9,6 +9,7 @@
     "render:social": "remotion render SocialCut out/social-9x16.mp4",
     "render:all": "npm run render && npm run render:social",
     "render:carousel": "node scripts/render-carousel.mjs",
+    "render:carousel:afr": "node scripts/render-carousel-afr.mjs",
     "still": "remotion still LaunchFilm out/frame-hook.png --frame=120"
   },
   "dependencies": {
