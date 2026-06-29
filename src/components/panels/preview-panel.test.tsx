@@ -13,12 +13,14 @@ import {
 } from "vitest"
 
 const fetchVerseMock = vi.fn()
+const invokeTauriMock = vi.fn()
 const selectVerseMock = vi.fn()
 const navigateToVerseMock = vi.fn()
 const setPreviewItemMock = vi.fn()
 const setLiveItemMock = vi.fn()
 const setLiveMock = vi.fn()
 
+let activeTranslationId = 1
 let previewItem: unknown = null
 let selectedVerse: unknown = null
 let currentChapter: unknown[] = []
@@ -43,6 +45,14 @@ const translations = [
     is_copyrighted: false,
     is_downloaded: true,
   },
+  {
+    id: 4,
+    abbreviation: "Afr1953",
+    title: "Afrikaans 1933/1953 Bybel",
+    language: "af",
+    is_copyrighted: true,
+    is_downloaded: true,
+  },
 ]
 
 vi.mock("@/components/ui/canvas-verse", () => ({
@@ -57,17 +67,23 @@ vi.mock("@/hooks/use-bible", () => ({
   },
 }))
 
+vi.mock("@/lib/tauri-runtime", () => ({
+  invokeTauri: (...args: unknown[]) => invokeTauriMock(...args),
+  isTauriRuntime: () => true,
+  convertTauriFileSrc: (path: string) => path,
+}))
+
 vi.mock("@/stores/bible-store", () => {
   const useBibleStore = (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
-      activeTranslationId: 1,
+      activeTranslationId,
       books,
       currentChapter,
       selectedVerse,
       translations,
     })
   useBibleStore.getState = () => ({
-    activeTranslationId: 1,
+    activeTranslationId,
     books,
     currentChapter,
     selectedVerse,
@@ -109,6 +125,12 @@ describe("PreviewPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     fetchVerseMock.mockResolvedValue(null)
+    invokeTauriMock.mockImplementation(async (command: string) => {
+      if (command === "egw_search") return []
+      if (command === "search_verses") return []
+      return null
+    })
+    activeTranslationId = 1
     previewItem = null
     selectedVerse = null
     currentChapter = []
@@ -182,6 +204,58 @@ describe("PreviewPanel", () => {
     expect(setPreviewItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         reference: "John 3:16 (KJV)",
+      })
+    )
+  })
+
+  it("quick-searches Afrikaans verse text and previews the first match", async () => {
+    activeTranslationId = 4
+    const verse = {
+      id: 2027,
+      translation_id: 4,
+      book_number: 40,
+      book_name: "Matteus",
+      book_abbreviation: "Matt",
+      chapter: 20,
+      verse: 27,
+      text: "En elkeen wat onder julle die eerste wil word, moet julle dienskneg wees;",
+    }
+    invokeTauriMock.mockImplementation(async (command: string) => {
+      if (command === "search_verses") return [verse]
+      if (command === "egw_search") return []
+      return null
+    })
+
+    await renderPanel()
+
+    const input = container?.querySelector<HTMLInputElement>(
+      'input[placeholder^="Quick preview"]'
+    )
+    expect(input).not.toBeNull()
+
+    await act(async () => {
+      fireEvent.change(input!, { target: { value: "elkeen eerste" } })
+    })
+
+    await waitFor(() => {
+      expect(invokeTauriMock).toHaveBeenCalledWith("search_verses", {
+        query: "elkeen eerste",
+        translationId: 4,
+        limit: 3,
+      })
+    })
+
+    await waitFor(() => {
+      expect(container?.textContent).toContain("Matteus 20:27")
+    })
+
+    await act(async () => {
+      fireEvent.keyDown(input!, { key: "Enter" })
+    })
+
+    expect(setPreviewItemMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reference: "Matteus 20:27 (Afr1953)",
       })
     )
   })

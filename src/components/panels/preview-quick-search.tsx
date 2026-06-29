@@ -29,7 +29,7 @@ import { loadHymnVoiceControl } from "@/services/hymnal/hymn-voice-control-loade
 import { BookOpenIcon, LibraryIcon, Music2Icon, SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { invokeTauri } from "@/lib/tauri-runtime"
-import type { EgwParagraph } from "@/types"
+import type { EgwParagraph, Verse } from "@/types"
 import type { LibraryAsset } from "@/types/library"
 
 const QUICK_PREVIEW_DEBOUNCE_MS = 120
@@ -55,8 +55,10 @@ export function PreviewQuickSearch() {
   const assets = useLibraryStore((s) => s.assets)
   const [query, setQuery] = useState("")
   const [feedback, setFeedback] = useState("")
+  const [verseMatches, setVerseMatches] = useState<Verse[]>([])
   const [egwMatches, setEgwMatches] = useState<EgwParagraph[]>([])
   const requestIdRef = useRef(0)
+  const verseSearchRequestIdRef = useRef(0)
   const egwRequestIdRef = useRef(0)
 
   const trimmedQuery = query.trim()
@@ -82,6 +84,33 @@ export function PreviewQuickSearch() {
     if (books.length > 0) return
     void bibleActions.loadBooks(activeTranslationId)
   }, [activeTranslationId, books.length])
+
+  useEffect(() => {
+    const q = trimmedQuery
+    const requestId = ++verseSearchRequestIdRef.current
+    const timer = setTimeout(() => {
+      if (
+        q.length < 3 ||
+        bibleResult.stage !== "none" ||
+        /^(?:hymn|song)\b/i.test(q)
+      ) {
+        if (requestId === verseSearchRequestIdRef.current) setVerseMatches([])
+        return
+      }
+      void invokeTauri<Verse[]>("search_verses", {
+        query: q,
+        translationId: activeTranslationId,
+        limit: 3,
+      })
+        .then((results) => {
+          if (requestId === verseSearchRequestIdRef.current) setVerseMatches(results)
+        })
+        .catch(() => {
+          if (requestId === verseSearchRequestIdRef.current) setVerseMatches([])
+        })
+    }, QUICK_PREVIEW_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [activeTranslationId, bibleResult.stage, trimmedQuery])
 
   // Search Ellen G. White paragraphs directly (without touching the EGW
   // browser's stored results) so they can be previewed from the quick box.
@@ -178,6 +207,13 @@ export function PreviewQuickSearch() {
     setFeedback("")
   }, [])
 
+  const previewVerseMatch = useCallback((verse: Verse) => {
+    selectPreviewVerse(verse)
+    setQuery("")
+    setFeedback("")
+    setVerseMatches([])
+  }, [])
+
   const previewAsset = useCallback((asset: LibraryAsset) => {
     previewLibraryAsset(asset)
     setQuery("")
@@ -205,6 +241,11 @@ export function PreviewQuickSearch() {
       )
       return
     }
+    const verseMatch = verseMatches[0]
+    if (verseMatch) {
+      previewVerseMatch(verseMatch)
+      return
+    }
     const hymn = hymnMatches[0]
     if (hymn) {
       void previewHymn(hymn.number)
@@ -228,7 +269,9 @@ export function PreviewQuickSearch() {
     previewAsset,
     previewEgw,
     previewHymn,
+    previewVerseMatch,
     previewVerseReference,
+    verseMatches,
   ])
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -252,12 +295,14 @@ export function PreviewQuickSearch() {
       event.preventDefault()
       setQuery("")
       setFeedback("")
+      setVerseMatches([])
     }
   }
 
   const showDropdown =
     trimmedQuery.length > 0 &&
     (bibleResult.stage === "complete" ||
+      verseMatches.length > 0 ||
       hymnMatches.length > 0 ||
       libraryMatches.length > 0 ||
       egwMatches.length > 0 ||
@@ -322,6 +367,22 @@ export function PreviewQuickSearch() {
               </span>
             </button>
           ) : null}
+          {verseMatches.map((verse) => (
+            <button
+              key={verse.id}
+              type="button"
+              onClick={() => previewVerseMatch(verse)}
+              className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+            >
+              <BookOpenIcon className="size-3.5 text-lime-400" />
+              <span className="shrink-0">
+                {verse.book_name} {verse.chapter}:{verse.verse}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                {verse.text}
+              </span>
+            </button>
+          ))}
           {hymnMatches.map((hymn) => (
             <button
               key={hymn.id}
