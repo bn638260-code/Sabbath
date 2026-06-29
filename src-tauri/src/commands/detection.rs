@@ -3,20 +3,29 @@
     reason = "Tauri command extractors require pass-by-value"
 )]
 
-use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
-use std::time::Instant;
 
 use serde::Serialize;
 use tauri::State;
 
-use rhema_bible::{EgwBook, EgwParagraph, Verse};
-use rhema_detection::{DetectionPipeline, MergedDetection, ReadingMode};
+use rhema_detection::{DetectionPipeline, ReadingMode};
 
 use super::validation::{
     bounded_optional_limit, bounded_text, MAX_QUERY_BYTES, MAX_TRANSCRIPT_BYTES,
 };
 use crate::state::AppState;
+
+mod egw;
+mod result;
+mod semantic_search;
+mod settings;
+
+#[cfg(test)]
+pub(crate) use egw::detect_egw_fts;
+pub(crate) use egw::{apply_egw_auto_queue, detect_egw_references};
+pub use result::{to_result, DetectionResult};
+use semantic_search::{run_semantic_search, SemanticSearchResult};
+use settings::{apply_detection_settings_to_merger, DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD};
 
 /// Confidence assigned to the best FTS5 BM25 match (rank 0) in context search.
 pub(crate) const FTS5_RANK0_CONFIDENCE: f64 = 0.68;
@@ -30,551 +39,6 @@ pub(crate) const FTS5_MIN_CONFIDENCE: f64 = 0.50;
 /// Direct detection results at or above this confidence are visible to operators.
 /// Auto-live/auto-queue uses the UI threshold separately.
 pub(crate) const OPERATOR_DETECTION_THRESHOLD: f64 = 0.70;
-
-const DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD: f64 = 0.65;
-const AUTO_QUEUE_DISABLED_THRESHOLD: f64 = f64::INFINITY;
-
-/// Serializable detection result for the frontend
-#[derive(Clone, Serialize)]
-pub struct DetectionResult {
-    pub content_type: String,
-    pub verse_ref: String,
-    pub verse_text: String,
-    pub book_name: String,
-    pub book_number: i32,
-    pub chapter: i32,
-    pub verse: i32,
-    pub confidence: f64,
-    pub source: String,
-    pub auto_queued: bool,
-    pub transcript_snippet: String,
-    /// True when detected from a chapter-only reference (verse defaults to 1, may be refined).
-    pub is_chapter_only: bool,
-    pub egw_paragraph: Option<EgwParagraph>,
-}
-
-fn source_to_string(source: &rhema_detection::DetectionSource) -> String {
-    match source {
-        rhema_detection::DetectionSource::DirectReference => "direct".to_string(),
-        rhema_detection::DetectionSource::Semantic { .. } => "semantic".to_string(),
-    }
-}
-
-/// Resolve a detection to a full verse result using the database.
-///
-/// Resolution order:
-/// 1. Semantic `verse_id` mapped to the active translation by reference.
-/// 2. By `book_number/chapter/verse_start` with active translation.
-/// 3. Semantic `verse_id` source row fallback if the active translation is missing the verse.
-/// 4. Fallback to unresolved `VerseRef` fields (no DB available).
-pub fn to_result(state: &AppState, merged: &MergedDetection) -> DetectionResult {
-    let vr = &merged.detection.verse_ref;
-    let vid = merged.detection.verse_id;
-
-    let resolved = state.bible_db.as_ref().and_then(|db| {
-        let source_verse = vid.and_then(|id| resolve_semantic_verse_id(state, id));
-        // Fall back to book/chapter/verse lookup (direct + FTS5 detections)
-        if vr.book_number > 0 && vr.chapter > 0 && vr.verse_start > 0 {
-            if let Ok(Some(v)) = db.get_verse(
-                state.active_translation_id,
-                vr.book_number,
-                vr.chapter,
-                vr.verse_start,
-            ) {
-                return Some(v);
-            }
-        }
-        if source_verse.is_some() {
-            return source_verse;
-        }
-        None
-    });
-
-    let (reference, verse_text, book_name, book_number, chapter, verse) = if let Some(v) = resolved
-    {
-        let r = format!("{} {}:{}", v.book_name, v.chapter, v.verse);
-        (r, v.text, v.book_name, v.book_number, v.chapter, v.verse)
-    } else {
-        let r = format!("{} {}:{}", vr.book_name, vr.chapter, vr.verse_start);
-        (
-            r,
-            String::new(),
-            vr.book_name.clone(),
-            vr.book_number,
-            vr.chapter,
-            vr.verse_start,
-        )
-    };
-
-    DetectionResult {
-        content_type: "bible".to_string(),
-        verse_ref: reference,
-        verse_text,
-        book_name,
-        book_number,
-        chapter,
-        verse,
-        confidence: merged.detection.confidence,
-        source: source_to_string(&merged.detection.source),
-        auto_queued: merged.auto_queued,
-        transcript_snippet: merged.detection.transcript_snippet.clone(),
-        is_chapter_only: merged.detection.is_chapter_only,
-        egw_paragraph: None,
-    }
-}
-
-fn egw_to_result(
-    paragraph: EgwParagraph,
-    confidence: f64,
-    transcript_snippet: &str,
-) -> DetectionResult {
-    let reference = format!(
-        "{} {}:{}",
-        paragraph.book_title, paragraph.chapter, paragraph.paragraph
-    );
-
-    DetectionResult {
-        content_type: "egw".to_string(),
-        verse_ref: reference,
-        verse_text: paragraph.text.clone(),
-        book_name: paragraph.book_title.clone(),
-        book_number: paragraph.book_number,
-        chapter: paragraph.chapter,
-        verse: paragraph.paragraph,
-        confidence,
-        source: "direct".to_string(),
-        auto_queued: false,
-        transcript_snippet: transcript_snippet.to_string(),
-        is_chapter_only: false,
-        egw_paragraph: Some(paragraph),
-    }
-}
-
-fn resolve_semantic_verse_id(state: &AppState, verse_id: i64) -> Option<Verse> {
-    let db = state.bible_db.as_ref()?;
-    match db.get_verse_by_id_in_translation(verse_id, state.active_translation_id) {
-        Ok(Some(active_verse)) => {
-            if active_verse.id != verse_id {
-                log::debug!(
-                    "[DET] Resolved semantic verse_id={} to active_translation_id={} as {} {}:{}",
-                    verse_id,
-                    state.active_translation_id,
-                    active_verse.book_name,
-                    active_verse.chapter,
-                    active_verse.verse
-                );
-            }
-            return Some(active_verse);
-        }
-        Ok(None) => {}
-        Err(error) => {
-            log::warn!(
-                "[DET] Failed to resolve semantic verse_id={} in active_translation_id={}: {error}",
-                verse_id,
-                state.active_translation_id
-            );
-        }
-    }
-
-    match db.get_verse_by_id(verse_id) {
-        Ok(source_verse) => source_verse,
-        Err(error) => {
-            log::warn!("[DET] Failed to resolve semantic source verse_id={verse_id}: {error}");
-            None
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct ParsedNumber {
-    value: i32,
-    next_index: usize,
-}
-
-fn normalize_reference_text(value: &str) -> String {
-    value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() {
-                ch.to_ascii_lowercase()
-            } else {
-                ' '
-            }
-        })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn integer_token(token: &str) -> Option<i32> {
-    if token.chars().all(|ch| ch.is_ascii_digit()) {
-        return token.parse::<i32>().ok().filter(|value| *value > 0);
-    }
-    None
-}
-
-fn unit_word(token: &str) -> Option<i32> {
-    match token {
-        "one" | "first" => Some(1),
-        "two" | "second" => Some(2),
-        "three" | "third" => Some(3),
-        "four" | "fourth" => Some(4),
-        "five" | "fifth" => Some(5),
-        "six" | "sixth" => Some(6),
-        "seven" | "seventh" => Some(7),
-        "eight" | "eighth" => Some(8),
-        "nine" | "ninth" => Some(9),
-        _ => None,
-    }
-}
-
-fn teen_word(token: &str) -> Option<i32> {
-    match token {
-        "ten" | "tenth" => Some(10),
-        "eleven" | "eleventh" => Some(11),
-        "twelve" | "twelfth" => Some(12),
-        "thirteen" | "thirteenth" => Some(13),
-        "fourteen" | "fourteenth" => Some(14),
-        "fifteen" | "fifteenth" => Some(15),
-        "sixteen" | "sixteenth" => Some(16),
-        "seventeen" | "seventeenth" => Some(17),
-        "eighteen" | "eighteenth" => Some(18),
-        "nineteen" | "nineteenth" => Some(19),
-        _ => None,
-    }
-}
-
-fn tens_word(token: &str) -> Option<i32> {
-    match token {
-        "twenty" | "twentieth" => Some(20),
-        "thirty" | "thirtieth" => Some(30),
-        "forty" | "fortieth" => Some(40),
-        "fifty" | "fiftieth" => Some(50),
-        "sixty" | "sixtieth" => Some(60),
-        "seventy" | "seventieth" => Some(70),
-        "eighty" | "eightieth" => Some(80),
-        "ninety" | "ninetieth" => Some(90),
-        _ => None,
-    }
-}
-
-fn parse_under_hundred(tokens: &[&str], index: usize) -> Option<ParsedNumber> {
-    let token = tokens.get(index)?;
-    if let Some(value) = integer_token(token) {
-        return Some(ParsedNumber {
-            value,
-            next_index: index + 1,
-        });
-    }
-    if let Some(value) = teen_word(token).or_else(|| unit_word(token)) {
-        return Some(ParsedNumber {
-            value,
-            next_index: index + 1,
-        });
-    }
-    let value = tens_word(token)?;
-    let mut next_index = index + 1;
-    let mut total = value;
-    if let Some(next) = tokens.get(next_index).and_then(|next| unit_word(next)) {
-        total += next;
-        next_index += 1;
-    }
-    Some(ParsedNumber {
-        value: total,
-        next_index,
-    })
-}
-
-fn parse_number_at(tokens: &[&str], index: usize) -> Option<ParsedNumber> {
-    let first = parse_under_hundred(tokens, index)?;
-    if tokens.get(first.next_index) != Some(&"hundred") {
-        return Some(first);
-    }
-
-    let mut value = first.value * 100;
-    let mut next_index = first.next_index + 1;
-    if let Some(remainder) = parse_under_hundred(tokens, next_index) {
-        value += remainder.value;
-        next_index = remainder.next_index;
-    }
-    Some(ParsedNumber { value, next_index })
-}
-
-fn is_reference_filler(token: &str) -> bool {
-    matches!(
-        token,
-        "book"
-            | "of"
-            | "the"
-            | "chapter"
-            | "chapters"
-            | "paragraph"
-            | "paragraphs"
-            | "para"
-            | "par"
-            | "number"
-            | "no"
-            | "ellen"
-            | "white"
-            | "egw"
-            | "read"
-            | "from"
-            | "go"
-            | "to"
-    )
-}
-
-fn parse_next_number(tokens: &[&str], start_index: usize) -> Option<ParsedNumber> {
-    let mut index = start_index;
-    while index < tokens.len() {
-        if let Some(parsed) = parse_number_at(tokens, index) {
-            return Some(parsed);
-        }
-        if !is_reference_filler(tokens[index]) {
-            return None;
-        }
-        index += 1;
-    }
-    None
-}
-
-fn parse_number_after_label(tokens: &[&str], labels: &[&str]) -> Option<ParsedNumber> {
-    for (index, token) in tokens.iter().enumerate() {
-        if labels.contains(token) {
-            if let Some(parsed) = parse_next_number(tokens, index + 1) {
-                return Some(parsed);
-            }
-        }
-    }
-    None
-}
-
-fn parse_egw_chapter_paragraph(tail: &str) -> Option<(i32, i32)> {
-    let tokens: Vec<&str> = tail.split_whitespace().collect();
-    if tokens.is_empty() {
-        return None;
-    }
-
-    let chapter = parse_number_after_label(&tokens, &["chapter", "chapters"]);
-    let paragraph = parse_number_after_label(&tokens, &["paragraph", "paragraphs", "para", "par"]);
-    if let (Some(chapter), Some(paragraph)) = (chapter, paragraph) {
-        return Some((chapter.value, paragraph.value));
-    }
-
-    if let Some(chapter) = chapter {
-        let paragraph = parse_next_number(&tokens, chapter.next_index)?;
-        return Some((chapter.value, paragraph.value));
-    }
-
-    let chapter = parse_next_number(&tokens, 0)?;
-    let paragraph = parse_next_number(&tokens, chapter.next_index)?;
-    Some((chapter.value, paragraph.value))
-}
-
-fn alias_match_end(text: &str, alias: &str) -> Option<usize> {
-    if alias.is_empty() {
-        return None;
-    }
-    for (index, _) in text.match_indices(alias) {
-        let before_ok = index == 0 || text.as_bytes().get(index - 1) == Some(&b' ');
-        let end = index + alias.len();
-        let after_ok = end == text.len() || text.as_bytes().get(end) == Some(&b' ');
-        if before_ok && after_ok {
-            return Some(end);
-        }
-    }
-    None
-}
-
-fn egw_aliases(book: &EgwBook) -> Vec<String> {
-    let mut aliases = Vec::new();
-    for value in [&book.title, &book.abbreviation] {
-        let alias = normalize_reference_text(value);
-        if !alias.is_empty() && !aliases.contains(&alias) {
-            aliases.push(alias.clone());
-        }
-        if let Some(without_the) = alias.strip_prefix("the ") {
-            if !without_the.is_empty() && !aliases.iter().any(|item| item == without_the) {
-                aliases.push(without_the.to_string());
-            }
-        }
-    }
-    aliases
-}
-
-fn best_egw_alias_match<'a>(
-    normalized_text: &str,
-    books: &'a [EgwBook],
-) -> Vec<(&'a EgwBook, usize, usize)> {
-    let mut matches = books
-        .iter()
-        .flat_map(|book| {
-            egw_aliases(book).into_iter().filter_map(move |alias| {
-                alias_match_end(normalized_text, &alias).map(|end| (book, end, alias.len()))
-            })
-        })
-        .collect::<Vec<_>>();
-
-    matches.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.1.cmp(&b.1)));
-    matches
-}
-
-/// Confidence assigned to EGW paragraphs matched by keyword (below explicit references).
-#[cfg(test)]
-const EGW_FTS_CONFIDENCE: f64 = 0.55;
-
-/// Minimum word count before running EGW keyword search.
-#[cfg(test)]
-const EGW_FTS_MIN_WORDS: usize = 5;
-
-/// Maximum EGW paragraphs surfaced per detection pass.
-#[cfg(test)]
-const EGW_FTS_LIMIT: usize = 2;
-
-/// Detect EGW paragraphs by BM25 keyword search of the transcript window.
-#[cfg(test)]
-pub(crate) fn detect_egw_fts(state: &AppState, text: &str) -> Vec<DetectionResult> {
-    if text.split_whitespace().count() < EGW_FTS_MIN_WORDS {
-        return Vec::new();
-    }
-    let Some(db) = state.bible_db.as_ref() else {
-        return Vec::new();
-    };
-
-    match db.search_egw_bm25(text, EGW_FTS_LIMIT) {
-        Ok(paragraphs) => paragraphs
-            .into_iter()
-            .map(|paragraph| {
-                let mut result = egw_to_result(paragraph, EGW_FTS_CONFIDENCE, text);
-                result.source = "semantic".to_string();
-                result
-            })
-            .collect(),
-        Err(error) => {
-            log::warn!("[DET-EGW] FTS search failed: {error}");
-            Vec::new()
-        }
-    }
-}
-
-/// Detect explicit Ellen G. White paragraph references like `PP 1:2` or
-/// `Patriarchs and Prophets chapter one paragraph two`.
-pub(crate) fn detect_egw_references(state: &AppState, text: &str) -> Vec<DetectionResult> {
-    let Some(db) = state.bible_db.as_ref() else {
-        return Vec::new();
-    };
-    let books = match db.list_egw_books() {
-        Ok(books) => books,
-        Err(error) => {
-            log::warn!("[DET-EGW] Failed to load EGW books for direct detection: {error}");
-            return Vec::new();
-        }
-    };
-    if books.is_empty() {
-        log::debug!("[DET-EGW] No EGW books imported; EGW detection disabled");
-        return Vec::new();
-    }
-
-    let normalized = normalize_reference_text(text);
-    if normalized.is_empty() {
-        return Vec::new();
-    }
-
-    let mut seen = HashSet::new();
-    let mut results = Vec::new();
-    for (book, alias_end, _) in best_egw_alias_match(&normalized, &books) {
-        let tail = normalized.get(alias_end..).unwrap_or_default().trim();
-        let Some((chapter, paragraph_number)) = parse_egw_chapter_paragraph(tail) else {
-            continue;
-        };
-        if chapter <= 0 || paragraph_number <= 0 {
-            continue;
-        }
-        if !seen.insert((book.book_number, chapter, paragraph_number)) {
-            continue;
-        }
-
-        match db.get_egw_paragraph(book.book_number, chapter, paragraph_number) {
-            Ok(Some(paragraph)) => {
-                results.push(egw_to_result(paragraph, 0.94, text));
-            }
-            Ok(None) => {}
-            Err(error) => {
-                log::warn!(
-                    "[DET-EGW] Failed to resolve {} {}:{}: {error}",
-                    book.title,
-                    chapter,
-                    paragraph_number
-                );
-            }
-        }
-    }
-    results
-}
-
-pub(crate) fn apply_egw_auto_queue(
-    results: &mut [DetectionResult],
-    merger: &mut rhema_detection::DetectionMerger,
-) {
-    let direct_indices: Vec<usize> = results
-        .iter()
-        .enumerate()
-        .filter_map(|(index, result)| {
-            (result.content_type == "egw" && result.source == "direct").then_some(index)
-        })
-        .collect();
-
-    if direct_indices.is_empty() {
-        return;
-    }
-
-    let candidates: Vec<rhema_detection::Detection> = direct_indices
-        .iter()
-        .map(|index| {
-            let result = &results[*index];
-            rhema_detection::Detection {
-                verse_ref: rhema_detection::VerseRef {
-                    book_number: result.book_number,
-                    book_name: result.book_name.clone(),
-                    chapter: result.chapter,
-                    verse_start: result.verse,
-                    verse_end: None,
-                },
-                verse_id: None,
-                confidence: result.confidence,
-                source: rhema_detection::DetectionSource::DirectReference,
-                transcript_snippet: result.transcript_snippet.clone(),
-                detected_at: 0,
-                is_chapter_only: false,
-            }
-        })
-        .collect();
-
-    let auto_by_ref: HashMap<(i32, i32, i32), bool> = merger
-        .merge(candidates, vec![])
-        .into_iter()
-        .map(|merged| {
-            let verse_ref = merged.detection.verse_ref;
-            (
-                (
-                    verse_ref.book_number,
-                    verse_ref.chapter,
-                    verse_ref.verse_start,
-                ),
-                merged.auto_queued,
-            )
-        })
-        .collect();
-
-    for index in direct_indices {
-        let result = &mut results[index];
-        result.auto_queued = auto_by_ref
-            .get(&(result.book_number, result.chapter, result.verse))
-            .copied()
-            .unwrap_or(false);
-    }
-}
 
 /// Run the detection pipeline on a piece of transcript text
 #[tauri::command]
@@ -627,17 +91,6 @@ pub struct DetectionStatusResult {
     pub paraphrase_enabled: bool,
 }
 
-#[derive(Serialize)]
-pub struct SemanticSearchResult {
-    pub verse_ref: String,
-    pub verse_text: String,
-    pub book_name: String,
-    pub book_number: i32,
-    pub chapter: i32,
-    pub verse: i32,
-    pub similarity: f64,
-}
-
 #[tauri::command]
 pub fn semantic_search(
     state: State<'_, Mutex<AppState>>,
@@ -645,13 +98,8 @@ pub fn semantic_search(
     query: String,
     limit: Option<usize>,
 ) -> Result<Vec<SemanticSearchResult>, String> {
-    let t0 = Instant::now();
     bounded_text(&query, "query", MAX_QUERY_BYTES)?;
     let k = bounded_optional_limit(limit, 10)?;
-
-    // Lock pipeline for vector search (may be slow if ONNX runs). If the
-    // optional semantic assets are absent, continue with the FTS5 fallback
-    // below so context search still works in free/lightweight installs.
     let (vector_results, semantic_ready) = {
         let mut pipeline = pipeline_state.lock().map_err(|e| e.to_string())?;
         let semantic_ready = pipeline.has_semantic();
@@ -660,90 +108,15 @@ pub fn semantic_search(
         } else {
             (Vec::new(), semantic_ready)
         }
-    }; // Pipeline lock dropped
-
-    // Lock AppState for DB lookups only (fast)
+    };
     let app_state = state.lock().map_err(|e| e.to_string())?;
-    let vector_hit_count = vector_results.len();
-
-    let mut results: Vec<SemanticSearchResult> = vector_results
-        .into_iter()
-        .filter_map(|(verse_id, similarity)| {
-            if let Some(v) = resolve_semantic_verse_id(&app_state, verse_id) {
-                return Some(SemanticSearchResult {
-                    verse_ref: format!("{} {}:{}", v.book_name, v.chapter, v.verse),
-                    verse_text: v.text,
-                    book_name: v.book_name,
-                    book_number: v.book_number,
-                    chapter: v.chapter,
-                    verse: v.verse,
-                    similarity,
-                });
-            }
-            None
-        })
-        .collect();
-
-    // FTS5 BM25 across all English translations — resolve to active translation
-    let mut fts_count = 0;
-    if let Some(ref db) = app_state.bible_db {
-        let fts_results = db.search_verses_bm25(&query, k).unwrap_or_else(|e| {
-            log::warn!("[semantic_search] FTS5/BM25 query failed: {e}");
-            Vec::new()
-        });
-        fts_count = fts_results.len();
-        let seen: HashSet<(i32, i32, i32)> = results
-            .iter()
-            .map(|r| (r.book_number, r.chapter, r.verse))
-            .collect();
-
-        for (rank, fts) in fts_results.iter().enumerate() {
-            if !seen.contains(&(fts.book_number, fts.chapter, fts.verse)) {
-                #[expect(clippy::cast_precision_loss, reason = "rank is small")]
-                let similarity = FTS5_RANK0_CONFIDENCE - (rank as f64 * FTS5_CONFIDENCE_DECAY);
-                if similarity < FTS5_MIN_CONFIDENCE {
-                    break;
-                }
-                // Resolve to active translation text
-                if let Ok(Some(v)) = db.get_verse(
-                    app_state.active_translation_id,
-                    fts.book_number,
-                    fts.chapter,
-                    fts.verse,
-                ) {
-                    results.push(SemanticSearchResult {
-                        verse_ref: format!("{} {}:{}", v.book_name, v.chapter, v.verse),
-                        verse_text: v.text,
-                        book_name: v.book_name,
-                        book_number: v.book_number,
-                        chapter: v.chapter,
-                        verse: v.verse,
-                        similarity,
-                    });
-                }
-            }
-        }
-    }
-
-    // Ensure highest similarity is always first
-    results.sort_by(|a, b| {
-        b.similarity
-            .partial_cmp(&a.similarity)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-
-    log::info!(
-        "[DET-SEMANTIC-SEARCH] words={} vector_hits={} fts_hits={} semantic_ready={} active_translation_id={} results={} elapsed={:?}",
-        query.split_whitespace().count(),
-        vector_hit_count,
-        fts_count,
+    Ok(run_semantic_search(
+        &app_state,
+        &query,
+        k,
+        vector_results,
         semantic_ready,
-        app_state.active_translation_id,
-        results.len(),
-        t0.elapsed()
-    );
-
-    Ok(results)
+    ))
 }
 
 /// Get reading mode status
@@ -822,18 +195,6 @@ pub fn update_detection_settings(
     );
 
     Ok(())
-}
-
-fn apply_detection_settings_to_merger(
-    merger: &mut rhema_detection::DetectionMerger,
-    auto_threshold: Option<f64>,
-    semantic_threshold: f64,
-    cooldown_ms: u64,
-) {
-    merger.set_confidence_threshold(OPERATOR_DETECTION_THRESHOLD);
-    merger.set_semantic_confidence_threshold(semantic_threshold);
-    merger.set_auto_queue_threshold(auto_threshold.unwrap_or(AUTO_QUEUE_DISABLED_THRESHOLD));
-    merger.set_cooldown_ms(cooldown_ms.clamp(250, 60_000));
 }
 
 #[derive(Serialize)]

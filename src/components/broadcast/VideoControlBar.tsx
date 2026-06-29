@@ -17,7 +17,7 @@ import {
 } from "@/lib/audio-output-devices"
 import { VIDEO_TIMEUPDATE_EVENT } from "@/lib/library/library-video"
 import type { VideoTimeUpdatePayload } from "@/lib/broadcast-video-control"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastVideoStore as useBroadcastStore } from "@/stores/broadcast/video-store"
 import type { PresentationRenderData } from "@/types"
 
 interface VideoControlBarProps {

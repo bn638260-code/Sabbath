@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { open } from "@tauri-apps/plugin-dialog"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastDesignerStore as useBroadcastStore } from "@/stores/broadcast/designer-store"
 import { pickThemeBackgroundImage } from "@/lib/theme-designer-files"
 import {
   importPowerPointSlides,

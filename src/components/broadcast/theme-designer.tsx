@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastDesignerStore as useBroadcastStore } from "@/stores/broadcast/designer-store"
+import { useBroadcastThemeStore } from "@/stores/broadcast/theme-store"
 import { Button } from "@/components/ui/button"
 import { SaveIcon, TrashIcon, XIcon } from "lucide-react"
 import { ThemeLibrary } from "@/components/broadcast/theme-library"
@@ -10,7 +11,7 @@ import { PropertiesPanel } from "@/components/broadcast/properties-panel"
 export function ThemeDesigner() {
   const isDesignerOpen = useBroadcastStore((s) => s.isDesignerOpen)
   const draftTheme = useBroadcastStore((s) => s.draftTheme)
-  const themes = useBroadcastStore((s) => s.themes)
+  const themes = useBroadcastThemeStore((s) => s.themes)
 
   // Auto-start editing the first theme when opened if nothing is being edited
   useEffect(() => {

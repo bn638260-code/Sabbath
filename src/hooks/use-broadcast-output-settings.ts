@@ -14,7 +14,7 @@ import {
   NDI_COMING_SOON_MESSAGE,
   type BroadcastOutputType,
 } from "@/lib/broadcast-output-settings"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastOutputSettingsStore as useBroadcastStore } from "@/stores/broadcast/output-settings-store"
 import type {
   BroadcastOutputId,
   NdiAlphaMode,

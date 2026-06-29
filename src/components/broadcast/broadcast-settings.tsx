@@ -17,7 +17,8 @@ import {
 import { BroadcastOutputCard } from "@/components/broadcast/BroadcastOutputCard"
 import { useAssets } from "@/hooks/use-assets"
 import { useBroadcastOutputSettings } from "@/hooks/use-broadcast-output-settings"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
+import { useBroadcastMonitorStore } from "@/stores/broadcast/monitor-store"
 import { CastIcon, MonitorIcon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -59,7 +60,7 @@ export function BroadcastSettings({
       const result = normalizeMonitorList(await invokeTauri<MonitorInfo[]>("list_monitors"))
       setMonitors(result)
 
-      const store = useBroadcastStore.getState()
+      const store = useBroadcastMonitorStore.getState()
       const mainIndex = resolveMonitorIndexFromKey(
         result,
         store.mainDisplayMonitorKey,
@@ -111,7 +112,7 @@ export function BroadcastSettings({
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const unlistenPromise = listen("broadcast:output-ready", () => {
-      useBroadcastStore.getState().syncBroadcastOutput()
+      useBroadcastLiveStore.getState().syncBroadcastOutput()
       syncMainNdiConfigToOutput(
         mainNdiActive,
         mainNdiFrameRate,
@@ -123,7 +124,7 @@ export function BroadcastSettings({
         altNdiResolution,
       )
       timeoutId = setTimeout(() => {
-        useBroadcastStore.getState().syncBroadcastOutput()
+        useBroadcastLiveStore.getState().syncBroadcastOutput()
       }, 150)
     })
 

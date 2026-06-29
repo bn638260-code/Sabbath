@@ -638,15 +638,31 @@ mod cors_origin_tests {
 
     #[test]
     fn loopback_origin_matches_host_exactly() {
-        assert!(is_loopback_origin(&HeaderValue::from_static("http://localhost")));
-        assert!(is_loopback_origin(&HeaderValue::from_static("http://localhost:1420")));
-        assert!(is_loopback_origin(&HeaderValue::from_static("http://127.0.0.1:8000")));
-        assert!(is_loopback_origin(&HeaderValue::from_static("tauri://localhost")));
+        assert!(is_loopback_origin(&HeaderValue::from_static(
+            "http://localhost"
+        )));
+        assert!(is_loopback_origin(&HeaderValue::from_static(
+            "http://localhost:1420"
+        )));
+        assert!(is_loopback_origin(&HeaderValue::from_static(
+            "http://127.0.0.1:8000"
+        )));
+        assert!(is_loopback_origin(&HeaderValue::from_static(
+            "tauri://localhost"
+        )));
 
-        assert!(!is_loopback_origin(&HeaderValue::from_static("http://localhost.example")));
-        assert!(!is_loopback_origin(&HeaderValue::from_static("http://127.0.0.1.evil.com")));
-        assert!(!is_loopback_origin(&HeaderValue::from_static("https://localhost")));
-        assert!(!is_loopback_origin(&HeaderValue::from_static("http://evil.com")));
+        assert!(!is_loopback_origin(&HeaderValue::from_static(
+            "http://localhost.example"
+        )));
+        assert!(!is_loopback_origin(&HeaderValue::from_static(
+            "http://127.0.0.1.evil.com"
+        )));
+        assert!(!is_loopback_origin(&HeaderValue::from_static(
+            "https://localhost"
+        )));
+        assert!(!is_loopback_origin(&HeaderValue::from_static(
+            "http://evil.com"
+        )));
     }
 }
 

@@ -294,7 +294,7 @@ test.describe("operator flow harness", () => {
     }
 
     await page.locator('[data-slot="transcript-panel"]').waitFor()
-    await page.locator('[data-slot="detections-panel"]').waitFor()
+    await page.locator('[data-slot="latest-detection-bar"]').waitFor()
 
     await page.evaluate(() => {
       const harness = window.__SABBATHCUE_OPERATOR_E2E__!

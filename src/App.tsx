@@ -12,7 +12,7 @@ import type {
   BroadcastOutputErrorEvent,
   BroadcastOutputIssueKind,
 } from "@/types"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastOutputIssueStore } from "@/stores/broadcast/output-issue-store"
 import { useApiKeyPromptStore } from "@/lib/api-key-prompt"
 import { isTauriRuntime } from "@/lib/tauri-runtime"
 import { useSettingsStore } from "@/stores/settings-store"
@@ -62,7 +62,7 @@ function useBroadcastOutputErrorListener() {
     "broadcast:output-error",
     (payload) => {
       if (!isValidOutputErrorPayload(payload)) return
-      useBroadcastStore.getState().reportOutputIssue({
+      useBroadcastOutputIssueStore.getState().reportOutputIssue({
         outputId: payload.outputId,
         kind: payload.kind,
         title: payload.title,

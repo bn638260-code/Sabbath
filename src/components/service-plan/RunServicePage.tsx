@@ -11,7 +11,7 @@ import {
   presentSermonSlideAt,
   previewSermonSlideAt,
 } from "@/services/slides/sermon-slide-live"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
@@ -27,8 +27,8 @@ export function RunServicePage() {
   const deck = useHymnSlideStore((s) => s.deck)
   const hymnActiveIndex = useHymnSlideStore((s) => s.activeIndex)
   const sermonActiveIndex = useSermonSlideStore((s) => s.activeIndex)
-  const previewItem = useBroadcastStore((s) => s.previewItem)
-  const liveItem = useBroadcastStore((s) => s.isLive ? s.liveItem : null)
+  const previewItem = useBroadcastLiveStore((s) => s.previewItem)
+  const liveItem = useBroadcastLiveStore((s) => s.isLive ? s.liveItem : null)
   const orderedItems = useMemo(
     () => [...(activePlan?.items ?? [])].sort((a, b) => a.order - b.order),
     [activePlan?.items],

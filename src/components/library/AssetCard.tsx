@@ -11,7 +11,7 @@ import {
   previewLibraryAsset,
   queueLibraryAsset,
 } from "@/lib/library/library-presentation"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastThemeStore } from "@/stores/broadcast/theme-store"
 import { useLibraryStore } from "@/stores/library-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import type { LibraryAsset } from "@/types/library"
@@ -33,7 +33,7 @@ export function AssetCard({ asset }: AssetCardProps) {
   const queue = () => queueLibraryAsset(asset)
   const applyTheme = () => {
     if (asset.type !== "theme") return
-    const broadcast = useBroadcastStore.getState()
+    const broadcast = useBroadcastThemeStore.getState()
     broadcast.saveTheme({ ...asset.theme, builtin: false })
     broadcast.setActiveTheme(asset.theme.id)
   }

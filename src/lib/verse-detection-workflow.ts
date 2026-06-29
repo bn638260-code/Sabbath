@@ -7,7 +7,8 @@ import {
 } from "@/lib/presentation-workflow"
 import { bibleActions } from "@/hooks/use-bible"
 import { useBibleStore } from "@/stores/bible-store"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
+import { useBroadcastOutputIssueStore } from "@/stores/broadcast/output-issue-store"
 import { useDetectionStore } from "@/stores/detection-store"
 import { useQueueStore } from "@/stores/queue-store"
 import { useSettingsStore } from "@/stores/settings-store"
@@ -113,7 +114,7 @@ async function resolveDetectionVerse(
     } catch (error) {
       const currentVerse = findCurrentChapterVerse(detection)
       if (currentVerse) {
-        useBroadcastStore.getState().reportOutputIssue({
+        useBroadcastOutputIssueStore.getState().reportOutputIssue({
           outputId: "global",
           kind: "verse-lookup",
           title: "Verse lookup failed",
@@ -126,7 +127,7 @@ async function resolveDetectionVerse(
         }
       }
 
-      useBroadcastStore.getState().reportOutputIssue({
+      useBroadcastOutputIssueStore.getState().reportOutputIssue({
         outputId: "global",
         kind: "verse-lookup",
         title: "Verse lookup failed",
@@ -276,7 +277,7 @@ async function queueDetectedVerse(
 let detectionHandlingChain: Promise<void> = Promise.resolve()
 
 function reportDetectionBatchError(error: unknown): void {
-  useBroadcastStore.getState().reportOutputIssue({
+  useBroadcastOutputIssueStore.getState().reportOutputIssue({
     outputId: "global",
     kind: "auto-detection",
     title: "Detection batch failed",
@@ -408,7 +409,7 @@ export function handleReadingAdvance(advance: ReadingAdvance) {
     verse_text: advance.verse_text,
   })
 
-  const broadcast = useBroadcastStore.getState()
+  const broadcast = useBroadcastLiveStore.getState()
   recordWorkflowTrace("reading.accepted", "Reading advance accepted", {
     ...traceReadingAdvanceDetails(advance),
     liveWasOn: broadcast.isLive,

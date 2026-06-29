@@ -7,7 +7,7 @@ import {
   useAccentThemeStore,
   type AccentTheme,
 } from "@/stores/accent-theme-store"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
 import { useColorModeStore } from "@/stores/color-mode-store"
 import { WorkspaceTopNav } from "@/components/layout/workspace-top-nav"
 import packageJson from "../../../package.json"
@@ -66,7 +66,7 @@ export function AppControllerHeader() {
   const setTheme = useAccentThemeStore((s) => s.setTheme)
   const colorMode = useColorModeStore((s) => s.mode)
   const toggleColorMode = useColorModeStore((s) => s.toggle)
-  const isLive = useBroadcastStore((s) => s.isLive)
+  const isLive = useBroadcastLiveStore((s) => s.isLive)
   const [clock, setClock] = useState(() => formatClock(new Date()))
 
   useEffect(() => {

@@ -23,10 +23,11 @@ import { cn } from "@/lib/utils"
 import { convertTauriFileSrc } from "@/lib/tauri-runtime"
 import { useBroadcastVideo } from "@/hooks/use-broadcast-video"
 import {
-  selectActiveTheme,
-  useBroadcastStore,
-  useItemTheme,
-} from "@/stores/broadcast-store"
+  getBroadcastLiveStore,
+  useBroadcastLiveStore,
+  useLiveItemTheme,
+  type BroadcastLiveItem,
+} from "@/stores/broadcast/live-store"
 import { useEgwSlideStore } from "@/stores/egw-slide-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
@@ -43,7 +44,7 @@ import {
   Minimize2Icon,
 } from "lucide-react"
 import { toast } from "sonner"
-import type { BroadcastTransitionType } from "@/types"
+import type { BroadcastTheme, BroadcastTransitionType } from "@/types"
 
 const LIVE_TRANSITION_OPTIONS: {
   value: BroadcastTransitionType
@@ -70,9 +71,7 @@ export function liveTransitionClass(type: BroadcastTransitionType): string {
   }
 }
 
-function liveVideoSrc(
-  item: ReturnType<typeof useBroadcastStore.getState>["liveItem"]
-): string | null {
+function liveVideoSrc(item: BroadcastLiveItem): string | null {
   const video = item?.video
   if (!video) return null
   if (video.source === "local" && video.videoPath) {
@@ -156,7 +155,7 @@ function LiveSendControls({
   liveTransitionType,
 }: {
   isLive: boolean
-  liveItem: ReturnType<typeof useBroadcastStore.getState>["liveItem"]
+  liveItem: BroadcastLiveItem
   canCommitPreview: boolean
   liveTransitionType: BroadcastTransitionType
 }) {
@@ -166,9 +165,7 @@ function LiveSendControls({
         aria-label="Live transition"
         value={liveTransitionType}
         options={LIVE_TRANSITION_OPTIONS}
-        onChange={(type) =>
-          useBroadcastStore.getState().setLiveTransitionType(type)
-        }
+        onChange={(type) => getBroadcastLiveStore().setLiveTransitionType(type)}
         className="[&_button]:px-2"
       />
       <EmergencyLiveButton />
@@ -211,9 +208,7 @@ function LiveVisibilitySwitch({ isLive }: { isLive: boolean }) {
       </span>
       <Switch
         checked={isLive}
-        onCheckedChange={(checked) =>
-          useBroadcastStore.getState().setLive(checked)
-        }
+        onCheckedChange={(checked) => getBroadcastLiveStore().setLive(checked)}
         className="data-[state=checked]:bg-emerald-500"
       />
     </label>
@@ -240,7 +235,7 @@ function ReadingModeRow({
       <Switch
         checked={readingModeAutoLive}
         onCheckedChange={(checked) =>
-          useBroadcastStore.getState().setReadingModeAutoLive(checked)
+          getBroadcastLiveStore().setReadingModeAutoLive(checked)
         }
         className="data-[state=checked]:bg-emerald-500"
       />
@@ -255,11 +250,11 @@ function LiveStage({
   isFullscreenLayout,
 }: {
   isLive: boolean
-  activeTheme: ReturnType<typeof selectActiveTheme>
-  visibleItem: ReturnType<typeof useBroadcastStore.getState>["liveItem"]
+  activeTheme: BroadcastTheme | null
+  visibleItem: BroadcastLiveItem
   isFullscreenLayout: boolean
 }) {
-  const transitionType = useBroadcastStore((s) => s.liveTransitionType)
+  const transitionType = useBroadcastLiveStore((s) => s.liveTransitionType)
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null
   )
@@ -343,11 +338,15 @@ function LiveStage({
 }
 
 export function LiveOutputPanel({ className }: { className?: string }) {
-  const isLive = useBroadcastStore((s) => s.isLive)
-  const liveItem = useBroadcastStore((s) => s.liveItem)
-  const readingModeAutoLive = useBroadcastStore((s) => s.readingModeAutoLive)
-  const liveTransitionType = useBroadcastStore((s) => s.liveTransitionType)
-  const previewItem = useBroadcastStore((s) => s.previewItem)
+  const isLive = useBroadcastLiveStore((s) => s.isLive)
+  const liveItem = useBroadcastLiveStore((s) => s.liveItem)
+  const readingModeAutoLive = useBroadcastLiveStore(
+    (s) => s.readingModeAutoLive
+  )
+  const liveTransitionType = useBroadcastLiveStore(
+    (s) => s.liveTransitionType
+  )
+  const previewItem = useBroadcastLiveStore((s) => s.previewItem)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isFullscreenLayout, setIsFullscreenLayout] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -356,7 +355,7 @@ export function LiveOutputPanel({ className }: { className?: string }) {
     () => (isLive ? liveItem : null),
     [isLive, liveItem]
   )
-  const activeTheme = useItemTheme(visibleItem)
+  const activeTheme = useLiveItemTheme(visibleItem)
   const canCommitPreview = Boolean(previewItem)
   const setPanelFullscreen = async (fullscreen: boolean) => {
     try {
@@ -379,7 +378,7 @@ export function LiveOutputPanel({ className }: { className?: string }) {
 
   const handlePanelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) =>
     handlePresentationPanelArrowKey(event, () => {
-      const broadcast = useBroadcastStore.getState()
+      const broadcast = getBroadcastLiveStore()
       return { item: broadcast.liveItem, isLive: broadcast.isLive }
     })
 

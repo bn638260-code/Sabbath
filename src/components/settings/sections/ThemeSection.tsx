@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastDesignerStore } from "@/stores/broadcast/designer-store"
 import { PaletteIcon } from "lucide-react"
 
 const LazyThemeDesigner = lazy(() =>
@@ -30,7 +30,7 @@ export function ThemeSection() {
             className="gap-1.5"
             onClick={() => {
               setThemeDesignerMounted(true)
-              useBroadcastStore.getState().setDesignerOpen(true)
+              useBroadcastDesignerStore.getState().setDesignerOpen(true)
             }}
           >
             <PaletteIcon className="size-3.5" />

@@ -1,4 +1,4 @@
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastDesignerStore as useBroadcastStore } from "@/stores/broadcast/designer-store"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { TextProperties } from "@/components/broadcast/text-properties"

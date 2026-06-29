@@ -58,8 +58,8 @@ fn validate_video_path_inner(path: &str) -> Result<VideoPathValidation, String> 
         return Err("Unsupported video extension".to_string());
     }
 
-    let link_metadata = std::fs::symlink_metadata(trimmed)
-        .map_err(|_| "Video path does not exist".to_string())?;
+    let link_metadata =
+        std::fs::symlink_metadata(trimmed).map_err(|_| "Video path does not exist".to_string())?;
     if link_metadata.file_type().is_symlink() {
         return Err("Symlinked paths are not allowed".to_string());
     }
@@ -157,10 +157,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn rejects_symlinked_video() {
-        let dir = std::env::temp_dir().join(format!(
-            "sabbathcue-video-symlink-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("sabbathcue-video-symlink-{}", std::process::id()));
         fs::create_dir_all(&dir).expect("temp dir");
         let target = dir.join("real.mp4");
         fs::write(&target, b"video").expect("write target");

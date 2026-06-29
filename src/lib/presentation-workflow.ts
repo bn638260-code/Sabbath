@@ -1,7 +1,7 @@
 import { bibleActions } from "@/hooks/use-bible"
 import { toVerseRenderData } from "@/hooks/use-broadcast"
 import { useBibleStore } from "@/stores/bible-store"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { getBroadcastLiveStore } from "@/stores/broadcast/live-store"
 import type {
   DetectionResult,
   Verse,
@@ -79,7 +79,7 @@ export function selectPreviewVerse(
 ) {
   const item = createPresentationItem(verse)
   const renderData = toScriptureRenderData(item)
-  useBroadcastStore.getState().setPreviewItem(renderData)
+  getBroadcastLiveStore().setPreviewItem(renderData)
   bibleActions.selectVerse(verse)
   recordWorkflowTrace("preview.selected", "Verse selected for preview", {
     navigate: Boolean(options?.navigate),
@@ -98,7 +98,7 @@ export function selectPreviewItem(
 ) {
   const verse = getScriptureVerse(item)
   const renderData = toPresentationRenderData(item)
-  useBroadcastStore.getState().setPreviewItem(renderData)
+  getBroadcastLiveStore().setPreviewItem(renderData)
   recordWorkflowTrace("preview.selected", "Item selected for preview", {
     navigate: Boolean(options?.navigate),
     preview: tracePresentationDetails(renderData),
@@ -133,13 +133,13 @@ function commitRenderDataToLive(
   renderData: PresentationRenderData,
   options?: { makeLive?: boolean }
 ) {
-  const broadcast = useBroadcastStore.getState()
+  const broadcast = getBroadcastLiveStore()
   recordWorkflowTrace("live.commit", "Presentation committed to live", {
     makeLive: options?.makeLive ?? true,
     liveWasOn: broadcast.isLive,
     live: tracePresentationDetails(renderData),
   })
-  useBroadcastStore.getState().commitLiveItem(renderData, options)
+  getBroadcastLiveStore().commitLiveItem(renderData, options)
 }
 
 export function commitVerseToLive(
@@ -152,7 +152,7 @@ export function commitVerseToLive(
 
 export function commitPreviewToLive(): boolean {
   const previewItem =
-    useBroadcastStore.getState().previewItem ??
+    getBroadcastLiveStore().previewItem ??
     (() => {
       const verse = useBibleStore.getState().selectedVerse
       return verse
@@ -186,7 +186,7 @@ export function previewVerseAndMaybeAutoLive(
     autoLive?: boolean
   }
 ) {
-  const broadcast = useBroadcastStore.getState()
+  const broadcast = getBroadcastLiveStore()
 
   // Auto-live turns the live output on (and keeps it following) when the
   // operator has the auto-live toggle enabled.
@@ -207,7 +207,7 @@ export function previewVerseAndMaybeAutoLive(
 // verse in the new translation and re-commit it without toggling live on/off,
 // mirroring how the preview panel refreshes itself on translation change.
 export async function refreshLiveTranslation(): Promise<void> {
-  const broadcast = useBroadcastStore.getState()
+  const broadcast = getBroadcastLiveStore()
   const live = broadcast.liveItem
   if (!broadcast.isLive || live?.kind !== "scripture" || !live.scripture) {
     return

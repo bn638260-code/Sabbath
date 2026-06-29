@@ -6,6 +6,7 @@
 mod detection;
 mod detection_jobs;
 mod detection_logic;
+mod live_session;
 mod provider;
 mod utils;
 mod voice;
@@ -30,12 +31,15 @@ use rhema_detection::DirectDetector;
 use rhema_stt::TranscriptEvent;
 
 use self::detection::{
-    check_reading_mode, clamp_to_recent_words, enqueue_direct_detection_job,
-    enqueue_final_semantic_job, enqueue_partial_semantic_job, is_detection_paused,
-    run_direct_detection, run_semantic_detection, take_semantic_job, DeepgramSemanticBuffer,
-    LIVE_DETECTION_WINDOW_WORDS, PARTIAL_SEMANTIC_DEBOUNCE, PARTIAL_SEMANTIC_MIN_WORDS,
-    SEMANTIC_WINDOW_SEGMENTS, WINDOW_RESET_GAP,
+    is_detection_paused, LIVE_DETECTION_WINDOW_WORDS, PARTIAL_SEMANTIC_DEBOUNCE,
+    PARTIAL_SEMANTIC_MIN_WORDS, SEMANTIC_WINDOW_SEGMENTS, WINDOW_RESET_GAP,
 };
+use self::detection_jobs::{
+    enqueue_direct_detection_job, enqueue_final_semantic_job, enqueue_partial_semantic_job,
+    take_semantic_job, DeepgramSemanticBuffer,
+};
+use self::detection_logic::clamp_to_recent_words;
+use self::live_session::{check_reading_mode, run_direct_detection, run_semantic_detection};
 use self::provider::build_stt_provider;
 use self::utils::{
     average_word_confidence, final_semantic_detection_allowed,

@@ -16,7 +16,7 @@ import type {
   Verse,
 } from "@/types"
 import { getPresentationRenderData } from "@/types"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastLiveStore as useBroadcastStore } from "@/stores/broadcast/live-store"
 import { useDetectionStore } from "@/stores/detection-store"
 import { useQueueStore } from "@/stores/queue-store"
 import { useSettingsStore } from "@/stores/settings-store"

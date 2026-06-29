@@ -4,11 +4,16 @@ import { Button } from "@/components/ui/button"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { LiveOutputPanel } from "@/components/panels/live-output-panel"
 import { PreviewPanel } from "@/components/panels/preview-panel"
+import { useBroadcastDesignerStore } from "@/stores/broadcast/designer-store"
+import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
+import {
+  selectLatestOutputIssue,
+  useBroadcastOutputIssueStore,
+} from "@/stores/broadcast/output-issue-store"
 import {
   selectActiveTheme,
-  selectLatestOutputIssue,
-  useBroadcastStore,
-} from "@/stores/broadcast-store"
+  useBroadcastThemeStore,
+} from "@/stores/broadcast/theme-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import {
   AlertTriangleIcon,
@@ -169,11 +174,13 @@ export function LiveServicePlanPage() {
   const [broadcastSettingsMounted, setBroadcastSettingsMounted] = useState(false)
   const [themeDesignerMounted, setThemeDesignerMounted] = useState(false)
   const serviceContext = useServicePlanStore((s) => s.serviceContext)
-  const isLive = useBroadcastStore((s) => s.isLive)
-  const liveItem = useBroadcastStore((s) => s.liveItem)
-  const previewItem = useBroadcastStore((s) => s.previewItem)
-  const activeTheme = useBroadcastStore(selectActiveTheme)
-  const latestOutputIssue = useBroadcastStore(selectLatestOutputIssue)
+  const isLive = useBroadcastLiveStore((s) => s.isLive)
+  const liveItem = useBroadcastLiveStore((s) => s.liveItem)
+  const previewItem = useBroadcastLiveStore((s) => s.previewItem)
+  const activeTheme = useBroadcastThemeStore(selectActiveTheme)
+  const latestOutputIssue = useBroadcastOutputIssueStore(
+    selectLatestOutputIssue
+  )
 
   return (
     <div className="view-pane flex min-h-full flex-col gap-5">
@@ -205,7 +212,7 @@ export function LiveServicePlanPage() {
             className="gap-1.5"
             onClick={() => {
               setThemeDesignerMounted(true)
-              useBroadcastStore.getState().setDesignerOpen(true)
+              useBroadcastDesignerStore.getState().setDesignerOpen(true)
             }}
           >
             <PaletteIcon className="size-3.5" />

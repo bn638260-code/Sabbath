@@ -1,4 +1,4 @@
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastDesignerStore as useBroadcastStore } from "@/stores/broadcast/designer-store"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import {

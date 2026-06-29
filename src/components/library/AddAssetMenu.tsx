@@ -28,7 +28,10 @@ import { deckToSongDoc } from "@/lib/library/song-doc"
 import { downscaleImageToThumbnail } from "@/lib/library/thumbnail"
 import { importPowerPointSlides, POWERPOINT_EXTENSIONS } from "@/lib/powerpoint-import"
 import { convertTauriFileSrc } from "@/lib/tauri-runtime"
-import { selectActiveTheme, useBroadcastStore } from "@/stores/broadcast-store"
+import {
+  selectActiveTheme,
+  useBroadcastThemeStore,
+} from "@/stores/broadcast/theme-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useLibraryStore } from "@/stores/library-store"
 import type { LibraryAsset } from "@/types/library"
@@ -42,7 +45,7 @@ interface AddAssetMenuProps {
 
 export function AddAssetMenu({ onCreateSong }: AddAssetMenuProps) {
   const addAsset = useLibraryStore((state) => state.addAsset)
-  const activeTheme = useBroadcastStore(selectActiveTheme)
+  const activeTheme = useBroadcastThemeStore(selectActiveTheme)
   const hymnDeck = useHymnSlideStore((state) => state.deck)
 
   const importImage = async () => {

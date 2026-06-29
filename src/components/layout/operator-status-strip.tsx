@@ -4,11 +4,15 @@ import { LevelMeter } from "@/components/ui/level-meter"
 import { cn } from "@/lib/utils"
 import { useAudioStore } from "@/stores/audio-store"
 import { useBibleStore } from "@/stores/bible-store"
+import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
 import {
   selectActiveTheme,
+  useBroadcastThemeStore,
+} from "@/stores/broadcast/theme-store"
+import {
   selectLatestOutputIssue,
-  useBroadcastStore,
-} from "@/stores/broadcast-store"
+  useBroadcastOutputIssueStore,
+} from "@/stores/broadcast/output-issue-store"
 import { useQueueStore } from "@/stores/queue-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
@@ -37,15 +41,19 @@ export function OperatorStatusStrip({
   actionsLayout?: "responsive" | "inline"
 }) {
   const isTranscribing = useTranscriptStore((s) => s.isTranscribing)
-  const isLive = useBroadcastStore((s) => s.isLive)
-  const liveItem = useBroadcastStore((s) => s.liveItem)
-  const previewItem = useBroadcastStore((s) => s.previewItem)
-  const readingModeAutoLive = useBroadcastStore((s) => s.readingModeAutoLive)
+  const isLive = useBroadcastLiveStore((s) => s.isLive)
+  const liveItem = useBroadcastLiveStore((s) => s.liveItem)
+  const previewItem = useBroadcastLiveStore((s) => s.previewItem)
+  const readingModeAutoLive = useBroadcastLiveStore(
+    (s) => s.readingModeAutoLive
+  )
   const queueLength = useQueueStore((s) => s.items.length)
-  const activeTheme = useBroadcastStore(selectActiveTheme)
+  const activeTheme = useBroadcastThemeStore(selectActiveTheme)
   const selectedVerse = useBibleStore((s) => s.selectedVerse)
   const activePlan = useServicePlanStore((s) => s.activePlan)
-  const latestOutputIssue = useBroadcastStore(selectLatestOutputIssue)
+  const latestOutputIssue = useBroadcastOutputIssueStore(
+    selectLatestOutputIssue
+  )
 
   const [detectionPaused, setDetectionPaused] = useState(false)
   const [explicitCitationsOnly, setExplicitCitationsOnly] = useState(false)
@@ -143,7 +151,7 @@ export function OperatorStatusStrip({
               type="button"
               title={latestOutputIssue.description}
               onClick={() =>
-                useBroadcastStore
+                useBroadcastOutputIssueStore
                   .getState()
                   .clearOutputIssue(latestOutputIssue.id)
               }

@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { getBroadcastLiveStore } from "@/stores/broadcast/live-store"
 import { detectionActions } from "@/hooks/use-detection"
 import { transcriptionActions } from "@/hooks/use-transcription"
 import {
@@ -139,7 +139,7 @@ export function OperatorStatusActions({
       icon: EyeOffIcon,
       enabled: isLive,
       tone: "red" as const,
-      onClick: () => useBroadcastStore.getState().setLive(false),
+      onClick: () => getBroadcastLiveStore().setLive(false),
     },
     {
       key: "stop-mic",

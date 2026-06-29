@@ -11,7 +11,7 @@ import {
 import { presentQueuedItem } from "@/lib/queue-presentation"
 import { restoreQueuedHymnDeckForRenderItem } from "@/lib/queued-hymn-deck"
 import { useBibleStore } from "@/stores/bible-store"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { getBroadcastLiveStore } from "@/stores/broadcast/live-store"
 import { useEgwSlideStore } from "@/stores/egw-slide-store"
 import { useEgwStore } from "@/stores/egw-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
@@ -92,7 +92,7 @@ function currentScripture(
   targetItem: PresentationRenderData | null
 ): Verse | null {
   if (isLive) {
-    const live = useBroadcastStore.getState().liveItem
+    const live = getBroadcastLiveStore().liveItem
     const liveVerse = live?.kind === "scripture" ? (live.scripture ?? null) : null
     return liveVerse ?? scriptureFromTarget(targetItem)
   }
@@ -387,7 +387,7 @@ export function advancePresentationTarget(
 }
 
 export function advanceCurrentPresentationTarget(delta: number): boolean {
-  const broadcast = useBroadcastStore.getState()
+  const broadcast = getBroadcastLiveStore()
   const targetItem = broadcast.isLive
     ? broadcast.liveItem
     : broadcast.previewItem

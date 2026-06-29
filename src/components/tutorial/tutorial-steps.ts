@@ -1,7 +1,10 @@
 import type { Step } from "react-joyride"
 import { APP_DISPLAY_NAME } from "@/lib/app-brand"
 import { openSettings, type SettingsSection } from "@/lib/settings-dialog"
-import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
+import {
+  useDashboardWorkspaceStore,
+  type DashboardWorkspace,
+} from "@/stores/dashboard-workspace-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 
 const STEP_DEFAULTS = {
@@ -29,13 +32,13 @@ async function waitForTarget(
 
 async function prepareTarget(
   selector: string,
-  options?: { workspace?: "live"; settingsSection?: SettingsSection }
+  options?: { workspace?: DashboardWorkspace; settingsSection?: SettingsSection }
 ): Promise<void> {
   if (options?.settingsSection) {
     openSettings(options.settingsSection)
-  } else if (options?.workspace === "live") {
+  } else if (options?.workspace) {
     useServicePlanStore.getState().closePlanner()
-    useDashboardWorkspaceStore.getState().setWorkspace("live")
+    useDashboardWorkspaceStore.getState().setWorkspace(options.workspace)
   }
 
   await wait(0)
@@ -46,6 +49,10 @@ async function prepareTarget(
 
 const liveStep = (selector: string) => ({
   before: () => prepareTarget(selector, { workspace: "live" }),
+})
+
+const workspaceStep = (selector: string, workspace: DashboardWorkspace) => ({
+  before: () => prepareTarget(selector, { workspace }),
 })
 
 export const TUTORIAL_STEPS: Step[] = [
@@ -68,7 +75,7 @@ export const TUTORIAL_STEPS: Step[] = [
   },
   {
     ...STEP_DEFAULTS,
-    ...liveStep('[data-slot="detections-panel"]'),
+    ...workspaceStep('[data-slot="detections-panel"]', "detections"),
     target: '[data-slot="detections-panel"]',
     title: "AI Detections",
     content:
@@ -77,7 +84,7 @@ export const TUTORIAL_STEPS: Step[] = [
   },
   {
     ...STEP_DEFAULTS,
-    ...liveStep('[data-tour="book-search"]'),
+    ...workspaceStep('[data-tour="book-search"]', "scripture-search"),
     target: '[data-tour="book-search"]',
     title: "Book Search",
     content:
@@ -87,7 +94,7 @@ export const TUTORIAL_STEPS: Step[] = [
   },
   {
     ...STEP_DEFAULTS,
-    ...liveStep('[data-tour="context-search"]'),
+    ...workspaceStep('[data-tour="context-search"]', "scripture-search"),
     target: '[data-tour="context-search"]',
     title: "Context Search",
     content: `Search by phrase or topic. ${APP_DISPLAY_NAME} uses AI to find matching verses.`,
@@ -96,7 +103,7 @@ export const TUTORIAL_STEPS: Step[] = [
   },
   {
     ...STEP_DEFAULTS,
-    ...liveStep('[data-tour="quick-nav"]'),
+    ...workspaceStep('[data-tour="quick-nav"]', "scripture-search"),
     target: '[data-tour="quick-nav"]',
     title: "Quick Navigation",
     content:

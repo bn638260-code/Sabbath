@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
-import { useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastOutputIssueStore as useBroadcastStore } from "@/stores/broadcast/output-issue-store"
 import { useSettingsStore } from "@/stores/settings-store"
 
 export function useDetectionSettingsSync() {
