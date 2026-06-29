@@ -2389,6 +2389,22 @@ mod tests {
     }
 
     #[test]
+    fn transcript_revelation_context_prefers_read_verse_after_skipped_verse() {
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("turn with me in your Bibles to Revelation chapter 14");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_chapter_only);
+
+        let results = detector
+            .detect("we won't read verse six, but verse seven, the message of the first angel");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Revelation");
+        assert_eq!(results[0].verse_ref.chapter, 14);
+        assert_eq!(results[0].verse_ref.verse_start, 7);
+    }
+
+    #[test]
     fn afrikaans_detects_johannes_3_vers_16() {
         let mut detector = DirectDetector::for_stt_language("af");
         let results = detector.detect("Johannes 3 vers 16");

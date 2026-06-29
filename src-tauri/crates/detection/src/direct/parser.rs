@@ -744,7 +744,7 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
     }
 
     // Pattern 2: "verse N" / "verses N" anywhere in text
-    for i in 0..tokens.len() {
+    for i in preferred_verse_indices(&tokens) {
         if let Token::Word(w) = &tokens[i] {
             if is_verse_keyword(w) {
                 if let Some((verse, _)) = consume_number(&tokens, i + 1) {
@@ -769,6 +769,30 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
     }
 
     None
+}
+
+fn preferred_verse_indices(tokens: &[Token]) -> Vec<usize> {
+    let verse_indices: Vec<usize> = tokens
+        .iter()
+        .enumerate()
+        .filter_map(|(index, token)| {
+            matches!(token, Token::Word(word) if is_verse_keyword(word)).then_some(index)
+        })
+        .collect();
+
+    if verse_indices.len() <= 1 {
+        return verse_indices;
+    }
+
+    let first = verse_indices[0];
+    let last = *verse_indices.last().unwrap_or(&0);
+    if tokens[first..last].iter().any(|token| {
+        matches!(token, Token::Word(word) if matches!(word.as_str(), "but" | "instead" | "rather"))
+    }) {
+        return vec![last];
+    }
+
+    verse_indices
 }
 
 fn starts_with_dangling_number_verse(tokens: &[Token]) -> bool {
