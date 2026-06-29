@@ -1,12 +1,13 @@
 # CODING AGENT PLAN — Live Desk / Detections / Scripture & EGW restructure
-### v1.4 template · Checkpoint-based · Zero-hallucination · Zero-bloat
+
+## v1.4 template · Checkpoint-based · Zero-hallucination · Zero-bloat
 
 ---
 
 ## PLAN METADATA
 
 | Field | Value |
-|---|---|
+| --- | --- |
 | **Plan Name** | Split workspace into Live Desk + Detections page + Scripture/EGW Search page; verses as operator cards |
 | **Version** | v1.4 |
 | **Agent ID / Session** | Cursor agent · execution 2026-06-29 |
@@ -25,6 +26,7 @@
 ## § 0 · PRIME DIRECTIVE — MINIMAL, EFFECTIVE CODE
 
 This plan deliberately **reduces** duplication while adding pages:
+
 - One shared `ResultCard` replaces three near-identical verse-row blocks (Book browser, Context search, EGW browser). Not building it would be copy-paste (a §0 FAIL).
 - One `flashQueuedVerse` helper removes the queue-flash logic currently **duplicated** in `BookChapterBrowser` and `ContextSearchTab`.
 - The Live Desk "latest detection" bar **reuses** exported `getDetectionActions` (and `SourceBadge`) from `detections-panel.tsx` — not a re-implemented card — so all preview/live/queue branching (verse / EGW / hymn) stays in one place.
@@ -53,7 +55,8 @@ Both new pages get top-nav entries (right after Live Desk) and keyboard shortcut
 ### 1.2 Files in scope (the only files the agent may modify or create)
 
 Modify:
-```
+
+```text
 src/stores/dashboard-workspace-store.ts
 src/lib/dashboard-workspace-nav.ts
 src/hooks/use-dashboard-keyboard-controls.ts
@@ -65,8 +68,10 @@ src/components/panels/search/BookChapterBrowser.tsx
 src/components/panels/search/ContextSearchTab.tsx
 src/components/panels/egw-browser.tsx
 ```
+
 Create:
-```
+
+```text
 src/components/panels/latest-detection-bar.tsx
 src/components/panels/search/ResultCard.tsx
 src/lib/queue-flash.ts
@@ -74,8 +79,10 @@ src/components/panels/search/ResultCard.test.tsx
 src/components/panels/latest-detection-bar.test.tsx
 src/hooks/use-dashboard-keyboard-controls.test.ts
 ```
+
 Update (tests, in-scope behavior change):
-```
+
+```text
 src/lib/dashboard-workspace-nav.test.ts
 src/components/layout/workspace-top-nav.test.tsx
 src/components/layout/dashboard.test.tsx          (post-apply: workspace routing smoke)
@@ -83,7 +90,7 @@ src/components/layout/dashboard.test.tsx          (post-apply: workspace routing
 
 ### 1.3 Files explicitly OUT of scope (touching these = plan violation)
 
-```
+```text
 Any file not listed in §1.2. In particular:
   src/stores/detection-store.ts, src/hooks/use-detection.ts (detection logic)
   src/lib/presentation-workflow.ts (preview/live/queue workflow — reused, not edited)
@@ -95,7 +102,7 @@ Any file not listed in §1.2. In particular:
 
 ### 1.4 Dependencies and external systems involved
 
-```
+```text
 None new. Uses existing: zustand stores, lucide-react icons (RadarIcon, SearchIcon —
 both already imported elsewhere), the shadcn Button primitive, the design-token CSS vars,
 Vitest + @testing-library/react. No Tauri command changes.
@@ -103,7 +110,7 @@ Vitest + @testing-library/react. No Tauri command changes.
 
 ### 1.5 Definition of done
 
-```
+```text
 - Top nav shows 11 workspaces; Detections and Scripture & EGW open dedicated pages.
 - Ctrl/Cmd+7 opens Detections; Ctrl/Cmd+8 opens Scripture & EGW.
 - Live Desk no longer renders SearchPanel; shows the slim latest-detection bar above a full-width queue panel.
@@ -129,7 +136,7 @@ Vitest + @testing-library/react. No Tauri command changes.
 #### File map (every file read during planning, with line counts)
 
 | File | Lines | Role |
-|---|---|---|
+| --- | --- | --- |
 | src/App.tsx | 198 | App shell; renders `<Dashboard/>` |
 | src/components/layout/dashboard.tsx | 200 | **Workspace switch + LiveDeskPage** |
 | src/stores/dashboard-workspace-store.ts | 24 | `DashboardWorkspace` union + store |
@@ -160,10 +167,12 @@ Vitest + @testing-library/react. No Tauri command changes.
 #### Grep evidence
 
 `workspace` navigation is a Zustand string, not react-router (search of `src/**/*.tsx` for `createBrowserRouter|<Route|navigate|currentPage` returned only panel/layout files using the store — no router):
-```
+
+```text
 src/components/layout/dashboard.tsx          // switch (workspace === "live" ? … )
 src/components/panels/*-panel.tsx            // useDashboardWorkspaceStore consumers
 ```
+
 No existing "latest detection" UI (`grep -i "latest.?detection"` → only `src-tauri/crates/detection/src/direct/context.rs`, a backend file). The live bar is genuinely new.
 
 Guard-test scan roots (`src/lib/controller-ui-guard.ts` `CONTROLLER_WORKSPACE_ROOTS`) include `src/components/layout` and `src/components/panels` **recursively** → every new file under those paths is scanned for banned tokens.
@@ -183,7 +192,7 @@ Guard-test scan roots (`src/lib/controller-ui-guard.ts` `CONTROLLER_WORKSPACE_RO
 
 #### Phase A — Change index
 
-```
+```text
 CHANGE 1  · store union
   File: src/stores/dashboard-workspace-store.ts
   Type: MODIFY  · Depends: none
@@ -281,6 +290,7 @@ CHANGE 16 · new tests
 File: `src/stores/dashboard-workspace-store.ts`
 
 BEFORE:
+
 ```ts
 export type DashboardWorkspace =
   | "live"
@@ -293,7 +303,9 @@ export type DashboardWorkspace =
   | "settings"
   | "help-legal"
 ```
+
 AFTER:
+
 ```ts
 export type DashboardWorkspace =
   | "live"
@@ -308,6 +320,7 @@ export type DashboardWorkspace =
   | "settings"
   | "help-legal"
 ```
+
 TARGETED TEST: `NO UNIT TEST — verified by: tsc (union consumed by CHANGE 2/3/13) + CHANGE 14 nav test.`
 TEST COMMAND: `npm run typecheck`
 EXPECTED RESULT: PASS — 0 errors.
@@ -317,6 +330,7 @@ EXPECTED RESULT: PASS — 0 errors.
 File: `src/lib/dashboard-workspace-nav.ts`
 
 BEFORE (imports):
+
 ```ts
 import {
   BookOpenIcon,
@@ -330,7 +344,9 @@ import {
   LifeBuoyIcon,
 } from "lucide-react"
 ```
+
 AFTER (imports):
+
 ```ts
 import {
   BookOpenIcon,
@@ -346,7 +362,9 @@ import {
   LifeBuoyIcon,
 } from "lucide-react"
 ```
+
 BEFORE (array head):
+
 ```ts
 export const DASHBOARD_WORKSPACE_NAV: DashboardWorkspaceNavItem[] = [
   { id: "live", label: "Live Desk", icon: LayoutGridIcon, shortcut: "Ctrl/Cmd + 1" },
@@ -357,7 +375,9 @@ export const DASHBOARD_WORKSPACE_NAV: DashboardWorkspaceNavItem[] = [
     shortcut: "Ctrl/Cmd + 6",
   },
 ```
+
 AFTER (array head):
+
 ```ts
 export const DASHBOARD_WORKSPACE_NAV: DashboardWorkspaceNavItem[] = [
   { id: "live", label: "Live Desk", icon: LayoutGridIcon, shortcut: "Ctrl/Cmd + 1" },
@@ -380,6 +400,7 @@ export const DASHBOARD_WORKSPACE_NAV: DashboardWorkspaceNavItem[] = [
     shortcut: "Ctrl/Cmd + 6",
   },
 ```
+
 (The rest of the array — run-service … help-legal, with `dividerBefore` on hymns and settings — is unchanged.)
 TARGETED TEST: covered by CHANGE 14 (`dashboard-workspace-nav.test.ts`).
 TEST COMMAND: `npx vitest --run src/lib/dashboard-workspace-nav.test.ts`
@@ -390,6 +411,7 @@ EXPECTED RESULT: PASS after CHANGE 14 is applied.
 File: `src/hooks/use-dashboard-keyboard-controls.ts`
 
 BEFORE (`handleWorkspaceShortcut`, full function):
+
 ```ts
 function handleWorkspaceShortcut(key: string): boolean {
   if (key === "1") {
@@ -425,7 +447,9 @@ function handleWorkspaceShortcut(key: string): boolean {
   return false
 }
 ```
+
 AFTER (`handleWorkspaceShortcut`, full function):
+
 ```ts
 function handleWorkspaceShortcut(key: string): boolean {
   if (key === "1") {
@@ -471,6 +495,7 @@ function handleWorkspaceShortcut(key: string): boolean {
   return false
 }
 ```
+
 TARGETED TEST: covered by CHANGE 16 (`use-dashboard-keyboard-controls.test.ts`).
 TEST COMMAND: `npx vitest --run src/hooks/use-dashboard-keyboard-controls.test.ts`
 EXPECTED RESULT: PASS.
@@ -480,6 +505,7 @@ EXPECTED RESULT: PASS.
 File: `src/lib/dashboard-keyboard-shortcuts.ts`
 
 BEFORE (Workspaces group):
+
 ```ts
   {
     title: "Workspaces",
@@ -491,7 +517,9 @@ BEFORE (Workspaces group):
     ],
   },
 ```
+
 AFTER (Workspaces group):
+
 ```ts
   {
     title: "Workspaces",
@@ -505,6 +533,7 @@ AFTER (Workspaces group):
     ],
   },
 ```
+
 TARGETED TEST: `NO UNIT TEST — verified by: tsc (typed array) + no test asserts this list's contents.`
 TEST COMMAND: `npm run typecheck`
 EXPECTED RESULT: PASS — 0 errors.
@@ -520,15 +549,19 @@ File: `src/components/panels/detections-panel.tsx`
 > shows the same source chip.
 
 BEFORE (5a — SourceBadge declaration):
+
 ```tsx
 function SourceBadge({ source }: { source: string }) {
 ```
+
 AFTER (5a):
+
 ```tsx
 export function SourceBadge({ source }: { source: string }) {
 ```
 
 BEFORE (5b — `HymnDetectionCard`, full component):
+
 ```tsx
 function HymnDetectionCard({
   detection,
@@ -600,7 +633,9 @@ function HymnDetectionCard({
   )
 }
 ```
+
 AFTER (5b — HymnDetectionCard now uses the shared actions):
+
 ```tsx
 function HymnDetectionCard({
   detection,
@@ -649,6 +684,7 @@ function HymnDetectionCard({
 ```
 
 BEFORE (5c — `DetectionCard`, full component):
+
 ```tsx
 function DetectionCard({ detection }: { detection: DetectionResult }) {
   if (isHymnDetection(detection)) {
@@ -743,7 +779,9 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
   )
 }
 ```
+
 AFTER (5c — add `getDetectionActions` ABOVE `DetectionCard`, then the slimmed `DetectionCard`):
+
 ```tsx
 /**
  * Resolve the preview / live / queue intent for a detection (verse, EGW paragraph,
@@ -841,6 +879,7 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
   )
 }
 ```
+
 > `Verse` type import may become unused in this file after 5c (the local `verse: Verse | null`
 > is gone). CP-03 STEP 4 diff review: drop `Verse` from the `@/types` import if tsc flags it.
 
@@ -857,6 +896,7 @@ BEFORE: `NO PRIOR CODE — new file.`
 AFTER (a genuine one-line horizontal strip — confidence dot · % · source badge · reference ·
 truncated text · Preview/Live/Queue · Open Detections; actions come from the shared
 `getDetectionActions`):
+
 ```tsx
 import { EyeIcon, PlayIcon, PlusIcon, RadarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -964,6 +1004,7 @@ export function LatestDetectionBar({ className }: { className?: string }) {
   )
 }
 ```
+
 TARGETED TEST: covered by CHANGE 16 (`latest-detection-bar.test.tsx`).
 TEST COMMAND: `npx vitest --run src/components/panels/latest-detection-bar.test.tsx`
 EXPECTED RESULT: PASS.
@@ -975,6 +1016,7 @@ File: `src/components/panels/search/ResultCard.tsx`
 BEFORE: `NO PRIOR CODE — new file.`
 
 AFTER:
+
 ```tsx
 import type { Ref } from "react"
 import { Button } from "@/components/ui/button"
@@ -1142,6 +1184,7 @@ export function ResultCard({
   )
 }
 ```
+
 TARGETED TEST: covered by CHANGE 16 (`ResultCard.test.tsx`).
 TEST COMMAND: `npx vitest --run src/components/panels/search/ResultCard.test.tsx`
 EXPECTED RESULT: PASS.
@@ -1153,6 +1196,7 @@ File: `src/lib/queue-flash.ts`
 BEFORE: `NO PRIOR CODE — new file. Extracts logic currently duplicated in BookChapterBrowser & ContextSearchTab.`
 
 AFTER:
+
 ```ts
 import { scrollIntoPanelView } from "@/lib/scroll-into-panel-view"
 import { useQueueStore } from "@/stores/queue-store"
@@ -1175,6 +1219,7 @@ export function flashQueuedVerse(
   )
 }
 ```
+
 TARGETED TEST: `NO UNIT TEST — verified by: tsc + exercised via CHANGE 9/10 cards in CP-04 (DOM query + store call mirror the pre-existing inline code verbatim).`
 TEST COMMAND: `npm run typecheck`
 EXPECTED RESULT: PASS — 0 errors.
@@ -1184,6 +1229,7 @@ EXPECTED RESULT: PASS — 0 errors.
 File: `src/components/panels/search/BookChapterBrowser.tsx`
 
 BEFORE (imports + signature + verse-row block):
+
 ```tsx
 import { Button } from "@/components/ui/button"
 import {
@@ -1219,7 +1265,9 @@ export function BookChapterBrowser({
   onSelectVerse: (verse: Verse) => void
 }) {
 ```
+
 AFTER (imports + signature) — note `cn` is dropped: both its uses were inside the replaced verse row; the header uses plain class strings, so keeping `cn` would be an unused-import error:
+
 ```tsx
 import { Button } from "@/components/ui/button"
 import { ResultCard } from "@/components/panels/search/ResultCard"
@@ -1254,7 +1302,9 @@ export function BookChapterBrowser({
   onSelectVerse: (verse: Verse) => void
 }) {
 ```
+
 BEFORE (the verse-list `<div className="min-h-0 flex-1 overflow-y-auto">` … its closing `</div>`):
+
 ```tsx
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-0 p-2">
@@ -1340,7 +1390,9 @@ BEFORE (the verse-list `<div className="min-h-0 flex-1 overflow-y-auto">` … it
         </div>
       </div>
 ```
+
 AFTER (same block):
+
 ```tsx
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-1.5 p-2">
@@ -1377,6 +1429,7 @@ AFTER (same block):
         </div>
       </div>
 ```
+
 TARGETED TEST: `NO UNIT TEST for the wiring — verified by: ResultCard.test.tsx (action behaviour) + tsc + CP-04 full render + controller-ui-guard token scan.`
 TEST COMMAND: `npm run typecheck && npx vitest --run src/components/panels/search/ResultCard.test.tsx`
 EXPECTED RESULT: PASS.
@@ -1386,6 +1439,7 @@ EXPECTED RESULT: PASS.
 File: `src/components/panels/search/ContextSearchTab.tsx`
 
 BEFORE (imports, the `HighlightedText` helper, and signature):
+
 ```tsx
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { Button } from "@/components/ui/button"
@@ -1446,7 +1500,9 @@ export function ContextSearchTab({
   queuedVerseKeys: Set<string>
 }) {
 ```
+
 AFTER (imports + signature; `HighlightedText` is **removed** — now owned by ResultCard):
+
 ```tsx
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { ResultCard } from "@/components/panels/search/ResultCard"
@@ -1471,7 +1527,9 @@ export function ContextSearchTab({
   queuedVerseKeys: Set<string>
 }) {
 ```
+
 BEFORE (results map — `{semanticResults.map(...)}` block):
+
 ```tsx
         {semanticResults.map((result, index) => (
           <div
@@ -1570,7 +1628,9 @@ BEFORE (results map — `{semanticResults.map(...)}` block):
           </div>
         ))}
 ```
+
 AFTER (results map):
+
 ```tsx
         {semanticResults.map((result, index) => {
           const verse: Verse = {
@@ -1613,6 +1673,7 @@ AFTER (results map):
           )
         })}
 ```
+
 TARGETED TEST: `NO UNIT TEST for the wiring — verified by: ResultCard.test.tsx + tsc + CP-04.`
 TEST COMMAND: `npm run typecheck && npx vitest --run src/components/panels/search/ResultCard.test.tsx`
 EXPECTED RESULT: PASS.
@@ -1622,6 +1683,7 @@ EXPECTED RESULT: PASS.
 File: `src/components/panels/egw-browser.tsx`
 
 BEFORE (imports):
+
 ```tsx
 import {
   Select,
@@ -1652,7 +1714,9 @@ import {
 import { useQueueStore } from "@/stores/queue-store"
 import type { EgwParagraph } from "@/types"
 ```
+
 AFTER (imports):
+
 ```tsx
 import {
   Select,
@@ -1683,9 +1747,11 @@ import {
 import { useQueueStore } from "@/stores/queue-store"
 import type { EgwParagraph } from "@/types"
 ```
+
 (Note: `cn` import is removed — after this change it is no longer referenced in the file. If any other `cn(` use remains at apply time, keep the import. Verify in CP-03 STEP 4.)
 
 BEFORE (`renderRow`):
+
 ```tsx
   const renderRow = (p: EgwParagraph, showRef: boolean) => (
     <div
@@ -1737,7 +1803,9 @@ BEFORE (`renderRow`):
     </div>
   )
 ```
+
 AFTER (`renderRow`):
+
 ```tsx
   const renderRow = (p: EgwParagraph) => (
     <ResultCard
@@ -1756,20 +1824,27 @@ AFTER (`renderRow`):
     />
   )
 ```
+
 BEFORE (two call sites of `renderRow`):
+
 ```tsx
               {currentParagraphs.map((p) => renderRow(p, false))}
 ```
+
 ```tsx
             {searchResults.map((p) => renderRow(p, true))}
 ```
+
 AFTER (two call sites):
+
 ```tsx
               {currentParagraphs.map((p) => renderRow(p))}
 ```
+
 ```tsx
             {searchResults.map((p) => renderRow(p))}
 ```
+
 TARGETED TEST: `NO UNIT TEST for the wiring — verified by: ResultCard.test.tsx + tsc + CP-04 (EGW render) + controller-ui-guard scan.`
 TEST COMMAND: `npm run typecheck && npx vitest --run src/components/panels/search/ResultCard.test.tsx`
 EXPECTED RESULT: PASS.
@@ -1779,6 +1854,7 @@ EXPECTED RESULT: PASS.
 File: `src/components/panels/search-panel.tsx`
 
 BEFORE (destructure of `useBible()`):
+
 ```tsx
   const {
     translations,
@@ -1789,7 +1865,9 @@ BEFORE (destructure of `useBible()`):
     selectedVerse,
   } = useBible()
 ```
+
 AFTER (add derived label right after the existing destructure — it already has `translations` + `activeTranslationId`):
+
 ```tsx
   const {
     translations,
@@ -1803,7 +1881,9 @@ AFTER (add derived label right after the existing destructure — it already has
   const translationLabel =
     translations.find((t) => t.id === activeTranslationId)?.abbreviation ?? "KJV"
 ```
+
 BEFORE (`<BookChapterBrowser ... />`):
+
 ```tsx
         <BookChapterBrowser
           selectedBook={selectedBook}
@@ -1816,7 +1896,9 @@ BEFORE (`<BookChapterBrowser ... />`):
           onSelectVerse={handleVerseClick}
         />
 ```
+
 AFTER:
+
 ```tsx
         <BookChapterBrowser
           selectedBook={selectedBook}
@@ -1830,7 +1912,9 @@ AFTER:
           onSelectVerse={handleVerseClick}
         />
 ```
+
 BEFORE (`<ContextSearchTab ... />`):
+
 ```tsx
         <ContextSearchTab
           contextQuery={contextQuery}
@@ -1839,7 +1923,9 @@ BEFORE (`<ContextSearchTab ... />`):
           queuedVerseKeys={queuedVerseKeys}
         />
 ```
+
 AFTER:
+
 ```tsx
         <ContextSearchTab
           contextQuery={contextQuery}
@@ -1849,6 +1935,7 @@ AFTER:
           queuedVerseKeys={queuedVerseKeys}
         />
 ```
+
 > Net +4 lines → search-panel.tsx ≈ 348 (ceiling 350). CP-04 must re-confirm `≤ 350`.
 
 TARGETED TEST: `NO UNIT TEST — verified by: tsc + maintainability-guard (line ceiling) + CP-04.`
@@ -1860,6 +1947,7 @@ EXPECTED RESULT: PASS — 0 errors; search-panel.tsx ≤ 350.
 File: `src/components/layout/dashboard.tsx`
 
 BEFORE (panel imports block):
+
 ```tsx
 import { TranscriptPanel } from "@/components/panels/transcript-panel"
 import { PreviewPanel } from "@/components/panels/preview-panel"
@@ -1868,7 +1956,9 @@ import { QueuePanel } from "@/components/panels/queue-panel"
 import { DetectionsPanel } from "@/components/panels/detections-panel"
 import { SearchPanel } from "@/components/panels/search-panel"
 ```
+
 AFTER:
+
 ```tsx
 import { TranscriptPanel } from "@/components/panels/transcript-panel"
 import { PreviewPanel } from "@/components/panels/preview-panel"
@@ -1878,7 +1968,9 @@ import { DetectionsPanel } from "@/components/panels/detections-panel"
 import { LatestDetectionBar } from "@/components/panels/latest-detection-bar"
 import { SearchPanel } from "@/components/panels/search-panel"
 ```
+
 BEFORE (`LiveDeskPage`):
+
 ```tsx
 function LiveDeskPage() {
   return (
@@ -1899,7 +1991,9 @@ function LiveDeskPage() {
   )
 }
 ```
+
 AFTER (`LiveDeskPage` + two new page components):
+
 ```tsx
 function LiveDeskPage() {
   return (
@@ -1932,14 +2026,18 @@ function ScriptureSearchPage() {
   )
 }
 ```
+
 BEFORE (workspace switch head):
+
 ```tsx
   const workspaceContent =
     workspace === "live" ? (
       <LiveDeskPage />
     ) : workspace === "queue" ? (
 ```
+
 AFTER:
+
 ```tsx
   const workspaceContent =
     workspace === "live" ? (
@@ -1950,6 +2048,7 @@ AFTER:
       <ScriptureSearchPage />
     ) : workspace === "queue" ? (
 ```
+
 TARGETED TEST: `NO UNIT TEST — verified by: tsc + controller-ui-guard scan (layout file) + CP-04 manual render of both pages + Live Desk.`
 TEST COMMAND: `npm run typecheck && npx vitest --run src/lib/controller-ui-guard.test.ts`
 EXPECTED RESULT: PASS — 0 errors; guard green.
@@ -1959,6 +2058,7 @@ EXPECTED RESULT: PASS — 0 errors; guard green.
 File: `src/lib/dashboard-workspace-nav.test.ts`
 
 BEFORE (`EXPECTED_IDS`):
+
 ```ts
 const EXPECTED_IDS: DashboardWorkspace[] = [
   "live",
@@ -1972,7 +2072,9 @@ const EXPECTED_IDS: DashboardWorkspace[] = [
   "help-legal",
 ]
 ```
+
 AFTER:
+
 ```ts
 const EXPECTED_IDS: DashboardWorkspace[] = [
   "live",
@@ -1988,7 +2090,9 @@ const EXPECTED_IDS: DashboardWorkspace[] = [
   "help-legal",
 ]
 ```
+
 BEFORE (shortcut assertions + label block):
+
 ```ts
     expect(shortcuts.live).toBe("Ctrl/Cmd + 1")
     expect(shortcuts["service-plans"]).toBe("Ctrl/Cmd + 2")
@@ -2000,7 +2104,9 @@ BEFORE (shortcut assertions + label block):
     expect(shortcuts.settings).toBeUndefined()
     expect(shortcuts["help-legal"]).toBeUndefined()
 ```
+
 AFTER:
+
 ```ts
     expect(shortcuts.live).toBe("Ctrl/Cmd + 1")
     expect(shortcuts["service-plans"]).toBe("Ctrl/Cmd + 2")
@@ -2014,7 +2120,9 @@ AFTER:
     expect(shortcuts.settings).toBeUndefined()
     expect(shortcuts["help-legal"]).toBeUndefined()
 ```
+
 BEFORE (labels):
+
 ```ts
     expect(workspaceNavLabel("live")).toBe("Live Desk")
     expect(workspaceNavLabel("queue")).toBe("Queue")
@@ -2022,7 +2130,9 @@ BEFORE (labels):
     expect(workspaceNavLabel("settings")).toBe("System Settings")
     expect(workspaceNavLabel("help-legal")).toBe("Help & Legal")
 ```
+
 AFTER:
+
 ```ts
     expect(workspaceNavLabel("live")).toBe("Live Desk")
     expect(workspaceNavLabel("detections")).toBe("Detections")
@@ -2032,6 +2142,7 @@ AFTER:
     expect(workspaceNavLabel("settings")).toBe("System Settings")
     expect(workspaceNavLabel("help-legal")).toBe("Help & Legal")
 ```
+
 TARGETED TEST: this file.
 TEST COMMAND: `npx vitest --run src/lib/dashboard-workspace-nav.test.ts`
 EXPECTED RESULT: PASS.
@@ -2041,25 +2152,31 @@ EXPECTED RESULT: PASS.
 File: `src/components/layout/workspace-top-nav.test.tsx`
 
 BEFORE:
+
 ```tsx
     const buttons = screen.getAllByRole("button")
     expect(buttons).toHaveLength(9)
 ```
+
 AFTER:
+
 ```tsx
     const buttons = screen.getAllByRole("button")
     expect(buttons).toHaveLength(11)
 ```
+
 TARGETED TEST: this file.
 TEST COMMAND: `npx vitest --run src/components/layout/workspace-top-nav.test.tsx`
 EXPECTED RESULT: PASS.
 
 ---
-**CHANGE 16 — new tests**
+
+#### CHANGE 16 — new tests
 
 File: `src/components/panels/search/ResultCard.test.tsx`
 BEFORE: `NO PRIOR CODE — new file.`
 AFTER:
+
 ```tsx
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -2122,12 +2239,14 @@ describe("ResultCard", () => {
   })
 })
 ```
+
 TEST COMMAND: `npx vitest --run src/components/panels/search/ResultCard.test.tsx`
 EXPECTED RESULT: PASS — 5 tests.
 
 File: `src/components/panels/latest-detection-bar.test.tsx`
 BEFORE: `NO PRIOR CODE — new file.`
 AFTER:
+
 ```tsx
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -2203,12 +2322,14 @@ describe("LatestDetectionBar", () => {
   })
 })
 ```
+
 TEST COMMAND: `npx vitest --run src/components/panels/latest-detection-bar.test.tsx`
 EXPECTED RESULT: PASS — 4 tests.
 
 File: `src/hooks/use-dashboard-keyboard-controls.test.ts`
 BEFORE: `NO PRIOR CODE — new file.`
 AFTER:
+
 ```ts
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest"
@@ -2240,6 +2361,7 @@ describe("dashboard workspace shortcuts", () => {
   })
 })
 ```
+
 TEST COMMAND: `npx vitest --run src/hooks/use-dashboard-keyboard-controls.test.ts`
 EXPECTED RESULT: PASS — 2 tests.
 
@@ -2249,7 +2371,7 @@ EXPECTED RESULT: PASS — 2 tests.
 
 #### Phase C — Risks before any code is applied (post-apply status)
 
-```
+```text
 RISKS & UNKNOWNS (all resolved 2026-06-29):
   R1. search-panel.tsx line ceiling (350). → RESOLVED: 349 lines; maintainability-guard PASS.
   R2. egw-browser.tsx `cn` import removal. → RESOLVED: `cn` removed; tsc PASS.
@@ -2279,7 +2401,7 @@ PRE-EXISTING FAILURES (baseline):
 - [x] **Human operator has reviewed all generated code and signed off.** ← gate (approved via "execute the plan" instruction)
 - [x] No code applied to any file yet. _(superseded — code applied CP-03)_
 
-```
+```text
 Human operator sign-off: BongaNdlovu (via Cursor)  /  2026-06-29
 Notes from review: Operator instructed full execution per CP-02 AFTER blocks; change report requested post-apply.
 ```
@@ -2295,6 +2417,7 @@ Notes from review: Operator instructed full execution per CP-02 AFTER blocks; ch
 Applied in Depends order 1 → 2 → 5 → 7 → 8 → (3,4) → 6 → (9,10,11) → 12 → 13 → (14,15,16). All AFTER blocks applied; `npm run typecheck` 0 errors after batch; per-change results in §6 A.2.
 
 #### Proof required to pass CP-03
+
 - [x] Per change: `git diff` matching AFTER + `tsc` 0 errors + test output PASS, in A.2.
 
 ---
@@ -2309,6 +2432,7 @@ Applied in Depends order 1 → 2 → 5 → 7 → 8 → (3,4) → 6 → (9,10,11)
 4. Workspace page routing — covered by `dashboard.test.tsx` (Live Desk bar, Detections page, Scripture & EGW page). Full Tauri UI smoke still recommended for operator acceptance.
 
 #### Proof required to pass CP-04
+
 - [x] Full test runner output + typecheck output pasted in A.3; failure count ≤ baseline.
 
 ---
@@ -2338,6 +2462,7 @@ Review logged in §6 A.4. Verdict: **QUALITY PASS**.
 ## § 6 · CODE APPENDIX (append-only during execution)
 
 ### A.1 · Pre-generated code register
+
 Source of truth = CP-02 Phase B blocks above (CHANGE 1–16). Locked on operator sign-off.
 
 ### A.2 · Per-change test results (CP-03)
@@ -2345,7 +2470,7 @@ Source of truth = CP-02 Phase B blocks above (CHANGE 1–16). Locked on operator
 Execution date: **2026-06-29**. Batch apply followed Depends order; `npm run typecheck` PASS after all changes.
 
 | Change | File(s) | TEST COMMAND | Result |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | `dashboard-workspace-store.ts` | `npm run typecheck` | PASS — 0 errors |
 | 2 | `dashboard-workspace-nav.ts` | `npx vitest --run src/lib/dashboard-workspace-nav.test.ts` | PASS (after CHANGE 14) |
 | 3 | `use-dashboard-keyboard-controls.ts` | `npx vitest --run src/hooks/use-dashboard-keyboard-controls.test.ts` | PASS — 20 tests (18 restored + 2 new 7/8) |
@@ -2371,7 +2496,7 @@ Not captured before first apply (execution gap). Plan Phase C recorded no known 
 
 #### A.3.1 · Post-apply regression (2026-06-29)
 
-```
+```text
 > npm run typecheck
 > tsc --noEmit
 (exit 0 — 0 errors)
@@ -2389,7 +2514,7 @@ _(748 includes `dashboard.test.tsx` workspace routing smoke + 20 keyboard-contro
 
 Targeted plan tests (re-run for CP-04 evidence):
 
-```
+```text
 > npx vitest --run src/lib/maintainability-guard.test.ts src/lib/controller-ui-guard.test.ts \
     src/lib/dashboard-workspace-nav.test.ts src/components/layout/workspace-top-nav.test.tsx \
     src/components/panels/search/ResultCard.test.tsx src/components/panels/latest-detection-bar.test.tsx \
@@ -2402,10 +2527,10 @@ Targeted plan tests (re-run for CP-04 evidence):
 
 ### A.4 · Quality review log (CP-04.5)
 
-**Verdict: QUALITY PASS**
+#### Verdict: QUALITY PASS
 
 | Dimension | Finding |
-|---|---|
+| --- | --- |
 | 1 Correctness | Workspace union, nav, keyboard 7/8, dashboard routes, and card action wiring match CP-02 AFTER blocks. |
 | 2 Consistency | Reuses existing tokens (`var(--border-subtle)`, `glass-panel`, lime/amber badges), Button sizes, and presentation-workflow fns. |
 | 3 Test coverage | New unit tests for ResultCard (5), LatestDetectionBar (4), shortcuts 7/8 (2). Nav/top-nav updated. |
@@ -2420,7 +2545,7 @@ None. No compile errors, no test failures, no BEFORE/AFTER mismatches requiring 
 ### A.6 · Decisions & deviations (all resolved)
 
 | Item | Plan said | Actual | Resolution |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | CHANGE 16 keyboard test | `NO PRIOR CODE — new file` with 2 tests | File already existed with 18 tests | **Resolved:** restored 18 tests + appended Ctrl+7/8 cases (20 total). |
 | CP-04 workspace smoke | Manual Tauri UI load | No Tauri runtime in agent session | **Resolved:** `dashboard.test.tsx` asserts Live Desk / Detections / Scripture & EGW routing (3 tests). |
 | A.3.0 baseline | Capture full suite before apply | Not captured pre-apply | **Accepted:** post-apply 748/748 PASS; parent commit `c642457` had no failures at planning time. |
@@ -2438,7 +2563,7 @@ Split the heavy Live Desk into three intentional workspaces: Live Desk (slim lat
 #### Files created (6)
 
 | File | Lines | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `src/components/panels/latest-detection-bar.tsx` | 105 | One-line Live Desk detection signal + Open Detections |
 | `src/components/panels/latest-detection-bar.test.tsx` | 73 | Bar empty state, reference, preview, nav |
 | `src/components/panels/search/ResultCard.tsx` | 165 | Shared operator card for Bible/EGW lists |
@@ -2449,7 +2574,7 @@ Split the heavy Live Desk into three intentional workspaces: Live Desk (slim lat
 #### Files modified (13)
 
 | File | One-liner |
-|---|---|
+| --- | --- |
 | `src/stores/dashboard-workspace-store.ts` | Added `detections`, `scripture-search` to union |
 | `src/lib/dashboard-workspace-nav.ts` | Inserted Detections + Scripture & EGW nav items (shortcuts 7/8) |
 | `src/hooks/use-dashboard-keyboard-controls.ts` | Keys 7→detections, 8→scripture-search |
@@ -2467,7 +2592,7 @@ Split the heavy Live Desk into three intentional workspaces: Live Desk (slim lat
 #### §1.5 Definition of done
 
 | Criterion | Verified |
-|---|---|
+| --- | --- |
 | Top nav 11 workspaces; Detections + Scripture & EGW pages | YES — nav test + dashboard routes |
 | Ctrl/Cmd+7 / +8 | YES — keyboard test + nav config |
 | Live Desk: no SearchPanel; latest-detection bar | YES — `dashboard.tsx` LiveDeskPage |
@@ -2488,6 +2613,7 @@ Full Tauri UI walkthrough in the running app is still recommended for operator s
 ---
 
 ## § 7 · HARD STOPS (unchanged from template)
+
 HS-1 no out-of-scope edits · HS-2 no checkpoint without proof · HS-3 "complete" = tests pass + 0 type errors + diff matches · HS-8 CP-03 applies only CP-02 code · HS-9 no speculative additions · HS-10 no "done" without the A.7 change report.
 
 ---
@@ -2495,7 +2621,7 @@ HS-1 no out-of-scope edits · HS-2 no checkpoint without proof · HS-3 "complete
 ## PLAN COMPLETION SIGN-OFF
 
 | Checkpoint | Status | Proof location |
-|---|---|---|
+| --- | --- | --- |
 | CP-01 Read codebase | DONE | §2 CP-01 |
 | CP-02A Change index | DONE | §2 CP-02 Phase A |
 | CP-02B Code generation | DONE | §2 CP-02 Phase B |
