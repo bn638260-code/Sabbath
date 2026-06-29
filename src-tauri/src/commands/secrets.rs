@@ -1,6 +1,4 @@
 use base64::Engine as _;
-use rand::rngs::OsRng;
-use rand::RngCore;
 use tauri::command;
 
 const SERVICE_NAME: &str = "sabbathcue";
@@ -44,8 +42,7 @@ fn entry(name: &str) -> Result<keyring::Entry, String> {
 }
 
 fn generate_token() -> String {
-    let mut bytes = [0u8; 32];
-    OsRng.fill_bytes(&mut bytes);
+    let bytes: [u8; 32] = rand::random();
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 

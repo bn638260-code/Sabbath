@@ -6,6 +6,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, Stream, StreamConfig};
 use crossbeam_channel::Sender;
 
+use crate::device::device_name;
 use crate::error::AudioError;
 use crate::types::{read_gain, AudioConfig, AudioFrame, GainHandle};
 
@@ -70,7 +71,7 @@ pub fn start(
                 AudioError::StreamError(format!("Failed to enumerate devices: {e}"))
             })?;
             for d in input_devices {
-                if let Ok(name) = d.name() {
+                if let Ok(name) = device_name(&d) {
                     log::info!("[AUDIO]   Available device: '{name}'");
                     if name == *id {
                         log::info!("[AUDIO]   ✓ MATCH: '{name}'");
@@ -91,10 +92,8 @@ pub fn start(
             let d = host
                 .default_input_device()
                 .ok_or(AudioError::NoInputDevices)?;
-            log::info!(
-                "[AUDIO] Using default device: '{}'",
-                &d.name().unwrap_or_default()
-            );
+            let default_device_name = device_name(&d).unwrap_or_default();
+            log::info!("[AUDIO] Using default device: '{}'", &default_device_name);
             d
         }
     };
@@ -103,7 +102,7 @@ pub fn start(
         .default_input_config()
         .map_err(|e| AudioError::StreamError(format!("Failed to get default input config: {e}")))?;
 
-    let source_sample_rate = supported_config.sample_rate().0;
+    let source_sample_rate = supported_config.sample_rate();
     let source_channels = supported_config.channels() as usize;
     let sample_format = supported_config.sample_format();
 

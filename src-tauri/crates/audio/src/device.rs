@@ -8,7 +8,9 @@ use crate::types::DeviceInfo;
 pub fn enumerate_devices() -> Result<Vec<DeviceInfo>, AudioError> {
     let host = cpal::default_host();
 
-    let default_device_name = host.default_input_device().and_then(|d| d.name().ok());
+    let default_device_name = host
+        .default_input_device()
+        .and_then(|d| device_name(&d).ok());
 
     let input_devices = host
         .input_devices()
@@ -17,9 +19,7 @@ pub fn enumerate_devices() -> Result<Vec<DeviceInfo>, AudioError> {
     let mut devices = Vec::new();
 
     for device in input_devices {
-        let name = device
-            .name()
-            .unwrap_or_else(|_| "Unknown Device".to_string());
+        let name = device_name(&device).unwrap_or_else(|_| "Unknown Device".to_string());
 
         let default_config = device.default_input_config().map_err(|e| {
             AudioError::StreamError(format!(
@@ -32,7 +32,7 @@ pub fn enumerate_devices() -> Result<Vec<DeviceInfo>, AudioError> {
         devices.push(DeviceInfo {
             id: name.clone(),
             name: name.clone(),
-            sample_rate: default_config.sample_rate().0,
+            sample_rate: default_config.sample_rate(),
             channels: default_config.channels(),
             is_default,
         });
@@ -43,4 +43,10 @@ pub fn enumerate_devices() -> Result<Vec<DeviceInfo>, AudioError> {
     }
 
     Ok(devices)
+}
+
+pub(crate) fn device_name(device: &cpal::Device) -> Result<String, cpal::DeviceNameError> {
+    device
+        .description()
+        .map(|description| description.name().to_string())
 }

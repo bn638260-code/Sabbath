@@ -5,7 +5,6 @@
 
 use std::path::{Path, PathBuf};
 
-use rand::Rng;
 use serde::Serialize;
 use tauri::AppHandle;
 
@@ -70,8 +69,7 @@ fn mime_for_extension(extension: &str) -> String {
 }
 
 fn random_file_name(extension: &str) -> String {
-    let mut rng = rand::thread_rng();
-    let random: u64 = rng.gen();
+    let random: u64 = rand::random();
     format!("{}-{random:016x}.{extension}", chrono_like_timestamp())
 }
 
