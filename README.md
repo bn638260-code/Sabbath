@@ -176,7 +176,7 @@ The key is stored in the OS keychain.
 
 #### Account verification (Supabase)
 
-SabbathCue gates the desktop app behind Supabase email/password auth. Each account may register up to **two devices**. Launch requires an active network connection — offline grace entry is not supported.
+SabbathCue gates the desktop app behind Supabase email/password auth. Each account may register up to **two devices**. First-time verification requires an active network connection; once verified, a session keeps working offline for up to **7 days** (offline grace) before it must reconnect.
 
 Add these variables to your local `.env` file (values from your Supabase project dashboard → Settings → API):
 

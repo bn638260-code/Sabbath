@@ -223,8 +223,8 @@ pub fn has_soniox_api_key_with_store(store: &dyn KeychainStore) -> Result<bool, 
 }
 
 #[command]
-pub fn set_soniox_api_key(api_key: String) -> Result<(), String> {
-    set_soniox_api_key_with_store(&DEFAULT_STORE, &api_key)
+pub fn set_soniox_api_key(api_key: &str) -> Result<(), String> {
+    set_soniox_api_key_with_store(&DEFAULT_STORE, api_key)
 }
 
 pub fn set_soniox_api_key_with_store(

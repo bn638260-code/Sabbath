@@ -27,6 +27,14 @@ const ACCESS_ENDED_MESSAGE =
 /** How long a previously verified session may keep working without connectivity. */
 export const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000
 
+/**
+ * Refresh the access token this many ms before it expires. The Supabase client
+ * runs with autoRefreshToken disabled, so the heartbeat refreshes explicitly;
+ * without this the register_device RPC would carry an expired JWT and its 401
+ * would be misread as a transient error, silently disabling revocation checks.
+ */
+const ACCESS_TOKEN_REFRESH_SKEW_MS = 60 * 1000
+
 function now(): number {
   return Date.now()
 }
@@ -269,6 +277,23 @@ export async function clearVerification(): Promise<VerificationStateSnapshot> {
  */
 export async function heartbeatDeviceRegistration(): Promise<VerificationStateSnapshot | null> {
   if (!isTauriRuntime()) return null
+
+  const cached = await getSessionMetadata()
+  if (
+    cached &&
+    now() > cached.accessTokenExpiresAt - ACCESS_TOKEN_REFRESH_SKEW_MS
+  ) {
+    const restored = await restoreSession()
+    if (!restored.ok) {
+      if (restored.code === "network") return null
+      await clearSessionMetadata()
+      return emptySnapshot("expired", restored.message)
+    }
+    await setSessionMetadata({
+      ...cached,
+      accessTokenExpiresAt: restored.accessTokenExpiresAt,
+    })
+  }
 
   const deviceId = await getOrCreateDeviceId()
   const registration = await registerDevice(

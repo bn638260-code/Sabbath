@@ -92,6 +92,25 @@ pub fn new_shared_status() -> SharedStatus {
     Arc::new(tokio::sync::RwLock::new(StatusSnapshot::default()))
 }
 
+/// Accept only loopback browser origins. Parses the origin and compares the host
+/// exactly so look-alikes such as `http://localhost.example` are rejected by the
+/// prefix-free check.
+fn is_loopback_origin(origin: &axum::http::HeaderValue) -> bool {
+    let Ok(value) = origin.to_str() else {
+        return false;
+    };
+    if value == "tauri://localhost" {
+        return true;
+    }
+    let Ok(uri) = value.parse::<axum::http::Uri>() else {
+        return false;
+    };
+    if uri.scheme_str() != Some("http") {
+        return false;
+    }
+    matches!(uri.host(), Some("localhost" | "127.0.0.1"))
+}
+
 /// Start the HTTP API server.
 ///
 /// Binds to `config.host:config.port` and serves the `/api/v1/` endpoints.
@@ -128,12 +147,7 @@ where
         // Only allow loopback origins. This is about browser-based callers; non-browser
         // local processes can call the API directly (but still need the bearer token).
         .allow_origin(tower_http::cors::AllowOrigin::predicate(
-            |origin, _parts| {
-                let Ok(s) = origin.to_str() else { return false };
-                s.starts_with("http://localhost")
-                    || s.starts_with("http://127.0.0.1")
-                    || s.starts_with("tauri://localhost")
-            },
+            |origin, _parts| is_loopback_origin(origin),
         ))
         .allow_methods([
             axum::http::Method::GET,
@@ -614,6 +628,25 @@ mod tests {
 
         let mut handle = result.handle;
         handle.stop();
+    }
+}
+
+#[cfg(test)]
+mod cors_origin_tests {
+    use super::is_loopback_origin;
+    use axum::http::HeaderValue;
+
+    #[test]
+    fn loopback_origin_matches_host_exactly() {
+        assert!(is_loopback_origin(&HeaderValue::from_static("http://localhost")));
+        assert!(is_loopback_origin(&HeaderValue::from_static("http://localhost:1420")));
+        assert!(is_loopback_origin(&HeaderValue::from_static("http://127.0.0.1:8000")));
+        assert!(is_loopback_origin(&HeaderValue::from_static("tauri://localhost")));
+
+        assert!(!is_loopback_origin(&HeaderValue::from_static("http://localhost.example")));
+        assert!(!is_loopback_origin(&HeaderValue::from_static("http://127.0.0.1.evil.com")));
+        assert!(!is_loopback_origin(&HeaderValue::from_static("https://localhost")));
+        assert!(!is_loopback_origin(&HeaderValue::from_static("http://evil.com")));
     }
 }
 

@@ -416,7 +416,7 @@ describe("verification-provider", () => {
     mockGetSessionMetadata.mockResolvedValue({
       verifiedUserId: "user-1",
       verifiedDeviceId: "device-1",
-      accessTokenExpiresAt: Date.now() + 60_000,
+      accessTokenExpiresAt: Date.now() + 3_600_000,
       lastVerifiedAt: Date.now() - 60_000,
       offlineGraceExpiresAt: Date.now() + 60_000,
       accessExpiresAt: Date.now() + 60_000,
@@ -460,5 +460,85 @@ describe("verification-provider", () => {
     expect(mockSupabaseSignOut).toHaveBeenCalled()
     expect(mockClearSessionMetadata).toHaveBeenCalled()
     expect(result.status).toBe("required")
+  })
+
+  it("heartbeat refreshes a stale access token before re-registering", async () => {
+    mockGetSessionMetadata.mockResolvedValue({
+      verifiedUserId: "user-1",
+      verifiedDeviceId: "device-1",
+      accessTokenExpiresAt: Date.now() - 1000,
+      lastVerifiedAt: Date.now() - 60_000,
+      offlineGraceExpiresAt: Date.now() + 1_000_000,
+      accessExpiresAt: Date.now() + 1_000_000,
+      verifiedEmail: "a@b.c",
+    })
+    mockRestoreSession.mockResolvedValue({
+      ok: true,
+      userId: "user-1",
+      email: "a@b.c",
+      refreshToken: "rotated",
+      accessTokenExpiresAt: Date.now() + 3_600_000,
+    })
+
+    const { heartbeatDeviceRegistration } = await import(
+      "@/lib/verification/verification-provider"
+    )
+    const result = await heartbeatDeviceRegistration()
+
+    expect(mockRestoreSession).toHaveBeenCalledTimes(1)
+    expect(mockRegisterDevice).toHaveBeenCalledTimes(1)
+    expect(result).toBeNull()
+  })
+
+  it("heartbeat blocks with expired when the refresh token is rejected", async () => {
+    mockGetSessionMetadata.mockResolvedValue({
+      verifiedUserId: "user-1",
+      verifiedDeviceId: "device-1",
+      accessTokenExpiresAt: Date.now() - 1000,
+      lastVerifiedAt: Date.now() - 60_000,
+      offlineGraceExpiresAt: Date.now() + 1_000_000,
+      accessExpiresAt: Date.now() + 1_000_000,
+      verifiedEmail: "a@b.c",
+    })
+    mockRestoreSession.mockResolvedValue({
+      ok: false,
+      code: "expired",
+      message: "Stored session is no longer valid.",
+    })
+
+    const { heartbeatDeviceRegistration } = await import(
+      "@/lib/verification/verification-provider"
+    )
+    const result = await heartbeatDeviceRegistration()
+
+    expect(result?.status).toBe("expired")
+    expect(mockClearSessionMetadata).toHaveBeenCalledTimes(1)
+    expect(mockRegisterDevice).not.toHaveBeenCalled()
+  })
+
+  it("heartbeat stays active (null) when the refresh fails on network", async () => {
+    mockGetSessionMetadata.mockResolvedValue({
+      verifiedUserId: "user-1",
+      verifiedDeviceId: "device-1",
+      accessTokenExpiresAt: Date.now() - 1000,
+      lastVerifiedAt: Date.now() - 60_000,
+      offlineGraceExpiresAt: Date.now() + 1_000_000,
+      accessExpiresAt: Date.now() + 1_000_000,
+      verifiedEmail: "a@b.c",
+    })
+    mockRestoreSession.mockResolvedValue({
+      ok: false,
+      code: "network",
+      message: "Unable to reach the authentication service.",
+    })
+
+    const { heartbeatDeviceRegistration } = await import(
+      "@/lib/verification/verification-provider"
+    )
+    const result = await heartbeatDeviceRegistration()
+
+    expect(result).toBeNull()
+    expect(mockClearSessionMetadata).not.toHaveBeenCalled()
+    expect(mockRegisterDevice).not.toHaveBeenCalled()
   })
 })

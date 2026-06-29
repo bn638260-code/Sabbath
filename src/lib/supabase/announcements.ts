@@ -24,6 +24,41 @@ export type AnnouncementActionResult =
   | { ok: true }
   | { ok: false; message: string }
 
+function isActiveAnnouncement(value: unknown): value is ActiveAnnouncement {
+  if (!value || typeof value !== "object") return false
+  const row = value as Record<string, unknown>
+  return (
+    typeof row.id === "string" &&
+    typeof row.title === "string" &&
+    typeof row.body === "string"
+  )
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string"
+}
+
+function isAdminAnnouncementStatus(
+  value: unknown
+): value is AdminAnnouncementRow["status"] {
+  return value === "draft" || value === "published" || value === "expired"
+}
+
+function isAdminAnnouncementRow(value: unknown): value is AdminAnnouncementRow {
+  if (!value || typeof value !== "object") return false
+  const row = value as Record<string, unknown>
+  return (
+    typeof row.id === "string" &&
+    typeof row.title === "string" &&
+    typeof row.body === "string" &&
+    isAdminAnnouncementStatus(row.status) &&
+    isNullableString(row.published_at) &&
+    isNullableString(row.expires_at) &&
+    typeof row.created_at === "string" &&
+    typeof row.updated_at === "string"
+  )
+}
+
 export async function fetchActiveAnnouncements(): Promise<
   | { ok: true; announcements: ActiveAnnouncement[] }
   | { ok: false; message: string }
@@ -37,7 +72,10 @@ export async function fetchActiveAnnouncements(): Promise<
         message: failureMessage(error, "Could not load announcements."),
       }
     }
-    return { ok: true, announcements: (data ?? []) as ActiveAnnouncement[] }
+    const announcements = Array.isArray(data)
+      ? data.filter(isActiveAnnouncement)
+      : []
+    return { ok: true, announcements }
   } catch {
     return { ok: false, message: "Unable to reach the announcements service." }
   }
@@ -56,7 +94,10 @@ export async function adminListAnnouncements(): Promise<
         message: failureMessage(error, "Could not load announcements."),
       }
     }
-    return { ok: true, announcements: (data ?? []) as AdminAnnouncementRow[] }
+    const announcements = Array.isArray(data)
+      ? data.filter(isAdminAnnouncementRow)
+      : []
+    return { ok: true, announcements }
   } catch {
     return { ok: false, message: "Unable to reach the announcements service." }
   }

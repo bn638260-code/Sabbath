@@ -44,6 +44,17 @@ export async function deleteOwnAccount(): Promise<AccountActionResult> {
   }
 }
 
+function isAdminAccountRow(value: unknown): value is AdminAccountRow {
+  if (!value || typeof value !== "object") return false
+  const row = value as Record<string, unknown>
+  return (
+    typeof row.user_id === "string" &&
+    typeof row.suspended === "boolean" &&
+    typeof row.device_count === "number" &&
+    typeof row.is_admin === "boolean"
+  )
+}
+
 export async function adminListAccounts(): Promise<
   { ok: true; accounts: AdminAccountRow[] } | { ok: false; message: string }
 > {
@@ -56,7 +67,8 @@ export async function adminListAccounts(): Promise<
         message: failureMessage(error, "Could not load accounts."),
       }
     }
-    return { ok: true, accounts: (data ?? []) as AdminAccountRow[] }
+    const accounts = Array.isArray(data) ? data.filter(isAdminAccountRow) : []
+    return { ok: true, accounts }
   } catch {
     return { ok: false, message: "Unable to reach the account service." }
   }

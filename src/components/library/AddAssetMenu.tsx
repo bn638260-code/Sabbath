@@ -119,10 +119,8 @@ export function AddAssetMenu({ onCreateSong }: AddAssetMenuProps) {
   const importVideo = async () => {
     const selected = await pickLibraryVideoPath()
     if (!selected) return
-    const [validated, metadata] = await Promise.all([
-      validateLibraryVideoPath(selected),
-      readVideoMetadata(convertTauriFileSrc(selected)),
-    ])
+    const validated = await validateLibraryVideoPath(selected)
+    const metadata = await readVideoMetadata(convertTauriFileSrc(selected))
     addAsset({
       id: crypto.randomUUID(),
       name: validated.label.replace(/\.[^.]+$/, ""),

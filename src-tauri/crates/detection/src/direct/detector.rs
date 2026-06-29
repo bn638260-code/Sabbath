@@ -507,7 +507,7 @@ fn is_hymn_or_song_number_command(text: &str) -> bool {
         }
 
         let mut number_start = index + 1;
-        if matches!(tokens.get(number_start), Some(&"number") | Some(&"nommer")) {
+        if matches!(tokens.get(number_start), Some(&("number" | "nommer"))) {
             number_start += 1;
         }
 

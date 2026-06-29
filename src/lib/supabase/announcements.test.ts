@@ -52,6 +52,99 @@ describe("announcements supabase lib", () => {
     expect(mockRpc).toHaveBeenCalledWith("fetch_active_announcements")
   })
 
+  it("adminListAnnouncements returns valid admin rows", async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          id: "a1",
+          title: "Hello",
+          body: "World",
+          status: "draft",
+          published_at: null,
+          expires_at: "2026-07-01T00:00:00.000Z",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-02T00:00:00.000Z",
+        },
+      ],
+      error: null,
+    })
+
+    const { adminListAnnouncements } =
+      await import("@/lib/supabase/announcements")
+    const result = await adminListAnnouncements()
+
+    expect(result).toEqual({
+      ok: true,
+      announcements: [
+        {
+          id: "a1",
+          title: "Hello",
+          body: "World",
+          status: "draft",
+          published_at: null,
+          expires_at: "2026-07-01T00:00:00.000Z",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-02T00:00:00.000Z",
+        },
+      ],
+    })
+    expect(mockRpc).toHaveBeenCalledWith("admin_list_announcements")
+  })
+
+  it("adminListAnnouncements filters malformed admin rows", async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          id: "a1",
+          title: "Hello",
+          body: "World",
+          status: "published",
+          published_at: null,
+          expires_at: null,
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-02T00:00:00.000Z",
+        },
+        {
+          id: "a2",
+          title: "Broken",
+          body: "World",
+          status: "archived",
+          published_at: null,
+          expires_at: null,
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-02T00:00:00.000Z",
+        },
+        {
+          id: "a3",
+          title: "Missing dates",
+          body: "World",
+          status: "draft",
+        },
+      ],
+      error: null,
+    })
+
+    const { adminListAnnouncements } =
+      await import("@/lib/supabase/announcements")
+    const result = await adminListAnnouncements()
+
+    expect(result).toEqual({
+      ok: true,
+      announcements: [
+        {
+          id: "a1",
+          title: "Hello",
+          body: "World",
+          status: "published",
+          published_at: null,
+          expires_at: null,
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-02T00:00:00.000Z",
+        },
+      ],
+    })
+  })
+
   it("adminCreateAnnouncement returns the new id", async () => {
     mockRpc.mockResolvedValue({ data: "new-id", error: null })
 

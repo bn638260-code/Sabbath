@@ -168,6 +168,7 @@ pub(crate) fn looks_like_complete_reference(text: &str) -> bool {
         || (lower.contains(" hoofstuk ") && has_numberish(&lower))
 }
 
+#[expect(clippy::too_many_lines, reason = "book hint list is data, not logic")]
 fn contains_book_hint(lower: &str) -> bool {
     const BOOK_HINTS: &[&str] = &[
         "genesis",

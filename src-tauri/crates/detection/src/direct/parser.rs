@@ -310,8 +310,8 @@ fn try_chapter_verse_spoken(tokens: &[Token], book_match: &BookMatch) -> Option<
                     // "let's go to chapter 3 verse 2 to verse 3"
                     let scan_limit = (next_idx + 15).min(tokens.len());
                     for j in next_idx..scan_limit {
-                        if let Some((verse, verse_next)) = consume_colon_damaged_verse(&tokens, j) {
-                            let verse_end = scan_verse_end(&tokens, verse_next);
+                        if let Some((verse, verse_next)) = consume_colon_damaged_verse(tokens, j) {
+                            let verse_end = scan_verse_end(tokens, verse_next);
                             return Some(VerseRef {
                                 book_number: book_match.book_number,
                                 book_name: book_match.book_name.clone(),

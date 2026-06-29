@@ -6,8 +6,9 @@ import {
   WINDOWS_INSTALLER_EXPECTED_BYTES,
   WINDOWS_INSTALLER_R2_OBJECT_KEY,
   WINDOWS_INSTALLER_SAVE_AS,
-  WINDOWS_INSTALLER_VERSION,
 } from "./windows-installer-download";
+
+const RUN_NETWORK_TESTS = process.env.RUN_NETWORK_TESTS === "1";
 
 describe("windows-installer-download", () => {
   it("builds the encoded Cloudflare R2 URL for the current object key", () => {
@@ -30,13 +31,17 @@ describe("windows-installer-download", () => {
     expect(WINDOWS_INSTALLER_SAVE_AS).not.toContain("(");
   });
 
-  it("HEAD-checks the live R2 installer (network)", async () => {
-    const result = await verifyWindowsInstallerDownload();
-    expect(result.ok, result.ok ? undefined : result.reason).toBe(true);
-    if (result.ok) {
-      expect(result.bytes).toBeGreaterThanOrEqual(200 * 1024 * 1024);
-      expect(result.bytes).toBe(WINDOWS_INSTALLER_EXPECTED_BYTES);
-      expect(result.contentType).toContain("application/x-msdownload");
-    }
-  }, 30000);
+  it.runIf(RUN_NETWORK_TESTS)(
+    "HEAD-checks the live R2 installer (network)",
+    async () => {
+      const result = await verifyWindowsInstallerDownload();
+      expect(result.ok, result.ok ? undefined : result.reason).toBe(true);
+      if (result.ok) {
+        expect(result.bytes).toBeGreaterThanOrEqual(200 * 1024 * 1024);
+        expect(result.bytes).toBe(WINDOWS_INSTALLER_EXPECTED_BYTES);
+        expect(result.contentType).toContain("application/x-msdownload");
+      }
+    },
+    30000
+  );
 });
