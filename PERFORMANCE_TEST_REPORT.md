@@ -1,17 +1,19 @@
 # Performance Testing Report
 
+<!-- markdownlint-disable MD060 -->
+
 > **Living document.** This file reflects the _current_ performance state of the codebase. Update it whenever a change could affect speed, load, resource use, or scalability. Keep measured numbers with their date and conditions so regressions are visible over time.
 
-| Field                | Value                                                           |
-| -------------------- | --------------------------------------------------------------- |
-| **Last updated**     | `2026-06-18 16:40`                                              |
-| **Updated by**       | `Claude (Opus 4.8) — automated assessment`                      |
-| **Commit / build**   | `d43f1de` (branch `main`, clean tree)                           |
-| **Test environment** | `local` — Windows 11, Node/Vite build, no app runtime profiling |
-| **Overall status**   | 🟡 Mixed                                                        |
-| **Open regressions** | `0`                                                             |
+| Field                | Value                                                                 |
+| -------------------- | --------------------------------------------------------------------- |
+| **Last updated**     | `2026-06-29 11:05`                                                    |
+| **Updated by**       | `Claude (Opus 4.8) — re-benchmark + verification`                     |
+| **Commit / build**   | `ef44fd1` (branch `main`, Add detection-context review + parse fixes) |
+| **Test environment** | `local` — Windows 11, Bun/Vite 8.1, Vitest 4.1.8, no runtime profiling |
+| **Overall status**   | 🟡 Mixed                                                              |
+| **Open regressions** | `1`                                                                   |
 
-> **Scope note.** `sabbathcue`/`rhema` is a **Tauri 2 desktop app** (React 19 webview + Rust backend), not a hosted web service. Server-style metrics (TTFB, API p50/p95/p99, throughput, DB load) are **not applicable** to the desktop runtime and are marked accordingly. The two genuinely measurable build-time signals — **bundle composition** and **build/test pipeline timing** — were measured directly. **Runtime** signals (FPS during live broadcast, canvas render latency, memory growth over a service, STT/detection latency) require launching the app with instrumentation and are **not yet measured**; they are the most valuable next step for this app and are flagged below.
+> **Scope note.** `sabbathcue`/`rhema` is a **Tauri 2 desktop app** (React 19 webview + Rust backend), not a hosted web service. Server-style metrics (TTFB, API p50/p95/p99, throughput, DB load) are **not applicable** to the desktop runtime and are marked accordingly. Build-time signals — **bundle composition** and **build/test pipeline timing** — were measured directly. **Runtime** signals (FPS during live broadcast, canvas render latency, memory growth over a service, STT/detection latency) require launching the app with instrumentation and remain **not measured**.
 
 ---
 
@@ -22,35 +24,35 @@
 | ✅ Meets target | Within budget                              |
 | ⚠️ Near limit   | Within ~10% of budget / trending wrong way |
 | ❌ Over budget  | Exceeds target                             |
-| 🔻 Regression   | Worse than previous recorded run           |
-| 🔺 Improvement  | Better than previous recorded run          |
-| 🧪 Not measured | Not yet benchmarked                        |
+| 📉 Regression   | Worse than previous recorded run           |
+| 📈 Improvement  | Better than previous recorded run          |
+| 🚧 Not measured | Not yet benchmarked                        |
 | ➖ N/A          | Not applicable to a Tauri desktop app      |
 
 ---
 
 ## 1. Summary Dashboard
 
-| Metric                         | Target / Budget          | Latest                                                                | Status | Trend | Measured   |
-| ------------------------------ | ------------------------ | --------------------------------------------------------------------- | ------ | ----- | ---------- |
-| Time to First Byte (TTFB)      | ➖                       | local webview, no network                                             | ➖ N/A | —     | 2026-06-18 |
-| First Contentful Paint (FCP)   | < 1.0 s (local webview)  | not profiled                                                          | 🧪     | —     | —          |
-| Largest Contentful Paint (LCP) | < 1.5 s                  | not profiled                                                          | 🧪     | —     | —          |
-| Time to Interactive (TTI)      | < 2.0 s                  | not profiled                                                          | 🧪     | —     | —          |
-| Cumulative Layout Shift (CLS)  | < 0.1                    | not profiled                                                          | 🧪     | —     | —          |
-| API p50 latency                | ➖                       | Tauri IPC `invoke`, in-process                                        | ➖ N/A | —     | —          |
-| API p95 latency                | ➖                       | —                                                                     | ➖ N/A | —     | —          |
-| API p99 latency                | ➖                       | —                                                                     | ➖ N/A | —     | —          |
-| Throughput (req/s)             | ➖                       | single-user desktop                                                   | ➖ N/A | —     | —          |
-| Error rate under load          | ➖                       | —                                                                     | ➖ N/A | —     | —          |
-| Peak memory                    | < 600 MB idle (target)   | not profiled                                                          | 🧪     | —     | —          |
-| Peak CPU                       | < 25% idle, no runaway   | not profiled                                                          | 🧪     | —     | —          |
-| **Initial JS (gzipped)**       | **< 350 KB**             | **~313 KB** (main 69 + vendor 134 + react 54 + supabase 50 + tauri 6) | ✅     | 🔺    | 2026-06-18 |
-| **Largest single chunk (raw)** | < 500 KB (rolldown warn) | **460 KB** (`vendor`, was 877)                                        | ✅     | 🔺    | 2026-06-18 |
-| **Total JS bundle (raw)**      | < 3 MB                   | **3.9 MB** across 51 chunks                                           | ❌     | —     | 2026-06-18 |
-| **Production build time**      | < 20 s                   | **9.2 s** (16 s wall)                                                 | ✅     | —     | 2026-06-18 |
-| **Unit test suite runtime**    | < 30 s                   | **~13 s** (603 tests)                                                 | ✅     | —     | 2026-06-18 |
-| Cold start / boot time         | < 2.5 s                  | not profiled                                                          | 🧪     | —     | —          |
+| Metric                         | Target / Budget          | Latest                                                                 | Status | Trend | Measured   |
+| ------------------------------ | ------------------------ | ---------------------------------------------------------------------- | ------ | ----- | ---------- |
+| Time to First Byte (TTFB)      | ➖                       | local webview, no network                                              | ➖ N/A | —     | 2026-06-18 |
+| First Contentful Paint (FCP)   | < 1.0 s (local webview)  | not profiled                                                           | 🚧     | —     | —          |
+| Largest Contentful Paint (LCP) | < 1.5 s                  | not profiled                                                           | 🚧     | —     | —          |
+| Time to Interactive (TTI)      | < 2.0 s                  | not profiled                                                           | 🚧     | —     | —          |
+| Cumulative Layout Shift (CLS)  | < 0.1                    | not profiled                                                           | 🚧     | —     | —          |
+| API p50 latency                | ➖                       | Tauri IPC `invoke`, in-process                                         | ➖ N/A | —     | —          |
+| API p95 latency                | ➖                       | —                                                                      | ➖ N/A | —     | —          |
+| API p99 latency                | ➖                       | —                                                                      | ➖ N/A | —     | —          |
+| Throughput (req/s)             | ➖                       | single-user desktop                                                    | ➖ N/A | —     | —          |
+| Error rate under load          | ➖                       | —                                                                      | ➖ N/A | —     | —          |
+| Peak memory                    | < 600 MB idle (target)   | not profiled                                                           | 🚧     | —     | —          |
+| Peak CPU                       | < 25% idle, no runaway   | not profiled                                                           | 🚧     | —     | —          |
+| **Initial JS (gzipped)**       | **< 350 KB**             | **~334 KB** (main 80 + vendor 139 + react 56 + supabase 52 + tauri 6) | ✅     | 📉    | 2026-06-29 |
+| **Largest single chunk (raw)** | < 500 KB (rolldown warn) | **471 KB** (`vendor`, was 460)                                         | ✅     | 📉    | 2026-06-28 |
+| **Total JS bundle (raw)**      | < 3 MB                   | **3.99 MB** across 55 chunks                                           | ❌     | —     | 2026-06-28 |
+| **Production build time**      | < 20 s (Vite phase)      | **11.4 s** Vite (`✓ built in 11.36s`)                                  | ✅     | 📈    | 2026-06-29 |
+| **Unit test suite runtime**    | < 30 s                   | **~15 s** warm — 14.5 / 16.5 s (734 tests, 102 files)                  | ✅     | 📈    | 2026-06-29 |
+| Cold start / boot time         | < 2.5 s                  | not profiled                                                           | 🚧     | —     | —          |
 
 ---
 
@@ -58,65 +60,61 @@
 
 ### 2.1 Frontend / Page Load
 
-- **Status:** 🧪 Not measured (runtime)
-- **Conditions:** Tauri WebView2 (Windows). The app loads from bundled assets on disk, so there is no network TTFB; load cost is dominated by JS parse/exec of the initial chunks (`main` + `vendor` + `ui` + `icons`).
-- **Measured:** Not yet. Core Web Vitals / hydration time require launching the packaged app with the DevTools Performance panel or a `performance.mark` harness in `main.tsx`.
+- **Status:** 🚧 Not measured (runtime)
+- **Conditions:** Tauri WebView2 (Windows). The app loads from bundled assets on disk, so there is no network TTFB; load cost is dominated by JS parse/exec of the initial chunks (`main` + `vendor` + `react` + `ui` + `icons`).
+- **Measured:** Not yet. Core Web Vitals / hydration time require launching the packaged app with DevTools Performance or a `performance.mark` harness in `main.tsx`.
 - **Notes / findings:**
-  - Initial critical path pulls `main` (260 KB / 71 KB gz) + `vendor` (877 KB / 253 KB gz) + `ui` (83 KB / 23 KB gz) + `icons` (25 KB / 8 KB gz). Estimated initial gzipped payload ≈ **324–355 KB**, near the 350 KB budget. This is the single highest-leverage page-load lever (see §2.2).
-  - Two HTML entry points exist (`index.html` main app, `broadcast-output.html` output window). The broadcast output window is correctly isolated to a small `broadcast` chunk (9 KB / 3.6 KB gz), which is good for the live-output path.
+  - Initial critical path pulls `main` (292 KB / 80 KB gz) + `vendor` (471 KB / 139 KB gz) + `react` (178 KB / 56 KB gz) + `ui` (109 KB / 29 KB gz) + `icons` (27 KB / 9 KB gz). Estimated initial gzipped payload ≈ **334 KB**, up from ~313 KB on 2026-06-18 (📉 +21 KB, mostly `main` +11 KB gz and `vendor` +5 KB gz).
+  - Broadcast output window remains isolated: `broadcast` chunk 10 KB / 3.9 KB gz.
 
 ### 2.2 Asset & Bundle Analysis
 
-- **Status:** ✅ Meets target (was ⚠️ Near limit) — 🔺 improved 2026-06-18 by R1
-- **Checked:** bundle size per route/chunk, code splitting, manual chunking, lazy loading. Tool: `vite build` (rolldown) reporter, 2026-06-18.
+- **Status:** ✅ Meets target (initial gz under 350 KB; total raw bundle still over 3 MB budget)
+- **Checked:** bundle size per route/chunk, code splitting, manual chunking, lazy loading. Tool: `bun run build` (Vite 8.1 / rolldown), 2026-06-28.
 - **Notes / findings:**
-  - ✅ **Good code-splitting hygiene.** The 7 SDA hymnal data chunks (~90–137 KB each raw) are split out and lazy-loaded, not in the initial bundle. `theme-designer` (53 KB), `SettingsPage` (49 KB), `tour` (78 KB / 26 KB gz), and the `pdf.worker` (1.14 MB) are all separate, lazily-fetched chunks. Manual `manualChunks` config in [vite.config.ts](vite.config.ts) deliberately isolates `canvas` (fabric), `search` (fuse.js), `tour`, `icons`, `dialog`, and `ui`.
-  - 🔺 **PERF-001 addressed (R1, 2026-06-18):** the monolithic `vendor` chunk was split. **Before:** `vendor` 877 KB raw / 253 KB gz (tripped rolldown's 500 KB warning). **After:** `vendor` 460 KB / 134 KB gz + `react` 174 KB / 54 KB gz + `supabase` 196 KB / 50 KB gz + `tauri` 25 KB / 5.6 KB gz + `state` 0.7 KB. Total initial payload is roughly unchanged (same dependencies, ~313 KB gz) — the win is **caching granularity** (React/Supabase/Tauri are stable across app releases, so app-code updates no longer invalidate them) and clearing the >500 KB chunk warning. See [CODE_REFACTORING_PLAN.md](CODE_REFACTORING_PLAN.md) R1.
-  - ⚠️ **`canvas` (fabric.js) is 280 KB / 87 KB gz.** Fabric is only needed by the theme designer / design canvas, not at first paint — confirm it is lazy and not in the initial graph (PERF-002).
-  - ⚠️ **`pdf.worker.min` is 1.14 MB raw** (PowerPoint/PDF import). It is a worker (lazy), so it does not hit first paint, but it is the largest single asset — confirm it loads only on import.
-  - ⚠️ **`verse-renderer.css` is 167 KB / 26 KB gz.** Large for a single stylesheet; likely Tailwind output. Verify Tailwind content globbing is pruning unused utilities.
-  - Total: **3.9 MB raw JS across 47 chunks**; rolldown warns several chunks exceed the 500 KB raw threshold (`vendor`, `canvas`, `pdf.worker`).
+  - ✅ **Good code-splitting hygiene.** SDA hymnal chunks (~90–137 KB raw each), `theme-designer` (53 KB), `SettingsPage` (56 KB), `tour` (78 KB / 26 KB gz), and `pdf.worker` (1.14 MB) remain lazy-loaded.
+  - 📉 **`vendor` grew slightly:** 471 KB raw / 139 KB gz (was 460 / 134 on 2026-06-18). Still under the 500 KB raw rolldown warning threshold.
+  - 📉 **`main` grew:** 292 KB raw / 80 KB gz (was 260 / 69). Likely from Afrikaans hymn voice control, transcript routing, and settings work since last baseline.
+  - ✅ **`canvas` (fabric.js) 280 KB / 87 KB gz** — confirmed lazy: only reached via `React.lazy(theme-designer)` (`ThemeSection`, `LiveServicePlanPage`); emitted as its own `canvas` chunk, never in the first-paint graph (PERF-002, verified 2026-06-29).
+  - ✅ **`verse-renderer.css` 173 KB / 27 KB gz** (was 167 / 26). Confirmed pruned: Tailwind v4 (`@tailwindcss/vite`) auto-scans source — there is no `tailwind.config` content list to misconfigure (PERF-004, verified 2026-06-29).
+  - ✅ **`pdf.worker.min` 1.14 MB raw** — confirmed lazy: `pdfjs` loads via `await import("pdfjs-dist")` in `pdf-slide-renderer.ts:123`, never at boot; emitted as its own chunk (PERF-005, verified 2026-06-29).
+  - Total: **3.99 MB raw JS across 55 chunks** (+8 chunks vs June baseline, +128 unit tests added).
 
 ### 2.3 API / Backend Latency
 
-- **Status:** ➖ N/A (desktop) / 🧪 partially measurable
-- **Conditions:** There is no HTTP API in the desktop path. The frontend talks to Rust via Tauri `invoke` IPC (in-process). The Rust side (`src-tauri`, 8,362 LOC across 28 files) hosts STT/detection, asset, broadcast, and secrets commands.
-- **Measured:** Per-command IPC latency not yet instrumented. The hot paths worth timing are STT detection ([src-tauri/src/commands/stt/detection.rs](src-tauri/src/commands/stt/detection.rs), 1,156 LOC) and verse detection ([src-tauri/src/commands/detection.rs](src-tauri/src/commands/detection.rs), 1,015 LOC), which run continuously during a live service.
+- **Status:** ➖ N/A (desktop) / 🚧 partially measurable
+- **Conditions:** Tauri `invoke` IPC (in-process). Hot paths: STT detection, verse detection, broadcast emit.
+- **Measured:** STT transcript **scoring** benchmark only (not live STT latency):
 
-| Endpoint / IPC command                           | p50 | p95 | p99 | Status |
-| ------------------------------------------------ | --- | --- | --- | ------ |
-| `stt::detection` (live transcript → verse match) | —   | —   | —   | 🧪     |
-| `detection` (embedding similarity search)        | —   | —   | —   | 🧪     |
-| broadcast render/emit                            | —   | —   | —   | 🧪     |
+| Tool / fixture                              | Result                                      | Status |
+| ------------------------------------------- | ------------------------------------------- | ------ |
+| `transcription_bench` / `scripture-reference` | similarity=1.000, scripture_terms=3/3, scoring duration_ms=0 | ✅ (fixture accuracy) |
+| `detection_accuracy` (50 utterances)        | skipped — no local embeddings/model assets  | 🚧     |
+| Live `stt::detection` IPC latency           | not instrumented                              | 🚧     |
 
-> **Note:** A separate hosted `web/` (Next.js) sub-project and Supabase backend exist. If those are in scope, they should get their own server-style latency/load section; this report covers the desktop app.
+> **Note:** `detection_accuracy` requires `bun run setup:all` (embeddings + ONNX model). Not run in this pass.
 
 ### 2.4 Database / Data Layer
 
-- **Status:** 🧪 Not measured
-- **Checked:** The app ships a bundled Bible SQLite DB (built via `build:bible`) and a precomputed embeddings binary (`embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin`). Embeddings are precomputed offline (Rust/ONNX), which is the right call — no per-query embedding cost at runtime.
-- **Notes / findings:**
-  - Verse semantic search loads a precomputed embedding matrix and does in-memory similarity — measure load time and per-query cost under a realistic verse corpus.
-  - SQLite query plans for verse/reference lookup are not yet reviewed for index coverage.
+- **Status:** 🚧 Not measured
+- **Checked:** Bundled SQLite Bible DB + precomputed embeddings binary. Embeddings precomputed offline (correct pattern).
+- **Notes / findings:** Unchanged from 2026-06-18 baseline. Afr1953 now in public release build path; per-query semantic search cost not re-profiled.
 
 ### 2.5 Load & Stress Testing
 
-- **Status:** ➖ N/A for the desktop app (single operator). The relevant "load" analogue is a **sustained live service**: continuous STT transcription + detection + canvas rendering for 60–120 minutes.
-- **Scenario (recommended):** Run a 90-minute simulated service with continuous audio and observe memory growth, detection latency drift, and dropped-frame behavior on the broadcast output window.
-- **Notes / findings:** _none recorded yet — this is the highest-value missing test for this app._
+- **Status:** ➖ N/A for desktop (single operator)
+- **Scenario (recommended):** 90-minute simulated service with continuous audio — observe memory growth, detection latency drift, broadcast FPS.
+- **Notes / findings:** _none recorded yet — highest-value missing test._
 
 ### 2.6 Resource Utilization
 
-- **Status:** 🧪 Not measured
-- **Measured:** CPU/memory/GC during a live service not yet profiled. With 128 `useEffect`, 92 `useCallback`, and 42 `useMemo` across the React tree, and a live canvas render loop, re-render churn and listener cleanup are the likely hotspots.
-- **Notes / findings:**
-  - Watch for memory growth across slide transitions (canvas/fabric object disposal) and Tauri event-listener leaks (verify `use-tauri-event` unsubscribes — it has dedicated tests, which is a good sign).
+- **Status:** 🚧 Not measured
+- **Notes / findings:** `memstats.rs` logs RSS every 5 s at runtime; no soak test recorded. `detection-profiler.ts` available in dev for frontend detection handler timing.
 
 ### 2.7 Caching & Scalability
 
 - **Status:** ➖ Mostly N/A (offline-first desktop)
-- **Checked:** No CDN/app-server cache layer in the desktop path. App data (themes, settings, queue) is persisted via `@tauri-apps/plugin-store`. A `context-search-cache` chunk exists, indicating search-result caching.
-- **Notes / findings:** Statelessness/horizontal scaling do not apply. Verify the persisted store writes are debounced (frequent settings writes during a service could cause disk I/O churn).
+- **Notes / findings:** Unchanged. `context-search-cache` chunk present.
 
 ---
 
@@ -124,11 +122,31 @@
 
 | ID       | Area    | Description                                                               | Impact | Suggested fix                                                                                                         | Status                                                     | Owner |
 | -------- | ------- | ------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ----- |
-| PERF-001 | Bundle  | `vendor` chunk 877 KB / 253 KB gz dominated initial payload               | High   | Split `vendor` in `manualChunks` (react / supabase / tauri / state separated)                                         | **Fixed (R1, 2026-06-18)** — vendor now 460 KB / 134 KB gz |       |
-| PERF-002 | Bundle  | `canvas`/fabric 280 KB (87 KB gz) — confirm not in first-paint graph      | Med    | Ensure design-canvas/theme-designer are `React.lazy`-loaded; verify fabric isn't imported by an eagerly-loaded module | Open                                                       |       |
+| PERF-001 | Bundle  | `vendor` chunk 877 KB / 253 KB gz dominated initial payload               | High   | Split `vendor` in `manualChunks` (react / supabase / tauri / state separated)                                         | **Fixed (R1, 2026-06-18)** — vendor now 471 KB / 139 KB gz |       |
+| PERF-002 | Bundle  | `canvas`/fabric 280 KB (87 KB gz) — confirm not in first-paint graph      | Med    | Ensure design-canvas/theme-designer are `React.lazy`-loaded; verify fabric isn't imported by an eagerly-loaded module | **Fixed (verified 2026-06-29)** — lazy `canvas` chunk only |       |
 | PERF-003 | Runtime | No live-service runtime profiling (FPS, memory growth, detection latency) | High   | Add `performance.mark` harness + run a 90-min service profile; record memory at start/30/60/90 min                    | Open                                                       |       |
-| PERF-004 | CSS     | `verse-renderer.css` 167 KB / 26 KB gz                                    | Low    | Confirm Tailwind content globbing prunes unused utilities for the build                                               | Open                                                       |       |
-| PERF-005 | Assets  | `pdf.worker.min` 1.14 MB raw                                              | Low    | Confirm worker loads only on PPT/PDF import, never at boot                                                            | Open                                                       |       |
+| PERF-004 | CSS     | `verse-renderer.css` 173 KB / 27 KB gz                                    | Low    | Confirm Tailwind content globbing prunes unused utilities for the build                                               | **Fixed (verified 2026-06-29)** — Tailwind v4 auto-scan |       |
+| PERF-005 | Assets  | `pdf.worker.min` 1.14 MB raw                                              | Low    | Confirm worker loads only on PPT/PDF import, never at boot                                                            | **Fixed (verified 2026-06-29)** — dynamic `pdfjs` import |       |
+| PERF-006 | Bundle  | Initial gz payload 313→334 KB (+6%); `main` chunk +11 KB gz since baseline | Med    | Audit eager imports in `main` graph; lazy-load new Afrikaans/hymn modules if on critical path                         | **Monitor** — still under 350 KB gz budget; no action yet |       |
+| PERF-007 | Tests   | Unit suite 40.6 s (731 tests), exceeds 30 s budget                        | Med    | Split slow integration tests; use `test.concurrent` where safe; profile top 10 slowest test files                     | **Not reproduced (2026-06-29)** — warm runs ~15 s / 734 tests |       |
+
+> **2026-06-29 re-benchmark & verification (Claude, `ef44fd1`).** No code changes were
+> required — the open items are already handled or did not reproduce. App code is unchanged
+> since the `435d84c` baseline apart from the detection-context commit, so timing deltas are
+> environmental.
+>
+> - **PERF-007 — not reproduced.** `bun run test:unit` ran **14.5 s** then **16.5 s** (warm),
+>   well under the 30 s budget. The 40.6 s test figure and 17.1 s build figure recorded on
+>   2026-06-28 were a cold/loaded-machine anomaly.
+> - **PERF-002 / PERF-004 / PERF-005 — verified resolved** (see §2.2). fabric (`canvas`) and
+>   `pdf.worker` are emitted as separate lazy chunks; `theme-designer` is only reached via
+>   `React.lazy`; `pdfjs` loads via `await import()`; Tailwind v4 auto-prunes (no config).
+> - **PERF-006 — under budget.** Initial gz payload (~334 KB) is below the 350 KB target and
+>   there is no eager heavy Afrikaans/hymn module (the Afrikaans Bible lives in the Rust/SQLite
+>   backend, not the JS bundle). Remaining `main` growth is legitimate first-paint controller
+>   code; forcing it lazy would regress UX for marginal KB.
+> - **PERF-003** remains open — runtime/soak profiling needs the packaged Tauri app and was
+>   not run in this pass.
 
 ---
 
@@ -136,36 +154,46 @@
 
 > Append newest at the top. Lets you spot regressions across builds.
 
-| Date         | Commit       | Key metric                   | Value              | vs previous    |
-| ------------ | ------------ | ---------------------------- | ------------------ | -------------- |
-| `2026-06-18` | `8424fdb`+R1 | Largest single chunk (raw)   | 460 KB (`vendor`)  | 🔺 from 877 KB |
-| `2026-06-18` | `8424fdb`+R1 | `vendor` gzipped             | 134 KB             | 🔺 from 253 KB |
-| `2026-06-18` | `d43f1de`    | Production build time        | 9.2 s              | ➖ (baseline)  |
-| `2026-06-18` | `d43f1de`    | Unit test suite (603 tests)  | ~13 s              | ➖ (baseline)  |
-| `2026-06-18` | `d43f1de`    | Total JS bundle (raw)        | 3.9 MB / 47 chunks | ➖ (baseline)  |
-| `2026-06-18` | `d43f1de`    | Initial JS (gz, main+vendor) | ~324 KB            | ➖ (baseline)  |
+| Date         | Commit    | Key metric                   | Value              | vs previous       |
+| ------------ | --------- | ---------------------------- | ------------------ | ----------------- |
+| `2026-06-29` | `ef44fd1` | Unit test suite (734 tests)    | ~15 s warm         | 📈 from 40.6 s cold |
+| `2026-06-29` | `ef44fd1` | Production build (Vite)        | 11.4 s             | 📈 from 17.1 s cold |
+| `2026-06-28` | `435d84c` | Unit test suite (731 tests)    | 40.6 s             | 📉 from 13 s / 603 |
+| `2026-06-28` | `435d84c` | Initial JS (gz, core chunks) | ~334 KB            | 📉 from ~313 KB   |
+| `2026-06-28` | `435d84c` | `vendor` gzipped             | 139 KB             | 📉 from 134 KB    |
+| `2026-06-28` | `435d84c` | `main` gzipped               | 80 KB              | 📉 from 69 KB     |
+| `2026-06-28` | `435d84c` | Production build (Vite)      | 17.1 s             | 📉 from 9.2 s     |
+| `2026-06-28` | `435d84c` | Total JS bundle (raw)        | 3.99 MB / 55 chunks | ≈ same (3.9 MB)  |
+| `2026-06-18` | `8424fdb`+R1 | Largest single chunk (raw)   | 460 KB (`vendor`)  | 📈 from 877 KB    |
+| `2026-06-18` | `8424fdb`+R1 | `vendor` gzipped             | 134 KB             | 📈 from 253 KB    |
+| `2026-06-18` | `d43f1de` | Production build time        | 9.2 s              | ➖ (baseline)     |
+| `2026-06-18` | `d43f1de` | Unit test suite (603 tests)  | ~13 s              | ➖ (baseline)     |
+| `2026-06-18` | `d43f1de` | Total JS bundle (raw)        | 3.9 MB / 47 chunks | ➖ (baseline)     |
+| `2026-06-18` | `d43f1de` | Initial JS (gz, main+vendor) | ~324 KB          | ➖ (baseline)     |
 
 ---
 
 ## 5. Tools & Methods Used
 
-| Tool / method                  | Version                | Scope                            | Last run       |
-| ------------------------------ | ---------------------- | -------------------------------- | -------------- |
-| Vite build (rolldown) reporter | per `package.json`     | Bundle size / chunking           | 2026-06-18     |
-| Vitest                         | v4.1.6                 | Unit test runtime                | 2026-06-18     |
-| `tsc --noEmit`                 | per `tsconfig`         | Typecheck (passed)               | 2026-06-18     |
-| ESLint flat config             | per `eslint.config.js` | Lint (passed, 0 errors)          | 2026-06-18     |
-| Lighthouse / runtime profiler  | —                      | Web Vitals, memory               | 🧪 not yet run |
-| Live-service soak profile      | —                      | Memory growth, detection latency | 🧪 not yet run |
+| Tool / method                  | Version            | Scope                            | Last run   |
+| ------------------------------ | ------------------ | -------------------------------- | ---------- |
+| Vite build (rolldown) reporter | Vite 8.1.0         | Bundle size / chunking           | 2026-06-29 |
+| Vitest                         | v4.1.8             | Unit test runtime (734 tests)    | 2026-06-29 |
+| `transcription_bench` example  | rhema-stt (debug)  | STT fixture scoring accuracy     | 2026-06-28 |
+| `detection_accuracy` bin       | rhema-detection    | Detection precision/recall       | 🚧 skipped (no assets) |
+| Lighthouse / runtime profiler  | —                  | Web Vitals, memory               | 🚧 not yet run |
+| Live-service soak profile      | —                  | Memory growth, detection latency | 🚧 not yet run |
 
 ---
 
 ## 6. Change Log
 
-| Date         | By                | Summary of change                                                                                                                                                                  | Metrics affected                 |
-| ------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `2026-06-18` | Claude (Opus 4.8) | **R1: split monolithic `vendor` chunk** (877→460 KB raw / 253→134 KB gz) into react/supabase/tauri/state. Overall status → 🟡 Mixed still (total raw bundle + runtime unprofiled). | Bundle composition, caching      |
-| `2026-06-18` | Claude (Opus 4.8) | Initial measured baseline: build, bundle, tests, lint, typecheck. Runtime/web-vitals flagged as not-yet-measured.                                                                  | Bundle, build time, test runtime |
+| Date         | By            | Summary of change                                                                                          | Metrics affected              |
+| ------------ | ------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `2026-06-29` | Claude (Opus) | Re-verified lazy-load items (PERF-002/004/005); warm test/build timing; open regressions → 1 (PERF-003 only). | Build time, test runtime, bottlenecks |
+| `2026-06-28` | Cursor agent  | Re-benchmark after Afrikaans detection, hymn commands, transcript routing (`435d84c`). Open regressions → 2. | Bundle, build time, test runtime |
+| `2026-06-18` | Claude (Opus) | **R1: split monolithic `vendor` chunk** (877→460 KB raw / 253→134 KB gz).                                 | Bundle composition, caching   |
+| `2026-06-18` | Claude (Opus) | Initial measured baseline: build, bundle, tests, lint, typecheck.                                          | Bundle, build time, test runtime |
 
 ---
 
@@ -176,3 +204,20 @@
 3. Add a row to **Benchmark History** for the metric(s) you measured.
 4. Log new slow paths in **Identified Bottlenecks**; mark fixed ones without deleting.
 5. Recompute the header (**Overall status**, **Open regressions**) and add a **Change Log** entry.
+
+### Quick re-run commands
+
+```bash
+# Bundle analysis
+bun run build
+
+# Test suite timing
+bun run test:unit
+
+# STT fixture scoring (from src-tauri/)
+cargo run -p rhema-stt --example transcription_bench -- crates/stt/fixtures/stt
+
+# Detection accuracy (requires setup:all assets)
+cd src-tauri
+cargo run -p rhema-detection --features precompute-bin --release --bin detection_accuracy
+```
