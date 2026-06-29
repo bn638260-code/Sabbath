@@ -10,6 +10,19 @@ interface DetectionResultWithMeta extends DetectionResult {
   received_at?: number
 }
 
+export interface DetectionContextEntry {
+  key: string
+  reference: string
+  detail: string
+  confidence: number
+  source: DetectionResult["source"]
+}
+
+export interface HeldReferenceCandidate {
+  detection: DetectionResultWithMeta
+  reason: string
+}
+
 const MAX_RECENT_DETECTIONS = 5
 // Live semantic/FTS search emits low-confidence keyword matches (~63-68%) during
 // ordinary prose. The panel only surfaces semantic hits at or above this floor so
@@ -57,6 +70,84 @@ function isBelowSemanticFloor(detection: DetectionResult): boolean {
     detection.source === "semantic" &&
     detection.confidence < MIN_SEMANTIC_DISPLAY_CONFIDENCE
   )
+}
+
+function isBibleDetection(detection: DetectionResult): boolean {
+  return (
+    detection.content_type !== "egw" &&
+    detection.content_type !== "hymn" &&
+    detection.book_number > 0 &&
+    detection.chapter > 0
+  )
+}
+
+function compareDetectionRecency(
+  a: { detection: DetectionResultWithMeta; index: number },
+  b: { detection: DetectionResultWithMeta; index: number }
+): number {
+  const aTime = a.detection.received_at
+  const bTime = b.detection.received_at
+
+  if (
+    typeof aTime === "number" &&
+    typeof bTime === "number" &&
+    aTime !== bTime
+  ) {
+    return bTime - aTime
+  }
+  if (typeof aTime === "number" && typeof bTime !== "number") return -1
+  if (typeof bTime === "number" && typeof aTime !== "number") return 1
+  return a.index - b.index
+}
+
+export function buildDetectionContextStack(
+  detections: DetectionResultWithMeta[]
+): DetectionContextEntry[] {
+  const seen = new Set<string>()
+  const entries: DetectionContextEntry[] = []
+
+  for (const { detection } of detections
+    .map((detection, index) => ({ detection, index }))
+    .sort(compareDetectionRecency)) {
+    if (!isBibleDetection(detection)) continue
+
+    const key = `${detection.book_number}:${detection.chapter}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    entries.push({
+      key,
+      reference: `${detection.book_name} ${detection.chapter}`,
+      detail: detection.is_chapter_only
+        ? "Chapter context"
+        : `Last hit ${detection.verse_ref}`,
+      confidence: detection.confidence,
+      source: detection.source,
+    })
+    if (entries.length === 4) break
+  }
+
+  return entries
+}
+
+export function buildHeldReferenceCandidates(
+  detections: DetectionResultWithMeta[],
+  confidenceThreshold: number,
+  semanticConfidenceThreshold: number
+): HeldReferenceCandidate[] {
+  return detections.flatMap((detection) => {
+    if (!isBibleDetection(detection)) return []
+    if (detection.is_chapter_only)
+      return [{ detection, reason: "Waiting for verse" }]
+
+    const threshold =
+      detection.source === "semantic"
+        ? Math.max(confidenceThreshold, semanticConfidenceThreshold)
+        : confidenceThreshold
+
+    return detection.confidence < threshold
+      ? [{ detection, reason: "Below auto-live threshold" }]
+      : []
+  })
 }
 
 // "Recent detections" retains the most-recent items so a freshly spoken

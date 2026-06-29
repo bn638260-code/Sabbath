@@ -5,11 +5,11 @@ use crate::types::VerseRef;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Continuation {
     /// Found both chapter and verse: "chapter 3 verse 22"
-    ChapterAndVerse(i32, i32),
+    ChapterAndVerse(i32, i32, Option<i32>),
     /// Found chapter only: "chapter 3" (still waiting for verse)
     ChapterOnly(i32),
     /// Found verse only: "verse 22", bare "22"
-    VerseOnly(i32),
+    VerseOnly(i32, Option<i32>),
 }
 
 /// Parse a Bible reference from text given a book match position.
@@ -130,6 +130,10 @@ fn is_number_connector(word: &str) -> bool {
     matches!(word, "and" | "en")
 }
 
+fn is_correction_word(word: &str) -> bool {
+    matches!(word, "sorry" | "rather" | "meant" | "mean")
+}
+
 /// Tokenize text into words, numbers, colons, and dashes.
 fn tokenize(text: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
@@ -220,14 +224,11 @@ fn try_colon_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<VerseRe
 /// - "chapter 3 verse 5 sorry verse 7" → chapter 3, verse 7
 /// - "chapter 3 verse 5 I mean chapter 4 verse 7" → chapter 4, verse 7
 fn try_correction_pattern(tokens: &[Token], book_match: &BookMatch) -> Option<VerseRef> {
-    // Correction keywords
-    let correction_words = ["sorry", "rather", "meant", "mean"];
-
     // Find if there's a correction keyword
     let mut correction_idx = None;
     for (i, token) in tokens.iter().enumerate() {
         if let Token::Word(w) = token {
-            if correction_words.contains(&w.as_str()) {
+            if is_correction_word(w) {
                 correction_idx = Some(i);
                 break;
             }
@@ -309,6 +310,16 @@ fn try_chapter_verse_spoken(tokens: &[Token], book_match: &BookMatch) -> Option<
                     // "let's go to chapter 3 verse 2 to verse 3"
                     let scan_limit = (next_idx + 15).min(tokens.len());
                     for j in next_idx..scan_limit {
+                        if let Some((verse, verse_next)) = consume_colon_damaged_verse(&tokens, j) {
+                            let verse_end = scan_verse_end(&tokens, verse_next);
+                            return Some(VerseRef {
+                                book_number: book_match.book_number,
+                                book_name: book_match.book_name.clone(),
+                                chapter,
+                                verse_start: verse,
+                                verse_end,
+                            });
+                        }
                         if let Token::Word(vw) = &tokens[j] {
                             if is_verse_keyword(vw) {
                                 if let Some((verse, verse_next)) = consume_number(tokens, j + 1) {
@@ -344,7 +355,7 @@ fn try_chapter_verse_spoken(tokens: &[Token], book_match: &BookMatch) -> Option<
 }
 
 /// Scan for a verse range ending after the verse number.
-/// Handles: "to verse 16", "through 18", "- 20", "to 16"
+/// Handles: "to verse 16", "through 18", "- 20", "to 16", "and 16"
 fn scan_verse_end(tokens: &[Token], start: usize) -> Option<i32> {
     if start >= tokens.len() {
         return None;
@@ -355,14 +366,14 @@ fn scan_verse_end(tokens: &[Token], start: usize) -> Option<i32> {
             return Some(end);
         }
     }
-    // Check for "to" or "through"
+    // Check for "to", "through", or same-chapter "and"
     if let Token::Word(tw) = &tokens[start] {
-        if tw == "to" || tw == "through" {
+        if tw == "to" || tw == "through" || is_number_connector(tw) {
             let next = start + 1;
             if next < tokens.len() {
                 // "to verse 16" pattern
                 if let Token::Word(vw) = &tokens[next] {
-                    if is_verse_keyword(vw) {
+                    if is_verse_keyword(vw) && !is_number_connector(tw) {
                         if let Some((end, _)) = consume_number(tokens, next + 1) {
                             return Some(end);
                         }
@@ -376,6 +387,32 @@ fn scan_verse_end(tokens: &[Token], start: usize) -> Option<i32> {
         }
     }
     None
+}
+
+fn consume_colon_damaged_verse(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
+    if !matches!(tokens.get(start), Some(Token::Colon)) {
+        return None;
+    }
+
+    let mut next = start + 1;
+    if matches!(tokens.get(next), Some(Token::Word(word)) if word == "es") {
+        next += 1;
+    }
+
+    consume_number(tokens, next)
+}
+
+fn corrected_number_after(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
+    let (_, next) = consume_number(tokens, start)?;
+
+    let Some(Token::Word(word)) = tokens.get(next) else {
+        return consume_number(tokens, start);
+    };
+    if !is_correction_word(word) {
+        return consume_number(tokens, start);
+    }
+
+    consume_number(tokens, next + 1).or_else(|| consume_number(tokens, start))
 }
 
 /// Try to parse "verse N" pattern (just verse keyword followed by number, implies chapter 1).
@@ -726,11 +763,26 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
                     // Scan forward for "verse" keyword (up to 15 tokens)
                     let scan_limit = (next_idx + 15).min(tokens.len());
                     for j in next_idx..scan_limit {
+                        if let Some((verse, verse_next)) = consume_colon_damaged_verse(&tokens, j) {
+                            if verse > 0 && verse <= 176 {
+                                return Some(Continuation::ChapterAndVerse(
+                                    chapter,
+                                    verse,
+                                    scan_verse_end(&tokens, verse_next),
+                                ));
+                            }
+                        }
                         if let Token::Word(vw) = &tokens[j] {
                             if is_verse_keyword(vw) {
-                                if let Some((verse, _)) = consume_number(&tokens, j + 1) {
+                                if let Some((verse, verse_next)) =
+                                    corrected_number_after(&tokens, j + 1)
+                                {
                                     if verse > 0 && verse <= 176 {
-                                        return Some(Continuation::ChapterAndVerse(chapter, verse));
+                                        return Some(Continuation::ChapterAndVerse(
+                                            chapter,
+                                            verse,
+                                            scan_verse_end(&tokens, verse_next),
+                                        ));
                                     }
                                 }
                             }
@@ -747,9 +799,12 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
     for i in preferred_verse_indices(&tokens) {
         if let Token::Word(w) = &tokens[i] {
             if is_verse_keyword(w) {
-                if let Some((verse, _)) = consume_number(&tokens, i + 1) {
+                if let Some((verse, verse_next)) = corrected_number_after(&tokens, i + 1) {
                     if verse > 0 && verse <= 176 {
-                        return Some(Continuation::VerseOnly(verse));
+                        return Some(Continuation::VerseOnly(
+                            verse,
+                            scan_verse_end(&tokens, verse_next),
+                        ));
                     }
                 }
             }
@@ -764,7 +819,7 @@ pub fn try_extract_continuation(text: &str, is_book_only: bool) -> Option<Contin
                 return Some(Continuation::ChapterOnly(num));
             }
             // After book+chapter (e.g., "Acts 3"), bare "22" = verse
-            return Some(Continuation::VerseOnly(num));
+            return Some(Continuation::VerseOnly(num, None));
         }
     }
 
@@ -931,6 +986,26 @@ mod tests {
         assert_eq!(result.chapter, 1);
         assert_eq!(result.verse_start, 1);
         assert_eq!(result.verse_end, Some(5));
+    }
+
+    #[test]
+    fn transcript_same_chapter_and_range_is_preserved() {
+        let bm = make_book_match("John", 43, 4);
+        let text = "John 12 verse 32 and 33";
+        let result = parse_reference(text, &bm).unwrap();
+        assert_eq!(result.chapter, 12);
+        assert_eq!(result.verse_start, 32);
+        assert_eq!(result.verse_end, Some(33));
+    }
+
+    #[test]
+    fn transcript_damaged_colon_es_range_is_preserved() {
+        let bm = make_book_match("Numbers", 4, 7);
+        let text = "Numbers chapter 21:es 4-9";
+        let result = parse_reference(text, &bm).unwrap();
+        assert_eq!(result.chapter, 21);
+        assert_eq!(result.verse_start, 4);
+        assert_eq!(result.verse_end, Some(9));
     }
 
     #[test]
@@ -1157,11 +1232,11 @@ mod tests {
     fn test_continuation_chapter_and_verse() {
         assert_eq!(
             try_extract_continuation("chapter 3 verse 22", false),
-            Some(Continuation::ChapterAndVerse(3, 22))
+            Some(Continuation::ChapterAndVerse(3, 22, None))
         );
         assert_eq!(
             try_extract_continuation("chapter three and I'm reading from verse twenty two", false),
-            Some(Continuation::ChapterAndVerse(3, 22))
+            Some(Continuation::ChapterAndVerse(3, 22, None))
         );
     }
 
@@ -1181,11 +1256,11 @@ mod tests {
     fn test_continuation_verse_anywhere() {
         assert_eq!(
             try_extract_continuation("and I'm reading from verse 22", false),
-            Some(Continuation::VerseOnly(22))
+            Some(Continuation::VerseOnly(22, None))
         );
         assert_eq!(
             try_extract_continuation("verse sixteen", false),
-            Some(Continuation::VerseOnly(16))
+            Some(Continuation::VerseOnly(16, None))
         );
     }
 
@@ -1207,11 +1282,11 @@ mod tests {
         // After book+chapter detection, bare number = verse
         assert_eq!(
             try_extract_continuation("22", false),
-            Some(Continuation::VerseOnly(22))
+            Some(Continuation::VerseOnly(22, None))
         );
         assert_eq!(
             try_extract_continuation("22. Acts three for Moses", false),
-            Some(Continuation::VerseOnly(22))
+            Some(Continuation::VerseOnly(22, None))
         );
     }
 
@@ -1233,7 +1308,23 @@ mod tests {
     fn test_continuation_number_verse_number_uses_following_verse() {
         assert_eq!(
             try_extract_continuation("7 verse 9", false),
-            Some(Continuation::VerseOnly(9))
+            Some(Continuation::VerseOnly(9, None))
+        );
+    }
+
+    #[test]
+    fn transcript_continuation_correction_prefers_corrected_verse() {
+        assert_eq!(
+            try_extract_continuation("then verse 21, sorry 22", false),
+            Some(Continuation::VerseOnly(22, None))
+        );
+    }
+
+    #[test]
+    fn transcript_continuation_damaged_colon_es_range_is_preserved() {
+        assert_eq!(
+            try_extract_continuation("chapter 21:es 4-9", true),
+            Some(Continuation::ChapterAndVerse(21, 4, Some(9)))
         );
     }
 

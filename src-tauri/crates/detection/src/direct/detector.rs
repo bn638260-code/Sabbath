@@ -685,6 +685,16 @@ const PREVIOUS_VERSE_PHRASES: &[&str] = &[
     "the same verse",
     "repeat that verse",
 ];
+const SAVE_CONTEXT_PHRASES: &[&str] = &["keep your place", "hold your place"];
+const RETURN_CONTEXT_PHRASES: &[&str] = &["back in", "back to", "coming back", "go back"];
+
+fn contains_any(text: &str, phrases: &[&str]) -> bool {
+    phrases.iter().any(|phrase| text.contains(phrase))
+}
+
+fn same_book_chapter(a: &VerseRef, b: &VerseRef) -> bool {
+    a.book_number == b.book_number && a.chapter == b.chapter
+}
 
 pub struct DirectDetector {
     matcher: BookMatcher,
@@ -693,6 +703,7 @@ pub struct DirectDetector {
     incomplete: Option<IncompleteRef>,
     /// Recently detected verses for "previous verse" navigation (most recent first).
     recent_detections: VecDeque<VerseRef>,
+    saved_contexts: VecDeque<VerseRef>,
 }
 
 impl DirectDetector {
@@ -706,6 +717,7 @@ impl DirectDetector {
             context: ReferenceContext::new(),
             incomplete: None,
             recent_detections: VecDeque::with_capacity(5),
+            saved_contexts: VecDeque::with_capacity(3),
         }
     }
 
@@ -713,6 +725,7 @@ impl DirectDetector {
     pub fn set_stt_language(&mut self, language: &str) {
         self.matcher = BookMatcher::for_stt_language(language);
         self.incomplete = None;
+        self.saved_contexts.clear();
     }
 
     /// Recent detections for context tracking.
@@ -816,6 +829,7 @@ impl DirectDetector {
         // Step 0: Clean filler phrases from the transcript
         let cleaned = clean_transcript(text);
         let text = &cleaned;
+        let lower_text = text.to_lowercase();
 
         let mut detections = Vec::new();
 
@@ -832,56 +846,65 @@ impl DirectDetector {
             if elapsed > INCOMPLETE_REF_TIMEOUT_MS {
                 // Timeout: clean up pending state (EDGE-02).
                 self.incomplete = None;
-            } else if let Some(cont) =
-                parser::try_extract_continuation(text, incomplete.chapter_is_default)
+            } else if !self
+                .matcher
+                .find_books(text)
+                .iter()
+                .any(|book_match| text[..book_match.start].trim().is_empty())
             {
-                match cont {
-                    parser::Continuation::ChapterAndVerse(ch, v) => {
-                        let mut completed = incomplete.verse_ref.clone();
-                        completed.chapter = ch;
-                        completed.verse_start = v;
-                        if is_valid_reference(completed.book_number, completed.chapter) {
-                            detections.push(self.make_direct_detection(
-                                &completed,
-                                compute_confidence(&completed, &completed),
-                                text,
-                                0,
-                                text.len(),
-                            ));
-                            self.push_recent(&completed);
-                            self.context.update(&completed);
+                if let Some(cont) =
+                    parser::try_extract_continuation(text, incomplete.chapter_is_default)
+                {
+                    match cont {
+                        parser::Continuation::ChapterAndVerse(ch, v, verse_end) => {
+                            let mut completed = incomplete.verse_ref.clone();
+                            completed.chapter = ch;
+                            completed.verse_start = v;
+                            completed.verse_end = verse_end;
+                            if is_valid_reference(completed.book_number, completed.chapter) {
+                                detections.push(self.make_direct_detection(
+                                    &completed,
+                                    compute_confidence(&completed, &completed),
+                                    text,
+                                    0,
+                                    text.len(),
+                                ));
+                                self.push_recent(&completed);
+                                self.context.update(&completed);
+                            }
+                            self.incomplete = None;
+                            return detections;
                         }
-                        self.incomplete = None;
-                        return detections;
-                    }
-                    parser::Continuation::VerseOnly(v) => {
-                        let mut completed = incomplete.verse_ref.clone();
-                        completed.verse_start = v;
-                        if is_valid_reference(completed.book_number, completed.chapter) {
-                            detections.push(self.make_direct_detection(
-                                &completed,
-                                compute_confidence(&completed, &completed),
-                                text,
-                                0,
-                                text.len(),
-                            ));
-                            self.push_recent(&completed);
-                            self.context.update(&completed);
+                        parser::Continuation::VerseOnly(v, verse_end) => {
+                            let mut completed = incomplete.verse_ref.clone();
+                            completed.verse_start = v;
+                            completed.verse_end = verse_end;
+                            if is_valid_reference(completed.book_number, completed.chapter) {
+                                detections.push(self.make_direct_detection(
+                                    &completed,
+                                    compute_confidence(&completed, &completed),
+                                    text,
+                                    0,
+                                    text.len(),
+                                ));
+                                self.push_recent(&completed);
+                                self.context.update(&completed);
+                            }
+                            self.incomplete = None;
+                            return detections;
                         }
-                        self.incomplete = None;
-                        return detections;
-                    }
-                    parser::Continuation::ChapterOnly(ch) => {
-                        // Update chapter, reset timeout, keep waiting for verse.
-                        let mut updated = incomplete.verse_ref.clone();
-                        updated.chapter = ch;
-                        self.incomplete = Some(IncompleteRef {
-                            verse_ref: updated.clone(),
-                            timestamp: Instant::now(),
-                            chapter_is_default: false,
-                        });
-                        self.context.update(&updated);
-                        // Fall through to book matcher (text may also contain a new book)
+                        parser::Continuation::ChapterOnly(ch) => {
+                            // Update chapter, reset timeout, keep waiting for verse.
+                            let mut updated = incomplete.verse_ref.clone();
+                            updated.chapter = ch;
+                            self.incomplete = Some(IncompleteRef {
+                                verse_ref: updated.clone(),
+                                timestamp: Instant::now(),
+                                chapter_is_default: false,
+                            });
+                            self.context.update(&updated);
+                            // Fall through to book matcher (text may also contain a new book)
+                        }
                     }
                 }
             }
@@ -906,6 +929,13 @@ impl DirectDetector {
         } else {
             &book_matches
         };
+
+        if effective_matches.is_empty() {
+            if let Some(saved_detection) = self.check_saved_context_return(text) {
+                detections.push(saved_detection);
+                return detections;
+            }
+        }
 
         // Step 2 & 3: Parse references and resolve context
         for book_match in effective_matches {
@@ -967,6 +997,7 @@ impl DirectDetector {
                         chapter_is_default: !has_explicit_chapter && !starts_with_verse_keyword,
                     });
                     self.context.update(&resolved);
+                    self.save_context_if_requested(&lower_text, &resolved);
 
                     // Only surface a chapter-only detection when the chapter is
                     // actually known (spoken or inherited). A lone book name with
@@ -1029,6 +1060,7 @@ impl DirectDetector {
 
                 detections.push(detection);
                 self.context.update(&resolved);
+                self.save_context_if_requested(&lower_text, &resolved);
             }
         }
 
@@ -1079,6 +1111,74 @@ impl DirectDetector {
         if self.recent_detections.len() > 5 {
             self.recent_detections.pop_back();
         }
+    }
+
+    fn save_context_if_requested(&mut self, lower_text: &str, verse_ref: &VerseRef) {
+        if !contains_any(lower_text, SAVE_CONTEXT_PHRASES) || verse_ref.book_number <= 0 {
+            return;
+        }
+
+        let mut saved = verse_ref.clone();
+        if saved.verse_start == 0 {
+            saved.verse_start = 1;
+        }
+        if self
+            .saved_contexts
+            .front()
+            .is_some_and(|front| same_book_chapter(front, &saved))
+        {
+            return;
+        }
+        self.saved_contexts.push_front(saved);
+        if self.saved_contexts.len() > 3 {
+            self.saved_contexts.pop_back();
+        }
+    }
+
+    fn check_saved_context_return(&mut self, text: &str) -> Option<Detection> {
+        let lower = text.to_lowercase();
+        if !contains_any(&lower, RETURN_CONTEXT_PHRASES) {
+            return None;
+        }
+
+        let mut restored = self.saved_contexts.front()?.clone();
+        let mut is_chapter_only = false;
+        match parser::try_extract_continuation(text, false)? {
+            parser::Continuation::ChapterAndVerse(chapter, verse, verse_end) => {
+                restored.chapter = chapter;
+                restored.verse_start = verse;
+                restored.verse_end = verse_end;
+            }
+            parser::Continuation::ChapterOnly(chapter) => {
+                restored.chapter = chapter;
+                restored.verse_start = 1;
+                restored.verse_end = None;
+                is_chapter_only = true;
+            }
+            parser::Continuation::VerseOnly(verse, verse_end) => {
+                restored.verse_start = verse;
+                restored.verse_end = verse_end;
+            }
+        }
+        if !is_valid_reference(restored.book_number, restored.chapter) {
+            return None;
+        }
+
+        if is_chapter_only {
+            self.incomplete = Some(IncompleteRef {
+                verse_ref: restored.clone(),
+                timestamp: Instant::now(),
+                chapter_is_default: false,
+            });
+        } else {
+            self.incomplete = None;
+        }
+        self.context.update(&restored);
+        self.push_recent(&restored);
+
+        let mut detection = self.make_direct_detection(&restored, 0.92, text, 0, text.len());
+        detection.is_chapter_only = is_chapter_only;
+        Some(detection)
     }
 
     /// Build a Detection from a resolved `VerseRef`.
@@ -2402,6 +2502,68 @@ mod tests {
         assert_eq!(results[0].verse_ref.book_name, "Revelation");
         assert_eq!(results[0].verse_ref.chapter, 14);
         assert_eq!(results[0].verse_ref.verse_start, 7);
+    }
+
+    #[test]
+    fn transcript_numbers_context_handles_damaged_range() {
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("do you remember the story in the book of Numbers");
+        assert!(results.is_empty());
+        assert!(detector.incomplete.is_some());
+
+        let results = detector.detect("chapter 21:es 4-9");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Numbers");
+        assert_eq!(results[0].verse_ref.chapter, 21);
+        assert_eq!(results[0].verse_ref.verse_start, 4);
+        assert_eq!(results[0].verse_ref.verse_end, Some(9));
+    }
+
+    #[test]
+    fn transcript_same_chapter_and_range_survives_detection() {
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("John 12 verse 32 and 33");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "John");
+        assert_eq!(results[0].verse_ref.chapter, 12);
+        assert_eq!(results[0].verse_ref.verse_start, 32);
+        assert_eq!(results[0].verse_ref.verse_end, Some(33));
+    }
+
+    #[test]
+    fn transcript_verse_only_correction_prefers_corrected_verse() {
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("Romans 4");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_chapter_only);
+
+        let results = detector.detect("then verse 21, sorry 22");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Romans");
+        assert_eq!(results[0].verse_ref.chapter, 4);
+        assert_eq!(results[0].verse_ref.verse_start, 22);
+    }
+
+    #[test]
+    fn transcript_keep_your_place_restores_saved_chapter() {
+        let mut detector = DirectDetector::new();
+
+        let results = detector.detect("keep your place in John 3");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_chapter_only);
+
+        let results = detector.detect("John 12 verse 32 and 33");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.chapter, 12);
+
+        let results = detector.detect("so back in chapter 3 verse 15");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "John");
+        assert_eq!(results[0].verse_ref.chapter, 3);
+        assert_eq!(results[0].verse_ref.verse_start, 15);
     }
 
     #[test]

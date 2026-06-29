@@ -206,4 +206,47 @@ describe("DetectionsPanel", () => {
     await waitFor(() => expect(presentHymnMock).toHaveBeenCalledWith(46))
     expect(presentVerseMock).not.toHaveBeenCalled()
   })
+
+  it("shows context stack and held references for operator review", () => {
+    detectionsRef.current = [
+      {
+        ...detection,
+        verse_ref: "Romans 4:22",
+        book_name: "Romans",
+        book_number: 45,
+        chapter: 4,
+        verse: 22,
+        confidence: 0.84,
+      },
+      {
+        ...detection,
+        verse_ref: "John 3",
+        verse: 1,
+        confidence: 1,
+        is_chapter_only: true,
+      },
+      {
+        ...detection,
+        verse_ref: "Revelation 14:7",
+        book_name: "Revelation",
+        book_number: 66,
+        chapter: 14,
+        verse: 7,
+        confidence: 0.98,
+      },
+    ]
+    useSettingsStore.setState({
+      confidenceThreshold: 0.85,
+      semanticConfidenceThreshold: 0.7,
+    })
+
+    render(<DetectionsPanel />)
+
+    expect(screen.getByText("Context stack")).toBeTruthy()
+    expect(screen.getByText("Held references")).toBeTruthy()
+    expect(screen.getByText("Below auto-live threshold")).toBeTruthy()
+    expect(screen.getByText("Waiting for verse")).toBeTruthy()
+    expect(screen.getByText("Recent trusted detections")).toBeTruthy()
+    expect(screen.getByText("Revelation 14:7")).toBeTruthy()
+  })
 })

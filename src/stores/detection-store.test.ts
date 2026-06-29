@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { useDetectionStore } from "./detection-store"
+import {
+  buildDetectionContextStack,
+  buildHeldReferenceCandidates,
+  useDetectionStore,
+} from "./detection-store"
 import type { DetectionResult } from "@/types"
 
 function makeDetection(
@@ -150,7 +154,9 @@ describe("detection store", () => {
     const detections = useDetectionStore.getState().detections
     const hymns = detections.filter((d) => d.content_type === "hymn")
     expect(hymns).toHaveLength(1)
-    expect(detections.filter((d) => d.verse_ref === "John 3:16")).toHaveLength(1)
+    expect(detections.filter((d) => d.verse_ref === "John 3:16")).toHaveLength(
+      1
+    )
   })
 
   it("near-tied direct hit wins over semantic", () => {
@@ -654,5 +660,82 @@ describe("detection store", () => {
 
     expect(after).toBe(before)
     expect(after).toHaveLength(1)
+  })
+
+  it("builds a deduplicated passage context stack from recent Bible detections", () => {
+    const contextStack = buildDetectionContextStack([
+      {
+        ...makeDetection({
+          verse_ref: "John 12:32",
+          chapter: 12,
+          verse: 32,
+        }),
+        received_at: now + 2,
+      },
+      {
+        ...makeDetection({
+          verse_ref: "John 3:16",
+          chapter: 3,
+          verse: 16,
+        }),
+        received_at: now + 1,
+      },
+      {
+        ...makeDetection({
+          verse_ref: "John 3:17",
+          chapter: 3,
+          verse: 17,
+        }),
+        received_at: now,
+      },
+      makeDetection({
+        content_type: "hymn",
+        verse_ref: "Hymn 46",
+        book_number: 0,
+        chapter: 0,
+        verse: 46,
+      }),
+    ])
+
+    expect(contextStack.map((entry) => entry.reference)).toEqual([
+      "John 12",
+      "John 3",
+    ])
+  })
+
+  it("holds chapter-only and below-threshold Bible detections for review", () => {
+    const held = buildHeldReferenceCandidates(
+      [
+        makeDetection({
+          verse_ref: "John 3",
+          verse: 1,
+          confidence: 1,
+          is_chapter_only: true,
+        }),
+        makeDetection({
+          verse_ref: "Romans 4:22",
+          book_name: "Romans",
+          book_number: 45,
+          chapter: 4,
+          verse: 22,
+          confidence: 0.84,
+        }),
+        makeDetection({
+          verse_ref: "Revelation 14:7",
+          book_name: "Revelation",
+          book_number: 66,
+          chapter: 14,
+          verse: 7,
+          confidence: 0.98,
+        }),
+      ],
+      0.85,
+      0.7
+    )
+
+    expect(held.map((candidate) => candidate.detection.verse_ref)).toEqual([
+      "John 3",
+      "Romans 4:22",
+    ])
   })
 })

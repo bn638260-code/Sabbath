@@ -15,6 +15,12 @@ import { useDetection, detectionActions } from "@/hooks/use-detection"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useQueueStore } from "@/stores/queue-store"
 import {
+  buildDetectionContextStack,
+  buildHeldReferenceCandidates,
+  type DetectionContextEntry,
+  type HeldReferenceCandidate,
+} from "@/stores/detection-store"
+import {
   detectionToVerse,
   presentVerse,
   selectPreviewVerse,
@@ -234,6 +240,74 @@ function DetectionCard({ detection }: { detection: DetectionResult }) {
   )
 }
 
+function DetectionContextStack({
+  entries,
+}: {
+  entries: DetectionContextEntry[]
+}) {
+  if (entries.length === 0) return null
+
+  return (
+    <div className="border-b border-[var(--border-subtle)] px-3 py-2">
+      <div className="mb-2 flex items-center gap-1.5 text-[0.625rem] font-medium text-muted-foreground uppercase">
+        <RadarIcon className="size-3" />
+        Context stack
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {entries.map((entry, index) => (
+          <div
+            key={entry.key}
+            className="rounded border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-2 py-1"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-[0.5625rem] font-medium text-muted-foreground uppercase">
+                {index === 0 ? "Current" : "Recent"}
+              </span>
+              <SourceBadge source={entry.source} />
+            </div>
+            <div className="mt-0.5 text-xs font-semibold text-foreground">
+              {entry.reference}
+            </div>
+            <div className="text-[0.625rem] text-muted-foreground">
+              {entry.detail} / {Math.round(entry.confidence * 100)}%
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function HeldReferencesPanel({
+  candidates,
+}: {
+  candidates: HeldReferenceCandidate[]
+}) {
+  if (candidates.length === 0) return null
+
+  return (
+    <div className="border-b border-[var(--border-subtle)]">
+      <div className="flex items-center justify-between px-3 py-2">
+        <div className="flex items-center gap-1.5 text-[0.625rem] font-medium text-muted-foreground uppercase">
+          <EyeIcon className="size-3" />
+          Held references
+        </div>
+        <span className="rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-[0.5625rem] text-muted-foreground">
+          {candidates.length}
+        </span>
+      </div>
+      {candidates.map(({ detection, reason }, index) => (
+        <div key={`${detection.verse_ref}-${index}`}>
+          <div className="mx-3 rounded-t border border-b-0 border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[0.5625rem] font-medium text-amber-300 uppercase">
+            {reason}
+          </div>
+          <DetectionCard detection={detection} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function DetectionsPanel({ className }: { className?: string }) {
   const { detections } = useDetection()
   const confidenceThreshold = useSettingsStore((s) => s.confidenceThreshold)
@@ -262,6 +336,19 @@ export function DetectionsPanel({ className }: { className?: string }) {
       cancelled = true
     }
   }, [])
+
+  const contextStack = buildDetectionContextStack(detections)
+  const heldReferences = buildHeldReferenceCandidates(
+    detections,
+    confidenceThreshold,
+    semanticConfidenceThreshold
+  )
+  const heldSet = new Set(
+    heldReferences.map((candidate) => candidate.detection)
+  )
+  const trustedDetections = detections.filter(
+    (detection) => !heldSet.has(detection)
+  )
 
   return (
     <div
@@ -298,6 +385,8 @@ export function DetectionsPanel({ className }: { className?: string }) {
       </PanelHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <DetectionContextStack entries={contextStack} />
+        <HeldReferencesPanel candidates={heldReferences} />
         <div className="flex flex-col gap-0">
           {detections.length === 0 && (
             <div className="flex min-h-0 flex-1 items-center justify-center">
@@ -308,7 +397,12 @@ export function DetectionsPanel({ className }: { className?: string }) {
               />
             </div>
           )}
-          {detections.map((detection, i) => (
+          {heldReferences.length > 0 && trustedDetections.length > 0 && (
+            <div className="border-b border-[var(--border-subtle)] px-3 py-2 text-[0.625rem] font-medium text-muted-foreground uppercase">
+              Recent trusted detections
+            </div>
+          )}
+          {trustedDetections.map((detection, i) => (
             <DetectionCard
               key={`${detection.verse_ref}-${i}`}
               detection={detection}
