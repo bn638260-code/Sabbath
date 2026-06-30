@@ -305,11 +305,12 @@ describe("useBroadcastOutputRuntime", () => {
 
     mockRenderPresentation.mockClear()
     await act(async () => {
-      vi.advanceTimersByTime(80)
+      vi.advanceTimersByTime(210)
       await Promise.resolve()
     })
     const kineticCalls = mockRenderPresentation.mock.calls.length
     expect(kineticCalls).toBeGreaterThan(1)
+    expect(kineticCalls).toBeLessThanOrEqual(4)
 
     // Switching to a static theme stops the loop: no further renders accrue.
     await act(async () => {

@@ -39,6 +39,15 @@ const detection: DetectionResult = {
   is_chapter_only: false,
 }
 
+function makeDetection(reference: string, verse: number): DetectionResult {
+  return {
+    ...detection,
+    verse_ref: reference,
+    verse,
+    verse_text: `Verse text for ${reference}.`,
+  }
+}
+
 beforeEach(() => {
   detectionsRef.current = []
   previewMock.mockClear()
@@ -61,8 +70,25 @@ describe("LatestDetectionBar", () => {
   it("previews the latest detection from the quick action", () => {
     detectionsRef.current = [detection]
     render(<LatestDetectionBar />)
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }))
+    fireEvent.click(screen.getByRole("button", { name: /preview john 3:16/i }))
     expect(previewMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("shows the latest five detections on the live desk", () => {
+    detectionsRef.current = [
+      makeDetection("John 3:16", 16),
+      makeDetection("John 3:17", 17),
+      makeDetection("John 3:18", 18),
+      makeDetection("John 3:19", 19),
+      makeDetection("John 3:20", 20),
+      makeDetection("John 3:21", 21),
+    ]
+
+    render(<LatestDetectionBar />)
+
+    expect(screen.getByText("John 3:16")).toBeTruthy()
+    expect(screen.getByText("John 3:20")).toBeTruthy()
+    expect(screen.queryByText("John 3:21")).toBeNull()
   })
 
   it("navigates to the Detections page from the link", () => {

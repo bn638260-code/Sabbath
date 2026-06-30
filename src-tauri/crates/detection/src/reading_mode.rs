@@ -357,12 +357,18 @@ impl ReadingMode {
         let (chapter_num, verse_num) = extract_chapter_and_verse(trimmed)?;
         log::debug!("[READING] Extracted: chapter={chapter_num}, verse={verse_num:?}");
 
-        // Ignore references that only restate the current position. A direct
-        // reference already starts reading mode; replaying the same transcript
-        // through chapter navigation would restart it a second time.
+        // Ignore same-chapter references that restate or trail the current
+        // cursor. STT partial/final windows often replay the original
+        // "chapter N verse M" intro after reading mode has already advanced.
         if chapter_num == self.chapter {
             if let Some(verse) = verse_num {
-                if self.current_verse() == Some(verse) {
+                let current_verse = self.current_verse();
+                let is_explicit_backward_navigation =
+                    trimmed.contains("go back") || trimmed.contains("back to");
+                if current_verse == Some(verse)
+                    || (current_verse.is_some_and(|current| verse < current)
+                        && !is_explicit_backward_navigation)
+                {
                     log::debug!("[READING] Ignoring current chapter {chapter_num} verse {verse}");
                     self.bare_number_context = BareNumberContext::None;
                     return None;
@@ -1280,6 +1286,34 @@ mod tests {
 
         assert_eq!(result, None);
         assert_eq!(rm.current_verse(), Some(9));
+    }
+
+    #[test]
+    fn stale_current_chapter_previous_verse_command_does_not_reanchor_backward() {
+        let mut rm = ReadingMode::new();
+        let verses: Vec<(i32, String)> =
+            (1..=20).map(|i| (i, format!("Verse {i} text."))).collect();
+        rm.start(27, "Daniel", 7, 10, verses);
+
+        let result = rm.check_chapter_command("Daniel chapter 7 verse 9");
+
+        assert_eq!(result, None);
+        assert_eq!(rm.current_verse(), Some(10));
+    }
+
+    #[test]
+    fn explicit_backward_chapter_verse_command_can_reanchor() {
+        let mut rm = ReadingMode::new();
+        let verses: Vec<(i32, String)> =
+            (1..=20).map(|i| (i, format!("Verse {i} text."))).collect();
+        rm.start(27, "Daniel", 7, 10, verses);
+
+        let result = rm.check_chapter_command("go back to Daniel chapter 7 verse 9");
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.new_chapter, 7);
+        assert_eq!(change.start_verse, Some(9));
     }
 
     #[test]

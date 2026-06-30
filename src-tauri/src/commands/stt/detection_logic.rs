@@ -136,8 +136,13 @@ pub(crate) fn should_restart_reading(
     }
 
     if current_book == recent.book_number && current_chapter == recent.chapter {
-        // Re-anchor only to a specific verse that differs from where we are.
-        return !candidate.is_chapter_only && current_verse != Some(recent.verse_start);
+        // Re-anchor only to a specific verse ahead of where we are. Stale STT
+        // windows can replay the original lower verse after reading mode moves on.
+        return !candidate.is_chapter_only
+            && match current_verse {
+                Some(current) => recent.verse_start > current,
+                None => true,
+            };
     }
 
     if current_book != recent.book_number {

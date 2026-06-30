@@ -84,7 +84,7 @@ function LiveDeskPage() {
       <div className="col-span-12 grid h-fit grid-cols-12 gap-3 xl:col-span-9">
         <PreviewPanel className="col-span-12 h-[440px] lg:col-span-5" />
         <LiveOutputPanel className="col-span-12 h-[440px] lg:col-span-7" />
-        <LatestDetectionBar className="col-span-12" />
+        <LatestDetectionBar className="col-span-12 h-[260px]" />
         <QueuePanel className="col-span-12 h-[290px]" />
       </div>
     </div>

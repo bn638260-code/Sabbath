@@ -39,6 +39,8 @@ const DEFAULT_NDI_CONFIG: NdiConfigEventPayload = {
   width: 1920,
   height: 1080,
 }
+const KINETIC_OUTPUT_TARGET_FPS = 15
+const KINETIC_OUTPUT_FRAME_INTERVAL_MS = 1000 / KINETIC_OUTPUT_TARGET_FPS
 
 function fillBlack(canvas: HTMLCanvasElement): void {
   const ctx = canvas.getContext("2d")
@@ -139,6 +141,7 @@ export function useBroadcastOutputRuntime({
   const ndiBurstTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const kineticFrameRef = useRef<number | null>(null)
   const kineticStartRef = useRef(0)
+  const lastKineticRenderRef = useRef(0)
   const lastKineticPushRef = useRef(0)
 
   useEffect(() => {
@@ -415,6 +418,7 @@ export function useBroadcastOutputRuntime({
     if (kineticFrameRef.current !== null) return // already looping
 
     kineticStartRef.current = performance.now()
+    lastKineticRenderRef.current = 0
     lastKineticPushRef.current = 0
 
     const step = (now: number) => {
@@ -430,22 +434,32 @@ export function useBroadcastOutputRuntime({
 
       // Let an in-flight transition own the canvas; resume drawing once it ends.
       if (transitionFrameRef.current === null) {
-        const target = toCanvasRef.current ?? document.createElement("canvas")
-        toCanvasRef.current = target
-        renderPayloadToCanvas(
-          target,
-          payload,
-          undefined,
-          now - kineticStartRef.current,
-        )
-        drawRenderedCanvas(target)
+        const shouldRender =
+          lastKineticRenderRef.current === 0 ||
+          now - lastKineticRenderRef.current >= KINETIC_OUTPUT_FRAME_INTERVAL_MS
 
-        if (ndiConfigRef.current.active) {
-          const fps = ndiConfigRef.current.fps > 0 ? ndiConfigRef.current.fps : 24
-          const intervalMs = 1000 / fps
-          if (now - lastKineticPushRef.current >= intervalMs) {
-            lastKineticPushRef.current = now
-            void pushNdiFrame()
+        if (shouldRender) {
+          lastKineticRenderRef.current = now
+          const target = toCanvasRef.current ?? document.createElement("canvas")
+          toCanvasRef.current = target
+          renderPayloadToCanvas(
+            target,
+            payload,
+            undefined,
+            now - kineticStartRef.current,
+          )
+          drawRenderedCanvas(target)
+
+          if (ndiConfigRef.current.active) {
+            const fps = Math.min(
+              ndiConfigRef.current.fps > 0 ? ndiConfigRef.current.fps : 24,
+              KINETIC_OUTPUT_TARGET_FPS,
+            )
+            const intervalMs = 1000 / fps
+            if (now - lastKineticPushRef.current >= intervalMs) {
+              lastKineticPushRef.current = now
+              void pushNdiFrame()
+            }
           }
         }
       }

@@ -34,3 +34,19 @@ fn prose_number_still_does_not_fabricate_numbers_reference() {
         "ordinary number prose must not fuzzy-match Numbers"
     );
 }
+
+#[test]
+fn daniel_seven_ten_number_prose_does_not_fabricate_numbers_reference() {
+    let mut detector = DirectDetector::new();
+
+    let detections = detector.detect(
+        "a fiery stream issued and came forth from before him a thousand thousands ministered to him ten thousand times ten thousand stood before him",
+    );
+
+    assert!(
+        detections
+            .iter()
+            .all(|detection| detection.verse_ref.book_name != "Numbers"),
+        "Daniel 7:10 number prose must not fabricate Numbers"
+    );
+}

@@ -255,6 +255,12 @@ mod tests {
     }
 
     #[test]
+    fn stale_same_chapter_previous_verse_does_not_restart() {
+        let candidate = reading_candidate(27, 7, 9, 1.0, false);
+        assert!(!should_restart_reading(true, 27, 7, Some(10), &candidate));
+    }
+
+    #[test]
     fn inactive_reading_mode_always_restarts_on_reference() {
         let candidate = reading_candidate(39, 3, 16, 1.0, false);
         assert!(should_restart_reading(false, 39, 3, Some(16), &candidate));

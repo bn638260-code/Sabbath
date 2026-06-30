@@ -5,6 +5,9 @@ import { isKineticTheme } from "@/lib/kinetic-theme-renderer"
 import type { BroadcastTheme, PresentationRenderData } from "@/types"
 import { cn } from "@/lib/utils"
 
+const KINETIC_PREVIEW_TARGET_FPS = 15
+const KINETIC_PREVIEW_FRAME_INTERVAL_MS = 1000 / KINETIC_PREVIEW_TARGET_FPS
+
 interface CanvasPresentationProps {
   theme: BroadcastTheme
   item: PresentationRenderData | null
@@ -182,8 +185,12 @@ export const CanvasPresentation = memo(function CanvasPresentation({
 
     let frame = 0
     const start = performance.now()
+    let lastDrawAt = 0
     const loop = (now: number) => {
-      draw(true, now - start)
+      if (lastDrawAt === 0 || now - lastDrawAt >= KINETIC_PREVIEW_FRAME_INTERVAL_MS) {
+        lastDrawAt = now
+        draw(true, now - start)
+      }
       frame = window.requestAnimationFrame(loop)
     }
     frame = window.requestAnimationFrame(loop)
