@@ -15,6 +15,11 @@ export function getBroadcastRenderKey(
       verseNumbers: theme.verseNumbers,
       reference: theme.reference,
       layout: theme.layout,
+      // Kinetic metadata changes the rendered background, so it must affect the
+      // key. The transient animation clock (timeMs) is intentionally excluded —
+      // the kinetic render loop drives per-frame redraws separately, and folding
+      // time in here would defeat the static-theme dedup cache.
+      kinetic: theme.kinetic ?? null,
     },
     data,
   })

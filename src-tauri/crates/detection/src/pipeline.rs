@@ -159,7 +159,7 @@ impl DetectionPipeline {
             .collect();
 
         for (rank, fts) in fts_results.iter().enumerate() {
-            let confidence = fts_confidence(rank, fts.rank);
+            let confidence = fts_confidence(rank, fts.rank, fts.is_broad_match);
             log::debug!(
                 "[DET-SEMANTIC] FTS5 candidate idx={rank} bm25={:.3} {} {}:{} conf={:.0}%",
                 fts.rank,
@@ -230,9 +230,9 @@ impl DetectionPipeline {
 }
 
 #[expect(clippy::cast_precision_loss, reason = "rank index is small")]
-fn fts_confidence(rank: usize, bm25_rank: f64) -> f64 {
+fn fts_confidence(rank: usize, bm25_rank: f64, is_broad_match: bool) -> f64 {
     let rank_confidence = FTS5_RANK0_CONFIDENCE - (rank as f64 * FTS5_CONFIDENCE_DECAY);
-    if bm25_rank <= FTS5_EXCELLENT_MATCH_RANK {
+    if bm25_rank <= FTS5_EXCELLENT_MATCH_RANK && !is_broad_match {
         rank_confidence.max(FTS5_EXCELLENT_MATCH_CONFIDENCE)
     } else {
         // Keyword-band matches keep their honest rank-derived confidence instead
@@ -483,6 +483,7 @@ mod tests {
                 chapter: 3,
                 verse: 16,
                 rank: -16.0,
+                is_broad_match: false,
             },
             Bm25Result {
                 book_number: 45,
@@ -490,6 +491,7 @@ mod tests {
                 chapter: 5,
                 verse: 8,
                 rank: -15.0,
+                is_broad_match: false,
             },
         ];
 
@@ -532,6 +534,7 @@ mod tests {
             chapter: 23,
             verse: 1,
             rank: -16.0,
+            is_broad_match: false,
         }];
 
         let results = pipeline
@@ -548,8 +551,8 @@ mod tests {
         // Earlier FTS ranks carry higher confidence than later ones. (Tested on
         // the pure function: the live path gates sub-rank-0 keyword hits by the
         // operator threshold, so they no longer all survive into the merge.)
-        let rank0 = fts_confidence(0, -20.0);
-        let rank3 = fts_confidence(3, -20.0);
+        let rank0 = fts_confidence(0, -20.0, false);
+        let rank3 = fts_confidence(3, -20.0, false);
         assert!(rank0 > rank3, "earlier ranks must score higher");
     }
 
@@ -565,6 +568,7 @@ mod tests {
                 chapter: 3,
                 verse: 16,
                 rank: -28.0,
+                is_broad_match: false,
             },
             Bm25Result {
                 book_number: 45,
@@ -572,6 +576,7 @@ mod tests {
                 chapter: 8,
                 verse: 28,
                 rank: -27.0,
+                is_broad_match: false,
             },
             Bm25Result {
                 book_number: 1,
@@ -579,6 +584,7 @@ mod tests {
                 chapter: 1,
                 verse: 1,
                 rank: -26.0,
+                is_broad_match: false,
             },
             Bm25Result {
                 book_number: 19,
@@ -586,6 +592,7 @@ mod tests {
                 chapter: 23,
                 verse: 1,
                 rank: -25.0,
+                is_broad_match: false,
             },
             Bm25Result {
                 book_number: 23,
@@ -593,6 +600,7 @@ mod tests {
                 chapter: 53,
                 verse: 5,
                 rank: -24.5,
+                is_broad_match: false,
             },
             Bm25Result {
                 book_number: 40,
@@ -600,6 +608,7 @@ mod tests {
                 chapter: 5,
                 verse: 3,
                 rank: -24.0,
+                is_broad_match: false,
             },
         ];
 
@@ -620,6 +629,7 @@ mod tests {
             chapter: 3,
             verse: 16,
             rank: -16.0,
+            is_broad_match: false,
         }];
 
         let results = pipeline.process_hybrid_with_fts("John three sixteen", &fts_results);
@@ -655,6 +665,7 @@ mod tests {
                 chapter: 3,
                 verse: 16,
                 rank: -16.0, // strong genuine match
+                is_broad_match: false,
             },
             Bm25Result {
                 book_number: 23,
@@ -662,6 +673,7 @@ mod tests {
                 chapter: 41,
                 verse: 27,
                 rank: -11.5, // keyword noise
+                is_broad_match: false,
             },
         ];
 
@@ -683,8 +695,9 @@ mod tests {
 
     #[test]
     fn live_fts_confidence_floors_only_near_verbatim_quotes() {
-        let excellent = fts_confidence(0, -24.0);
-        let keyword_band = fts_confidence(0, -17.0);
+        let excellent = fts_confidence(0, -24.0, false);
+        let broad_excellent_rank = fts_confidence(0, -24.0, true);
+        let keyword_band = fts_confidence(0, -17.0, false);
 
         assert!(
             excellent >= FTS5_EXCELLENT_MATCH_CONFIDENCE,
@@ -696,6 +709,10 @@ mod tests {
         assert!(
             keyword_band < excellent,
             "keyword-band FTS matches must not masquerade as quote-strength"
+        );
+        assert!(
+            broad_excellent_rank < excellent,
+            "OR-tier FTS matches must not masquerade as quote-strength"
         );
         assert!(
             (keyword_band - FTS5_RANK0_CONFIDENCE).abs() < f64::EPSILON,
@@ -713,6 +730,7 @@ mod tests {
                 chapter: 3,
                 verse: 16,
                 rank: -16.0,
+                is_broad_match: false,
             },
             Bm25Result {
                 book_number: 1,
@@ -720,6 +738,7 @@ mod tests {
                 chapter: 1,
                 verse: 1,
                 rank: -11.0,
+                is_broad_match: false,
             },
         ];
 
@@ -746,6 +765,7 @@ mod tests {
                 chapter: 2,
                 verse: 19,
                 rank: -17.0,
+                is_broad_match: false,
             },
             Bm25Result {
                 book_number: 23,
@@ -753,6 +773,7 @@ mod tests {
                 chapter: 29,
                 verse: 12,
                 rank: -16.5,
+                is_broad_match: false,
             },
         ];
 

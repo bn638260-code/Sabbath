@@ -1,4 +1,5 @@
 import type { BroadcastTheme } from "@/types/broadcast"
+import { buildKineticBroadcastThemes } from "@/lib/kinetic-themes"
 
 const baseTheme: Omit<
   BroadcastTheme,
@@ -1464,4 +1465,8 @@ export const BUILTIN_THEMES: BroadcastTheme[] = [
   PREMIUM_GILDED_INDIGO,
   PREMIUM_RIVER_STONE,
   PREMIUM_PEARL_DAWN,
+  // Kinetic (moving-background) presets are appended last so existing built-in
+  // theme IDs and ordering are unchanged. Each carries optional `kinetic`
+  // metadata; static themes are untouched.
+  ...buildKineticBroadcastThemes(),
 ]

@@ -79,7 +79,7 @@ function renderPresentationImpl(
     ctx.globalAlpha = options.opacity
   }
 
-  drawBackground(ctx, scaledTheme, options?.imageCache)
+  drawBackground(ctx, scaledTheme, options?.imageCache, options?.timeMs)
 
   if (scaledTheme.textBox.enabled) {
     ctx.save()

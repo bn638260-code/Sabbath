@@ -47,6 +47,49 @@ export interface RenderOptions {
   offsetY?: number
   scale?: number               // Scale factor for rendering at display size (e.g., 0.42 for 400px panel)
   imageCache?: Map<string, HTMLImageElement>
+  /**
+   * Animation clock in milliseconds for kinetic themes. `0` (or omitted)
+   * produces a deterministic static frame, which keeps tests stable and lets
+   * static thumbnails render the same image every time. Only kinetic themes
+   * read this value; static themes ignore it entirely.
+   */
+  timeMs?: number
+}
+
+// --- Kinetic (moving-background) theme support ---------------------------------
+// Kinetic themes are an additive, preset-based path layered on top of the
+// existing static `BroadcastTheme`. The metadata below is the canvas-native
+// description of the HTML prototype's CSS motion (liquidMesh / drift / dot-grid
+// / diagonal stripes). It carries no DOM/CSS — the kinetic renderer turns it
+// into deterministic canvas draw calls so the same motion works for NDI.
+
+export type KineticBackgroundKind = "mesh" | "grid" | "stripes"
+
+export type KineticPattern = "dot-grid" | "diagonal-stripes"
+
+export interface KineticMotion {
+  /** Full loop duration in ms (mirrors the CSS animation duration). */
+  durationMs: number
+  /** Relative blob/mesh travel distance, roughly 0..1. */
+  driftAmount: number
+  /** Peak hue rotation across the loop, in degrees. */
+  hueShiftDegrees: number
+  /** Peak saturation multiplier boost across the loop (e.g. 0.3 = +30%). */
+  saturationBoost: number
+}
+
+export interface BroadcastKineticTheme {
+  source: "html-prototype-v2"
+  presetId: string
+  group: "classical" | "modern"
+  backgroundKind: KineticBackgroundKind
+  /** Mesh gradient stop colors (the four corner colors from the prototype). */
+  colors: string[]
+  /** Accent color used for dot-grid / stripe overlays and glow. */
+  accentColor: string
+  motion: KineticMotion
+  /** Optional overlay pattern drawn on top of the moving base. */
+  pattern?: KineticPattern
 }
 
 export type TextHorizontalAlign = "left" | "center" | "right" | "justify"
@@ -152,4 +195,10 @@ export interface BroadcastTheme {
     referenceGap?: number
   }
   transition: BroadcastTransition
+  /**
+   * Optional kinetic (moving-background) metadata. Present only on kinetic
+   * presets; `undefined` on every existing static/custom theme so persisted
+   * themes remain fully backward-compatible.
+   */
+  kinetic?: BroadcastKineticTheme
 }

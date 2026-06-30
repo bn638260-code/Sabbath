@@ -128,4 +128,29 @@ describe("getBroadcastRenderKey", () => {
       getBroadcastRenderKey(makeTheme(), verseData)
     )
   })
+
+  it("changes when kinetic metadata changes", () => {
+    const kinetic = {
+      source: "html-prototype-v2" as const,
+      presetId: "ocean",
+      group: "classical" as const,
+      backgroundKind: "mesh" as const,
+      colors: ["#061127", "#112d61"],
+      accentColor: "#38bdf8",
+      motion: {
+        durationMs: 6000,
+        driftAmount: 0.6,
+        hueShiftDegrees: 25,
+        saturationBoost: 0.3,
+      },
+    }
+    const baseKey = getBroadcastRenderKey(makeTheme({ kinetic }), verseData)
+    const changedKey = getBroadcastRenderKey(
+      makeTheme({ kinetic: { ...kinetic, presetId: "celestial" } }),
+      verseData
+    )
+    expect(changedKey).not.toBe(baseKey)
+    // A static theme (no kinetic) differs from a kinetic one.
+    expect(getBroadcastRenderKey(makeTheme(), verseData)).not.toBe(baseKey)
+  })
 })

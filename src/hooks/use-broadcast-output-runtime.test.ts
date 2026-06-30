@@ -258,6 +258,83 @@ describe("useBroadcastOutputRuntime", () => {
     })
   })
 
+  it("runs a redraw loop for kinetic themes and stops for static payloads", async () => {
+    const { useBroadcastOutputRuntime } = await import("./use-broadcast-output-runtime")
+    const canvas = createCanvas()
+    const root = createRoot(document.createElement("div"))
+    const kineticTheme: BroadcastTheme = {
+      ...makeTheme(),
+      id: "builtin-kinetic-ocean",
+      kinetic: {
+        source: "html-prototype-v2",
+        presetId: "ocean",
+        group: "classical",
+        backgroundKind: "mesh",
+        colors: ["#061127", "#112d61"],
+        accentColor: "#38bdf8",
+        motion: {
+          durationMs: 6000,
+          driftAmount: 0.6,
+          hueShiftDegrees: 25,
+          saturationBoost: 0.3,
+        },
+      },
+    }
+
+    function Probe() {
+      useBroadcastOutputRuntime({ canvas, outputId: "main" })
+      return null
+    }
+
+    await act(async () => {
+      root.render(React.createElement(Probe))
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      listeners.get("broadcast:verse-update")?.({
+        payload: {
+          theme: kineticTheme,
+          item: { reference: "John 3:16", segments: [{ text: "For God so loved the world." }] },
+          opacity: 1,
+          transition: { ...kineticTheme.transition, type: "none", duration: 0 },
+        },
+      })
+      await Promise.resolve()
+    })
+
+    mockRenderPresentation.mockClear()
+    await act(async () => {
+      vi.advanceTimersByTime(80)
+      await Promise.resolve()
+    })
+    const kineticCalls = mockRenderPresentation.mock.calls.length
+    expect(kineticCalls).toBeGreaterThan(1)
+
+    // Switching to a static theme stops the loop: no further renders accrue.
+    await act(async () => {
+      listeners.get("broadcast:verse-update")?.({
+        payload: {
+          theme: makeTheme(),
+          item: { reference: "Romans 8:28", segments: [{ text: "All things." }] },
+          opacity: 1,
+          transition: { ...makeTheme().transition, type: "none", duration: 0 },
+        },
+      })
+      await Promise.resolve()
+    })
+    mockRenderPresentation.mockClear()
+    await act(async () => {
+      vi.advanceTimersByTime(120)
+      await Promise.resolve()
+    })
+    expect(mockRenderPresentation.mock.calls.length).toBe(0)
+
+    await act(async () => {
+      root.unmount()
+    })
+  })
+
   it("preloads an imported slide image into the render cache", async () => {
     const { useBroadcastOutputRuntime } = await import("./use-broadcast-output-runtime")
     const canvas = createCanvas()

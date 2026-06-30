@@ -111,6 +111,49 @@ describe("renderPresentation slide deck images", () => {
   })
 })
 
+describe("renderPresentation kinetic backgrounds", () => {
+  const verse: VerseRenderData = {
+    reference: "John 3:16 (KJV)",
+    segments: [{ text: "For God so loved the world" }],
+  }
+
+  function kineticTheme(): BroadcastTheme {
+    const t = BUILTIN_THEMES.find((x) => x.kinetic)
+    if (!t) throw new Error("no kinetic builtin present")
+    return { ...t, resolution: { width: 400, height: 225 } }
+  }
+
+  it("varies background gradient calls as timeMs advances", () => {
+    const a = createRenderContext()
+    const b = createRenderContext()
+    renderPresentation(a.context, kineticTheme(), verse, { timeMs: 0 })
+    renderPresentation(b.context, kineticTheme(), verse, { timeMs: 1500 })
+    expect(a.createRadialGradient.mock.calls).not.toEqual(
+      b.createRadialGradient.mock.calls,
+    )
+  })
+
+  it("produces identical kinetic draw calls for the same timeMs", () => {
+    const a = createRenderContext()
+    const b = createRenderContext()
+    renderPresentation(a.context, kineticTheme(), verse, { timeMs: 800 })
+    renderPresentation(b.context, kineticTheme(), verse, { timeMs: 800 })
+    expect(a.createRadialGradient.mock.calls).toEqual(
+      b.createRadialGradient.mock.calls,
+    )
+  })
+
+  it("ignores timeMs for static themes", () => {
+    const a = createRenderContext()
+    const b = createRenderContext()
+    renderPresentation(a.context, testTheme(), verse, { timeMs: 0 })
+    renderPresentation(b.context, testTheme(), verse, { timeMs: 4000 })
+    expect(a.createRadialGradient.mock.calls).toEqual(
+      b.createRadialGradient.mock.calls,
+    )
+  })
+})
+
 function testTheme(): BroadcastTheme {
   return {
     ...BUILTIN_THEMES[0],
@@ -137,9 +180,19 @@ function testTheme(): BroadcastTheme {
 function createRenderContext(): {
   context: CanvasRenderingContext2D
   drawImage: ReturnType<typeof vi.fn>
+  createRadialGradient: ReturnType<typeof vi.fn>
+  createLinearGradient: ReturnType<typeof vi.fn>
 } {
   const drawImage = vi.fn()
   const gradient = { addColorStop: vi.fn() }
+  const createLinearGradient = vi.fn((...args: unknown[]) => {
+    void args
+    return gradient
+  })
+  const createRadialGradient = vi.fn((...args: unknown[]) => {
+    void args
+    return gradient
+  })
   const context = {
     save: vi.fn(),
     restore: vi.fn(),
@@ -148,14 +201,18 @@ function createRenderContext(): {
     beginPath: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
+    arc: vi.fn(),
     arcTo: vi.fn(),
     closePath: vi.fn(),
     fill: vi.fn(),
+    stroke: vi.fn(),
+    translate: vi.fn(),
+    rotate: vi.fn(),
     fillText: vi.fn(),
     drawImage,
     measureText: vi.fn((text: string) => ({ width: text.length * 10 })),
-    createLinearGradient: vi.fn(() => gradient),
-    createRadialGradient: vi.fn(() => gradient),
+    createLinearGradient,
+    createRadialGradient,
   } as unknown as CanvasRenderingContext2D
-  return { context, drawImage }
+  return { context, drawImage, createRadialGradient, createLinearGradient }
 }

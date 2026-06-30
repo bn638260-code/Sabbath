@@ -14,6 +14,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import type { BroadcastOutputId } from "@/types"
 import { getBroadcastRenderKey } from "@/lib/broadcast-render-key"
 import { renderPresentation } from "@/lib/verse-renderer"
+import { isKineticTheme } from "@/lib/kinetic-theme-renderer"
 import type { BroadcastTheme, BroadcastTransition, PresentationRenderData } from "@/types"
 import type { NdiConfigEventPayload } from "@/types"
 
@@ -136,6 +137,9 @@ export function useBroadcastOutputRuntime({
   const fromCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const toCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const ndiBurstTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const kineticFrameRef = useRef<number | null>(null)
+  const kineticStartRef = useRef(0)
+  const lastKineticPushRef = useRef(0)
 
   useEffect(() => {
     canvasRef.current = canvas
@@ -157,6 +161,7 @@ export function useBroadcastOutputRuntime({
     target: HTMLCanvasElement,
     payload: BroadcastPayload | null,
     fallbackSize?: { width: number; height: number },
+    timeMs = 0,
   ) => {
     const width = payload?.theme.resolution.width ?? fallbackSize?.width ?? 1920
     const height = payload?.theme.resolution.height ?? fallbackSize?.height ?? 1080
@@ -179,6 +184,7 @@ export function useBroadcastOutputRuntime({
       scale: 1,
       opacity: payload.opacity,
       imageCache: imageCacheRef.current,
+      timeMs,
     })
 
     if (!result) {
@@ -210,6 +216,12 @@ export function useBroadcastOutputRuntime({
     if (transitionFrameRef.current === null) return
     cancelScheduledAnimationFrame(transitionFrameRef.current)
     transitionFrameRef.current = null
+  }, [])
+
+  const cancelKineticLoop = useCallback(() => {
+    if (kineticFrameRef.current === null) return
+    cancelScheduledAnimationFrame(kineticFrameRef.current)
+    kineticFrameRef.current = null
   }, [])
 
   const drawTransitionFrame = useCallback((
@@ -386,6 +398,64 @@ export function useBroadcastOutputRuntime({
     ndiBurstTimersRef.current.push(...timers)
   }, [pushNdiFrame])
 
+  // Continuously redraw the moving background for kinetic themes and push NDI
+  // frames at the configured FPS while one is live. Static themes, video items,
+  // and a null payload never start this loop (and stop it if it was running).
+  const syncKineticLoop = useCallback(() => {
+    const active = latestData.current
+    const shouldRun =
+      active !== null &&
+      isKineticTheme(active.theme) &&
+      active.item?.kind !== "video"
+
+    if (!shouldRun) {
+      cancelKineticLoop()
+      return
+    }
+    if (kineticFrameRef.current !== null) return // already looping
+
+    kineticStartRef.current = performance.now()
+    lastKineticPushRef.current = 0
+
+    const step = (now: number) => {
+      const payload = latestData.current
+      if (
+        !payload ||
+        !isKineticTheme(payload.theme) ||
+        payload.item?.kind === "video"
+      ) {
+        kineticFrameRef.current = null
+        return
+      }
+
+      // Let an in-flight transition own the canvas; resume drawing once it ends.
+      if (transitionFrameRef.current === null) {
+        const target = toCanvasRef.current ?? document.createElement("canvas")
+        toCanvasRef.current = target
+        renderPayloadToCanvas(
+          target,
+          payload,
+          undefined,
+          now - kineticStartRef.current,
+        )
+        drawRenderedCanvas(target)
+
+        if (ndiConfigRef.current.active) {
+          const fps = ndiConfigRef.current.fps > 0 ? ndiConfigRef.current.fps : 24
+          const intervalMs = 1000 / fps
+          if (now - lastKineticPushRef.current >= intervalMs) {
+            lastKineticPushRef.current = now
+            void pushNdiFrame()
+          }
+        }
+      }
+
+      kineticFrameRef.current = scheduleAnimationFrame(step)
+    }
+
+    kineticFrameRef.current = scheduleAnimationFrame(step)
+  }, [cancelKineticLoop, drawRenderedCanvas, renderPayloadToCanvas, pushNdiFrame])
+
   const animatePayload = useCallback((
     previousPayload: BroadcastPayload | null,
     payload: BroadcastPayload,
@@ -470,6 +540,7 @@ export function useBroadcastOutputRuntime({
         themeId: payload.theme.id,
       })
       animatePayload(previousPayload, payload)
+      syncKineticLoop()
     }
 
     const e2eHarnessEnabled =
@@ -532,12 +603,13 @@ export function useBroadcastOutputRuntime({
     return () => {
       delete window.__SABBATHCUE_BROADCAST_TEST__
       cancelTransition()
+      cancelKineticLoop()
       ndiBurstTimersRef.current.forEach(clearTimeout)
       ndiBurstTimersRef.current = []
       unlisten?.then((fn) => fn())
       unlistenNdiConfig?.then((fn) => fn())
     }
-  }, [animatePayload, cancelTransition, canvas, logDebug, onPayloadChange, outputId, preloadBackgroundImage, preloadSlideImage, pushNdiBurst])
+  }, [animatePayload, cancelKineticLoop, cancelTransition, canvas, logDebug, onPayloadChange, outputId, preloadBackgroundImage, preloadSlideImage, pushNdiBurst, syncKineticLoop])
 
   useEffect(() => {
     const timer = setInterval(() => {

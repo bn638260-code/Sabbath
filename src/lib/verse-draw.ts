@@ -15,6 +15,7 @@ import {
   clampCornerRadius,
   type VerseLayoutRect,
 } from "@/lib/verse-layout"
+import { drawKineticBackground } from "@/lib/kinetic-theme-renderer"
 
 function drawTextDecorationLine(
   ctx: CanvasRenderingContext2D,
@@ -73,10 +74,18 @@ export function roundRect(
 export function drawBackground(
   ctx: CanvasRenderingContext2D,
   theme: BroadcastTheme,
-  imageCache?: Map<string, HTMLImageElement>
+  imageCache?: Map<string, HTMLImageElement>,
+  timeMs?: number
 ): void {
   const { width, height } = theme.resolution
   const bg = theme.background
+
+  // Kinetic themes paint a canvas-native moving background. On failure the
+  // renderer returns false and we fall through to the static background below,
+  // so a kinetic preset always has the gradient/solid fallback to rely on.
+  if (theme.kinetic) {
+    if (drawKineticBackground(ctx, theme, timeMs ?? 0)) return
+  }
 
   switch (bg.type) {
     case "solid":

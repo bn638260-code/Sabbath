@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils"
 import { importTheme, exportTheme } from "@/lib/theme-designer-files"
 import type { BroadcastTheme, VerseRenderData } from "@/types"
 
-type FilterTab = "all" | "pinned" | "custom"
+type FilterTab = "all" | "kinetic" | "pinned" | "custom"
 
 const THUMBNAIL_VERSE: VerseRenderData = {
   reference: "John 3:16 (KJV)",
@@ -50,10 +50,18 @@ function ThemeCard({
   isSelected: boolean
   onSelect: () => void
 }) {
+  const [isHovered, setIsHovered] = useState(false)
+  const isKinetic = Boolean(theme.kinetic)
+  // Bound CPU: a kinetic card only animates when selected or hovered; otherwise
+  // it renders the deterministic static frame. Static themes ignore `animate`.
+  const animate = isKinetic && (isSelected || isHovered)
+
   return (
     <div
       role="button"
       tabIndex={0}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={() => {
         // Prevent rename exit when card is selected during rename
         if (isRenaming) return
@@ -72,7 +80,19 @@ function ThemeCard({
     >
       {/* Thumbnail */}
       <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-        <CanvasVerse theme={theme} verse={THUMBNAIL_VERSE} className="w-full" />
+        <CanvasVerse
+          theme={theme}
+          verse={THUMBNAIL_VERSE}
+          className="w-full"
+          animate={animate}
+        />
+
+        {/* Kinetic (motion) badge */}
+        {isKinetic && (
+          <Badge className="absolute bottom-1.5 left-1.5 bg-indigo-600 text-[0.5rem] text-foreground hover:bg-indigo-600">
+            Kinetic
+          </Badge>
+        )}
 
         {/* Active badge */}
         {isActive && (
@@ -225,11 +245,15 @@ export function ThemeLibrary() {
     }
     if (filter === "pinned") result = result.filter((t) => t.pinned)
     if (filter === "custom") result = result.filter((t) => !t.builtin)
+    if (filter === "kinetic") result = result.filter((t) => Boolean(t.kinetic))
     return result
   }, [themes, search, filter])
 
-  const builtinThemes = filteredThemes.filter((t) => t.builtin)
-  const customThemes = filteredThemes.filter((t) => !t.builtin)
+  // Kinetic presets are their own selection workflow, kept visually separate
+  // from the static built-in and custom themes.
+  const kineticThemes = filteredThemes.filter((t) => Boolean(t.kinetic))
+  const builtinThemes = filteredThemes.filter((t) => t.builtin && !t.kinetic)
+  const customThemes = filteredThemes.filter((t) => !t.builtin && !t.kinetic)
 
   const handleNewTheme = () => {
     useBroadcastStore.getState().createNewTheme()
@@ -274,6 +298,9 @@ export function ThemeLibrary() {
         <TabsList className="h-7 w-full">
           <TabsTrigger value="all" className="capitalize">
             all
+          </TabsTrigger>
+          <TabsTrigger value="kinetic" className="capitalize">
+            kinetic
           </TabsTrigger>
           <TabsTrigger value="pinned" className="capitalize">
             pinned
@@ -345,6 +372,25 @@ export function ThemeLibrary() {
                 Built-in
               </p>
               {builtinThemes.map((theme) => (
+                <ThemeCard
+                  key={theme.id}
+                  theme={theme}
+                  isActive={theme.id === activeThemeId}
+                  isRenaming={theme.id === renamingThemeId}
+                  isSelected={theme.id === editingThemeId}
+                  onSelect={() => handleSelectTheme(theme.id)}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Kinetic (moving-background) section */}
+          {kineticThemes.length > 0 && (
+            <>
+              <p className="px-1.5 pt-3 pb-1 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
+                Kinetic Motion
+              </p>
+              {kineticThemes.map((theme) => (
                 <ThemeCard
                   key={theme.id}
                   theme={theme}

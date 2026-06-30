@@ -502,6 +502,35 @@ const CASES: &[Case] = &[
     ),
 ];
 
+const AFRIKAANS_CASES: &[Case] = &[
+    (
+        "af-direct",
+        "Deuteronomium 16 vers 18",
+        Some("Deuteronomium 16:18"),
+    ),
+    ("af-direct", "Matteus 20 vers 25", Some("Matteus 20:25")),
+    (
+        "af-direct",
+        "Eerste Samuel 8 vers 7",
+        Some("1 Samuel 8:7"),
+    ),
+    (
+        "af-quote",
+        "Regters en opsigters moet jy vir jou aanstel in al jou poorte wat die HERE jou God jou sal gee",
+        Some("Deuteronomium 16:18"),
+    ),
+    (
+        "af-quote",
+        "Toe sê die HERE vir Samuel Luister na die volk in alles wat hulle aan jou sê want nie jou het hulle verwerp nie maar My het hulle verwerp om nie koning oor hulle te wees nie",
+        Some("1 Samuel 8:7"),
+    ),
+    (
+        "af-noise",
+        "die poort was natuurlik 'n plek waar die volk gekom het om regspraak te ontvang",
+        None,
+    ),
+];
+
 #[expect(
     clippy::too_many_lines,
     reason = "diagnostic bin keeps the benchmark flow in one readable script"
@@ -547,10 +576,19 @@ fn main() {
     let mut by_cat: HashMap<&str, (usize, usize)> = HashMap::new(); // cat -> (hits, total)
 
     println!("Per-case outcome at threshold {:.0}%:\n", threshold * 100.0);
-    for (category, text, expected) in CASES {
+    for (language, category, text, expected) in CASES
+        .iter()
+        .map(|case| ("en", case.0, case.1, case.2))
+        .chain(
+            AFRIKAANS_CASES
+                .iter()
+                .map(|case| ("af", case.0, case.1, case.2)),
+        )
+    {
         // Mirror the live auto-live path: direct parsing on the fragment, plus
         // hybrid FTS5 + vector search (the explicit-reference and quote/paraphrase
         // strategies the real STT pipeline runs).
+        pipeline.direct_mut().set_stt_language(language);
         let mut detections = pipeline.process_direct(text);
         let fts = db.search_verses_bm25(text, 10).unwrap_or_default();
         detections.extend(pipeline.process_hybrid_with_fts(text, &fts));
@@ -600,13 +638,17 @@ fn main() {
         println!("[{category:>6}] want {want:<22} -> {outcome}");
     }
 
-    let total = CASES.len();
+    let total = CASES.len() + AFRIKAANS_CASES.len();
     let precision = if tp + fp == 0 {
         1.0
     } else {
         tp as f64 / (tp + fp) as f64
     };
-    let positives = CASES.iter().filter(|(_, _, e)| e.is_some()).count();
+    let positives = CASES
+        .iter()
+        .chain(AFRIKAANS_CASES)
+        .filter(|(_, _, e)| e.is_some())
+        .count();
     let recall = if positives == 0 {
         0.0
     } else {
@@ -615,7 +657,16 @@ fn main() {
     let accuracy = (tp + tn) as f64 / total as f64;
 
     println!("\nBy category (correct / total):");
-    for cat in ["direct", "spoken", "quote", "para", "noise"] {
+    for cat in [
+        "direct",
+        "spoken",
+        "quote",
+        "para",
+        "noise",
+        "af-direct",
+        "af-quote",
+        "af-noise",
+    ] {
         if let Some((hit, tot)) = by_cat.get(cat) {
             println!("  {cat:>6}  {hit}/{tot}");
         }

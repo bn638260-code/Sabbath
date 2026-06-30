@@ -16,6 +16,7 @@ pub struct Bm25Result {
     pub book_name: String,
     pub chapter: i32,
     pub verse: i32,
+    pub is_broad_match: bool,
 }
 
 // ── Stop words ──────────────────────────────────────────────────────
@@ -29,7 +30,12 @@ const STOP_WORDS: &[&str] = &[
     "this", "these", "those", "he", "she", "we", "they", "you", "i", "me", "him", "her", "us",
     "them", "my", "his", "its", "our", "your", "their", "so", "if", "as", "no", "up", "all", "am",
     "about", "into", "when", "what", "which", "who", "whom", "how", "than", "then", "now", "just",
-    "also", "very", "like", "even", "out", "there", "here",
+    "also", "very", "like", "even", "out", "there", "here", "die", "n", "en", "of", "maar", "in",
+    "op", "aan", "vir", "van", "met", "deur", "uit", "tot", "oor", "onder", "by", "na", "is",
+    "was", "wees", "het", "sal", "sou", "kan", "kon", "moet", "mag", "wil", "worden", "dit", "dat",
+    "hierdie", "daardie", "hy", "sy", "ons", "julle", "hulle", "jy", "jou", "my", "hom", "haar",
+    "hul", "syne", "se", "geen", "nie", "ook", "so", "dan", "toe", "nou", "daar", "hier", "as",
+    "wat", "wie", "waar", "hoe", "wanneer", "al", "alles", "elke", "almal",
 ];
 
 static STOP_WORD_SET: LazyLock<HashSet<&str>> =
@@ -91,7 +97,7 @@ pub(crate) fn build_or_query(input: &str) -> String {
 
 // ── SQL runner ──────────────────────────────────────────────────────
 
-/// Execute a BM25-ranked FTS5 query across all English translations.
+/// Execute a BM25-ranked FTS5 query across all installed translations.
 #[expect(
     clippy::cast_possible_wrap,
     reason = "limit is a small page-size value that fits in i64"
@@ -100,6 +106,7 @@ fn run_fts_query(
     conn: &Connection,
     fts_query: &str,
     limit: usize,
+    is_broad_match: bool,
 ) -> Result<Vec<Bm25Result>, BibleError> {
     if fts_query.is_empty() {
         return Ok(vec![]);
@@ -108,8 +115,7 @@ fn run_fts_query(
         "SELECT bm25(verses_fts) as rank, v.book_number, v.book_name, v.chapter, v.verse \
          FROM verses_fts fts \
          JOIN verses v ON v.rowid = fts.rowid \
-         JOIN translations t ON v.translation_id = t.id \
-         WHERE fts.text MATCH ?1 AND t.language = 'en' \
+         WHERE fts.text MATCH ?1 \
          ORDER BY rank \
          LIMIT ?2",
     )?;
@@ -122,6 +128,7 @@ fn run_fts_query(
                 book_name: row.get(2)?,
                 chapter: row.get(3)?,
                 verse: row.get(4)?,
+                is_broad_match,
             })
         },
     )?;
@@ -141,8 +148,16 @@ fn dedup_results(results: Vec<Bm25Result>, limit: usize) -> Vec<Bm25Result> {
     for result in results {
         let key = (result.book_number, result.chapter, result.verse);
         match best.get_mut(&key) {
-            Some(existing) if result.rank < existing.rank => *existing = result,
-            Some(_) => {}
+            Some(existing) if result.rank < existing.rank => {
+                let is_broad_match = existing.is_broad_match && result.is_broad_match;
+                *existing = Bm25Result {
+                    is_broad_match,
+                    ..result
+                };
+            }
+            Some(existing) => {
+                existing.is_broad_match &= result.is_broad_match;
+            }
             None => {
                 order.push(key);
                 best.insert(key, result);
@@ -215,7 +230,7 @@ impl BibleDb {
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
-    /// Search verses using FTS5 with BM25 ranking across all English translations.
+    /// Search verses using FTS5 with BM25 ranking across all installed translations.
     ///
     /// Three-tier strategy with stop-word filtering for speed:
     /// 1. **Phrase** — exact substring match (~5ms)
@@ -245,7 +260,7 @@ impl BibleDb {
             "[FTS5-BM25] phrase tier: {} terms",
             query_terms(query).count()
         );
-        let mut all_results = run_fts_query(&conn, &phrase, fetch_limit)?;
+        let mut all_results = run_fts_query(&conn, &phrase, fetch_limit, false)?;
 
         // Tier 2: AND with stop words filtered (~5-20ms)
         if dedup_count(&all_results) < limit {
@@ -255,7 +270,7 @@ impl BibleDb {
                     "[FTS5-BM25] AND tier: {} terms",
                     and_q.split_whitespace().count()
                 );
-                all_results.extend(run_fts_query(&conn, &and_q, fetch_limit)?);
+                all_results.extend(run_fts_query(&conn, &and_q, fetch_limit, false)?);
             }
         }
 
@@ -267,7 +282,7 @@ impl BibleDb {
                     "[FTS5-BM25] OR tier: {} terms",
                     or_q.matches(" OR ").count() + 1
                 );
-                all_results.extend(run_fts_query(&conn, &or_q, fetch_limit)?);
+                all_results.extend(run_fts_query(&conn, &or_q, fetch_limit, true)?);
             }
         }
 
@@ -305,15 +320,47 @@ impl BibleDb {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
 
-    fn bm25(rank: f64, book_number: i32, chapter: i32, verse: i32) -> Bm25Result {
+    fn fixture_db() -> BibleDb {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE translations (id INTEGER PRIMARY KEY, abbreviation TEXT, title TEXT, language TEXT, is_copyrighted INTEGER, is_downloaded INTEGER);
+             CREATE TABLE verses (id INTEGER PRIMARY KEY, translation_id INTEGER, book_number INTEGER, book_name TEXT, book_abbreviation TEXT, chapter INTEGER, verse INTEGER, text TEXT);
+             CREATE VIRTUAL TABLE verses_fts USING fts5(text, content='verses', content_rowid='id', tokenize='unicode61');
+             INSERT INTO translations VALUES
+               (1, 'KJV', 'King James', 'en', 0, 1),
+               (2, 'Afr1953', 'Afrikaans 1933/1953 Bybel', 'af', 1, 1);
+             INSERT INTO verses VALUES
+               (1, 1, 5, 'Deuteronomy', 'Deut', 16, 18, 'Judges and officers shalt thou make thee in all thy gates.'),
+               (2, 2, 5, 'Deuteronomium', 'Deut', 16, 18, 'Regters en opsigters moet jy vir jou aanstel in al jou poorte.');
+             INSERT INTO verses_fts(rowid, text) SELECT id, text FROM verses;",
+        )
+        .unwrap();
+        BibleDb {
+            conn: Mutex::new(conn),
+        }
+    }
+
+    fn bm25_with_broad_match(
+        rank: f64,
+        book_number: i32,
+        chapter: i32,
+        verse: i32,
+        is_broad_match: bool,
+    ) -> Bm25Result {
         Bm25Result {
             rank,
             book_number,
             book_name: format!("Book{book_number}"),
             chapter,
             verse,
+            is_broad_match,
         }
+    }
+
+    fn bm25(rank: f64, book_number: i32, chapter: i32, verse: i32) -> Bm25Result {
+        bm25_with_broad_match(rank, book_number, chapter, verse, false)
     }
 
     #[test]
@@ -356,6 +403,48 @@ mod tests {
         assert_eq!(deduped[0].book_number, 1);
         assert!((deduped[0].rank - (-30.0)).abs() < f64::EPSILON);
         assert_eq!(deduped[1].book_number, 2);
+    }
+
+    #[test]
+    fn dedup_preserves_strict_tier_when_broad_duplicate_has_stronger_rank() {
+        let results = vec![
+            bm25_with_broad_match(-12.0, 43, 3, 16, false),
+            bm25_with_broad_match(-25.0, 43, 3, 16, true),
+        ];
+
+        let deduped = dedup_results(results, 10);
+
+        assert_eq!(deduped.len(), 1);
+        assert!((deduped[0].rank - (-25.0)).abs() < f64::EPSILON);
+        assert!(!deduped[0].is_broad_match);
+    }
+
+    #[test]
+    fn dedup_preserves_strict_tier_when_broad_duplicate_has_weaker_rank() {
+        let results = vec![
+            bm25_with_broad_match(-25.0, 43, 3, 16, true),
+            bm25_with_broad_match(-12.0, 43, 3, 16, false),
+        ];
+
+        let deduped = dedup_results(results, 10);
+
+        assert_eq!(deduped.len(), 1);
+        assert!((deduped[0].rank - (-25.0)).abs() < f64::EPSILON);
+        assert!(!deduped[0].is_broad_match);
+    }
+
+    #[test]
+    fn bm25_searches_afrikaans_translation_text() {
+        let db = fixture_db();
+
+        let results = db
+            .search_verses_bm25("Regters en opsigters moet jy vir jou aanstel", 10)
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].book_name, "Deuteronomium");
+        assert_eq!(results[0].chapter, 16);
+        assert_eq!(results[0].verse, 18);
     }
 
     #[test]

@@ -17,6 +17,8 @@ export function PropertiesPanel() {
     )
   }
 
+  const isKinetic = Boolean(draftTheme.kinetic)
+
   const subtitle =
     selectedElement === "verse"
       ? "Editing verse properties"
@@ -31,6 +33,18 @@ export function PropertiesPanel() {
         <h3 className="truncate text-sm font-semibold">{draftTheme.name}</h3>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
+
+      {/* Kinetic preset notice: motion is preset-driven, not hand-editable here. */}
+      {isKinetic && (
+        <div className="border-b border-border bg-indigo-500/10 px-4 py-2">
+          <p className="text-[0.6875rem] leading-4 text-muted-foreground">
+            <span className="font-semibold text-indigo-400">Kinetic preset.</span>{" "}
+            Its moving background is preset-driven. Text and layout are editable;
+            the Background tab edits only the static fallback shown if motion is
+            unavailable.
+          </p>
+        </div>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="text" className="flex min-h-0 flex-1 flex-col overflow-hidden">

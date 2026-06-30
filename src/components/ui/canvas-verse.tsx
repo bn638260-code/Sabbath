@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo, memo } from "react"
 import { getBroadcastRenderKey } from "@/lib/broadcast-render-key"
 import { renderPresentation } from "@/lib/verse-renderer"
+import { isKineticTheme } from "@/lib/kinetic-theme-renderer"
 import type { BroadcastTheme, PresentationRenderData } from "@/types"
 import { cn } from "@/lib/utils"
 
@@ -8,18 +9,27 @@ interface CanvasPresentationProps {
   theme: BroadcastTheme
   item: PresentationRenderData | null
   className?: string
+  /**
+   * When true (default) a kinetic theme animates its moving background via a
+   * requestAnimationFrame loop. Static themes ignore this and render once. Set
+   * false to render a deterministic static frame even for kinetic themes (e.g.
+   * library cards that are not selected/hovered).
+   */
+  animate?: boolean
 }
 
 interface CanvasVerseProps {
   theme: BroadcastTheme
   verse: PresentationRenderData | null
   className?: string
+  animate?: boolean
 }
 
 export const CanvasPresentation = memo(function CanvasPresentation({
   theme,
   item,
   className,
+  animate = true,
 }: CanvasPresentationProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -69,7 +79,7 @@ export const CanvasPresentation = memo(function CanvasPresentation({
     }
   }, [])
 
-  const draw = useCallback((force = false) => {
+  const draw = useCallback((force = false, timeMs = 0) => {
     const canvas = canvasRef.current
     if (!canvas || containerSize.width === 0 || containerSize.height === 0) return
     const visibleCtx = canvas.getContext("2d")
@@ -105,6 +115,7 @@ export const CanvasPresentation = memo(function CanvasPresentation({
     renderPresentation(bufferCtx, theme, item, {
       scale,
       imageCache: imageCacheRef.current,
+      timeMs,
     })
 
     if (canvas.width !== buffer.width) canvas.width = buffer.width
@@ -162,6 +173,23 @@ export const CanvasPresentation = memo(function CanvasPresentation({
     draw()
   }, [draw])
 
+  // Kinetic themes animate their moving background. The loop only runs while a
+  // kinetic theme is shown AND `animate` is enabled, so static themes (and
+  // non-selected library cards) never spin a RAF loop.
+  useEffect(() => {
+    if (!animate || !isKineticTheme(theme)) return
+    if (typeof window === "undefined" || !window.requestAnimationFrame) return
+
+    let frame = 0
+    const start = performance.now()
+    const loop = (now: number) => {
+      draw(true, now - start)
+      frame = window.requestAnimationFrame(loop)
+    }
+    frame = window.requestAnimationFrame(loop)
+    return () => window.cancelAnimationFrame(frame)
+  }, [animate, theme, draw])
+
   return (
     <div ref={containerRef} className={cn("flex h-full w-full items-center justify-center", className)}>
       <canvas ref={canvasRef} className="max-h-full max-w-full rounded-md" />
@@ -173,6 +201,14 @@ export const CanvasVerse = memo(function CanvasVerse({
   theme,
   verse,
   className,
+  animate = true,
 }: CanvasVerseProps) {
-  return <CanvasPresentation theme={theme} item={verse} className={className} />
+  return (
+    <CanvasPresentation
+      theme={theme}
+      item={verse}
+      className={className}
+      animate={animate}
+    />
+  )
 })
