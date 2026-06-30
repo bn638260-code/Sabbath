@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest"
 
 const emitToMock = vi.fn()
 
@@ -11,7 +19,11 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 vi.mock("@/components/ui/canvas-verse", () => ({
   CanvasVerse: ({ theme }: { theme: { name: string } }) =>
-    React.createElement("div", { "data-testid": "theme-thumbnail" }, theme.name),
+    React.createElement(
+      "div",
+      { "data-testid": "theme-thumbnail" },
+      theme.name
+    ),
 }))
 
 vi.mock("@/lib/theme-designer-files", () => ({
@@ -66,7 +78,7 @@ describe("ThemeLibrary", () => {
 
   function getThemeCard(themeName: string): HTMLDivElement {
     const card = Array.from(
-      container?.querySelectorAll<HTMLDivElement>('[role="button"]') ?? [],
+      container?.querySelectorAll<HTMLDivElement>('[role="button"]') ?? []
     ).find((element) => element.textContent?.includes(themeName))
 
     expect(card).toBeTruthy()
@@ -80,7 +92,7 @@ describe("ThemeLibrary", () => {
 
     await act(async () => {
       getThemeCard(nextTheme.name).dispatchEvent(
-        new MouseEvent("click", { bubbles: true, cancelable: true }),
+        new MouseEvent("click", { bubbles: true, cancelable: true })
       )
     })
 
@@ -91,7 +103,7 @@ describe("ThemeLibrary", () => {
       "broadcast:verse-update",
       expect.objectContaining({
         theme: expect.objectContaining({ id: nextTheme.id }),
-      }),
+      })
     )
   })
 
@@ -103,7 +115,7 @@ describe("ThemeLibrary", () => {
 
     await act(async () => {
       getThemeCard(kinetic!.name).dispatchEvent(
-        new MouseEvent("click", { bubbles: true, cancelable: true }),
+        new MouseEvent("click", { bubbles: true, cancelable: true })
       )
     })
 
@@ -116,7 +128,7 @@ describe("ThemeLibrary", () => {
           id: kinetic!.id,
           kinetic: expect.objectContaining({ source: "html-prototype-v2" }),
         }),
-      }),
+      })
     )
   })
 
@@ -128,23 +140,39 @@ describe("ThemeLibrary", () => {
 
     // The kinetic filter tab exists as its own selection workflow.
     const kineticTab = Array.from(
-      container?.querySelectorAll("button") ?? [],
+      container?.querySelectorAll("button") ?? []
     ).find((b) => b.textContent?.trim().toLowerCase() === "kinetic")
     expect(kineticTab).toBeTruthy()
 
     // A dedicated "Kinetic Motion" section header is present.
     const headers = Array.from(container?.querySelectorAll("p") ?? []).map(
-      (p) => p.textContent ?? "",
+      (p) => p.textContent ?? ""
     )
     expect(headers.some((t) => t.includes("Kinetic Motion"))).toBe(true)
 
     // Every kinetic preset renders as a card.
     const texts = Array.from(
-      container?.querySelectorAll<HTMLDivElement>('[role="button"]') ?? [],
+      container?.querySelectorAll<HTMLDivElement>('[role="button"]') ?? []
     ).map((c) => c.textContent ?? "")
     for (const theme of kineticThemes) {
       expect(texts.some((t) => t.includes(theme.name))).toBe(true)
     }
+  })
+
+  it("shows kinetic presets before the long built-in theme list", async () => {
+    await renderLibrary()
+
+    const headings = Array.from(container?.querySelectorAll("p") ?? []).map(
+      (p) => p.textContent ?? ""
+    )
+    const kineticIndex = headings.findIndex((text) =>
+      text.includes("Kinetic Motion")
+    )
+    const builtInIndex = headings.findIndex((text) => text.includes("Built-in"))
+
+    expect(kineticIndex).toBeGreaterThanOrEqual(0)
+    expect(builtInIndex).toBeGreaterThanOrEqual(0)
+    expect(kineticIndex).toBeLessThan(builtInIndex)
   })
 
   it("renders custom kinetic themes only once in the kinetic section", async () => {
@@ -163,7 +191,7 @@ describe("ThemeLibrary", () => {
     await renderLibrary()
 
     const matchingCards = Array.from(
-      container?.querySelectorAll<HTMLDivElement>('[role="button"]') ?? [],
+      container?.querySelectorAll<HTMLDivElement>('[role="button"]') ?? []
     ).filter((card) => card.textContent?.includes(customKinetic.name))
     expect(matchingCards).toHaveLength(1)
   })

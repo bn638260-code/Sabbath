@@ -10,6 +10,7 @@ import {
   RadioIcon,
   SearchIcon,
   SettingsIcon,
+  SparklesIcon,
   LifeBuoyIcon,
 } from "lucide-react"
 import type { DashboardWorkspace } from "@/stores/dashboard-workspace-store"
@@ -27,7 +28,12 @@ export type DashboardWorkspaceNavItem = {
 
 /** Workspace navigation order, rendered as icon-first buttons in the top navigation. */
 export const DASHBOARD_WORKSPACE_NAV: DashboardWorkspaceNavItem[] = [
-  { id: "live", label: "Live Desk", icon: LayoutGridIcon, shortcut: "Ctrl/Cmd + 1" },
+  {
+    id: "live",
+    label: "Live Desk",
+    icon: LayoutGridIcon,
+    shortcut: "Ctrl/Cmd + 1",
+  },
   {
     id: "detections",
     label: "Detections",
@@ -60,6 +66,7 @@ export const DASHBOARD_WORKSPACE_NAV: DashboardWorkspaceNavItem[] = [
     shortcut: "Ctrl/Cmd + 2",
   },
   { id: "live-service", label: "Broadcast Control", icon: RadioIcon },
+  { id: "kinetic-themes", label: "Kinetic Themes", icon: SparklesIcon },
   {
     id: "hymns",
     label: "SDA Hymns Search",

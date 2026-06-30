@@ -5,6 +5,7 @@ export type DashboardWorkspace =
   | "detections"
   | "scripture-search"
   | "queue"
+  | "kinetic-themes"
   | "run-service"
   | "service-plans"
   | "hymns"

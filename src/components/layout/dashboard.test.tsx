@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { cleanup, render } from "@testing-library/react"
+import { cleanup, render, waitFor } from "@testing-library/react"
 import { Dashboard } from "./dashboard"
 import { useAccentThemeStore } from "@/stores/accent-theme-store"
 import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
@@ -46,6 +46,10 @@ vi.mock("@/components/panels/search-panel", () => ({
   SearchPanel: () => <div data-slot="search-panel" />,
 }))
 
+vi.mock("@/components/broadcast/KineticThemesPage", () => ({
+  KineticThemesPage: () => <div data-slot="kinetic-themes-page" />,
+}))
+
 beforeEach(() => {
   useDashboardWorkspaceStore.setState({ workspace: "live" })
   useServicePlanStore.setState({ plannerOpen: false })
@@ -59,7 +63,9 @@ describe("Dashboard workspace routing", () => {
   it("Live Desk renders the latest-detection bar without SearchPanel or DetectionsPanel", () => {
     render(<Dashboard />)
 
-    expect(document.querySelector('[data-slot="latest-detection-bar"]')).toBeTruthy()
+    expect(
+      document.querySelector('[data-slot="latest-detection-bar"]')
+    ).toBeTruthy()
     expect(document.querySelector('[data-slot="search-panel"]')).toBeNull()
     expect(document.querySelector('[data-slot="detections-panel"]')).toBeNull()
     expect(document.querySelector('[data-slot="queue-panel"]')).toBeTruthy()
@@ -69,8 +75,12 @@ describe("Dashboard workspace routing", () => {
     useDashboardWorkspaceStore.setState({ workspace: "detections" })
     render(<Dashboard />)
 
-    expect(document.querySelector('[data-slot="detections-panel"]')).toBeTruthy()
-    expect(document.querySelector('[data-slot="latest-detection-bar"]')).toBeNull()
+    expect(
+      document.querySelector('[data-slot="detections-panel"]')
+    ).toBeTruthy()
+    expect(
+      document.querySelector('[data-slot="latest-detection-bar"]')
+    ).toBeNull()
   })
 
   it("Scripture and EGW workspace renders SearchPanel", () => {
@@ -78,6 +88,22 @@ describe("Dashboard workspace routing", () => {
     render(<Dashboard />)
 
     expect(document.querySelector('[data-slot="search-panel"]')).toBeTruthy()
-    expect(document.querySelector('[data-slot="latest-detection-bar"]')).toBeNull()
+    expect(
+      document.querySelector('[data-slot="latest-detection-bar"]')
+    ).toBeNull()
+  })
+
+  it("Kinetic Themes workspace renders the dedicated theme page", async () => {
+    useDashboardWorkspaceStore.setState({ workspace: "kinetic-themes" })
+    render(<Dashboard />)
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="kinetic-themes-page"]')
+      ).toBeTruthy()
+    )
+    expect(
+      document.querySelector('[data-slot="latest-detection-bar"]')
+    ).toBeNull()
   })
 })

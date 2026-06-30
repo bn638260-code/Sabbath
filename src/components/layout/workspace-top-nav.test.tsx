@@ -10,7 +10,7 @@ function renderTopNav() {
   return render(
     <TooltipProvider>
       <WorkspaceTopNav />
-    </TooltipProvider>,
+    </TooltipProvider>
   )
 }
 
@@ -29,7 +29,7 @@ describe("WorkspaceTopNav", () => {
     const nav = screen.getByRole("navigation", { name: "Workspaces" })
     expect(nav).toBeTruthy()
     const buttons = screen.getAllByRole("button")
-    expect(buttons).toHaveLength(11)
+    expect(buttons).toHaveLength(12)
     for (const button of buttons) {
       expect(button.getAttribute("aria-label")).toBeTruthy()
     }
@@ -44,7 +44,9 @@ describe("WorkspaceTopNav", () => {
   it("opens the planner when Service Schedules is selected", () => {
     renderTopNav()
     fireEvent.click(screen.getByRole("button", { name: /Service Schedules/ }))
-    expect(useDashboardWorkspaceStore.getState().workspace).toBe("service-plans")
+    expect(useDashboardWorkspaceStore.getState().workspace).toBe(
+      "service-plans"
+    )
     expect(useServicePlanStore.getState().plannerOpen).toBe(true)
   })
 
@@ -62,6 +64,14 @@ describe("WorkspaceTopNav", () => {
     expect(useDashboardWorkspaceStore.getState().workspace).toBe("library")
   })
 
+  it("switches to the Kinetic Themes workspace", () => {
+    renderTopNav()
+    fireEvent.click(screen.getByRole("button", { name: /Kinetic Themes/ }))
+    expect(useDashboardWorkspaceStore.getState().workspace).toBe(
+      "kinetic-themes"
+    )
+  })
+
   it("switches to the Queue workspace", () => {
     renderTopNav()
     fireEvent.click(screen.getByRole("button", { name: /Queue/ }))
@@ -77,13 +87,22 @@ describe("WorkspaceTopNav", () => {
     expect(inactive.getAttribute("aria-current")).toBeNull()
   })
 
-  it("exposes the broadcast and settings tutorial anchors", () => {
+  it("exposes broadcast, kinetic theme, and settings tutorial anchors", () => {
     renderTopNav()
     expect(
-      screen.getByRole("button", { name: /Broadcast Control/ }).getAttribute("data-tour"),
+      screen
+        .getByRole("button", { name: /Broadcast Control/ })
+        .getAttribute("data-tour")
     ).toBe("broadcast")
     expect(
-      screen.getByRole("button", { name: /System Settings/ }).getAttribute("data-tour"),
+      screen
+        .getByRole("button", { name: /Kinetic Themes/ })
+        .getAttribute("data-tour")
+    ).toBe("kinetic-themes")
+    expect(
+      screen
+        .getByRole("button", { name: /System Settings/ })
+        .getAttribute("data-tour")
     ).toBe("settings")
   })
 })

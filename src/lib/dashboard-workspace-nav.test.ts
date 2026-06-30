@@ -13,6 +13,7 @@ const EXPECTED_IDS: DashboardWorkspace[] = [
   "run-service",
   "service-plans",
   "live-service",
+  "kinetic-themes",
   "hymns",
   "library",
   "settings",
@@ -31,7 +32,7 @@ describe("dashboard-workspace-nav", () => {
 
   it("exposes shortcut metadata for the workspaces that have keyboard shortcuts", () => {
     const shortcuts = Object.fromEntries(
-      DASHBOARD_WORKSPACE_NAV.map((item) => [item.id, item.shortcut]),
+      DASHBOARD_WORKSPACE_NAV.map((item) => [item.id, item.shortcut])
     )
     expect(shortcuts.live).toBe("Ctrl/Cmd + 1")
     expect(shortcuts["service-plans"]).toBe("Ctrl/Cmd + 2")
@@ -42,13 +43,14 @@ describe("dashboard-workspace-nav", () => {
     expect(shortcuts.detections).toBe("Ctrl/Cmd + 7")
     expect(shortcuts["scripture-search"]).toBe("Ctrl/Cmd + 8")
     expect(shortcuts["live-service"]).toBeUndefined()
+    expect(shortcuts["kinetic-themes"]).toBeUndefined()
     expect(shortcuts.settings).toBeUndefined()
     expect(shortcuts["help-legal"]).toBeUndefined()
   })
 
   it("opens planner only for service schedules", () => {
     const plannerItems = DASHBOARD_WORKSPACE_NAV.filter(
-      (item) => item.opensPlanner,
+      (item) => item.opensPlanner
     )
     expect(plannerItems).toHaveLength(1)
     expect(plannerItems[0]?.id).toBe("service-plans")
@@ -63,6 +65,7 @@ describe("dashboard-workspace-nav", () => {
     expect(workspaceNavLabel("scripture-search")).toBe("Scripture & EGW")
     expect(workspaceNavLabel("queue")).toBe("Queue")
     expect(workspaceNavLabel("live-service")).toBe("Broadcast Control")
+    expect(workspaceNavLabel("kinetic-themes")).toBe("Kinetic Themes")
     expect(workspaceNavLabel("settings")).toBe("System Settings")
     expect(workspaceNavLabel("help-legal")).toBe("Help & Legal")
   })

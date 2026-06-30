@@ -365,13 +365,13 @@ export function ThemeLibrary() {
       {/* Theme list */}
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 px-2 pb-4">
-          {/* Built-in section */}
-          {builtinThemes.length > 0 && (
+          {/* Kinetic (moving-background) section */}
+          {kineticThemes.length > 0 && (
             <>
               <p className="px-1.5 pt-2 pb-1 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
-                Built-in
+                Kinetic Motion
               </p>
-              {builtinThemes.map((theme) => (
+              {kineticThemes.map((theme) => (
                 <ThemeCard
                   key={theme.id}
                   theme={theme}
@@ -384,13 +384,13 @@ export function ThemeLibrary() {
             </>
           )}
 
-          {/* Kinetic (moving-background) section */}
-          {kineticThemes.length > 0 && (
+          {/* Built-in section */}
+          {builtinThemes.length > 0 && (
             <>
               <p className="px-1.5 pt-3 pb-1 text-[0.625rem] font-semibold tracking-widest text-muted-foreground uppercase">
-                Kinetic Motion
+                Built-in
               </p>
-              {kineticThemes.map((theme) => (
+              {builtinThemes.map((theme) => (
                 <ThemeCard
                   key={theme.id}
                   theme={theme}

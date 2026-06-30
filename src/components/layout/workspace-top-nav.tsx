@@ -57,9 +57,11 @@ export function WorkspaceTopNav() {
                   data-tour={
                     item.id === "live-service"
                       ? "broadcast"
-                      : item.id === "settings"
-                        ? "settings"
-                        : undefined
+                      : item.id === "kinetic-themes"
+                        ? "kinetic-themes"
+                        : item.id === "settings"
+                          ? "settings"
+                          : undefined
                   }
                   onClick={() => selectWorkspace(item.id, item.opensPlanner)}
                   className={cn(

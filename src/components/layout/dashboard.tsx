@@ -21,49 +21,55 @@ import { useServicePlanStore } from "@/stores/service-plan-store"
 const LazyHymnWorkspace = lazy(() =>
   import("@/components/hymnal/HymnWorkspace").then((mod) => ({
     default: mod.HymnWorkspace,
-  })),
+  }))
 )
 
 const LazyServicePlanWorkspace = lazy(() =>
   import("@/components/service-plan/ServicePlanWorkspace").then((mod) => ({
     default: mod.ServicePlanWorkspace,
-  })),
+  }))
 )
 
 const LazyRunServicePage = lazy(() =>
   import("@/components/service-plan/ServicePlanPage").then((mod) => ({
     default: mod.RunServicePage,
-  })),
+  }))
 )
 
 const LazyLiveServicePlanPage = lazy(() =>
   import("@/components/service-plan/ServicePlanPage").then((mod) => ({
     default: mod.LiveServicePlanPage,
-  })),
+  }))
 )
 
 const LazySettingsPage = lazy(() =>
   import("@/components/settings/SettingsPage").then((mod) => ({
     default: mod.SettingsPage,
-  })),
+  }))
 )
 
 const LazyHelpLegalPage = lazy(() =>
   import("@/components/help/HelpLegalPage").then((mod) => ({
     default: mod.HelpLegalPage,
-  })),
+  }))
 )
 
 const LazyLibraryWorkspace = lazy(() =>
   import("@/components/library/LibraryWorkspace").then((mod) => ({
     default: mod.LibraryWorkspace,
-  })),
+  }))
 )
 
 const LazyQueueWorkspace = lazy(() =>
   import("@/components/queue/QueueWorkspace").then((mod) => ({
     default: mod.QueueWorkspace,
-  })),
+  }))
+)
+
+const LazyKineticThemesPage = lazy(() =>
+  import("@/components/broadcast/KineticThemesPage").then((mod) => ({
+    default: mod.KineticThemesPage,
+  }))
 )
 
 function WorkspaceFallback() {
@@ -157,6 +163,10 @@ export function Dashboard() {
       <Suspense fallback={<WorkspaceFallback />}>
         <LazyQueueWorkspace />
       </Suspense>
+    ) : workspace === "kinetic-themes" ? (
+      <Suspense fallback={<WorkspaceFallback />}>
+        <LazyKineticThemesPage />
+      </Suspense>
     ) : workspace === "service-plans" ? (
       <Suspense fallback={<WorkspaceFallback />}>
         <LazyServicePlanWorkspace />
@@ -192,7 +202,7 @@ export function Dashboard() {
       id="bodyThemeContainer"
       className={cn(
         accentThemeClassName(accentTheme),
-        "fixed inset-0 overflow-hidden",
+        "fixed inset-0 overflow-hidden"
       )}
     >
       <div className="app-shell">
@@ -205,7 +215,7 @@ export function Dashboard() {
             <div
               ref={workspaceScrollRef}
               data-slot="workspace-scroll"
-              className="scrollbar-thin flex-1 overflow-y-auto p-4"
+              className="flex-1 scrollbar-thin overflow-y-auto p-4"
             >
               {workspaceContent}
             </div>
