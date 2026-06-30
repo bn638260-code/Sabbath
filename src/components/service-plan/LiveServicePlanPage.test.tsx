@@ -1,11 +1,21 @@
 // @vitest-environment jsdom
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest"
 import type { BroadcastTheme } from "@/types"
 import type { ServiceContext } from "@/types/service-plan"
 
 const mockSetDesignerOpen = vi.fn()
+const mockClosePlanner = vi.fn()
+const mockSetWorkspace = vi.fn()
 
 const broadcastState = {
   isLive: true,
@@ -67,17 +77,29 @@ const serviceContext: ServiceContext = {
 
 vi.mock("@/components/panels/preview-panel", () => ({
   PreviewPanel: () =>
-    React.createElement("section", { "data-testid": "preview-panel" }, "Program Preview"),
+    React.createElement(
+      "section",
+      { "data-testid": "preview-panel" },
+      "Program Preview"
+    ),
 }))
 
 vi.mock("@/components/panels/live-output-panel", () => ({
   LiveOutputPanel: () =>
-    React.createElement("section", { "data-testid": "live-output-panel" }, "Live Output"),
+    React.createElement(
+      "section",
+      { "data-testid": "live-output-panel" },
+      "Live Output"
+    ),
 }))
 
 vi.mock("@/components/panels/transcript-panel", () => ({
   TranscriptPanel: () =>
-    React.createElement("section", { "data-testid": "transcript-panel" }, "Transcript"),
+    React.createElement(
+      "section",
+      { "data-testid": "transcript-panel" },
+      "Transcript"
+    ),
 }))
 
 vi.mock("@/components/panels/queue-panel", () => ({
@@ -88,18 +110,27 @@ vi.mock("@/components/panels/queue-panel", () => ({
 vi.mock("@/components/broadcast/broadcast-settings", () => ({
   BroadcastSettings: ({ open }: { open: boolean }) =>
     open
-      ? React.createElement("div", { "data-testid": "broadcast-settings" }, "Broadcast Settings Dialog")
+      ? React.createElement(
+          "div",
+          { "data-testid": "broadcast-settings" },
+          "Broadcast Settings Dialog"
+        )
       : null,
 }))
 
 vi.mock("@/components/broadcast/theme-designer", () => ({
   ThemeDesigner: () =>
-    React.createElement("div", { "data-testid": "theme-designer" }, "Theme Designer Dialog"),
+    React.createElement(
+      "div",
+      { "data-testid": "theme-designer" },
+      "Theme Designer Dialog"
+    ),
 }))
 
 vi.mock("@/stores/broadcast-store", () => {
-  const useBroadcastStore = (selector: (state: typeof broadcastState) => unknown) =>
-    selector(broadcastState)
+  const useBroadcastStore = (
+    selector: (state: typeof broadcastState) => unknown
+  ) => selector(broadcastState)
   useBroadcastStore.getState = () => ({
     setDesignerOpen: mockSetDesignerOpen,
   })
@@ -111,8 +142,19 @@ vi.mock("@/stores/broadcast-store", () => {
 })
 
 vi.mock("@/stores/service-plan-store", () => ({
-  useServicePlanStore: (selector: (state: { serviceContext: ServiceContext }) => unknown) =>
-    selector({ serviceContext }),
+  useServicePlanStore: Object.assign(
+    (selector: (state: { serviceContext: ServiceContext }) => unknown) =>
+      selector({ serviceContext }),
+    {
+      getState: () => ({ closePlanner: mockClosePlanner }),
+    }
+  ),
+}))
+
+vi.mock("@/stores/dashboard-workspace-store", () => ({
+  useDashboardWorkspaceStore: {
+    getState: () => ({ setWorkspace: mockSetWorkspace }),
+  },
 }))
 
 describe("LiveServicePlanPage", () => {
@@ -154,10 +196,12 @@ describe("LiveServicePlanPage", () => {
 
   function clickButton(label: string) {
     const button = Array.from(
-      container?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+      container?.querySelectorAll<HTMLButtonElement>("button") ?? []
     ).find((candidate) => candidate.textContent?.includes(label))
     expect(button).toBeTruthy()
-    button?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
+    button?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true })
+    )
   }
 
   it("keeps the broadcast screen focused on output control and confidence monitors", async () => {
@@ -165,10 +209,17 @@ describe("LiveServicePlanPage", () => {
 
     expect(text()).toContain("Production Output")
     expect(text()).toContain("Broadcast settings")
+    expect(text()).toContain("Kinetic themes")
     expect(text()).toContain("Theme designer")
-    expect(container?.querySelector('[data-testid="preview-panel"]')).toBeTruthy()
-    expect(container?.querySelector('[data-testid="live-output-panel"]')).toBeTruthy()
-    expect(container?.querySelector('[data-testid="transcript-panel"]')).toBeNull()
+    expect(
+      container?.querySelector('[data-testid="preview-panel"]')
+    ).toBeTruthy()
+    expect(
+      container?.querySelector('[data-testid="live-output-panel"]')
+    ).toBeTruthy()
+    expect(
+      container?.querySelector('[data-testid="transcript-panel"]')
+    ).toBeNull()
     expect(container?.querySelector('[data-testid="queue-panel"]')).toBeNull()
   })
 
@@ -192,13 +243,24 @@ describe("LiveServicePlanPage", () => {
       clickButton("Broadcast settings")
       await Promise.resolve()
     })
-    expect(container?.querySelector('[data-testid="broadcast-settings"]')).toBeTruthy()
+    expect(
+      container?.querySelector('[data-testid="broadcast-settings"]')
+    ).toBeTruthy()
+
+    await act(async () => {
+      clickButton("Kinetic themes")
+      await Promise.resolve()
+    })
+    expect(mockClosePlanner).toHaveBeenCalled()
+    expect(mockSetWorkspace).toHaveBeenCalledWith("kinetic-themes")
 
     await act(async () => {
       clickButton("Theme designer")
       await Promise.resolve()
     })
     expect(mockSetDesignerOpen).toHaveBeenCalledWith(true)
-    expect(container?.querySelector('[data-testid="theme-designer"]')).toBeTruthy()
+    expect(
+      container?.querySelector('[data-testid="theme-designer"]')
+    ).toBeTruthy()
   })
 })

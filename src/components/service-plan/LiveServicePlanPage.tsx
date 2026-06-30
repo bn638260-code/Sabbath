@@ -14,6 +14,7 @@ import {
   selectActiveTheme,
   useBroadcastThemeStore,
 } from "@/stores/broadcast/theme-store"
+import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import {
   AlertTriangleIcon,
@@ -22,18 +23,19 @@ import {
   MonitorIcon,
   PaletteIcon,
   RadioIcon,
+  SparklesIcon,
 } from "lucide-react"
 
 const LazyBroadcastSettings = lazy(() =>
   import("@/components/broadcast/broadcast-settings").then((mod) => ({
     default: mod.BroadcastSettings,
-  })),
+  }))
 )
 
 const LazyThemeDesigner = lazy(() =>
   import("@/components/broadcast/theme-designer").then((mod) => ({
     default: mod.ThemeDesigner,
-  })),
+  }))
 )
 
 function OutputStatusPanel({
@@ -61,7 +63,7 @@ function OutputStatusPanel({
       </PanelHeader>
       <div className="space-y-3 p-3">
         <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-          <div className="flex items-center gap-2 text-[0.625rem] font-medium uppercase text-muted-foreground">
+          <div className="flex items-center gap-2 text-[0.625rem] font-medium text-muted-foreground uppercase">
             <MonitorIcon className="size-3.5" />
             Active theme
           </div>
@@ -71,7 +73,7 @@ function OutputStatusPanel({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-            <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+            <div className="text-[0.625rem] font-medium text-muted-foreground uppercase">
               Preview
             </div>
             <p className="mt-1 truncate text-sm font-medium">
@@ -79,7 +81,7 @@ function OutputStatusPanel({
             </p>
           </div>
           <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-            <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+            <div className="text-[0.625rem] font-medium text-muted-foreground uppercase">
               Live
             </div>
             <p className="mt-1 truncate text-sm font-medium">
@@ -89,7 +91,7 @@ function OutputStatusPanel({
         </div>
         {latestOutputIssue ? (
           <div className="rounded-md border border-amber-500/25 bg-amber-500/10 p-3">
-            <div className="flex items-center gap-2 text-[0.625rem] font-medium uppercase text-amber-100/90">
+            <div className="flex items-center gap-2 text-[0.625rem] font-medium text-amber-100/90 uppercase">
               <AlertTriangleIcon className="size-3.5" />
               {latestOutputIssue.title}
             </div>
@@ -106,7 +108,9 @@ function OutputStatusPanel({
 function ServiceSignalPanel({
   serviceContext,
 }: {
-  serviceContext: ReturnType<typeof useServicePlanStore.getState>["serviceContext"]
+  serviceContext: ReturnType<
+    typeof useServicePlanStore.getState
+  >["serviceContext"]
 }) {
   return (
     <section className="glass-panel relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -114,40 +118,38 @@ function ServiceSignalPanel({
         title="Service Signal"
         icon={<FileTextIcon className="size-4" />}
       >
-        <Badge
-          variant={serviceContext.performanceMode ? "default" : "outline"}
-        >
+        <Badge variant={serviceContext.performanceMode ? "default" : "outline"}>
           {serviceContext.planStatus}
         </Badge>
       </PanelHeader>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-          <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+          <div className="text-[0.625rem] font-medium text-muted-foreground uppercase">
             Active item
           </div>
           <p className="mt-1 truncate text-sm font-medium">
             {serviceContext.activeItem?.title ?? "Nothing active"}
           </p>
-          <p className="mt-1 text-xs capitalize text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground capitalize">
             {serviceContext.activeItem?.kind ??
               "Start a service plan to populate this view"}
           </p>
         </div>
 
         <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] p-3">
-          <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+          <div className="text-[0.625rem] font-medium text-muted-foreground uppercase">
             Up next
           </div>
           <p className="mt-1 truncate text-sm font-medium">
             {serviceContext.nextItem?.title ?? "No next item"}
           </p>
-          <p className="mt-1 text-xs capitalize text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground capitalize">
             {serviceContext.nextItem?.kind ?? "End of plan"}
           </p>
         </div>
 
         <div>
-          <div className="text-[0.625rem] font-medium uppercase text-muted-foreground">
+          <div className="text-[0.625rem] font-medium text-muted-foreground uppercase">
             Expected references
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -171,7 +173,8 @@ function ServiceSignalPanel({
 
 export function LiveServicePlanPage() {
   const [broadcastOpen, setBroadcastOpen] = useState(false)
-  const [broadcastSettingsMounted, setBroadcastSettingsMounted] = useState(false)
+  const [broadcastSettingsMounted, setBroadcastSettingsMounted] =
+    useState(false)
   const [themeDesignerMounted, setThemeDesignerMounted] = useState(false)
   const serviceContext = useServicePlanStore((s) => s.serviceContext)
   const isLive = useBroadcastLiveStore((s) => s.isLive)
@@ -186,7 +189,7 @@ export function LiveServicePlanPage() {
     <div className="view-pane flex min-h-full flex-col gap-5">
       <section className="glass-panel flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="min-w-0">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <p className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
             Broadcast control
           </p>
           <h1 className="mt-1 text-xl font-semibold text-foreground">
@@ -205,6 +208,20 @@ export function LiveServicePlanPage() {
           >
             <CastIcon className="size-3.5" />
             Broadcast settings
+          </Button>
+          <Button
+            variant="chrome"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => {
+              useServicePlanStore.getState().closePlanner()
+              useDashboardWorkspaceStore
+                .getState()
+                .setWorkspace("kinetic-themes")
+            }}
+          >
+            <SparklesIcon className="size-3.5" />
+            Kinetic themes
           </Button>
           <Button
             variant="chrome"

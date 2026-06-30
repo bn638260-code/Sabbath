@@ -1,12 +1,13 @@
 import { lazy, Suspense, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useBroadcastDesignerStore } from "@/stores/broadcast/designer-store"
-import { PaletteIcon } from "lucide-react"
+import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
+import { PaletteIcon, SparklesIcon } from "lucide-react"
 
 const LazyThemeDesigner = lazy(() =>
   import("@/components/broadcast/theme-designer").then((mod) => ({
     default: mod.ThemeDesigner,
-  })),
+  }))
 )
 
 export function ThemeSection() {
@@ -25,17 +26,32 @@ export function ThemeSection() {
               positioning in the full-screen theme workspace.
             </p>
           </div>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={() => {
-              setThemeDesignerMounted(true)
-              useBroadcastDesignerStore.getState().setDesignerOpen(true)
-            }}
-          >
-            <PaletteIcon className="size-3.5" />
-            Open theme designer
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => {
+                useDashboardWorkspaceStore
+                  .getState()
+                  .setWorkspace("kinetic-themes")
+              }}
+            >
+              <SparklesIcon className="size-3.5" />
+              Open kinetic themes
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                setThemeDesignerMounted(true)
+                useBroadcastDesignerStore.getState().setDesignerOpen(true)
+              }}
+            >
+              <PaletteIcon className="size-3.5" />
+              Open theme designer
+            </Button>
+          </div>
         </div>
       </div>
 
