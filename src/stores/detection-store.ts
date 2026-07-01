@@ -321,6 +321,28 @@ function withReceivedAt(
   }
 }
 
+function removeSupersededChapterOnlyPlaceholders(
+  detections: DetectionResultWithMeta[]
+): DetectionResultWithMeta[] {
+  const explicitChapters = new Set<string>()
+  for (const detection of detections) {
+    if (
+      !detection.is_chapter_only &&
+      detection.book_number > 0 &&
+      detection.chapter > 0
+    ) {
+      explicitChapters.add(`${detection.book_number}:${detection.chapter}`)
+    }
+  }
+  if (explicitChapters.size === 0) return detections
+
+  return detections.filter(
+    (detection) =>
+      !detection.is_chapter_only ||
+      !explicitChapters.has(`${detection.book_number}:${detection.chapter}`)
+  )
+}
+
 export const useDetectionStore = create<DetectionState>((set) => ({
   detections: [],
 
@@ -340,7 +362,12 @@ export const useDetectionStore = create<DetectionState>((set) => ({
         }
         const newDetections = [...state.detections]
         newDetections[existingIndex] = updated
-        return { detections: capForDisplay(newDetections, now) }
+        return {
+          detections: capForDisplay(
+            removeSupersededChapterOnlyPlaceholders(newDetections),
+            now
+          ),
+        }
       }
 
       // New detection
@@ -349,7 +376,12 @@ export const useDetectionStore = create<DetectionState>((set) => ({
         received_at: now,
       }
       const newDetections = [withMeta, ...state.detections]
-      return { detections: capForDisplay(newDetections, now) }
+      return {
+        detections: capForDisplay(
+          removeSupersededChapterOnlyPlaceholders(newDetections),
+          now
+        ),
+      }
     }),
   addDetections: (incoming) =>
     set((state) => {
@@ -392,7 +424,12 @@ export const useDetectionStore = create<DetectionState>((set) => ({
         received_at: item.received_at,
       }))
 
-      return { detections: capForDisplay(withMeta, now) }
+      return {
+        detections: capForDisplay(
+          removeSupersededChapterOnlyPlaceholders(withMeta),
+          now
+        ),
+      }
     }),
   setDetections: (detections) =>
     set({

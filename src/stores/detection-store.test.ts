@@ -443,6 +443,137 @@ describe("detection store", () => {
     expect(merged.verse_text).toBe("Incoming semantic text")
   })
 
+  it("chapter-only placeholder yields to an explicit verse of the same chapter", () => {
+    const store = useDetectionStore.getState()
+
+    // "Revelation chapter 20" surfaces a chapter-only placeholder (verse 1).
+    store.addDetections([
+      makeDetection({
+        verse_ref: "Revelation 20:1",
+        book_name: "Revelation",
+        book_number: 66,
+        chapter: 20,
+        verse: 1,
+        confidence: 0.88,
+        is_chapter_only: true,
+      }),
+    ])
+    expect(useDetectionStore.getState().detections).toHaveLength(1)
+
+    // The verse actually being read ("verse 12") then arrives; the placeholder
+    // must stop competing so only the explicit verse remains.
+    store.addDetections([
+      makeDetection({
+        verse_ref: "Revelation 20:12",
+        book_name: "Revelation",
+        book_number: 66,
+        chapter: 20,
+        verse: 12,
+        confidence: 1,
+        is_chapter_only: false,
+      }),
+    ])
+
+    const refs = useDetectionStore
+      .getState()
+      .detections.map((d) => d.verse_ref)
+    expect(refs).toEqual(["Revelation 20:12"])
+  })
+
+  it("chapter-only placeholder yields when an explicit verse is added singly", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetection(
+      makeDetection({
+        verse_ref: "Revelation 20:1",
+        book_name: "Revelation",
+        book_number: 66,
+        chapter: 20,
+        verse: 1,
+        confidence: 0.88,
+        is_chapter_only: true,
+      })
+    )
+    store.addDetection(
+      makeDetection({
+        verse_ref: "Revelation 20:12",
+        book_name: "Revelation",
+        book_number: 66,
+        chapter: 20,
+        verse: 12,
+        confidence: 1,
+        is_chapter_only: false,
+      })
+    )
+
+    const refs = useDetectionStore
+      .getState()
+      .detections.map((d) => d.verse_ref)
+    expect(refs).toEqual(["Revelation 20:12"])
+  })
+
+  it("keeps suppressing a re-emitted chapter-only placeholder while the explicit verse stands", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetections([
+      makeDetection({
+        verse_ref: "Revelation 20:12",
+        book_name: "Revelation",
+        book_number: 66,
+        chapter: 20,
+        verse: 12,
+        is_chapter_only: false,
+      }),
+    ])
+    // The live detector keeps re-emitting "Revelation chapter 20" as a placeholder.
+    store.addDetections([
+      makeDetection({
+        verse_ref: "Revelation 20:1",
+        book_name: "Revelation",
+        book_number: 66,
+        chapter: 20,
+        verse: 1,
+        confidence: 0.88,
+        is_chapter_only: true,
+      }),
+    ])
+
+    const refs = useDetectionStore
+      .getState()
+      .detections.map((d) => d.verse_ref)
+    expect(refs).toEqual(["Revelation 20:12"])
+  })
+
+  it("does not supersede a chapter-only placeholder for a different chapter", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetections([
+      makeDetection({
+        verse_ref: "Genesis 3:1",
+        book_name: "Genesis",
+        book_number: 1,
+        chapter: 3,
+        verse: 1,
+        confidence: 0.88,
+        is_chapter_only: true,
+      }),
+      makeDetection({
+        verse_ref: "Revelation 20:12",
+        book_name: "Revelation",
+        book_number: 66,
+        chapter: 20,
+        verse: 12,
+        is_chapter_only: false,
+      }),
+    ])
+
+    const refs = useDetectionStore
+      .getState()
+      .detections.map((d) => d.verse_ref)
+    expect(refs).toContain("Genesis 3:1")
+    expect(refs).toContain("Revelation 20:12")
+  })
+
   it("deduplicates the same resolved verse even when the label changes", () => {
     const store = useDetectionStore.getState()
 

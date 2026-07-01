@@ -9,11 +9,13 @@ import type {
 // ---------------------------------------------------------------------------
 // Kinetic theme catalog
 //
-// These 14 presets mirror the moving "Kinetic Theme" selector from the
-// SabbathCue HTML prototype v2. Each preset is the canvas-native description of
-// a CSS theme: the four mesh-gradient colors, an accent, the motion envelope
+// These 24 presets mirror the moving "Kinetic Theme" selector from the
+// SabbathCue HTML prototypes. The first 14 (classical + modern) are canvas-native
+// CSS themes: the four mesh-gradient colors, an accent, the motion envelope
 // (liquidMesh duration + hue/saturation breathing + drift), and an optional
-// overlay pattern (cyberpunk dot-grid, brutalist diagonal stripes).
+// overlay pattern (cyberpunk dot-grid, brutalist diagonal stripes). The final 10
+// (nature group) are deterministic particle scenes — rain, snow, leaves, petals,
+// fireflies, stars, pollen and aurora — drawn from the nature-scenes prototype.
 //
 // Fonts are mapped to fonts already bundled with the app (no network fonts) so
 // the workflow stays fully offline. See the plan's APPROVED FONT APPROACH.
@@ -57,6 +59,21 @@ const MODERN_MOTION: KineticMotion = {
 const SERIF = "Source Serif 4 Variable"
 const DISPLAY_SERIF = "DM Serif Display"
 const SANS = "Geist Variable"
+
+// Bundled offline display fonts for the nature scenes (registered in index.css).
+const CINZEL = "Cinzel"
+const PLAYFAIR = "Playfair Display"
+const BEBAS = "Bebas Neue"
+
+// Nature scenes drift slowly and calmly. Particle speed is derived from
+// driftAmount in the renderer; the backdrop barely shifts hue so it reads as a
+// still scene with motion inside it.
+const NATURE_MOTION: KineticMotion = {
+  durationMs: 12000,
+  driftAmount: 0.5,
+  hueShiftDegrees: 6,
+  saturationBoost: 0.08,
+}
 
 export const KINETIC_THEME_PRESETS: KineticThemePreset[] = [
   // ---- Classical serif group (fluid waves) -------------------------------
@@ -216,6 +233,117 @@ export const KINETIC_THEME_PRESETS: KineticThemePreset[] = [
     textColor: "#ccfbf1",
     fontFamily: SANS,
     motion: MODERN_MOTION,
+  },
+  // ---- Nature scene group (deterministic canvas particle systems) --------
+  {
+    presetId: "nature-foliage",
+    name: "Whispering Foliage (Kinetic)",
+    group: "nature",
+    backgroundKind: "foliage",
+    colors: ["#103118", "#0a2414", "#071a0f", "#030905"],
+    accentColor: "#a3c76a",
+    textColor: "#eafff1",
+    fontFamily: CINZEL,
+    motion: NATURE_MOTION,
+  },
+  {
+    presetId: "nature-forest",
+    name: "Forest Sanctuary (Kinetic)",
+    group: "nature",
+    backgroundKind: "forest",
+    colors: ["#241d0a", "#18140a", "#0f0c05", "#0a0702"],
+    accentColor: "#e0a856",
+    textColor: "#fdf6e8",
+    fontFamily: PLAYFAIR,
+    motion: NATURE_MOTION,
+  },
+  {
+    presetId: "nature-rain",
+    name: "Gentle Rain (Kinetic)",
+    group: "nature",
+    backgroundKind: "rain",
+    colors: ["#101c26", "#0c1620", "#070f16", "#04080c"],
+    accentColor: "#94b6cc",
+    textColor: "#eaf2f8",
+    fontFamily: PLAYFAIR,
+    motion: { ...NATURE_MOTION, driftAmount: 0.9 },
+  },
+  {
+    presetId: "nature-autumn",
+    name: "Autumn Fall (Kinetic)",
+    group: "nature",
+    backgroundKind: "autumn",
+    colors: ["#241007", "#1c0e06", "#120803", "#0a0402"],
+    accentColor: "#e4742c",
+    textColor: "#fff1e6",
+    fontFamily: BEBAS,
+    motion: NATURE_MOTION,
+  },
+  {
+    presetId: "nature-blossom",
+    name: "Cherry Blossom (Kinetic)",
+    group: "nature",
+    backgroundKind: "blossom",
+    colors: ["#251322", "#1e0f1b", "#140a12", "#09040b"],
+    accentColor: "#f6a8c4",
+    textColor: "#ffe9f1",
+    fontFamily: PLAYFAIR,
+    motion: NATURE_MOTION,
+  },
+  {
+    presetId: "nature-snow",
+    name: "Quiet Snowfall (Kinetic)",
+    group: "nature",
+    backgroundKind: "snow",
+    colors: ["#2a3a4e", "#1c2838", "#121b26", "#0d1620"],
+    accentColor: "#d8e8f8",
+    textColor: "#f4f9ff",
+    fontFamily: CINZEL,
+    motion: { ...NATURE_MOTION, driftAmount: 0.35 },
+  },
+  {
+    presetId: "nature-fireflies",
+    name: "Fireflies & Mist (Kinetic)",
+    group: "nature",
+    backgroundKind: "fireflies",
+    colors: ["#06120b", "#040d08", "#020805", "#010402"],
+    accentColor: "#b8e86e",
+    textColor: "#f0ffe0",
+    fontFamily: CINZEL,
+    motion: NATURE_MOTION,
+  },
+  {
+    presetId: "nature-stars",
+    name: "Starlit Night (Kinetic)",
+    group: "nature",
+    backgroundKind: "stars",
+    colors: ["#070b1a", "#0a0f24", "#05081a", "#02030c"],
+    accentColor: "#cbd5f5",
+    textColor: "#eef2ff",
+    fontFamily: PLAYFAIR,
+    motion: { ...NATURE_MOTION, driftAmount: 0.3 },
+  },
+  {
+    presetId: "nature-meadow",
+    name: "Golden Meadow (Kinetic)",
+    group: "nature",
+    backgroundKind: "meadow",
+    colors: ["#2a2410", "#332b12", "#1c1808", "#0f0d05"],
+    accentColor: "#f5d67a",
+    textColor: "#fff8e6",
+    fontFamily: BEBAS,
+    motion: NATURE_MOTION,
+  },
+  {
+    presetId: "nature-aurora",
+    name: "Northern Aurora (Kinetic)",
+    group: "nature",
+    backgroundKind: "aurora",
+    colors: ["#04121a", "#06202a", "#031018", "#01080c"],
+    accentColor: "#5ef0c0",
+    textColor: "#e6fff6",
+    fontFamily: CINZEL,
+    motion: NATURE_MOTION,
   },
 ]
 

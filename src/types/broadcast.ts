@@ -63,7 +63,21 @@ export interface RenderOptions {
 // / diagonal stripes). It carries no DOM/CSS — the kinetic renderer turns it
 // into deterministic canvas draw calls so the same motion works for NDI.
 
-export type KineticBackgroundKind = "mesh" | "grid" | "stripes"
+export type KineticBackgroundKind =
+  | "mesh"
+  | "grid"
+  | "stripes"
+  // Nature scenes (deterministic canvas particle systems).
+  | "foliage"
+  | "forest"
+  | "rain"
+  | "autumn"
+  | "blossom"
+  | "snow"
+  | "fireflies"
+  | "stars"
+  | "meadow"
+  | "aurora"
 
 export type KineticPattern = "dot-grid" | "diagonal-stripes"
 
@@ -81,7 +95,7 @@ export interface KineticMotion {
 export interface BroadcastKineticTheme {
   source: "html-prototype-v2"
   presetId: string
-  group: "classical" | "modern"
+  group: "classical" | "modern" | "nature"
   backgroundKind: KineticBackgroundKind
   /** Mesh gradient stop colors (the four corner colors from the prototype). */
   colors: string[]

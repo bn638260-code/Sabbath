@@ -23,21 +23,34 @@ const EXPECTED_PRESET_IDS = [
   "sunset",
   "brutalist",
   "lime",
+  // nature scene group
+  "nature-foliage",
+  "nature-forest",
+  "nature-rain",
+  "nature-autumn",
+  "nature-blossom",
+  "nature-snow",
+  "nature-fireflies",
+  "nature-stars",
+  "nature-meadow",
+  "nature-aurora",
 ]
 
 describe("KINETIC_THEME_PRESETS", () => {
-  it("contains exactly 14 presets with the expected ids", () => {
-    expect(KINETIC_THEME_PRESETS).toHaveLength(14)
+  it("contains exactly 24 presets with the expected ids", () => {
+    expect(KINETIC_THEME_PRESETS).toHaveLength(24)
     expect(KINETIC_THEME_PRESETS.map((p) => p.presetId)).toEqual(
       EXPECTED_PRESET_IDS,
     )
   })
 
-  it("has eight classical and six modern presets", () => {
+  it("has eight classical, six modern and ten nature presets", () => {
     const classical = KINETIC_THEME_PRESETS.filter((p) => p.group === "classical")
     const modern = KINETIC_THEME_PRESETS.filter((p) => p.group === "modern")
+    const nature = KINETIC_THEME_PRESETS.filter((p) => p.group === "nature")
     expect(classical).toHaveLength(8)
     expect(modern).toHaveLength(6)
+    expect(nature).toHaveLength(10)
   })
 
   it("gives cyberpunk a dot-grid and brutalist diagonal stripes", () => {
@@ -62,7 +75,7 @@ describe("buildKineticBroadcastThemes", () => {
   const themes = buildKineticBroadcastThemes()
 
   it("produces one builtin BroadcastTheme per preset", () => {
-    expect(themes).toHaveLength(14)
+    expect(themes).toHaveLength(24)
     for (const theme of themes) {
       expect(theme.builtin).toBe(true)
       expect(theme.kinetic).toBeDefined()
@@ -88,6 +101,9 @@ describe("buildKineticBroadcastThemes", () => {
       "DM Serif Display",
       "Geist Variable",
       "Source Sans 3 Variable",
+      "Cinzel",
+      "Playfair Display",
+      "Bebas Neue",
     ])
     for (const theme of themes) {
       expect(allowed.has(theme.verseText.fontFamily)).toBe(true)

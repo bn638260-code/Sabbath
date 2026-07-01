@@ -4,13 +4,15 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import type { DetectionResult } from "@/types"
 import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
 
-const { detectionsRef, previewMock } = vi.hoisted(() => ({
+const { detectionsRef, previewMock, clearDetectionsMock } = vi.hoisted(() => ({
   detectionsRef: { current: [] as DetectionResult[] },
   previewMock: vi.fn(),
+  clearDetectionsMock: vi.fn(),
 }))
 
 vi.mock("@/hooks/use-detection", () => ({
   useDetection: () => ({ detections: detectionsRef.current }),
+  detectionActions: { clearDetections: clearDetectionsMock },
 }))
 
 // Isolate the bar from detection action internals (workflow / queue stores).
@@ -51,6 +53,7 @@ function makeDetection(reference: string, verse: number): DetectionResult {
 beforeEach(() => {
   detectionsRef.current = []
   previewMock.mockClear()
+  clearDetectionsMock.mockClear()
   useDashboardWorkspaceStore.setState({ workspace: "live" })
 })
 afterEach(() => cleanup())
@@ -95,5 +98,17 @@ describe("LatestDetectionBar", () => {
     render(<LatestDetectionBar />)
     fireEvent.click(screen.getByRole("button", { name: /open detections/i }))
     expect(useDashboardWorkspaceStore.getState().workspace).toBe("detections")
+  })
+
+  it("clears detections from the live bar", () => {
+    detectionsRef.current = [detection]
+    render(<LatestDetectionBar />)
+    fireEvent.click(screen.getByRole("button", { name: /^clear$/i }))
+    expect(clearDetectionsMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("hides the clear button when there are no detections", () => {
+    render(<LatestDetectionBar />)
+    expect(screen.queryByRole("button", { name: /^clear$/i })).toBeNull()
   })
 })

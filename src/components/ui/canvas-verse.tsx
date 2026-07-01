@@ -176,6 +176,32 @@ export const CanvasPresentation = memo(function CanvasPresentation({
     draw()
   }, [draw])
 
+  // Kinetic themes use canvas-only display fonts that aren't referenced by the
+  // DOM, so they may not be loaded when a static (non-animating) card draws its
+  // single frame. Request the theme's fonts and redraw once they're ready.
+  useEffect(() => {
+    if (!isKineticTheme(theme) || typeof document === "undefined") return
+    const fontSet = document.fonts
+    if (!fontSet || typeof fontSet.load !== "function") return
+    let cancelled = false
+    // Redraw once the fonts resolve; on failure the fallback face already drew,
+    // so redraw either way rather than leave a rejected promise unhandled.
+    const redraw = () => {
+      if (!cancelled) draw(true)
+    }
+    Promise.all([
+      fontSet.load(
+        `${theme.verseText.fontWeight} 76px "${theme.verseText.fontFamily}"`
+      ),
+      fontSet.load(
+        `${theme.reference.fontWeight} 36px "${theme.reference.fontFamily}"`
+      ),
+    ]).then(redraw, redraw)
+    return () => {
+      cancelled = true
+    }
+  }, [theme, draw])
+
   // Kinetic themes animate their moving background. The loop only runs while a
   // kinetic theme is shown AND `animate` is enabled, so static themes (and
   // non-selected library cards) never spin a RAF loop.

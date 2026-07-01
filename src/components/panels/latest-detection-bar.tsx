@@ -2,7 +2,7 @@ import { EyeIcon, PlayIcon, PlusIcon, RadarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ConfidenceDot } from "@/components/ui/confidence-dot"
-import { useDetection } from "@/hooks/use-detection"
+import { useDetection, detectionActions } from "@/hooks/use-detection"
 import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
 import {
   getDetectionActions,
@@ -95,16 +95,26 @@ export function LatestDetectionBar({ className }: { className?: string }) {
           ) : null}
         </div>
 
-        <Button
-          variant="ghost"
-          size="xs"
-          className="shrink-0"
-          onClick={() =>
-            useDashboardWorkspaceStore.getState().setWorkspace("detections")
-          }
-        >
-          Open Detections
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          {recent.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => detectionActions.clearDetections()}
+            >
+              Clear
+            </Button>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() =>
+              useDashboardWorkspaceStore.getState().setWorkspace("detections")
+            }
+          >
+            Open Detections
+          </Button>
+        </div>
       </div>
 
       {recent.length > 0 ? (

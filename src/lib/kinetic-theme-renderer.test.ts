@@ -14,6 +14,7 @@ interface Recorder {
   ctx: CanvasRenderingContext2D
   radial: unknown[][]
   linear: unknown[][]
+  arcArgs: unknown[][]
   arcs: number
   paths: number
   fillRects: number
@@ -22,6 +23,7 @@ interface Recorder {
 function createRecorder(): Recorder {
   const radial: unknown[][] = []
   const linear: unknown[][] = []
+  const arcArgs: unknown[][] = []
   const rec = { arcs: 0, paths: 0, fillRects: 0 }
   const gradient = { addColorStop: vi.fn() }
   const ctx = {
@@ -36,8 +38,9 @@ function createRecorder(): Recorder {
     }),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
-    arc: vi.fn(() => {
+    arc: vi.fn((...args: unknown[]) => {
       rec.arcs += 1
+      arcArgs.push(args)
     }),
     closePath: vi.fn(),
     fill: vi.fn(),
@@ -58,7 +61,7 @@ function createRecorder(): Recorder {
     filter: "none",
     lineWidth: 1,
   } as unknown as CanvasRenderingContext2D
-  return { ctx, radial, linear, get arcs() { return rec.arcs }, get paths() { return rec.paths }, get fillRects() { return rec.fillRects } } as Recorder
+  return { ctx, radial, linear, arcArgs, get arcs() { return rec.arcs }, get paths() { return rec.paths }, get fillRects() { return rec.fillRects } } as Recorder
 }
 
 describe("isKineticTheme", () => {
@@ -119,5 +122,43 @@ describe("drawKineticBackground", () => {
     const r = createRecorder()
     drawKineticBackground(r.ctx, preset("ocean"), 0)
     expect(r.arcs).toBe(0)
+  })
+})
+
+describe("nature scenes", () => {
+  it("draws stroked streaks for rain", () => {
+    const r = createRecorder()
+    const drew = drawKineticBackground(r.ctx, preset("nature-rain"), 0)
+    expect(drew).toBe(true)
+    expect(r.paths).toBeGreaterThan(0)
+  })
+
+  it("draws flake arcs for snow", () => {
+    const r = createRecorder()
+    drawKineticBackground(r.ctx, preset("nature-snow"), 0)
+    expect(r.arcs).toBeGreaterThan(0)
+  })
+
+  it("draws glow arcs for fireflies", () => {
+    const r = createRecorder()
+    drawKineticBackground(r.ctx, preset("nature-fireflies"), 0)
+    expect(r.arcs).toBeGreaterThan(0)
+  })
+
+  it("draws leaf polygons for foliage", () => {
+    const r = createRecorder()
+    drawKineticBackground(r.ctx, preset("nature-foliage"), 0)
+    expect(r.paths).toBeGreaterThan(0)
+  })
+
+  it("is deterministic at a fixed timeMs and animates as time advances", () => {
+    const a = createRecorder()
+    const b = createRecorder()
+    const c = createRecorder()
+    drawKineticBackground(a.ctx, preset("nature-snow"), 0)
+    drawKineticBackground(b.ctx, preset("nature-snow"), 0)
+    drawKineticBackground(c.ctx, preset("nature-snow"), 1500)
+    expect(a.arcArgs).toEqual(b.arcArgs)
+    expect(a.arcArgs).not.toEqual(c.arcArgs)
   })
 })
