@@ -25,7 +25,7 @@ export interface KineticThemePreset {
   presetId: string
   /** Human label shown in the library (carries the original font intent). */
   name: string
-  group: "classical" | "modern"
+  group: BroadcastKineticTheme["group"]
   backgroundKind: KineticBackgroundKind
   /** Four mesh-gradient corner colors from the prototype. */
   colors: string[]
