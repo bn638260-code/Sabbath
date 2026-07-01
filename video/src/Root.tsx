@@ -2,6 +2,7 @@ import { Composition } from "remotion";
 import { Film } from "./Film";
 import { Carousel, CAROUSEL_SLIDES } from "./Carousel";
 import { CarouselAfr, CAROUSEL_AFR_SLIDES } from "./CarouselAfr";
+import { CarouselKinetic, CAROUSEL_KINETIC_SLIDES } from "./CarouselKinetic";
 
 const FPS = 30;
 
@@ -38,6 +39,14 @@ export const RemotionRoot: React.FC = () => {
         id="CarouselAfr"
         component={CarouselAfr}
         durationInFrames={CAROUSEL_AFR_SLIDES}
+        fps={1}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="CarouselKinetic"
+        component={CarouselKinetic}
+        durationInFrames={CAROUSEL_KINETIC_SLIDES}
         fps={1}
         width={1080}
         height={1920}

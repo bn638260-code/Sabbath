@@ -449,6 +449,7 @@ footer a:hover{color:var(--paper)}
     <a href="#how">How it works</a>
     <a href="#watch">Watch demo</a>
     <a href="#features">Features</a>
+    <a href="#operator-guide">Operator guide</a>
     <a href="#pricing">Pricing</a>
     <a href="#help">Support</a>
     <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light or dark theme" aria-pressed="false">
@@ -590,6 +591,30 @@ footer a:hover{color:var(--paper)}
     </div>
   </section>
 
+  <!-- ================= AFRIKAANS LIVE TEST ================= -->
+  <section id="afrikaans-live">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Now in Afrikaans</p>
+      <h2>Afrikaanse verse, <em>live opgespoor.</em></h2>
+      <p>A real live test in Afrikaans — spoken Afrikaans references are detected and the verse lands on the screen, exactly like English.</p>
+    </div>
+    <div class="demo-player reveal">
+      <div class="console-bar">
+        <div class="left">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span>Live test · Afrikaans detection</span>
+        </div>
+        <span class="onair"><span class="lamp"></span>LIVE</span>
+      </div>
+      <video autoplay muted loop playsinline preload="metadata"
+             aria-label="Live test of SabbathCue detecting Afrikaans Bible references and sending the verse to the live screen">
+        <source src="assets/afrikaans-live-test.mp4" type="video/mp4">
+        Your browser doesn't support embedded video.
+        <a href="assets/afrikaans-live-test.mp4">Download the Afrikaans live test</a> instead.
+      </video>
+    </div>
+  </section>
+
   <!-- ================= QUOTE BAND ================= -->
   <section>
     <figure class="quote-band reveal">
@@ -608,6 +633,7 @@ footer a:hover{color:var(--paper)}
     <div class="feat-grid">
       <div class="feat reveal"><span class="ico">🎙</span><h3>Voice-controlled translations</h3><p>The preacher says “read in Spanish” or “switch to KJV” and the overlay changes translation instantly — no operator action needed. References are recognized from English or Afrikaans speech, then displayed in any bundled language: English, Spanish, French, Portuguese, or Afrikaans. Switch by voice, from the booth, or over remote control — the verse already on screen reflows into the new language.</p></div>
       <div class="feat reveal"><span class="ico">◧</span><h3>Theme designer</h3><p>A visual canvas editor for your overlays: gradients, images, transparency, text styling, shadows, outlines, and precise positioning to match your brand.</p></div>
+      <div class="feat reveal"><span class="ico">✦</span><h3>Kinetic backgrounds</h3><p>Ten cinematic nature themes — drifting rain, snowfall, falling leaves, cherry blossom, fireflies, starlight and aurora — animate gently behind the verse, each paired with a big, legible display font. GPU-light and fully offline, so the live screen stays smooth.</p></div>
       <div class="feat reveal"><span class="ico">≡</span><h3>Verse queue</h3><p>Stack upcoming scriptures before the service, reorder with drag-and-drop, and fire them in sequence. Duplicates flash so you never double-queue.</p></div>
       <div class="feat reveal"><span class="ico">⌨</span><h3>Quick navigation</h3><p>Keyboard-first verse entry with autocomplete — type “J”, get Joshua, Tab through book → chapter → verse. Faster than the preacher can say it.</p></div>
       <div class="feat reveal"><span class="ico">⇄</span><h3>344,800 cross-references</h3><p>Every detected verse comes with related passages drawn from openbible.info's cross-reference dataset — ready for the follow-up.</p></div>
@@ -615,6 +641,23 @@ footer a:hover{color:var(--paper)}
       <div class="feat reveal"><span class="ico">📖</span><h3>Reading mode</h3><p>When the sermon settles into a chapter, SabbathCue locks on and follows along — “next chapter”, “chapter five” — by voice.</p></div>
       <div class="feat reveal"><span class="ico">◐</span><h3>Light &amp; dark booth modes</h3><p>Follows your OS theme or your preference — dark for the dim control room, light for the daytime AV desk.</p></div>
       <div class="feat reveal"><span class="ico">⌂</span><h3>Native desktop app</h3><p>A native Windows desktop app. Settings persist across restarts, and a guided interactive tour gets new volunteers running in minutes.</p></div>
+    </div>
+  </section>
+
+  <!-- ================= OPERATOR GUIDE ================= -->
+  <section id="operator-guide">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Run it like a pro</p>
+      <h2>The calm way to <em>operate a live service.</em></h2>
+      <p>A short field guide for the booth — the habits that keep the right verse on screen and keep mistakes off it.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat reveal"><span class="ico">①</span><h3>Set up before the service</h3><p>Choose your translation and background theme, then run a quick mic test so detection is warm before the first verse — not scrambling during the opening prayer.</p></div>
+      <div class="feat reveal"><span class="ico">②</span><h3>Preview, then send live</h3><p>Let detected verses land in Preview first, glance to confirm, then press Send Live. Keep a human between detection and the congregation's screen.</p></div>
+      <div class="feat reveal"><span class="ico">③</span><h3>Tune the confidence slider</h3><p>In a loud room, raise the semantic threshold to cut false hits; lower it if real verses get missed. Spoken references like “John 3:16” always surface regardless.</p></div>
+      <div class="feat reveal"><span class="ico">④</span><h3>Queue the planned verses</h3><p>Stack the sermon's known scriptures in the queue beforehand and fire them in order. Duplicates flash, so you never double-send the same verse.</p></div>
+      <div class="feat reveal"><span class="ico">⑤</span><h3>Use reading mode for chapters</h3><p>When the preacher reads a whole chapter, let reading mode follow along verse-by-verse — “next chapter”, “chapter five” — instead of chasing each line by hand.</p></div>
+      <div class="feat reveal"><span class="ico">⑥</span><h3>Wait out chapter-only hits</h3><p>“Turn to Revelation 20” shows as a chapter placeholder until the real verse is spoken. Wait for the specific verse before sending, and hit Clear to reset stale detections between passages.</p></div>
     </div>
   </section>
 
@@ -687,7 +730,7 @@ footer a:hover{color:var(--paper)}
       <p class="eyebrow" style="justify-content:center">Ready for this Sabbath</p>
       <h2>Give your media team <em>a calmer scripture workflow.</em></h2>
       <div class="hero-ctas">
-        <a class="btn btn-gold" id="download-btn" href="https://pub-f00266e4b83341dea437c0114752f536.r2.dev/SabbathCue_0.1.6_x64-setup%20(2).exe" download="SabbathCue-Setup.exe">Download for Windows — start free trial</a>
+        <a class="btn btn-gold" id="download-btn" href="https://pub-f00266e4b83341dea437c0114752f536.r2.dev/SabbathCue_0.1.6_x64-setup%20(12).exe" download="SabbathCue-Setup.exe">Download for Windows — start free trial</a>
         <a class="btn btn-ghost" href="#pricing">See plans</a>
       </div>
       <p class="trial-note" style="text-align:center">14-day free trial · no card required · HDMI/projector output today</p>

@@ -4,10 +4,10 @@
  */
 
 const R2_BASE = "https://pub-f00266e4b83341dea437c0114752f536.r2.dev";
-const OBJECT_KEY = "SabbathCue_0.1.6_x64-setup (2).exe";
+const OBJECT_KEY = "SabbathCue_0.1.6_x64-setup (12).exe";
 const URL = `${R2_BASE}/${OBJECT_KEY.split("/").map(encodeURIComponent).join("/")}`;
 const MIN_BYTES = 200 * 1024 * 1024;
-const EXPECTED_BYTES = 241034341;
+const EXPECTED_BYTES = 244034331;
 
 async function main() {
   console.log("Checking Windows installer on Cloudflare R2…");

@@ -9,13 +9,13 @@ export const WINDOWS_INSTALLER_VERSION = "0.1.6" as const;
  * When re-uploaded, switch to `SabbathCue_0.1.6_x64-setup.exe` and update tests.
  */
 export const WINDOWS_INSTALLER_R2_OBJECT_KEY =
-  "SabbathCue_0.1.6_x64-setup (2).exe" as const;
+  "SabbathCue_0.1.6_x64-setup (12).exe" as const;
 
 /** Filename users see when saving the installer (not the R2 object name). */
 export const WINDOWS_INSTALLER_SAVE_AS = "SabbathCue-Setup.exe" as const;
 
-/** Measured via R2 HEAD on 2026-06-27. */
-export const WINDOWS_INSTALLER_EXPECTED_BYTES = 241034341;
+/** Measured via R2 HEAD on 2026-07-01. */
+export const WINDOWS_INSTALLER_EXPECTED_BYTES = 244034331;
 
 export const WINDOWS_INSTALLER_MIN_BYTES = 200 * 1024 * 1024;
 

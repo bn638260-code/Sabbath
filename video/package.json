@@ -10,6 +10,7 @@
     "render:all": "npm run render && npm run render:social",
     "render:carousel": "node scripts/render-carousel.mjs",
     "render:carousel:afr": "node scripts/render-carousel-afr.mjs",
+    "render:carousel:kinetic": "node scripts/render-carousel-kinetic.mjs",
     "still": "remotion still LaunchFilm out/frame-hook.png --frame=120"
   },
   "dependencies": {
