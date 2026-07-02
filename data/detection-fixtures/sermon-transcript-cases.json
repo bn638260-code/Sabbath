@@ -1,0 +1,44 @@
+[
+  {
+    "language": "en",
+    "category": "sermon-direct",
+    "mode": "fire",
+    "text": "Galatians 2:20, I have been crucified with Christ.",
+    "expected": "Galatians 2:20"
+  },
+  {
+    "language": "en",
+    "category": "sermon-quote",
+    "mode": "fire",
+    "text": "I have been crucified with Christ. It is no longer I who live, but Christ lives in me. And the life which I now live in the flesh, I live by faith in the Son of God who loved me and gave himself for me.",
+    "expected": "Galatians 2:20",
+    "forbidden": ["John 3:16"]
+  },
+  {
+    "language": "en",
+    "category": "sermon-noise",
+    "mode": "silent",
+    "text": "He walked into church wearing leathers and everyone looked over their shoulders wondering what he was all about, and we missed an opportunity to love him to Jesus."
+  },
+  {
+    "language": "en",
+    "category": "sermon-hint",
+    "mode": "hint",
+    "text": "Is the harvest ready? What is the problem? The laborers. The harvest is all around us.",
+    "expectedAny": ["Matthew 9:37", "Luke 10:2"]
+  },
+  {
+    "language": "en",
+    "category": "sermon-hint",
+    "mode": "hint",
+    "text": "Submit to Christ and allow Christ to live in you, the hope of glory.",
+    "expected": "Colossians 1:27"
+  },
+  {
+    "language": "en",
+    "category": "sermon-hint",
+    "mode": "hint",
+    "text": "Allow Christ to live in you and work through you and you will fulfill the law of Christ.",
+    "expected": "Galatians 6:2"
+  }
+]

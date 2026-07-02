@@ -10,17 +10,50 @@
 //! Usage (from repo root, so the default asset paths resolve):
 //!   cargo run -p rhema-detection --features precompute-bin --release \
 //!     --bin `detection_accuracy` -- [--threshold 0.90] \
-//!     [--model PATH] [--tokenizer PATH] [--embeddings PATH] [--ids PATH] [--verses PATH]
+//!     [--cases PATH] [--model PATH] [--tokenizer PATH] \
+//!     [--embeddings PATH] [--ids PATH] [--verses PATH]
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use rhema_bible::BibleDb;
 use rhema_detection::semantic::embedder::TextEmbedder;
 use rhema_detection::{DetectionPipeline, HnswVectorIndex, OnnxEmbedder, SemanticDetector};
 
+const DEFAULT_EXTERNAL_CASES: &str = "data/detection-fixtures/sermon-transcript-cases.json";
+
 /// One labeled case: (category, utterance, expected reference or None for noise).
 type Case = (&'static str, &'static str, Option<&'static str>);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum CaseMode {
+    Fire,
+    Hint,
+    Silent,
+}
+
+#[derive(Debug, Clone)]
+struct BenchCase {
+    language: String,
+    category: String,
+    text: String,
+    mode: CaseMode,
+    expected_refs: Vec<String>,
+    forbidden_refs: Vec<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FixtureCase {
+    language: Option<String>,
+    category: String,
+    text: String,
+    mode: Option<CaseMode>,
+    expected: Option<String>,
+    expected_any: Option<Vec<String>>,
+    forbidden: Option<Vec<String>>,
+}
 
 /// Authored labeled dataset (~50 cases) spanning the detector's strategies:
 /// `direct` (spoken explicit references), `spoken` (number-word references),
@@ -68,11 +101,6 @@ const CASES: &[Case] = &[
         Some("Jeremiah 29:11"),
     ),
     ("direct", "Ephesians 2:8 reminds us", Some("Ephesians 2:8")),
-    (
-        "direct",
-        "Galatians 2:20, I have been crucified with Christ",
-        Some("Galatians 2:20"),
-    ),
     // --- spoken: number words instead of digits ---
     (
         "spoken",
@@ -174,11 +202,6 @@ const CASES: &[Case] = &[
         "quote",
         "And we know that all things work together for good to them that love God",
         Some("Romans 8:28"),
-    ),
-    (
-        "quote",
-        "I have been crucified with Christ it is no longer I who live but Christ lives in me",
-        Some("Galatians 2:20"),
     ),
     // --- para: paraphrase, same meaning, different words ---
     (
@@ -507,16 +530,6 @@ const CASES: &[Case] = &[
     ),
     (
         "noise",
-        "he walked into church wearing leathers and everyone looked over their shoulders",
-        None,
-    ),
-    (
-        "noise",
-        "we missed an opportunity to love him to Jesus because we were putting him in a box",
-        None,
-    ),
-    (
-        "noise",
         "please stand as we welcome our visitors and first time guests",
         None,
     ),
@@ -574,6 +587,7 @@ fn main() {
         .unwrap_or_else(|| "embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin".into());
     let verses = arg(&args, "--verses").unwrap_or_else(|| "data/verses-for-embedding.json".into());
     let db_path = arg(&args, "--db").unwrap_or_else(|| "data/rhema.db".into());
+    let cases_path = arg(&args, "--cases").unwrap_or_else(|| DEFAULT_EXTERNAL_CASES.into());
 
     let embedder = OnnxEmbedder::load(&PathBuf::from(&model), &PathBuf::from(&tokenizer))
         .expect("load ONNX model + tokenizer");
@@ -588,30 +602,33 @@ fn main() {
     let mut pipeline = DetectionPipeline::new();
     pipeline.set_semantic(semantic);
 
+    let mut cases = built_in_cases();
+    if cases_path != "none" {
+        let external = load_fixture_cases(Path::new(&cases_path))
+            .unwrap_or_else(|e| panic!("load detection cases from {cases_path}: {e}"));
+        eprintln!("Loaded {} external cases from {cases_path}", external.len());
+        cases.extend(external);
+    }
+
     // Per-category tallies and global confusion counts.
     let mut tp = 0usize; // expected verse, correct verse fired
     let mut fp = 0usize; // something fired that was wrong (noise or wrong verse)
     let mut fn_ = 0usize; // expected verse, nothing correct fired
     let mut tn = 0usize; // noise, nothing fired
-    let mut by_cat: HashMap<&str, (usize, usize)> = HashMap::new(); // cat -> (hits, total)
+    let mut hint_hits = 0usize;
+    let mut hint_total = 0usize;
+    let mut case_hits = 0usize;
+    let mut by_cat: HashMap<String, (usize, usize)> = HashMap::new(); // cat -> (hits, total)
 
     println!("Per-case outcome at threshold {:.0}%:\n", threshold * 100.0);
-    for (language, category, text, expected) in CASES
-        .iter()
-        .map(|case| ("en", case.0, case.1, case.2))
-        .chain(
-            AFRIKAANS_CASES
-                .iter()
-                .map(|case| ("af", case.0, case.1, case.2)),
-        )
-    {
+    for case in &cases {
         // Mirror the live auto-live path: direct parsing on the fragment, plus
         // hybrid FTS5 + vector search (the explicit-reference and quote/paraphrase
         // strategies the real STT pipeline runs).
-        pipeline.direct_mut().set_stt_language(language);
-        let mut detections = pipeline.process_direct(text);
-        let fts = db.search_verses_bm25(text, 10).unwrap_or_default();
-        detections.extend(pipeline.process_hybrid_with_fts(text, &fts));
+        pipeline.direct_mut().set_stt_language(&case.language);
+        let mut detections = pipeline.process_direct(&case.text);
+        let fts = db.search_verses_bm25(&case.text, 10).unwrap_or_default();
+        detections.extend(pipeline.process_hybrid_with_fts(&case.text, &fts));
         // Auto-live fires the highest-confidence detection at/above threshold.
         let fired = detections
             .iter()
@@ -625,49 +642,98 @@ fn main() {
 
         let fired_ref = fired.and_then(|d| detection_ref(&d.detection, &refs));
         let fired_conf = fired.map(|d| d.detection.confidence);
+        let detected_refs = detections
+            .iter()
+            .filter_map(|d| detection_ref(&d.detection, &refs))
+            .collect::<Vec<_>>();
+        let expected_hint = case
+            .expected_refs
+            .iter()
+            .find(|expected| detected_refs.iter().any(|got| ref_eq(expected, got)));
+        let forbidden_hit = case
+            .forbidden_refs
+            .iter()
+            .find(|forbidden| detected_refs.iter().any(|got| ref_eq(forbidden, got)));
 
-        let entry = by_cat.entry(category).or_insert((0, 0));
+        let entry = by_cat.entry(case.category.clone()).or_insert((0, 0));
         entry.1 += 1;
 
-        let outcome = match (expected, &fired_ref) {
-            (Some(exp), Some(got)) if ref_eq(exp, got) => {
-                tp += 1;
-                entry.0 += 1;
-                format!("OK  fired {} ({:.0}%)", got, fired_conf.unwrap() * 100.0)
+        let (case_correct, outcome) = match case.mode {
+            CaseMode::Fire => match (&case.expected_refs.first(), &fired_ref, forbidden_hit) {
+                (Some(exp), Some(got), None) if ref_eq(exp, got) => {
+                    tp += 1;
+                    (true, format!("OK  fired {} ({:.0}%)", got, fired_conf.unwrap() * 100.0))
+                }
+                (Some(_), Some(got), _) => {
+                    fp += 1;
+                    fn_ += 1;
+                    (false, format!("WRONG fired {} ({:.0}%)", got, fired_conf.unwrap() * 100.0))
+                }
+                (Some(_), None, Some(forbidden)) => {
+                    fn_ += 1;
+                    (false, format!("FORBIDDEN-HINT {forbidden}"))
+                }
+                (Some(_), None, None) => {
+                    fn_ += 1;
+                    (false, "miss (held for review, nothing fired)".to_string())
+                }
+                _ => unreachable!("fire cases are validated to have expected refs"),
+            },
+            CaseMode::Hint => {
+                hint_total += 1;
+                match (&fired_ref, expected_hint, forbidden_hit) {
+                    (Some(got), _, _) => {
+                        fp += 1;
+                        (false, format!("FALSE-FIRE {} ({:.0}%)", got, fired_conf.unwrap() * 100.0))
+                    }
+                    (None, Some(expected), None) => {
+                        tn += 1;
+                        hint_hits += 1;
+                        (true, format!("OK  hint {expected} held for review"))
+                    }
+                    (None, _, Some(forbidden)) => {
+                        tn += 1;
+                        (false, format!("FORBIDDEN-HINT {forbidden}"))
+                    }
+                    (None, None, None) => {
+                        tn += 1;
+                        (false, "hint miss (nothing fired)".to_string())
+                    }
+                }
             }
-            (Some(_), Some(got)) => {
-                fp += 1;
-                fn_ += 1;
-                format!("WRONG fired {} ({:.0}%)", got, fired_conf.unwrap() * 100.0)
-            }
-            (Some(_), None) => {
-                fn_ += 1;
-                "miss (held for review, nothing fired)".to_string()
-            }
-            (None, Some(got)) => {
-                fp += 1;
-                format!("FALSE-FIRE {} ({:.0}%)", got, fired_conf.unwrap() * 100.0)
-            }
-            (None, None) => {
-                tn += 1;
-                entry.0 += 1;
-                "OK  silent".to_string()
-            }
+            CaseMode::Silent => match &fired_ref {
+                Some(got) => {
+                    fp += 1;
+                    (false, format!("FALSE-FIRE {} ({:.0}%)", got, fired_conf.unwrap() * 100.0))
+                }
+                None if forbidden_hit.is_none() => {
+                    tn += 1;
+                    (true, "OK  silent".to_string())
+                }
+                None => {
+                    tn += 1;
+                    (false, format!("FORBIDDEN-HINT {}", forbidden_hit.unwrap()))
+                }
+            },
         };
-        let want = expected.unwrap_or("(noise)");
-        println!("[{category:>6}] want {want:<22} -> {outcome}");
+
+        if case_correct {
+            case_hits += 1;
+            entry.0 += 1;
+        }
+        let want = case.want_label();
+        println!("[{:>12}] want {want:<28} -> {outcome}", case.category);
     }
 
-    let total = CASES.len() + AFRIKAANS_CASES.len();
+    let total = cases.len();
     let precision = if tp + fp == 0 {
         1.0
     } else {
         tp as f64 / (tp + fp) as f64
     };
-    let positives = CASES
+    let positives = cases
         .iter()
-        .chain(AFRIKAANS_CASES)
-        .filter(|(_, _, e)| e.is_some())
+        .filter(|case| case.mode == CaseMode::Fire)
         .count();
     let recall = if positives == 0 {
         0.0
@@ -675,20 +741,14 @@ fn main() {
         tp as f64 / positives as f64
     };
     let accuracy = (tp + tn) as f64 / total as f64;
+    let case_success = case_hits as f64 / total as f64;
 
     println!("\nBy category (correct / total):");
-    for cat in [
-        "direct",
-        "spoken",
-        "quote",
-        "para",
-        "noise",
-        "af-direct",
-        "af-quote",
-        "af-noise",
-    ] {
+    let mut categories = by_cat.keys().collect::<Vec<_>>();
+    categories.sort();
+    for cat in categories {
         if let Some((hit, tot)) = by_cat.get(cat) {
-            println!("  {cat:>6}  {hit}/{tot}");
+            println!("  {cat:>12}  {hit}/{tot}");
         }
     }
 
@@ -697,6 +757,9 @@ fn main() {
     println!("  false positives (wrong/noise live):  {fp}");
     println!("  false negatives (missed, held back):  {fn_}");
     println!("  true negatives (correctly silent):   {tn}");
+    if hint_total > 0 {
+        println!("  semantic hints found / expected:      {hint_hits}/{hint_total}");
+    }
     println!(
         "\nHeadline metrics ({total} cases, threshold {:.0}%):",
         threshold * 100.0
@@ -710,9 +773,123 @@ fn main() {
         recall * 100.0
     );
     println!(
-        "  Accuracy  (correct decisions overall):    {:.1}%",
+        "  Accuracy  (correct live/silent decisions): {:.1}%",
         accuracy * 100.0
     );
+    println!(
+        "  Case pass (including hint expectations):   {:.1}%",
+        case_success * 100.0
+    );
+}
+
+impl BenchCase {
+    fn want_label(&self) -> String {
+        if self.expected_refs.is_empty() {
+            "(noise)".to_string()
+        } else {
+            self.expected_refs.join(" / ")
+        }
+    }
+}
+
+impl FixtureCase {
+    fn into_bench_case(self, path: &Path, index: usize) -> Result<BenchCase, String> {
+        let language = non_empty_or_default(self.language.as_deref(), "en");
+        let category = non_empty(&self.category, path, index, "category")?;
+        let text = non_empty(&self.text, path, index, "text")?;
+        let mut expected_refs = self
+            .expected
+            .into_iter()
+            .chain(self.expected_any.unwrap_or_default())
+            .filter_map(|value| trim_non_empty(&value))
+            .collect::<Vec<_>>();
+        expected_refs.dedup_by(|a, b| ref_eq(a, b));
+        let forbidden_refs = self
+            .forbidden
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|value| trim_non_empty(&value))
+            .collect::<Vec<_>>();
+        let mode = self.mode.unwrap_or({
+            if expected_refs.is_empty() {
+                CaseMode::Silent
+            } else {
+                CaseMode::Fire
+            }
+        });
+        if matches!(mode, CaseMode::Fire | CaseMode::Hint) && expected_refs.is_empty() {
+            return Err(format!(
+                "{} case #{index} is {:?} but has no expected reference",
+                path.display(),
+                mode
+            ));
+        }
+
+        Ok(BenchCase {
+            language,
+            category,
+            text,
+            mode,
+            expected_refs,
+            forbidden_refs,
+        })
+    }
+}
+
+fn built_in_cases() -> Vec<BenchCase> {
+    CASES
+        .iter()
+        .map(|case| built_in_case("en", case))
+        .chain(AFRIKAANS_CASES.iter().map(|case| built_in_case("af", case)))
+        .collect()
+}
+
+fn built_in_case(language: &str, case: &Case) -> BenchCase {
+    let expected_refs = case.2.map_or_else(Vec::new, |expected| vec![expected.to_string()]);
+    let mode = if expected_refs.is_empty() {
+        CaseMode::Silent
+    } else {
+        CaseMode::Fire
+    };
+    BenchCase {
+        language: language.to_string(),
+        category: case.0.to_string(),
+        text: case.1.to_string(),
+        mode,
+        expected_refs,
+        forbidden_refs: vec![],
+    }
+}
+
+fn load_fixture_cases(path: &Path) -> Result<Vec<BenchCase>, String> {
+    let json = std::fs::read_to_string(path)
+        .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    serde_json::from_str::<Vec<FixtureCase>>(&json)
+        .map_err(|e| format!("failed to parse {}: {e}", path.display()))?
+        .into_iter()
+        .enumerate()
+        .map(|(index, case)| case.into_bench_case(path, index + 1))
+        .collect()
+}
+
+fn non_empty_or_default(value: Option<&str>, default: &str) -> String {
+    value
+        .and_then(trim_non_empty)
+        .unwrap_or_else(|| default.to_string())
+}
+
+fn non_empty(value: &str, path: &Path, index: usize, field: &str) -> Result<String, String> {
+    trim_non_empty(value).ok_or_else(|| {
+        format!(
+            "{} case #{index} has an empty {field} field",
+            path.display()
+        )
+    })
+}
+
+fn trim_non_empty(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
 /// Build a (book, chapter, verse) reference string for a detection: direct
@@ -787,6 +964,55 @@ fn load_refs(path: &str) -> HashMap<i64, String> {
 fn arg(args: &[String], name: &str) -> Option<String> {
     args.iter()
         .position(|a| a == name)
-        .and_then(|i| args.get(i + 1))
+        .and_then(|i| i.checked_add(1))
+        .and_then(|i| args.get(i))
         .cloned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fixture_case_defaults_to_fire_when_expected_is_present() {
+        let case = FixtureCase {
+            language: None,
+            category: "fixture".to_string(),
+            text: "Galatians 2:20".to_string(),
+            mode: None,
+            expected: Some("Galatians 2:20".to_string()),
+            expected_any: None,
+            forbidden: None,
+        }
+        .into_bench_case(Path::new("fixture.json"), 1)
+        .unwrap();
+
+        assert_eq!(case.mode, CaseMode::Fire);
+    }
+
+    #[test]
+    fn fixture_case_rejects_hint_without_expected_reference() {
+        let err = FixtureCase {
+            language: None,
+            category: "fixture".to_string(),
+            text: "ordinary speech".to_string(),
+            mode: Some(CaseMode::Hint),
+            expected: None,
+            expected_any: None,
+            forbidden: None,
+        }
+        .into_bench_case(Path::new("fixture.json"), 1)
+        .unwrap_err();
+
+        assert!(err.contains("has no expected reference"));
+    }
+
+    #[test]
+    fn load_fixture_cases_reads_sermon_regression_fixture() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../data/detection-fixtures/sermon-transcript-cases.json");
+        let cases = load_fixture_cases(&path).unwrap();
+
+        assert!(cases.iter().any(|case| case.mode == CaseMode::Hint));
+    }
 }
