@@ -17,6 +17,10 @@ fn require_bible_db(db: Option<&BibleDb>) -> Result<&BibleDb, String> {
     db.ok_or_else(|| BIBLE_DB_NOT_LOADED.to_string())
 }
 
+fn translation_locked(translation: &Translation) -> bool {
+    translation.is_copyrighted || !translation.is_downloaded
+}
+
 #[tauri::command]
 pub fn list_translations(state: State<'_, Mutex<AppState>>) -> Result<Vec<Translation>, String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
@@ -106,8 +110,14 @@ pub fn set_active_translation(
     // Verify the translation exists
     if let Some(ref db) = app_state.bible_db {
         let translations = db.list_translations().map_err(|e| e.to_string())?;
-        if !translations.iter().any(|t| t.id == translation_id) {
+        let Some(translation) = translations.iter().find(|t| t.id == translation_id) else {
             return Err(format!("Translation ID {translation_id} not found"));
+        };
+        if translation_locked(translation) {
+            return Err(format!(
+                "{} is coming soon and cannot be selected yet",
+                translation.abbreviation
+            ));
         }
     }
     app_state.active_translation_id = translation_id;
@@ -149,8 +159,20 @@ pub fn get_translation_verses_for_search(
 
 #[cfg(test)]
 mod tests {
-    use super::{require_bible_db, BIBLE_DB_NOT_LOADED};
+    use super::{require_bible_db, translation_locked, BIBLE_DB_NOT_LOADED};
     use crate::commands::validation::{bounded_limit, bounded_text, MAX_QUERY_BYTES};
+    use rhema_bible::Translation;
+
+    fn translation(is_copyrighted: bool, is_downloaded: bool) -> Translation {
+        Translation {
+            id: 1,
+            abbreviation: "TST".to_string(),
+            title: "Test".to_string(),
+            language: "en".to_string(),
+            is_copyrighted,
+            is_downloaded,
+        }
+    }
 
     #[test]
     fn require_bible_db_reports_stable_error() {
@@ -163,5 +185,12 @@ mod tests {
         let err = bounded_text(&long_query, "query", MAX_QUERY_BYTES).unwrap_err();
         assert!(err.contains("query"));
         assert!(bounded_limit(0).is_err());
+    }
+
+    #[test]
+    fn copyrighted_or_missing_translations_are_locked() {
+        assert!(!translation_locked(&translation(false, true)));
+        assert!(translation_locked(&translation(true, true)));
+        assert!(translation_locked(&translation(false, false)));
     }
 }

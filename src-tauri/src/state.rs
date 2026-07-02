@@ -45,8 +45,13 @@ impl AppState {
 pub fn initial_translation_id(translations: &[Translation]) -> Option<i64> {
     translations
         .iter()
+        .filter(|translation| !translation.is_copyrighted && translation.is_downloaded)
         .find(|translation| translation.abbreviation.eq_ignore_ascii_case("KJV"))
-        .or_else(|| translations.first())
+        .or_else(|| {
+            translations
+                .iter()
+                .find(|translation| !translation.is_copyrighted && translation.is_downloaded)
+        })
         .map(|translation| translation.id)
 }
 
@@ -74,8 +79,17 @@ mod tests {
 
     #[test]
     fn initial_translation_id_falls_back_to_first_translation() {
-        let translations = [translation(4, "NIV"), translation(7, "ESV")];
+        let translations = [translation(4, "SpaRV"), translation(7, "FreJND")];
 
         assert_eq!(initial_translation_id(&translations), Some(4));
+    }
+
+    #[test]
+    fn initial_translation_id_skips_locked_translations() {
+        let mut locked = translation(4, "NIV");
+        locked.is_copyrighted = true;
+        let translations = [locked, translation(7, "SpaRV")];
+
+        assert_eq!(initial_translation_id(&translations), Some(7));
     }
 }

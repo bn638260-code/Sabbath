@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::error::SttError;
-use crate::keyterms::afrikaans_bible_keyterms;
+use crate::keyterms::bible_keyterms_for_language;
 use crate::provider::SttProvider;
 use crate::types::{SttConfig, TranscriptEvent};
 
@@ -64,7 +64,7 @@ pub(crate) fn build_start_payload(config: &SttConfig) -> serde_json::Value {
         "language_hints": language_hints,
         "enable_endpoint_detection": true,
         "context": {
-            "terms": afrikaans_bible_keyterms(),
+            "terms": bible_keyterms_for_language(language),
         },
     })
 }
@@ -442,6 +442,22 @@ mod tests {
         assert_eq!(payload["enable_endpoint_detection"], true);
         assert_eq!(payload["audio_format"], "pcm_s16le");
         assert_eq!(payload["sample_rate"], 16_000);
+    }
+
+    #[test]
+    fn start_payload_uses_selected_language_context_terms() {
+        let payload = build_start_payload(&SttConfig {
+            api_key: "test-key".into(),
+            model: SONIOX_MODEL.into(),
+            sample_rate: 16_000,
+            encoding: "pcm_s16le".into(),
+            language: Some("es".into()),
+        });
+
+        assert_eq!(payload["language_hints"], serde_json::json!(["es"]));
+        assert!(payload["context"]["terms"]
+            .as_array()
+            .is_some_and(|terms| terms.iter().any(|term| term == "Juan")));
     }
 
     #[test]

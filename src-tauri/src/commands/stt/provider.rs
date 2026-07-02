@@ -74,6 +74,15 @@ fn removed_provider_error(provider_name: &str) -> String {
     )
 }
 
+fn deepgram_language_for(stt_language: Option<&str>) -> &'static str {
+    match stt_language.unwrap_or("en") {
+        "es" => "es",
+        "fr" => "fr",
+        "pt" => "pt",
+        _ => "en-US",
+    }
+}
+
 pub(crate) async fn build_stt_provider(
     provider_name: &str,
     app: &AppHandle,
@@ -132,7 +141,7 @@ pub(crate) async fn build_stt_provider(
                 model: model.to_string(),
                 sample_rate: 16_000,
                 encoding: "linear16".to_string(),
-                language: Some("en-US".to_string()),
+                language: Some(deepgram_language_for(stt_language).to_string()),
             };
 
             Ok(Box::new(DeepgramClient::new(stt_config)))
@@ -212,5 +221,13 @@ mod tests {
             error,
             "The faster-whisper speech-to-text provider has been removed. Choose Vosk, Deepgram, Gladia, or Soniox."
         );
+    }
+
+    #[test]
+    fn deepgram_language_for_supports_public_bible_languages() {
+        assert_eq!(deepgram_language_for(Some("es")), "es");
+        assert_eq!(deepgram_language_for(Some("fr")), "fr");
+        assert_eq!(deepgram_language_for(Some("pt")), "pt");
+        assert_eq!(deepgram_language_for(Some("en")), "en-US");
     }
 }

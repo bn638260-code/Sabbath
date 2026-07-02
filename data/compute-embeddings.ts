@@ -3,9 +3,8 @@
  * Prepares canonical verse text for semantic embeddings.
  *
  * The semantic index stores one vector per Bible reference, keyed by the KJV
- * verse row id. When NKJV/NLT are available, their wording is blended into the
- * same text so live semantic search can match modern phrasing without emitting
- * duplicate references for the same verse.
+ * verse row id. Only redistributable translations are blended so locked
+ * licensed editions are not used for detection.
  *
  * Usage:
  * 1. Run: bun run data/download-model.ts
@@ -14,8 +13,8 @@
  *        --model models/minilm-l6-v2-int8/onnx/model_quantized.onnx \
  *        --tokenizer models/minilm-l6-v2/tokenizer.json \
  *        --verses data/verses-for-embedding.json \
- *        --output-embeddings embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin \
- *        --output-ids embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin
+ *        --output-embeddings embeddings/public-minilm-l6-v2.bin \
+ *        --output-ids embeddings/public-minilm-l6-v2-ids.bin
  */
 
 import { Database } from "bun:sqlite"
@@ -25,7 +24,7 @@ import { join } from "node:path"
 const DATA_DIR = import.meta.dir
 const DB_PATH = join(DATA_DIR, "rhema.db")
 const OUTPUT_PATH = join(DATA_DIR, "verses-for-embedding.json")
-const EMBEDDING_TRANSLATIONS = ["KJV", "NKJV", "NLT", "Afr1953"] as const
+const EMBEDDING_TRANSLATIONS = ["KJV", "SpaRV", "FreJND", "PorBLivre"] as const
 
 type TranslationRow = {
   id: number
@@ -49,7 +48,7 @@ function verseKey(bookNumber: number, chapter: number, verse: number): string {
 async function main() {
   await mkdir(join(DATA_DIR, "..", "embeddings"), { recursive: true })
 
-  console.log("\nExporting canonical KJV/NKJV/NLT verses for embedding...\n")
+  console.log("\nExporting redistributable verses for embedding...\n")
 
   const db = new Database(DB_PATH, { readonly: true })
 

@@ -9,8 +9,8 @@ const SOFFICE_FIXED_CANDIDATES: &[&str] = &[
     r"C:\Program Files\LibreOffice\program\soffice.exe",
     r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
 ];
-pub const PREFERRED_EMBEDDINGS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2.bin";
-pub const PREFERRED_EMBEDDING_IDS_FILENAME: &str = "kjv-nkjv-nlt-minilm-l6-v2-ids.bin";
+pub const PREFERRED_EMBEDDINGS_FILENAME: &str = "public-minilm-l6-v2.bin";
+pub const PREFERRED_EMBEDDING_IDS_FILENAME: &str = "public-minilm-l6-v2-ids.bin";
 const LEGACY_EMBEDDINGS_FILENAME: &str = "kjv-minilm-l6-v2.bin";
 const LEGACY_EMBEDDING_IDS_FILENAME: &str = "kjv-minilm-l6-v2-ids.bin";
 #[cfg(test)]
@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn named_asset_candidates_prefer_blended_semantic_assets_before_legacy_assets() {
+    fn named_asset_candidates_prefer_public_semantic_assets_before_legacy_assets() {
         let root_a = PathBuf::from("a");
         let root_b = PathBuf::from("b");
 
@@ -548,8 +548,8 @@ mod tests {
         assert!(semantic_assets_are_compatible(
             Path::new("models/minilm-l6-v2-int8/onnx/model_quantized.onnx"),
             Path::new("models/minilm-l6-v2-int8/tokenizer.json"),
-            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin"),
-            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin"),
+            Path::new("embeddings/public-minilm-l6-v2.bin"),
+            Path::new("embeddings/public-minilm-l6-v2-ids.bin"),
         ));
     }
 
@@ -558,8 +558,8 @@ mod tests {
         assert!(!semantic_assets_are_compatible(
             Path::new("models/unknown/onnx/model_quantized.onnx"),
             Path::new("models/minilm-l6-v2-int8/tokenizer.json"),
-            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin"),
-            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin"),
+            Path::new("embeddings/public-minilm-l6-v2.bin"),
+            Path::new("embeddings/public-minilm-l6-v2-ids.bin"),
         ));
     }
 
@@ -568,8 +568,8 @@ mod tests {
         assert!(!semantic_assets_are_compatible(
             Path::new("models/minilm-l6-v2-int8/onnx/model_quantized.onnx"),
             Path::new("models/unknown/tokenizer.json"),
-            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin"),
-            Path::new("embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin"),
+            Path::new("embeddings/public-minilm-l6-v2.bin"),
+            Path::new("embeddings/public-minilm-l6-v2-ids.bin"),
         ));
     }
 }

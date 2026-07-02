@@ -97,7 +97,7 @@ pub(crate) fn build_or_query(input: &str) -> String {
 
 // ── SQL runner ──────────────────────────────────────────────────────
 
-/// Execute a BM25-ranked FTS5 query across all installed translations.
+/// Execute a BM25-ranked FTS5 query across unlocked translations.
 #[expect(
     clippy::cast_possible_wrap,
     reason = "limit is a small page-size value that fits in i64"
@@ -115,7 +115,8 @@ fn run_fts_query(
         "SELECT bm25(verses_fts) as rank, v.book_number, v.book_name, v.chapter, v.verse \
          FROM verses_fts fts \
          JOIN verses v ON v.rowid = fts.rowid \
-         WHERE fts.text MATCH ?1 \
+         JOIN translations t ON t.id = v.translation_id \
+         WHERE fts.text MATCH ?1 AND t.is_copyrighted = 0 AND t.is_downloaded = 1 \
          ORDER BY rank \
          LIMIT ?2",
     )?;
@@ -230,7 +231,7 @@ impl BibleDb {
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
-    /// Search verses using FTS5 with BM25 ranking across all installed translations.
+    /// Search verses using FTS5 with BM25 ranking across unlocked translations.
     ///
     /// Three-tier strategy with stop-word filtering for speed:
     /// 1. **Phrase** — exact substring match (~5ms)
@@ -434,17 +435,14 @@ mod tests {
     }
 
     #[test]
-    fn bm25_searches_afrikaans_translation_text() {
+    fn bm25_ignores_locked_translation_text() {
         let db = fixture_db();
 
         let results = db
             .search_verses_bm25("Regters en opsigters moet jy vir jou aanstel", 10)
             .unwrap();
 
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].book_name, "Deuteronomium");
-        assert_eq!(results[0].chapter, 16);
-        assert_eq!(results[0].verse, 18);
+        assert!(results.is_empty());
     }
 
     #[test]

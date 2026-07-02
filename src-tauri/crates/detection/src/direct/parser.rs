@@ -119,15 +119,29 @@ enum Token {
 }
 
 fn is_chapter_keyword(word: &str) -> bool {
-    matches!(word, "chapter" | "hoofstuk")
+    matches!(
+        word,
+        "chapter" | "hoofstuk" | "capitulo" | "capítulo" | "chapitre"
+    )
 }
 
 fn is_verse_keyword(word: &str) -> bool {
-    matches!(word, "verse" | "verses" | "vers")
+    matches!(
+        word,
+        "verse" | "verses" | "vers" | "versiculo" | "versículo" | "verso" | "verset"
+            | "versets"
+    )
 }
 
 fn is_number_connector(word: &str) -> bool {
-    matches!(word, "and" | "en")
+    matches!(word, "and" | "en" | "y" | "et" | "e")
+}
+
+fn is_range_connector(word: &str) -> bool {
+    matches!(
+        word,
+        "to" | "through" | "hasta" | "a" | "à" | "al" | "ate" | "até"
+    ) || is_number_connector(word)
 }
 
 fn is_correction_word(word: &str) -> bool {
@@ -366,9 +380,9 @@ fn scan_verse_end(tokens: &[Token], start: usize) -> Option<i32> {
             return Some(end);
         }
     }
-    // Check for "to", "through", or same-chapter "and"
+    // Check for range connectors or same-chapter "and"
     if let Token::Word(tw) = &tokens[start] {
-        if tw == "to" || tw == "through" || is_number_connector(tw) {
+        if is_range_connector(tw) {
             let next = start + 1;
             if next < tokens.len() {
                 // "to verse 16" pattern
@@ -633,21 +647,29 @@ fn consume_number_at(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
 
             // If n is a tens value (20, 30, ..., 90), look for a ones digit next
             if n >= 20 && n % 10 == 0 && start + 1 < tokens.len() {
-                if let Token::Word(next_w) = &tokens[start + 1] {
+                let ones_idx = if matches!(
+                    tokens.get(start + 1),
+                    Some(Token::Word(next_w)) if is_number_connector(next_w)
+                ) {
+                    start + 2
+                } else {
+                    start + 1
+                };
+                if let Some(Token::Word(next_w)) = tokens.get(ones_idx) {
                     if let Some(ones) = parse_spoken_number(next_w) {
                         if (1..=9).contains(&ones) {
                             let combined = n + ones;
                             // Check for "hundred" after tens+ones
-                            if start + 2 < tokens.len() {
-                                if let Token::Word(hw) = &tokens[start + 2] {
+                            if ones_idx + 1 < tokens.len() {
+                                if let Token::Word(hw) = &tokens[ones_idx + 1] {
                                     if hw == "hundred" || hw == "honderd" {
                                         // e.g., "one hundred" — but we're at "thirty two hundred"?
                                         // This is unusual, so skip
-                                        return Some((combined, start + 2));
+                                        return Some((combined, ones_idx + 1));
                                     }
                                 }
                             }
-                            return Some((combined, start + 2));
+                            return Some((combined, ones_idx + 1));
                         }
                     }
                 }
@@ -690,40 +712,41 @@ fn consume_number_at(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
 }
 
 /// Convert a spoken number word to an integer.
-/// Supports "one" through "twenty", tens "thirty" through "ninety",
-/// and "hundred". Returns None if the word is not a recognized number.
+/// Supports common spoken number words used by the STT language profiles.
 pub fn parse_spoken_number(word: &str) -> Option<i32> {
     match word.to_lowercase().as_str() {
-        // English
         "zero" | "nul" => Some(0),
-        "one" | "een" => Some(1),
-        "two" | "twee" => Some(2),
-        "three" | "drie" => Some(3),
-        "four" | "vier" => Some(4),
-        "five" | "vyf" => Some(5),
-        "six" | "ses" => Some(6),
-        "seven" | "sewe" => Some(7),
-        "eight" | "agt" => Some(8),
-        "nine" | "nege" => Some(9),
-        "ten" | "tien" => Some(10),
-        "eleven" | "elf" => Some(11),
-        "twelve" | "twaalf" => Some(12),
-        "thirteen" | "dertien" => Some(13),
-        "fourteen" | "veertien" => Some(14),
-        "fifteen" | "vyftien" => Some(15),
-        "sixteen" | "sestien" => Some(16),
-        "seventeen" | "sewentien" => Some(17),
-        "eighteen" | "agtien" => Some(18),
-        "nineteen" | "negentien" => Some(19),
-        "twenty" | "twintig" => Some(20),
-        "thirty" | "dertig" => Some(30),
-        "forty" | "veertig" => Some(40),
-        "fifty" | "vyftig" => Some(50),
-        "sixty" | "sestig" => Some(60),
-        "seventy" | "sewentig" => Some(70),
-        "eighty" | "tagtig" => Some(80),
-        "ninety" | "negentig" => Some(90),
-        "hundred" | "honderd" => Some(100),
+        "cero" | "zéro" => Some(0),
+        "one" | "een" | "uno" | "un" | "una" | "um" | "uma" => Some(1),
+        "two" | "twee" | "dos" | "deux" | "dois" | "duas" => Some(2),
+        "three" | "drie" | "tres" | "três" | "trois" => Some(3),
+        "four" | "vier" | "cuatro" | "quatre" | "quatro" => Some(4),
+        "five" | "vyf" | "cinco" | "cinq" => Some(5),
+        "six" | "ses" | "seis" => Some(6),
+        "seven" | "sewe" | "siete" | "sept" | "sete" => Some(7),
+        "eight" | "agt" | "ocho" | "huit" | "oito" => Some(8),
+        "nine" | "nege" | "nueve" | "neuf" | "nove" => Some(9),
+        "ten" | "tien" | "diez" | "dix" | "dez" => Some(10),
+        "eleven" | "elf" | "once" | "onze" => Some(11),
+        "twelve" | "twaalf" | "doce" | "douze" => Some(12),
+        "thirteen" | "dertien" | "trece" | "treize" | "treze" => Some(13),
+        "fourteen" | "veertien" | "catorce" | "quatorze" => Some(14),
+        "fifteen" | "vyftien" | "quince" | "quinze" => Some(15),
+        "sixteen" | "sestien" | "dieciseis" | "dieciséis" | "seize" | "dezesseis" => {
+            Some(16)
+        }
+        "seventeen" | "sewentien" | "diecisiete" | "dezessete" => Some(17),
+        "eighteen" | "agtien" | "dieciocho" | "dezoito" => Some(18),
+        "nineteen" | "negentien" | "diecinueve" | "dezenove" => Some(19),
+        "twenty" | "twintig" | "veinte" | "vingt" | "vinte" => Some(20),
+        "thirty" | "dertig" | "treinta" | "trente" | "trinta" => Some(30),
+        "forty" | "veertig" | "cuarenta" | "quarante" | "quarenta" => Some(40),
+        "fifty" | "vyftig" | "cincuenta" | "cinquante" | "cinquenta" => Some(50),
+        "sixty" | "sestig" | "sesenta" | "soixante" => Some(60),
+        "seventy" | "sewentig" | "setenta" | "soixantedix" => Some(70),
+        "eighty" | "tagtig" | "ochenta" | "oitenta" => Some(80),
+        "ninety" | "negentig" | "noventa" => Some(90),
+        "hundred" | "honderd" | "cien" | "ciento" | "cent" | "cem" | "cento" => Some(100),
         _ => None,
     }
 }

@@ -29,8 +29,8 @@ import numpy as np
 # ── Paths ───────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
 VERSES_PATH = ROOT / "data" / "verses-for-embedding.json"
-EMB_OUT = ROOT / "embeddings" / "kjv-nkjv-nlt-minilm-l6-v2.bin"
-IDS_OUT = ROOT / "embeddings" / "kjv-nkjv-nlt-minilm-l6-v2-ids.bin"
+EMB_OUT = ROOT / "embeddings" / "public-minilm-l6-v2.bin"
+IDS_OUT = ROOT / "embeddings" / "public-minilm-l6-v2-ids.bin"
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 LOCAL_MODEL_DIR = ROOT / "models" / "minilm-l6-v2"
 

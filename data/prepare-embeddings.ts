@@ -35,12 +35,12 @@ const VERSES_JSON = join(DATA_DIR, "verses-for-embedding.json")
 const EMB_BIN = join(
   PROJECT_ROOT,
   "embeddings",
-  "kjv-nkjv-nlt-minilm-l6-v2.bin"
+  "public-minilm-l6-v2.bin"
 )
 const IDS_BIN = join(
   PROJECT_ROOT,
   "embeddings",
-  "kjv-nkjv-nlt-minilm-l6-v2-ids.bin"
+  "public-minilm-l6-v2-ids.bin"
 )
 const VOSK_MODEL_CONF = join(
   PROJECT_ROOT,

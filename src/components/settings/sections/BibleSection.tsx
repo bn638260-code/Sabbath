@@ -15,6 +15,8 @@ interface TranslationInfo {
   abbreviation: string
   title: string
   language: string
+  is_copyrighted: boolean
+  is_downloaded: boolean
 }
 
 export function BibleSection() {
@@ -54,6 +56,8 @@ export function BibleSection() {
 
   const englishTranslations = translations.filter((t) => t.language === "en")
   const otherTranslations = translations.filter((t) => t.language !== "en")
+  const isLocked = (translation: TranslationInfo) =>
+    translation.is_copyrighted || !translation.is_downloaded
 
   return (
     <div className="flex flex-col gap-6">
@@ -78,8 +82,13 @@ export function BibleSection() {
                   English
                 </div>
                 {englishTranslations.map((t) => (
-                  <SelectItem key={t.id} value={String(t.id)}>
+                  <SelectItem
+                    key={t.id}
+                    value={String(t.id)}
+                    disabled={isLocked(t)}
+                  >
                     {t.abbreviation} — {t.title}
+                    {isLocked(t) ? " (Coming soon)" : ""}
                   </SelectItem>
                 ))}
               </>
@@ -90,8 +99,13 @@ export function BibleSection() {
                   Other Languages
                 </div>
                 {otherTranslations.map((t) => (
-                  <SelectItem key={t.id} value={String(t.id)}>
+                  <SelectItem
+                    key={t.id}
+                    value={String(t.id)}
+                    disabled={isLocked(t)}
+                  >
                     {t.abbreviation} — {t.title}
+                    {isLocked(t) ? " (Coming soon)" : ""}
                   </SelectItem>
                 ))}
               </>

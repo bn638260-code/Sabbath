@@ -11,7 +11,7 @@ use tokio_tungstenite::tungstenite::Message;
 use url::Url;
 
 use crate::error::SttError;
-use crate::keyterms::bible_keyterms;
+use crate::keyterms::bible_keyterms_for_language;
 use crate::provider::SttProvider;
 use crate::types::{SttConfig, TranscriptEvent, Word};
 
@@ -57,10 +57,10 @@ impl DeepgramClient {
             q.append_pair("endpointing", DEEPGRAM_ENDPOINTING_MS);
             q.append_pair("utterance_end_ms", DEEPGRAM_UTTERANCE_END_MS);
             q.append_pair("vad_events", "true");
-            append_deepgram_keyterms(&mut q);
+            append_deepgram_keyterms(&mut q, self.config.language.as_deref());
             log::info!(
                 "Deepgram keyterm boosting: {} keyterms added",
-                deepgram_keyterms().len()
+                deepgram_keyterms(self.config.language.as_deref()).len()
             );
         }
 
@@ -381,13 +381,14 @@ pub(crate) fn append_deepgram_base_query(
 
 pub(crate) fn append_deepgram_keyterms(
     q: &mut url::form_urlencoded::Serializer<'_, url::UrlQuery<'_>>,
+    language: Option<&str>,
 ) {
-    for term in deepgram_keyterms() {
+    for term in deepgram_keyterms(language) {
         q.append_pair("keyterm", &term);
     }
 }
 
-pub(crate) fn deepgram_keyterms() -> Vec<String> {
+pub(crate) fn deepgram_keyterms(language: Option<&str>) -> Vec<String> {
     let core_terms = vec![
         "Jesus".to_string(),
         "Christ".to_string(),
@@ -409,7 +410,7 @@ pub(crate) fn deepgram_keyterms() -> Vec<String> {
         "scripture reading".to_string(),
         "responsive reading".to_string(),
     ];
-    let bible_terms = bible_keyterms();
+    let bible_terms = bible_keyterms_for_language(language.unwrap_or("en"));
 
     let mut seen = std::collections::HashSet::new();
     let mut all_keyterms: Vec<String> = Vec::new();
@@ -662,7 +663,7 @@ mod tests {
 
     #[tokio::test]
     async fn keyterms_are_deduplicated_and_capped() {
-        let terms = deepgram_keyterms();
+        let terms = deepgram_keyterms(Some("en"));
 
         let unique = terms.iter().collect::<std::collections::HashSet<_>>();
         assert_eq!(terms.len(), unique.len());
@@ -672,6 +673,14 @@ mod tests {
         assert!(terms.iter().any(|term| term == "John"));
         assert!(terms.iter().any(|term| term == "SDA hymn"));
         assert!(terms.iter().any(|term| term == "Adventist hymnal"));
+    }
+
+    #[tokio::test]
+    async fn keyterms_follow_selected_language() {
+        let terms = deepgram_keyterms(Some("es"));
+
+        assert!(terms.iter().any(|term| term == "Juan"));
+        assert!(terms.iter().any(|term| term == "versiculo"));
     }
 
     #[tokio::test]

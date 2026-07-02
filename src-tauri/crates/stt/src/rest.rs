@@ -140,7 +140,7 @@ pub(crate) fn build_rest_url(config: &SttConfig) -> Result<url::Url, SttError> {
     {
         let mut q = url.query_pairs_mut();
         append_deepgram_base_query(&mut q, config);
-        append_deepgram_keyterms(&mut q);
+        append_deepgram_keyterms(&mut q, config.language.as_deref());
     }
     Ok(url)
 }

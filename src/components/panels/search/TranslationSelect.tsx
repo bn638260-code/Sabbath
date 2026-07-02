@@ -15,6 +15,9 @@ export function TranslationSelect({
   translations: Translation[]
   activeTranslationId: number
 }) {
+  const isLocked = (translation: Translation) =>
+    translation.is_copyrighted || !translation.is_downloaded
+
   return (
     <Select
       value={String(activeTranslationId)}
@@ -31,8 +34,13 @@ export function TranslationSelect({
       </SelectTrigger>
       <SelectContent>
         {translations.map((translation) => (
-          <SelectItem key={translation.id} value={String(translation.id)}>
+          <SelectItem
+            key={translation.id}
+            value={String(translation.id)}
+            disabled={isLocked(translation)}
+          >
             {translation.abbreviation}
+            {isLocked(translation) ? " (Coming soon)" : ""}
           </SelectItem>
         ))}
       </SelectContent>

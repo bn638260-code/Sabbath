@@ -84,12 +84,12 @@ const TRANSLATIONS_META: Array<{
   includeInPublicRelease: boolean
 }> = [
   { file: "KJV.json", abbreviation: "KJV", title: "King James Version", language: "en", license: "Public Domain", isCopyrighted: false, includeInPublicRelease: true },
-  { file: "NIV.json", abbreviation: "NIV", title: "New International Version", language: "en", license: "Biblica", isCopyrighted: true, includeInPublicRelease: true },
-  { file: "ESV.json", abbreviation: "ESV", title: "English Standard Version", language: "en", license: "Crossway", isCopyrighted: true, includeInPublicRelease: true },
-  { file: "NASB.json", abbreviation: "NASB", title: "New American Standard Bible", language: "en", license: "Lockman Foundation", isCopyrighted: true, includeInPublicRelease: true },
-  { file: "NKJV.json", abbreviation: "NKJV", title: "New King James Version", language: "en", license: "Thomas Nelson", isCopyrighted: true, includeInPublicRelease: true },
-  { file: "NLT.json", abbreviation: "NLT", title: "New Living Translation", language: "en", license: "Tyndale House", isCopyrighted: true, includeInPublicRelease: true },
-  { file: "AMP.json", abbreviation: "AMP", title: "Amplified Bible", language: "en", license: "Lockman Foundation", isCopyrighted: true, includeInPublicRelease: true },
+  { file: "NIV.json", abbreviation: "NIV", title: "New International Version", language: "en", license: "Biblica", isCopyrighted: true, includeInPublicRelease: false },
+  { file: "ESV.json", abbreviation: "ESV", title: "English Standard Version", language: "en", license: "Crossway", isCopyrighted: true, includeInPublicRelease: false },
+  { file: "NASB.json", abbreviation: "NASB", title: "New American Standard Bible", language: "en", license: "Lockman Foundation", isCopyrighted: true, includeInPublicRelease: false },
+  { file: "NKJV.json", abbreviation: "NKJV", title: "New King James Version", language: "en", license: "Thomas Nelson", isCopyrighted: true, includeInPublicRelease: false },
+  { file: "NLT.json", abbreviation: "NLT", title: "New Living Translation", language: "en", license: "Tyndale House", isCopyrighted: true, includeInPublicRelease: false },
+  { file: "AMP.json", abbreviation: "AMP", title: "Amplified Bible", language: "en", license: "Lockman Foundation", isCopyrighted: true, includeInPublicRelease: false },
   { file: "SpaRV.json", abbreviation: "SpaRV", title: "Reina-Valera 1909", language: "es", license: "Public Domain", isCopyrighted: false, includeInPublicRelease: true },
   { file: "FreJND.json", abbreviation: "FreJND", title: "J.N. Darby French 1885", language: "fr", license: "Public Domain", isCopyrighted: false, includeInPublicRelease: true },
   { file: "PorBLivre.json", abbreviation: "PorBLivre", title: "Biblia Livre", language: "pt", license: "Public Domain", isCopyrighted: false, includeInPublicRelease: true },
@@ -100,7 +100,7 @@ const TRANSLATIONS_META: Array<{
     language: "af",
     license: "godlytalias Bible-Database (GPL v3); text © Bible Society of South Africa",
     isCopyrighted: true,
-    includeInPublicRelease: true,
+    includeInPublicRelease: false,
   },
 ]
 
@@ -124,9 +124,27 @@ function createSchema(db: Database): void {
   }
 }
 
+function insertTranslationMetadata(
+  db: Database,
+  meta: (typeof TRANSLATIONS_META)[number],
+  isDownloaded: boolean,
+): void {
+  db.prepare(
+    "INSERT INTO translations (abbreviation, title, language, license, is_copyrighted, is_downloaded) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(
+    meta.abbreviation,
+    meta.title,
+    meta.language,
+    meta.license,
+    meta.isCopyrighted ? 1 : 0,
+    isDownloaded ? 1 : 0,
+  )
+}
+
 function insertTranslationData(db: Database, meta: (typeof TRANSLATIONS_META)[number]): void {
   if (PUBLIC_RELEASE && !meta.includeInPublicRelease) {
-    console.log(`  skipped ${meta.abbreviation}: public release`)
+    insertTranslationMetadata(db, meta, false)
+    console.log(`  ${meta.abbreviation}: locked placeholder`)
     return
   }
 
@@ -145,9 +163,6 @@ function insertTranslationData(db: Database, meta: (typeof TRANSLATIONS_META)[nu
   }
 
   const data: ScrollmapperJSON = JSON.parse(raw)
-  const insertTranslation = db.prepare(
-    "INSERT INTO translations (abbreviation, title, language, license, is_copyrighted, is_downloaded) VALUES (?, ?, ?, ?, ?, ?)"
-  )
   const insertBook = db.prepare(
     "INSERT INTO books (translation_id, book_number, name, abbreviation, testament) VALUES (?, ?, ?, ?, ?)"
   )
@@ -156,14 +171,7 @@ function insertTranslationData(db: Database, meta: (typeof TRANSLATIONS_META)[nu
   )
 
   db.exec("BEGIN TRANSACTION")
-  insertTranslation.run(
-    meta.abbreviation,
-    meta.title,
-    meta.language,
-    meta.license,
-    meta.isCopyrighted ? 1 : 0,
-    1,
-  )
+  insertTranslationMetadata(db, meta, true)
   const translation = db.query("SELECT last_insert_rowid() as id").get() as { id: number }
   let verseCount = 0
 

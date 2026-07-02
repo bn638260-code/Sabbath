@@ -9,8 +9,22 @@ const setActiveTranslationMock = vi.fn()
 const refreshLiveTranslationMock = vi.fn()
 
 const translations = [
-  { id: 1, abbreviation: "KJV", title: "King James Version", language: "en" },
-  { id: 2, abbreviation: "NIV", title: "New International Version", language: "en" },
+  {
+    id: 1,
+    abbreviation: "KJV",
+    title: "King James Version",
+    language: "en",
+    is_copyrighted: false,
+    is_downloaded: true,
+  },
+  {
+    id: 2,
+    abbreviation: "NIV",
+    title: "New International Version",
+    language: "en",
+    is_copyrighted: false,
+    is_downloaded: true,
+  },
 ]
 
 vi.mock("@/lib/tauri-runtime", () => ({
@@ -54,8 +68,15 @@ vi.mock("@/components/ui/select", () => ({
   SelectTrigger: () => null,
   SelectValue: () => null,
   SelectContent: ({ children }: { children: React.ReactNode }) => children,
-  SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) =>
-    React.createElement("option", { value }, children),
+  SelectItem: ({
+    value,
+    disabled,
+    children,
+  }: {
+    value: string
+    disabled?: boolean
+    children: React.ReactNode
+  }) => React.createElement("option", { value, disabled }, children),
 }))
 
 describe("BibleSection", () => {
@@ -139,5 +160,30 @@ describe("BibleSection", () => {
     )
     expect(setActiveTranslationMock).not.toHaveBeenCalled()
     expect(refreshLiveTranslationMock).not.toHaveBeenCalled()
+  })
+
+  it("marks locked translations as coming soon", async () => {
+    invokeTauriMock.mockImplementation(async (command: string) => {
+      if (command === "list_translations") {
+        return translations.map((translation) =>
+          translation.abbreviation === "NIV"
+            ? { ...translation, is_copyrighted: true }
+            : translation
+        )
+      }
+      if (command === "get_active_translation") return 1
+      return undefined
+    })
+
+    await renderSection()
+    await waitFor(() =>
+      expect(container?.textContent).toContain("NIV")
+    )
+
+    expect(container?.textContent).toContain("Coming soon")
+    const nivOption = Array.from(
+      container?.querySelectorAll("option") ?? []
+    ).find((option) => option.value === "2")
+    expect(nivOption?.disabled).toBe(true)
   })
 })

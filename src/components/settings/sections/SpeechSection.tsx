@@ -315,34 +315,61 @@ function ProviderKeySettings({
   )
 }
 
-function SonioxLanguageSelector({
+const CLOUD_LANGUAGE_OPTIONS: Record<
+  "deepgram" | "soniox",
+  { value: SttLanguage; label: string }[]
+> = {
+  deepgram: [
+    { value: "en", label: "English (en)" },
+    { value: "es", label: "Spanish (es)" },
+    { value: "fr", label: "French (fr)" },
+    { value: "pt", label: "Portuguese (pt)" },
+  ],
+  soniox: [
+    { value: "en", label: "English (en)" },
+    { value: "af", label: "Afrikaans (af)" },
+    { value: "es", label: "Spanish (es)" },
+    { value: "fr", label: "French (fr)" },
+    { value: "pt", label: "Portuguese (pt)" },
+  ],
+}
+
+function CloudLanguageSelector({
+  provider,
   sttLanguage,
   switchingStt,
 }: {
+  provider: "deepgram" | "soniox"
   sttLanguage: SttLanguage
   switchingStt: boolean
 }) {
+  const options = CLOUD_LANGUAGE_OPTIONS[provider]
+  const value = options.some((option) => option.value === sttLanguage)
+    ? sttLanguage
+    : "en"
+
   return (
     <div className="flex flex-col gap-2">
       <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-        Soniox language
+        Transcription language
       </label>
       <RadioGroup
-        value={sttLanguage}
+        value={value}
         onValueChange={(value) =>
           useSettingsStore.getState().setSttLanguage(value as SttLanguage)
         }
         disabled={switchingStt}
         className="gap-2"
       >
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs">
-          <RadioGroupItem value="af" />
-          Afrikaans (af)
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs">
-          <RadioGroupItem value="en" />
-          English (en)
-        </label>
+        {options.map((option) => (
+          <label
+            key={option.value}
+            className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs"
+          >
+            <RadioGroupItem value={option.value} />
+            {option.label}
+          </label>
+        ))}
       </RadioGroup>
     </div>
   )
@@ -432,18 +459,25 @@ export function SpeechSection() {
       )}
 
       {sttProvider === "deepgram" && (
-        <ProviderKeySettings
-          providerName="Deepgram"
-          signupUrl="console.deepgram.com"
-          steps={[
-            "Sign up, then open Projects ▸ Settings ▸ API Keys.",
-            "Create a New API Key and copy the secret — it shows only once.",
-            "Paste it above and save.",
-          ]}
-          cost="about R3,280 free credit, then from R0.08/min for streaming (billed in USD)."
-          pricingUrl="deepgram.com/pricing"
-          settings={deepgramKeyAdapter(deepgramKeySettings)}
-        />
+        <>
+          <CloudLanguageSelector
+            provider="deepgram"
+            sttLanguage={sttLanguage}
+            switchingStt={switchingStt}
+          />
+          <ProviderKeySettings
+            providerName="Deepgram"
+            signupUrl="console.deepgram.com"
+            steps={[
+              "Sign up, then open Projects ▸ Settings ▸ API Keys.",
+              "Create a New API Key and copy the secret — it shows only once.",
+              "Paste it above and save.",
+            ]}
+            cost="about R3,280 free credit, then from R0.08/min for streaming (billed in USD)."
+            pricingUrl="deepgram.com/pricing"
+            settings={deepgramKeyAdapter(deepgramKeySettings)}
+          />
+        </>
       )}
 
       {sttProvider === "gladia" && (
@@ -463,7 +497,8 @@ export function SpeechSection() {
 
       {sttProvider === "soniox" && (
         <>
-          <SonioxLanguageSelector
+          <CloudLanguageSelector
+            provider="soniox"
             sttLanguage={sttLanguage}
             switchingStt={switchingStt}
           />

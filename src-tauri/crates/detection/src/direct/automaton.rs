@@ -2,6 +2,7 @@ use aho_corasick::{AhoCorasick, MatchKind};
 
 use super::af_books::AF_BOOKS;
 use super::books::BOOKS;
+use super::localized_books::{ES_BOOKS, FR_BOOKS, PT_BOOKS};
 
 /// A match of a Bible book name found in text.
 #[derive(Debug, Clone)]
@@ -35,6 +36,9 @@ impl BookMatcher {
     pub fn for_stt_language(language: &str) -> Self {
         let books: &[super::books::BookInfo] = match language {
             "af" => AF_BOOKS,
+            "es" => ES_BOOKS,
+            "fr" => FR_BOOKS,
+            "pt" => PT_BOOKS,
             _ => BOOKS,
         };
         Self::from_books(books)
@@ -106,7 +110,7 @@ impl BookMatcher {
         let Some(automaton) = &self.automaton else {
             return Vec::new();
         };
-        let text_lower = text.to_ascii_lowercase();
+        let text_lower = text.to_lowercase();
         let text_bytes = text_lower.as_bytes();
         let mut raw_matches: Vec<BookMatch> = Vec::new();
 

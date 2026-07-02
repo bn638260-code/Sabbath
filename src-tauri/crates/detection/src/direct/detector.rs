@@ -2606,4 +2606,37 @@ mod tests {
             Some("Afr1953".into())
         );
     }
+
+    #[test]
+    fn spanish_detects_juan_3_versiculo_16() {
+        let mut detector = DirectDetector::for_stt_language("es");
+        let results = detector.detect("Juan 3 versiculo 16");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Juan");
+        assert_eq!(results[0].verse_ref.chapter, 3);
+        assert_eq!(results[0].verse_ref.verse_start, 16);
+    }
+
+    #[test]
+    fn french_detects_jean_chapitre_3_verset_16() {
+        let mut detector = DirectDetector::for_stt_language("fr");
+        let results = detector.detect("Jean chapitre 3 verset 16");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Jean");
+        assert_eq!(results[0].verse_ref.chapter, 3);
+        assert_eq!(results[0].verse_ref.verse_start, 16);
+    }
+
+    #[test]
+    fn portuguese_detects_joao_3_versiculo_16() {
+        let mut detector = DirectDetector::for_stt_language("pt");
+        let results = detector.detect("João 3 versiculo 16");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].verse_ref.book_name, "Joao");
+        assert_eq!(results[0].verse_ref.chapter, 3);
+        assert_eq!(results[0].verse_ref.verse_start, 16);
+    }
 }

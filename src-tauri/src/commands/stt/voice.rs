@@ -69,6 +69,12 @@ pub(crate) fn check_translation_command(app: &AppHandle, transcript: &str) {
                     .iter()
                     .find(|t| t.abbreviation.eq_ignore_ascii_case(&abbrev))
                 {
+                    if t.is_copyrighted || !t.is_downloaded {
+                        log::info!(
+                            "[STT] Voice command: {abbrev} is locked until licensing is ready"
+                        );
+                        return;
+                    }
                     if app_state.active_translation_id == t.id {
                         log::debug!("[STT] Voice command: {abbrev} already active");
                         return;

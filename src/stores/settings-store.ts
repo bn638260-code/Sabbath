@@ -4,7 +4,7 @@ import { isTauriRuntime, invokeTauri } from "@/lib/tauri-runtime"
 import { useBroadcastOutputIssueStore } from "@/stores/broadcast/output-issue-store"
 
 export type SttProvider = "deepgram" | "gladia" | "soniox" | "vosk"
-export type SttLanguage = "en" | "af"
+export type SttLanguage = "en" | "af" | "es" | "fr" | "pt"
 
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.85
 const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD = 0.70
@@ -107,6 +107,7 @@ function parseSttProvider(value: unknown): SttProvider {
 }
 
 function parseSttLanguage(value: unknown): SttLanguage {
+  if (value === "es" || value === "fr" || value === "pt") return value
   if (value === "af") return "af"
   return "en"
 }

@@ -582,9 +582,9 @@ fn main() {
     let tokenizer =
         arg(&args, "--tokenizer").unwrap_or_else(|| "models/minilm-l6-v2/tokenizer.json".into());
     let embeddings = arg(&args, "--embeddings")
-        .unwrap_or_else(|| "embeddings/kjv-nkjv-nlt-minilm-l6-v2.bin".into());
+        .unwrap_or_else(|| "embeddings/public-minilm-l6-v2.bin".into());
     let ids = arg(&args, "--ids")
-        .unwrap_or_else(|| "embeddings/kjv-nkjv-nlt-minilm-l6-v2-ids.bin".into());
+        .unwrap_or_else(|| "embeddings/public-minilm-l6-v2-ids.bin".into());
     let verses = arg(&args, "--verses").unwrap_or_else(|| "data/verses-for-embedding.json".into());
     let db_path = arg(&args, "--db").unwrap_or_else(|| "data/rhema.db".into());
     let cases_path = arg(&args, "--cases").unwrap_or_else(|| DEFAULT_EXTERNAL_CASES.into());
