@@ -1,37 +1,43 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
-  createNdiFrameRequest,
+  createNdiFramePayload,
   NDI_BURST_DELAYS_MS,
+  NDI_FRAME_HEIGHT_HEADER,
+  NDI_FRAME_OUTPUT_ID_HEADER,
   NDI_FRAME_ERROR_RATE_LIMIT_MS,
   NDI_HEARTBEAT_STALE_MS,
+  NDI_FRAME_WIDTH_HEADER,
   notifyNdiPushFailure,
   resolveNdiFrameSource,
   scheduleNdiBurst,
   shouldEmitNdiFrameError,
   shouldPushNdiHeartbeat,
-  uint8ToBase64,
   warnNdiPushFailure,
 } from "./broadcast-output-ndi"
 
-describe("uint8ToBase64", () => {
-  it("encodes RGBA bytes to base64", () => {
-    const bytes = new Uint8ClampedArray([255, 0, 0, 255])
-    expect(uint8ToBase64(bytes)).toBe(uint8ToBase64(bytes))
-    expect(atob(uint8ToBase64(bytes)).length).toBe(4)
-  })
-})
-
-describe("createNdiFrameRequest", () => {
-  it("builds a frame request with dimensions and base64 payload", () => {
+describe("createNdiFramePayload", () => {
+  it("builds a raw frame payload with metadata headers", () => {
     const bytes = new Uint8ClampedArray(16)
-    const request = createNdiFrameRequest("main", 2, 2, bytes)
+    const request = createNdiFramePayload("main", 2, 2, bytes)
     expect(request).toEqual({
       outputId: "main",
       width: 2,
       height: 2,
-      rgbaBase64: uint8ToBase64(bytes),
+      body: new Uint8Array(bytes.buffer),
+      headers: {
+        [NDI_FRAME_OUTPUT_ID_HEADER]: "main",
+        [NDI_FRAME_WIDTH_HEADER]: "2",
+        [NDI_FRAME_HEIGHT_HEADER]: "2",
+      },
     })
+  })
+
+  it("rejects payloads that do not match width * height * 4", () => {
+    const bytes = new Uint8ClampedArray(12)
+    expect(() => createNdiFramePayload("main", 2, 2, bytes)).toThrow(
+      "Invalid NDI frame byte length: expected 16, received 12",
+    )
   })
 })
 
@@ -66,6 +72,7 @@ describe("resolveNdiFrameSource", () => {
     expect(result.source.canvas).not.toBe(canvas)
     expect(result.width).toBe(2)
     expect(result.height).toBe(2)
+    expect(getContext).toHaveBeenCalledWith("2d", { willReadFrequently: true })
     getContext.mockRestore()
   })
 })

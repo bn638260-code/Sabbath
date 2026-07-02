@@ -20,6 +20,9 @@ interface UseBroadcastVideoOptions {
   item: PresentationRenderData | null
   outputId: string
   onEnded?: () => void
+  /** Last known transport state to restore instead of autoplaying when the
+   * video element (re)mounts with an unchanged live item. */
+  getResumeState?: () => { currentTime: number; paused: boolean } | null
 }
 
 function resolveNativeVideoSrc(video: VideoPresentationSource): string | null {
@@ -163,7 +166,8 @@ function applyPlaybackCommand(
 
 function syncVideoItem(
   element: HTMLVideoElement,
-  item: PresentationRenderData | null
+  item: PresentationRenderData | null,
+  getResumeState?: () => { currentTime: number; paused: boolean } | null
 ): void {
   const source = item?.video
   const src =
@@ -172,13 +176,20 @@ function syncVideoItem(
     stopVideo(element)
     return
   }
-  if (element.src !== src) {
-    element.src = src
-    element.poster = source.poster ?? ""
-    element.loop = Boolean(source.loop)
-    element.load()
-  }
+  // Syncs that re-deliver an unchanged source (theme/opacity updates arriving
+  // as fresh payload objects) must not resume a paused video or unmute it —
+  // playback is owned by the transport commands.
+  if (element.src === src) return
+  element.src = src
+  element.poster = source.poster ?? ""
+  element.loop = Boolean(source.loop)
+  element.load()
   element.muted = false
+  const resume = getResumeState?.()
+  if (resume) {
+    if (resume.currentTime > 0) element.currentTime = resume.currentTime
+    if (resume.paused) return
+  }
   playVideo(element)
 }
 
@@ -187,6 +198,7 @@ export function useBroadcastVideo({
   item,
   outputId,
   onEnded,
+  getResumeState,
 }: UseBroadcastVideoOptions): void {
   const itemRef = useRef<PresentationRenderData | null>(item)
   const videoRef = useRef<HTMLVideoElement | null>(video)
@@ -228,8 +240,8 @@ export function useBroadcastVideo({
   useEffect(() => {
     const element = videoRef.current
     if (!element) return
-    syncVideoItem(element, item)
-  }, [item, video])
+    syncVideoItem(element, item, getResumeState)
+  }, [getResumeState, item, video])
 
   useEffect(() => {
     if (!video) return
@@ -254,7 +266,9 @@ export function useBroadcastVideo({
     if (!video) return
     const emitSnapshot = (ended = false) => {
       if (!isTauriRuntime()) return
-      if (!isBroadcastOutputId(outputId)) return
+      // The operator's live-box copy also reports, so the transport bar has
+      // state when no projector window is open.
+      if (!isBroadcastOutputId(outputId) && outputId !== "operator") return
       void emitVideoTimeUpdate(snapshot(video, outputId, ended))
     }
     const handleTimeUpdate = () => {

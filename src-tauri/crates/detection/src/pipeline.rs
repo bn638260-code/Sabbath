@@ -482,7 +482,7 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: -16.0,
+                rank: -24.0,
                 is_broad_match: false,
             },
             Bm25Result {
@@ -490,7 +490,7 @@ mod tests {
                 book_name: "Romans".to_string(),
                 chapter: 5,
                 verse: 8,
-                rank: -15.0,
+                rank: -24.0,
                 is_broad_match: false,
             },
         ];
@@ -533,7 +533,7 @@ mod tests {
             book_name: "Psalms".to_string(),
             chapter: 23,
             verse: 1,
-            rank: -16.0,
+            rank: -24.0,
             is_broad_match: false,
         }];
 
@@ -628,7 +628,7 @@ mod tests {
             book_name: "John".to_string(),
             chapter: 3,
             verse: 16,
-            rank: -16.0,
+            rank: -24.0,
             is_broad_match: false,
         }];
 
@@ -664,7 +664,7 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: -16.0, // strong genuine match
+                rank: -24.0, // near-verbatim genuine match
                 is_broad_match: false,
             },
             Bm25Result {
@@ -729,7 +729,7 @@ mod tests {
                 book_name: "John".to_string(),
                 chapter: 3,
                 verse: 16,
-                rank: -16.0,
+                rank: -24.0,
                 is_broad_match: false,
             },
             Bm25Result {
@@ -753,10 +753,9 @@ mod tests {
     }
 
     #[test]
-    fn raising_semantic_threshold_suppresses_live_fts_keyword_flood() {
-        // Keyword coincidences on common words land in the BM25 -16..-24 band.
-        // They surface at the default threshold as review hints, but raising the
-        // operator's semantic slider must gate them out — they are no longer
+    fn default_semantic_threshold_suppresses_live_fts_keyword_flood() {
+        // Keyword coincidences on common words can land around BM25 -16..-17.
+        // They must not surface at the default threshold; they are no longer
         // floored to a fixed high confidence that bypasses the threshold.
         let fts_results = vec![
             Bm25Result {
@@ -781,23 +780,8 @@ mod tests {
         let default_hits =
             at_default.process_hybrid_with_fts("god gives wisdom to the kings", &fts_results);
         assert!(
-            !default_hits.is_empty(),
-            "keyword-band hits stay visible as hints at the default threshold"
-        );
-        assert!(
-            default_hits
-                .iter()
-                .all(|r| r.detection.confidence < 0.86),
-            "keyword-band hits are no longer floored to a fixed 0.86"
-        );
-
-        let mut strict = DetectionPipeline::new();
-        strict.merger_mut().set_semantic_confidence_threshold(0.80);
-        let strict_hits =
-            strict.process_hybrid_with_fts("god gives wisdom to the kings", &fts_results);
-        assert!(
-            strict_hits.is_empty(),
-            "raising the semantic threshold suppresses the keyword-band FTS flood"
+            default_hits.is_empty(),
+            "default semantic threshold suppresses keyword-band FTS flood"
         );
     }
 }

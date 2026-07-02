@@ -7,7 +7,7 @@ use crate::types::{Detection, DetectionSource};
 const DEFAULT_CONFIDENCE_THRESHOLD: f64 = 0.45;
 
 /// Default semantic visibility threshold - semantic suggestions below this are dropped.
-const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD: f64 = 0.65;
+const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD: f64 = 0.70;
 
 /// Default auto-queue threshold — detections above this are auto-queued.
 const DEFAULT_AUTO_QUEUE_THRESHOLD: f64 = 0.98;
@@ -354,7 +354,7 @@ mod tests {
         let semantic = vec![
             make_semantic_id_detection(1001, 0.72),
             make_semantic_id_detection(1002, 0.81),
-            make_semantic_id_detection(1003, 0.66),
+            make_semantic_id_detection(1003, 0.70),
         ];
 
         let results = merger.merge(vec![], semantic);
@@ -427,8 +427,8 @@ mod tests {
             "Romans",
             8,
             28,
-            0.65,
-            DetectionSource::Semantic { similarity: 0.65 },
+            0.70,
+            DetectionSource::Semantic { similarity: 0.70 },
         )];
 
         let results = merger.merge(direct, semantic);
@@ -476,16 +476,16 @@ mod tests {
                 "John",
                 3,
                 16,
-                0.65,
-                DetectionSource::Semantic { similarity: 0.65 },
+                0.70,
+                DetectionSource::Semantic { similarity: 0.70 },
             ),
             make_detection(
                 45,
                 "Romans",
                 8,
                 28,
-                0.64,
-                DetectionSource::Semantic { similarity: 0.64 },
+                0.69,
+                DetectionSource::Semantic { similarity: 0.69 },
             ),
         ];
 
@@ -609,13 +609,13 @@ mod tests {
             "John",
             3,
             16,
-            0.65,
-            DetectionSource::Semantic { similarity: 0.65 },
+            0.70,
+            DetectionSource::Semantic { similarity: 0.70 },
         )];
 
         let results = merger.merge(vec![], semantic);
         assert_eq!(results.len(), 1);
-        // 0.65 < 0.98 auto_queue_threshold
+        // 0.70 < 0.98 auto_queue_threshold
         assert!(!results[0].auto_queued);
     }
 
@@ -645,8 +645,8 @@ mod tests {
                 "Genesis",
                 1,
                 1,
-                0.66,
-                DetectionSource::Semantic { similarity: 0.66 },
+                0.70,
+                DetectionSource::Semantic { similarity: 0.70 },
             ),
         ];
 
@@ -658,7 +658,7 @@ mod tests {
         ));
         assert!((results[0].detection.confidence - 0.90).abs() < f64::EPSILON);
         assert!((results[1].detection.confidence - 0.95).abs() < f64::EPSILON);
-        assert!((results[2].detection.confidence - 0.66).abs() < f64::EPSILON);
+        assert!((results[2].detection.confidence - 0.70).abs() < f64::EPSILON);
     }
 
     #[test]

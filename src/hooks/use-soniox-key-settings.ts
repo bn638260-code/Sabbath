@@ -1,33 +1,26 @@
-import { invokeTauri } from "@/lib/tauri-runtime"
 import { useApiKeySettings } from "@/hooks/use-api-key-settings"
 import {
+  createProviderKeyActions,
   restartActiveTranscriptionIfNeeded,
   type ProviderChangeHandler,
-} from "@/hooks/use-deepgram-key-settings"
+} from "@/lib/stt-key-settings"
 import { useSettingsStore } from "@/stores/settings-store"
+
+const sonioxKeyActions = createProviderKeyActions({
+  label: "Soniox",
+  setCommand: "set_soniox_api_key",
+  hasCommand: "has_soniox_api_key",
+  clearCommand: "clear_soniox_api_key",
+})
 
 export async function saveSonioxApiKey(
   apiKey: string
 ): Promise<{ hasKey: boolean; error?: string }> {
-  try {
-    await invokeTauri("set_soniox_api_key", { apiKey })
-    const hasKey = await invokeTauri<boolean>("has_soniox_api_key")
-    if (!hasKey) {
-      return { hasKey: false, error: "Soniox API key was not saved" }
-    }
-    return { hasKey: true }
-  } catch (e) {
-    return { hasKey: false, error: String(e) }
-  }
+  return sonioxKeyActions.saveApiKey(apiKey)
 }
 
 export async function clearSonioxApiKey(): Promise<{ error?: string }> {
-  try {
-    await invokeTauri("clear_soniox_api_key")
-    return {}
-  } catch (e) {
-    return { error: String(e) }
-  }
+  return sonioxKeyActions.clearApiKey()
 }
 
 export function useSonioxKeySettings(

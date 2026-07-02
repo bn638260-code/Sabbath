@@ -393,17 +393,17 @@ mod tests {
     fn detection_settings_apply_semantic_visibility_threshold() {
         let mut merger = DetectionMerger::new();
 
-        apply_detection_settings_to_merger(&mut merger, Some(0.85), 0.65, 2500);
+        apply_detection_settings_to_merger(&mut merger, Some(0.85), 0.70, 2500);
 
         assert!(
             (merger.confidence_threshold() - OPERATOR_DETECTION_THRESHOLD).abs() < f64::EPSILON
         );
-        assert!((merger.semantic_confidence_threshold() - 0.65).abs() < f64::EPSILON);
+        assert!((merger.semantic_confidence_threshold() - 0.70).abs() < f64::EPSILON);
         assert!(merger
-            .merge(vec![], vec![semantic_detection(0.64)])
+            .merge(vec![], vec![semantic_detection(0.69)])
             .is_empty());
         assert_eq!(
-            merger.merge(vec![], vec![semantic_detection(0.65)]).len(),
+            merger.merge(vec![], vec![semantic_detection(0.70)]).len(),
             1
         );
     }

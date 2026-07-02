@@ -1,6 +1,6 @@
 use super::OPERATOR_DETECTION_THRESHOLD;
 
-pub(super) const DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD: f64 = 0.65;
+pub(super) const DEFAULT_SEMANTIC_VISIBILITY_THRESHOLD: f64 = 0.70;
 const AUTO_QUEUE_DISABLED_THRESHOLD: f64 = f64::INFINITY;
 
 pub(super) fn apply_detection_settings_to_merger(

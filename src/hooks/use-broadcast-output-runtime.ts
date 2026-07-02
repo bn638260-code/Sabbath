@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react"
 import {
-  createNdiFrameRequest,
+  createNdiFramePayload,
   NDI_FRAME_FAILURE_STOP_THRESHOLD,
   NDI_HEARTBEAT_INTERVAL_MS,
   notifyNdiPushFailure,
@@ -41,6 +41,21 @@ const DEFAULT_NDI_CONFIG: NdiConfigEventPayload = {
 }
 const KINETIC_OUTPUT_TARGET_FPS = 15
 const KINETIC_OUTPUT_FRAME_INTERVAL_MS = 1000 / KINETIC_OUTPUT_TARGET_FPS
+const IMAGE_CACHE_LIMIT = 20
+
+function cacheImage(
+  cache: Map<string, HTMLImageElement>,
+  url: string,
+  image: HTMLImageElement,
+): void {
+  if (cache.has(url)) return
+  cache.set(url, image)
+  while (cache.size > IMAGE_CACHE_LIMIT) {
+    const oldestUrl = cache.keys().next().value
+    if (oldestUrl === undefined) return
+    cache.delete(oldestUrl)
+  }
+}
 
 function fillBlack(canvas: HTMLCanvasElement): void {
   const ctx = canvas.getContext("2d")
@@ -277,7 +292,7 @@ export function useBroadcastOutputRuntime({
 
     const img = new Image()
     img.onload = () => {
-      cache.set(url, img)
+      cacheImage(cache, url, img)
       logDebug("Background image loaded", { url })
       draw()
     }
@@ -296,7 +311,7 @@ export function useBroadcastOutputRuntime({
 
     const img = new Image()
     img.onload = () => {
-      cache.set(url, img)
+      cacheImage(cache, url, img)
       logDebug("Slide image loaded", { url })
       draw()
     }
@@ -314,7 +329,7 @@ export function useBroadcastOutputRuntime({
     try {
       const canvas = canvasRef.current
       if (!canvas) return
-      const ctx = canvas.getContext("2d")
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })
       if (!ctx) return
 
       const targetWidth = ndiConfigRef.current.width
@@ -337,14 +352,16 @@ export function useBroadcastOutputRuntime({
         resized.width,
         resized.height,
       )
-      const request = createNdiFrameRequest(
+      const request = createNdiFramePayload(
         outputId,
         resized.width,
         resized.height,
         imageData.data,
       )
 
-      await invokeTauri("push_ndi_frame", { request })
+      await invokeTauri("push_ndi_frame", request.body, {
+        headers: request.headers,
+      })
       lastPushRef.current = Date.now()
       consecutiveFailuresRef.current = 0
     } catch (error) {
@@ -526,10 +543,19 @@ export function useBroadcastOutputRuntime({
 
   useEffect(() => {
     const canvas = canvasRef.current
+    lastRenderKeyRef.current = null
     if (canvas) {
-      canvas.width = 1920
-      canvas.height = 1080
-      fillBlack(canvas)
+      const latestPayload = latestData.current
+      if (latestPayload && transitionFrameRef.current === null) {
+        const target = toCanvasRef.current ?? document.createElement("canvas")
+        toCanvasRef.current = target
+        renderPayloadToCanvas(target, latestPayload)
+        drawRenderedCanvas(target)
+      } else {
+        canvas.width = 1920
+        canvas.height = 1080
+        fillBlack(canvas)
+      }
     }
 
     const applyPayload = (payload: BroadcastPayload) => {
@@ -623,7 +649,7 @@ export function useBroadcastOutputRuntime({
       unlisten?.then((fn) => fn())
       unlistenNdiConfig?.then((fn) => fn())
     }
-  }, [animatePayload, cancelKineticLoop, cancelTransition, canvas, logDebug, onPayloadChange, outputId, preloadBackgroundImage, preloadSlideImage, pushNdiBurst, syncKineticLoop])
+  }, [animatePayload, cancelKineticLoop, cancelTransition, canvas, drawRenderedCanvas, logDebug, onPayloadChange, outputId, preloadBackgroundImage, preloadSlideImage, pushNdiBurst, renderPayloadToCanvas, syncKineticLoop])
 
   useEffect(() => {
     const timer = setInterval(() => {

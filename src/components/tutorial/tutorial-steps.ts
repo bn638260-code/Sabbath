@@ -1,5 +1,6 @@
 import type { Step } from "react-joyride"
 import { APP_DISPLAY_NAME } from "@/lib/app-brand"
+import { useBroadcastSettingsDialogStore } from "@/lib/broadcast-settings-dialog"
 import { openSettings, type SettingsSection } from "@/lib/settings-dialog"
 import {
   useDashboardWorkspaceStore,
@@ -32,7 +33,11 @@ async function waitForTarget(
 
 async function prepareTarget(
   selector: string,
-  options?: { workspace?: DashboardWorkspace; settingsSection?: SettingsSection }
+  options?: {
+    workspace?: DashboardWorkspace
+    settingsSection?: SettingsSection
+    broadcastDialog?: boolean
+  }
 ): Promise<void> {
   if (options?.settingsSection) {
     openSettings(options.settingsSection)
@@ -40,6 +45,9 @@ async function prepareTarget(
     useServicePlanStore.getState().closePlanner()
     useDashboardWorkspaceStore.getState().setWorkspace(options.workspace)
   }
+  useBroadcastSettingsDialogStore
+    .getState()
+    .setOpen(Boolean(options?.broadcastDialog))
 
   await wait(0)
   const target = await waitForTarget(selector)
@@ -53,6 +61,14 @@ const liveStep = (selector: string) => ({
 
 const workspaceStep = (selector: string, workspace: DashboardWorkspace) => ({
   before: () => prepareTarget(selector, { workspace }),
+})
+
+const broadcastDialogStep = (selector: string) => ({
+  before: () =>
+    prepareTarget(selector, {
+      settingsSection: "broadcast",
+      broadcastDialog: true,
+    }),
 })
 
 export const TUTORIAL_STEPS: Step[] = [
@@ -157,6 +173,33 @@ export const TUTORIAL_STEPS: Step[] = [
       prepareTarget('[data-tour="settings-section-broadcast"]', {
         settingsSection: "broadcast",
       }),
+  },
+  {
+    ...STEP_DEFAULTS,
+    ...broadcastDialogStep('[data-tour="broadcast-output-main"]'),
+    target: '[data-tour="broadcast-output-main"]',
+    title: "Main Output",
+    content:
+      "Broadcast outputs start Off. Choose the theme and output type here, then flip the switch to On when everything is ready - nothing shows to the audience until you switch it on.",
+    placement: "right",
+  },
+  {
+    ...STEP_DEFAULTS,
+    ...broadcastDialogStep('[data-tour="broadcast-monitor-main"]'),
+    target: '[data-tour="broadcast-monitor-main"]',
+    title: "Target Monitor",
+    content:
+      "Press Refresh after connecting the HDMI cable so newly detected displays appear, select the projector monitor, then use Open Preview to check the output before switching it on.",
+    placement: "right",
+  },
+  {
+    ...STEP_DEFAULTS,
+    ...broadcastDialogStep('[data-tour="broadcast-output-alt"]'),
+    target: '[data-tour="broadcast-output-alt"]',
+    title: "Alternate Output",
+    content:
+      "A second, independent output with its own theme and target monitor - useful for a stage display or an overflow room.",
+    placement: "left",
   },
   {
     ...STEP_DEFAULTS,

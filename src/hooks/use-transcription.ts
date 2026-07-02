@@ -62,6 +62,7 @@ const NETWORK_ERROR_PATTERN =
   /\b(?:connection failed|failed to connect|timeout|timed out|dns|network|websocket|socket closed|closed unexpectedly)\b/i
 const MODEL_MISSING_PATTERN =
   /\b(?:model not found|model missing|worker not found|download.*model|missing.*model)\b/i
+const STT_STATUS_TOAST_ID = "stt-status"
 
 const PROVIDER_LABELS: Record<SttProvider, string> = {
   deepgram: "Deepgram",
@@ -177,7 +178,10 @@ export const transcriptionActions = {
       if (issue.kind === "missing_api_key" && onMissingApiKey) {
         onMissingApiKey(issue.provider)
       } else {
-        toast.error(issue.title, { description: issue.description })
+        toast.error(issue.title, {
+          description: issue.description,
+          id: STT_STATUS_TOAST_ID,
+        })
       }
       return false
     }
@@ -188,7 +192,7 @@ export const transcriptionActions = {
     try {
       await invokeTauri("stop_transcription")
     } catch (e) {
-      if (String(e) !== NOT_RUNNING_ERROR) {
+      if (!String(e).includes(NOT_RUNNING_ERROR)) {
         toast.error("Could not stop transcription", { description: String(e) })
       }
     }
@@ -298,7 +302,10 @@ export function useTranscriptionEventBridge() {
     transcript.setPartial("")
     transcript.setConnectionStatus("error")
     transcript.setIssue(issue)
-    toast.error(issue.title, { description: issue.description })
+    toast.error(issue.title, {
+      description: issue.description,
+      id: STT_STATUS_TOAST_ID,
+    })
   })
   useTauriEvent("stt_speech_started", () => {
     useTranscriptStore.getState().setPartial("Speech detected...")

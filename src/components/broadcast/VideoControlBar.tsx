@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { listen } from "@tauri-apps/api/event"
 import {
   PauseIcon,
@@ -235,11 +235,23 @@ export function VideoControlBar({ item }: VideoControlBarProps) {
     [currentTime, duration],
   )
 
+  const lastMainUpdateAtRef = useRef(0)
+
   useEffect(() => {
     const unlisten = listen<VideoTimeUpdatePayload>(
       VIDEO_TIMEUPDATE_EVENT,
       (event) => {
-        if (event.payload.outputId !== "main") return
+        const { outputId } = event.payload
+        if (outputId === "main") {
+          lastMainUpdateAtRef.current = Date.now()
+        } else if (
+          outputId !== "operator" ||
+          // The projector window reported recently; it is the source of
+          // truth and the in-app copy may drift from it.
+          Date.now() - lastMainUpdateAtRef.current < 1500
+        ) {
+          return
+        }
         useBroadcastStore.getState().setVideoTransport(event.payload)
         if (event.payload.ended) {
           useBroadcastStore.getState().handleVideoEnded()

@@ -132,7 +132,7 @@ describe("verse detection workflow", () => {
     useSettingsStore.setState({
       autoMode: true,
       confidenceThreshold: 0.85,
-      semanticConfidenceThreshold: 0.65,
+      semanticConfidenceThreshold: 0.70,
     })
   })
 

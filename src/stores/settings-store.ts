@@ -7,7 +7,7 @@ export type SttProvider = "deepgram" | "gladia" | "soniox" | "vosk"
 export type SttLanguage = "en" | "af"
 
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.85
-const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD = 0.65
+const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD = 0.70
 const LEGACY_DEFAULT_CONFIDENCE_THRESHOLD = 0.8
 
 interface SettingsState {

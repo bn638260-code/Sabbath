@@ -19,11 +19,12 @@ export interface NdiSessionInfo {
   fps: number
 }
 
-export interface NdiFrameRequest {
+export interface NdiFramePayload {
   outputId: string
   width: number
   height: number
-  rgbaBase64: string
+  body: Uint8Array
+  headers: Record<string, string>
 }
 
 export interface NdiConfigEventPayload {

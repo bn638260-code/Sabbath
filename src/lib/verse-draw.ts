@@ -71,6 +71,118 @@ export function roundRect(
   ctx.closePath()
 }
 
+function drawGradientBackground(
+  ctx: CanvasRenderingContext2D,
+  bg: BroadcastTheme["background"],
+  width: number,
+  height: number
+): void {
+  if (!bg.gradient) return
+
+  let grad: CanvasGradient
+
+  if (bg.gradient.type === "linear") {
+    const angle = (bg.gradient.angle * Math.PI) / 180
+    const cx = width / 2
+    const cy = height / 2
+    const len = Math.sqrt(width * width + height * height) / 2
+    grad = ctx.createLinearGradient(
+      cx - Math.cos(angle) * len,
+      cy - Math.sin(angle) * len,
+      cx + Math.cos(angle) * len,
+      cy + Math.sin(angle) * len
+    )
+  } else {
+    grad = ctx.createRadialGradient(
+      width / 2,
+      height / 2,
+      0,
+      width / 2,
+      height / 2,
+      Math.max(width, height) / 2
+    )
+  }
+
+  for (const stop of bg.gradient.stops) {
+    grad.addColorStop(stop.position / 100, stop.color)
+  }
+
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, width, height)
+}
+
+function drawImageBackground(
+  ctx: CanvasRenderingContext2D,
+  bg: BroadcastTheme["background"],
+  width: number,
+  height: number,
+  imageCache?: Map<string, HTMLImageElement>
+): void {
+  if (!bg.image) {
+    ctx.fillStyle = "#000"
+    ctx.fillRect(0, 0, width, height)
+    return
+  }
+
+  const img = imageCache?.get(bg.image.url)
+  if (!img) {
+    ctx.fillStyle = bg.image.tint ?? "#000"
+    ctx.fillRect(0, 0, width, height)
+    return
+  }
+
+  ctx.save()
+
+  if (bg.image.blur > 0) {
+    ctx.filter = `blur(${bg.image.blur}px) brightness(${bg.image.brightness / 100})`
+  } else if (bg.image.brightness !== 100) {
+    ctx.filter = `brightness(${bg.image.brightness / 100})`
+  }
+
+  let drawX = 0
+  let drawY = 0
+  let drawW = width
+  let drawH = height
+
+  const imgRatio = img.naturalWidth / img.naturalHeight
+  const canvasRatio = width / height
+
+  switch (bg.image.fit) {
+    case "cover":
+      if (imgRatio > canvasRatio) {
+        drawH = height
+        drawW = height * imgRatio
+        drawX = (width - drawW) / 2
+      } else {
+        drawW = width
+        drawH = width / imgRatio
+        drawY = (height - drawH) / 2
+      }
+      break
+    case "contain":
+      if (imgRatio > canvasRatio) {
+        drawW = width
+        drawH = width / imgRatio
+        drawY = (height - drawH) / 2
+      } else {
+        drawH = height
+        drawW = height * imgRatio
+        drawX = (width - drawW) / 2
+      }
+      break
+    case "stretch":
+      break
+  }
+
+  ctx.drawImage(img, drawX, drawY, drawW, drawH)
+  ctx.restore()
+
+  if (bg.image.tint) {
+    ctx.fillStyle = bg.image.tint
+    ctx.fillRect(0, 0, width, height)
+  }
+}
+
 export function drawBackground(
   ctx: CanvasRenderingContext2D,
   theme: BroadcastTheme,
@@ -93,107 +205,13 @@ export function drawBackground(
       ctx.fillRect(0, 0, width, height)
       break
 
-    case "gradient": {
-      if (!bg.gradient) break
-      let grad: CanvasGradient
-
-      if (bg.gradient.type === "linear") {
-        const angle = (bg.gradient.angle * Math.PI) / 180
-        const cx = width / 2
-        const cy = height / 2
-        const len = Math.sqrt(width * width + height * height) / 2
-        grad = ctx.createLinearGradient(
-          cx - Math.cos(angle) * len,
-          cy - Math.sin(angle) * len,
-          cx + Math.cos(angle) * len,
-          cy + Math.sin(angle) * len
-        )
-      } else {
-        grad = ctx.createRadialGradient(
-          width / 2,
-          height / 2,
-          0,
-          width / 2,
-          height / 2,
-          Math.max(width, height) / 2
-        )
-      }
-
-      for (const stop of bg.gradient.stops) {
-        grad.addColorStop(stop.position / 100, stop.color)
-      }
-
-      ctx.fillStyle = grad
-      ctx.fillRect(0, 0, width, height)
+    case "gradient":
+      drawGradientBackground(ctx, bg, width, height)
       break
-    }
 
-    case "image": {
-      if (!bg.image) {
-        ctx.fillStyle = "#000"
-        ctx.fillRect(0, 0, width, height)
-        break
-      }
-      const img = imageCache?.get(bg.image.url)
-      if (!img) {
-        // Use a deterministic fallback while image is still loading.
-        ctx.fillStyle = bg.image.tint ?? "#000"
-        ctx.fillRect(0, 0, width, height)
-        break
-      }
-
-      ctx.save()
-
-      if (bg.image.blur > 0) {
-        ctx.filter = `blur(${bg.image.blur}px) brightness(${bg.image.brightness / 100})`
-      } else if (bg.image.brightness !== 100) {
-        ctx.filter = `brightness(${bg.image.brightness / 100})`
-      }
-
-      let drawX = 0
-      let drawY = 0
-      let drawW = width
-      let drawH = height
-
-      const imgRatio = img.naturalWidth / img.naturalHeight
-      const canvasRatio = width / height
-
-      switch (bg.image.fit) {
-        case "cover":
-          if (imgRatio > canvasRatio) {
-            drawH = height
-            drawW = height * imgRatio
-            drawX = (width - drawW) / 2
-          } else {
-            drawW = width
-            drawH = width / imgRatio
-            drawY = (height - drawH) / 2
-          }
-          break
-        case "contain":
-          if (imgRatio > canvasRatio) {
-            drawW = width
-            drawH = width / imgRatio
-            drawY = (height - drawH) / 2
-          } else {
-            drawH = height
-            drawW = height * imgRatio
-            drawX = (width - drawW) / 2
-          }
-          break
-        case "stretch":
-          break
-      }
-
-      ctx.drawImage(img, drawX, drawY, drawW, drawH)
-      ctx.restore()
-
-      if (bg.image.tint) {
-        ctx.fillStyle = bg.image.tint
-        ctx.fillRect(0, 0, width, height)
-      }
+    case "image":
+      drawImageBackground(ctx, bg, width, height, imageCache)
       break
-    }
 
     case "transparent":
       ctx.clearRect(0, 0, width, height)

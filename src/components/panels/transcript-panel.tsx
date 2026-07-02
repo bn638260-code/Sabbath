@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type MutableRefObject,
   type RefObject,
 } from "react"
 import { PanelHeader } from "@/components/ui/panel-header"
@@ -29,6 +30,17 @@ const LazyApiKeyPrompt = lazy(() =>
     default: mod.ApiKeyPrompt,
   }))
 )
+const TRANSCRIPT_STICKY_THRESHOLD_PX = 40
+
+export function isNearTranscriptBottom(
+  scrollNode: Pick<HTMLDivElement, "scrollTop" | "scrollHeight" | "clientHeight">,
+  threshold = TRANSCRIPT_STICKY_THRESHOLD_PX
+): boolean {
+  return (
+    scrollNode.scrollHeight - scrollNode.scrollTop - scrollNode.clientHeight <=
+    threshold
+  )
+}
 
 /**
  * Leaf component that subscribes to the audio level only. Isolated so the
@@ -58,16 +70,17 @@ function providerLabel(provider: SttProvider): string {
  */
 function LivePartialLine({
   scrollRef,
+  shouldStickToBottomRef,
 }: {
   scrollRef: RefObject<HTMLDivElement | null>
+  shouldStickToBottomRef: MutableRefObject<boolean>
 }) {
   const currentPartial = useTranscriptStore((s) => s.currentPartial)
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [currentPartial, scrollRef])
+    if (!scrollRef.current || !shouldStickToBottomRef.current) return
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [currentPartial, scrollRef, shouldStickToBottomRef])
 
   if (!currentPartial) return null
 
@@ -98,17 +111,33 @@ export function TranscriptPanel({ className }: { className?: string }) {
   const hasPartial = useTranscriptStore((s) => s.currentPartial.length > 0)
   const lastIssue = useTranscriptStore((s) => s.lastIssue)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const shouldStickToBottomRef = useRef(true)
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const openIssueSettings = useCallback(() => {
     openSettings("speech")
+  }, [])
+  const scrollToLatest = useCallback(() => {
+    const scrollNode = scrollRef.current
+    if (!scrollNode) return
+    scrollNode.scrollTop = scrollNode.scrollHeight
+    shouldStickToBottomRef.current = true
+    setShowJumpToLatest(false)
+  }, [])
+  const handleTranscriptScroll = useCallback(() => {
+    const scrollNode = scrollRef.current
+    if (!scrollNode) return
+    const isNearBottom = isNearTranscriptBottom(scrollNode)
+    shouldStickToBottomRef.current = isNearBottom
+    setShowJumpToLatest(!isNearBottom)
   }, [])
 
   // Auto-scroll on segment additions. Partial-driven scrolling lives in
   // LivePartialLine so the panel doesn't re-render per audio tick.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    if (shouldStickToBottomRef.current) {
+      scrollToLatest()
     }
-  }, [segments])
+  }, [scrollToLatest, segments])
 
   return (
     <div
@@ -153,7 +182,34 @@ export function TranscriptPanel({ className }: { className?: string }) {
         </div>
       </PanelHeader>
 
-      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto">
+      <div
+        data-slot="transcript-controls"
+        className="flex gap-2 border-b border-[var(--border-subtle)] px-3 py-2"
+      >
+        {isTranscribing ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            onClick={stopTranscription}
+          >
+            <MicOffIcon className="size-3" />
+            Stop transcribing
+          </Button>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={startTranscription}>
+            <MicIcon className="size-3" />
+            Start transcribing
+          </Button>
+        )}
+      </div>
+
+      <div
+        ref={scrollRef}
+        data-slot="transcript-scroll"
+        className="relative min-h-0 flex-1 overflow-y-auto"
+        onScroll={handleTranscriptScroll}
+      >
         <div className="flex flex-col gap-2 p-3">
           {/* Faded top gradient */}
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-linear-to-b from-card to-transparent" />
@@ -223,28 +279,22 @@ export function TranscriptPanel({ className }: { className?: string }) {
           })}
 
           {/* Partial (in-progress) text rendered by leaf subscriber */}
-          <LivePartialLine scrollRef={scrollRef} />
+          <LivePartialLine
+            scrollRef={scrollRef}
+            shouldStickToBottomRef={shouldStickToBottomRef}
+          />
         </div>
-      </div>
-
-      {/* Bottom control */}
-      <div className="flex gap-2 border-t border-[var(--border-subtle)] px-3 py-2">
-        {isTranscribing ? (
+        {showJumpToLatest ? (
           <Button
-            variant="ghost"
-            size="sm"
-            className="text-destructive hover:text-destructive"
-            onClick={stopTranscription}
+            type="button"
+            variant="chrome"
+            size="xs"
+            className="absolute right-3 bottom-3 z-20 shadow-lg"
+            onClick={scrollToLatest}
           >
-            <MicOffIcon className="size-3" />
-            Stop transcribing
+            Jump to latest
           </Button>
-        ) : (
-          <Button variant="ghost" size="sm" onClick={startTranscription}>
-            <MicIcon className="size-3" />
-            Start transcribing
-          </Button>
-        )}
+        ) : null}
       </div>
 
       {showKeyPrompt ? (

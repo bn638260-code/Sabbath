@@ -1,43 +1,26 @@
 import { useCallback, useState } from "react"
-import { invokeTauri } from "@/lib/tauri-runtime"
 import { useApiKeySettings } from "@/hooks/use-api-key-settings"
-import { transcriptionActions } from "@/hooks/use-transcription"
+import {
+  createProviderKeyActions,
+  restartActiveTranscriptionIfNeeded,
+} from "@/lib/stt-key-settings"
 import { useSettingsStore, type SttProvider } from "@/stores/settings-store"
-import { useTranscriptStore } from "@/stores/transcript-store"
 
-const STT_RESTART_DELAY_MS = 350
-export type ProviderChangeHandler = (provider: SttProvider) => void
+const deepgramKeyActions = createProviderKeyActions({
+  label: "Deepgram",
+  setCommand: "set_deepgram_api_key",
+  hasCommand: "has_deepgram_api_key",
+  clearCommand: "clear_deepgram_api_key",
+})
 
 export async function saveDeepgramApiKey(
   apiKey: string
 ): Promise<{ hasKey: boolean; error?: string }> {
-  try {
-    await invokeTauri("set_deepgram_api_key", { apiKey })
-    const hasKey = await invokeTauri<boolean>("has_deepgram_api_key")
-    if (!hasKey) {
-      return { hasKey: false, error: "Deepgram API key was not saved" }
-    }
-    return { hasKey: true }
-  } catch (e) {
-    return { hasKey: false, error: String(e) }
-  }
+  return deepgramKeyActions.saveApiKey(apiKey)
 }
 
 export async function clearDeepgramApiKey(): Promise<{ error?: string }> {
-  try {
-    await invokeTauri("clear_deepgram_api_key")
-    return {}
-  } catch (e) {
-    return { error: String(e) }
-  }
-}
-
-export async function restartActiveTranscriptionIfNeeded(): Promise<void> {
-  if (!useTranscriptStore.getState().isTranscribing) return
-
-  await transcriptionActions.stop()
-  await new Promise((resolve) => setTimeout(resolve, STT_RESTART_DELAY_MS))
-  await transcriptionActions.start()
+  return deepgramKeyActions.clearApiKey()
 }
 
 export function useDeepgramKeySettings() {

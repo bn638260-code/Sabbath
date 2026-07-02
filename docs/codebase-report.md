@@ -6,7 +6,7 @@
 >
 > **2026-06-24 follow-up:** The body below is the 2026-06-17 architecture snapshot.
 > Current maintainability findings and refactor-branch status live in
-> [CODE_QUALITY_REPORT.md](../CODE_QUALITY_REPORT.md).
+> [CODE_QUALITY_REPORT.md](reports/CODE_QUALITY_REPORT.md).
 
 Legend: 🔴 high risk · 🟡 watch · 🟢 healthy
 
@@ -275,7 +275,7 @@ cd src-tauri && cargo test --workspace
 - `desktop-ci.yml` — three jobs: **frontend** (typecheck → unit → lint → build → Playwright E2E → `npm audit --audit-level=moderate`), **web-docs** (build + lint), **rust** (data pipeline → `cargo check` → `cargo test` → `cargo clippy --all-targets` → `cargo deny check`). All on `windows-latest`.
 - `release-desktop.yml` — signed release bundle (updater secrets).
 - `deploy-web.yml` — docs site deploy.
-- This **resolves a prior review finding** that E2E was not gated in CI ([code-logic-review-fix-report.md:52](../code-logic-review-fix-report.md#L52)); `desktop-ci.yml` now runs the Playwright step on every PR.
+- This **resolves a prior review finding** that E2E was not gated in CI ([code-logic-review-fix-report.md:52](reports/code-logic-review-fix-report.md#L52)); `desktop-ci.yml` now runs the Playwright step on every PR.
 
 ---
 

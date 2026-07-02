@@ -2,34 +2,43 @@ import type {
   BroadcastOutputErrorEvent,
   BroadcastOutputId,
   NdiConfigEventPayload,
-  NdiFrameRequest,
+  NdiFramePayload,
 } from "@/types"
 
-export function uint8ToBase64(bytes: Uint8Array | Uint8ClampedArray): string {
-  const chunk = 0x8000
-  const parts: string[] = []
-  for (let i = 0; i < bytes.length; i += chunk) {
-    parts.push(
-      String.fromCharCode.apply(
-        null,
-        bytes.subarray(i, i + chunk) as unknown as number[],
-      ),
-    )
+export const NDI_FRAME_OUTPUT_ID_HEADER = "x-sabbathcue-output-id"
+export const NDI_FRAME_WIDTH_HEADER = "x-sabbathcue-width"
+export const NDI_FRAME_HEIGHT_HEADER = "x-sabbathcue-height"
+
+function expectedRgbaByteLength(width: number, height: number): number {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    throw new Error(`Invalid NDI frame dimensions: ${width}x${height}`)
   }
-  return btoa(parts.join(""))
+  return width * height * 4
 }
 
-export function createNdiFrameRequest(
+export function createNdiFramePayload(
   outputId: string,
   width: number,
   height: number,
-  rgbaBytes: Uint8ClampedArray,
-): NdiFrameRequest {
+  rgbaBytes: Uint8Array | Uint8ClampedArray,
+): NdiFramePayload {
+  const expectedLength = expectedRgbaByteLength(width, height)
+  if (rgbaBytes.byteLength !== expectedLength) {
+    throw new Error(
+      `Invalid NDI frame byte length: expected ${expectedLength}, received ${rgbaBytes.byteLength}`,
+    )
+  }
+
   return {
     outputId,
     width,
     height,
-    rgbaBase64: uint8ToBase64(rgbaBytes),
+    body: new Uint8Array(rgbaBytes.buffer, rgbaBytes.byteOffset, rgbaBytes.byteLength),
+    headers: {
+      [NDI_FRAME_OUTPUT_ID_HEADER]: outputId,
+      [NDI_FRAME_WIDTH_HEADER]: String(width),
+      [NDI_FRAME_HEIGHT_HEADER]: String(height),
+    },
   }
 }
 
@@ -52,7 +61,7 @@ export function resolveNdiFrameSource(
   const ndiCanvas = scratchCanvas ?? document.createElement("canvas")
   ndiCanvas.width = targetWidth
   ndiCanvas.height = targetHeight
-  const ndiCtx = ndiCanvas.getContext("2d")
+  const ndiCtx = ndiCanvas.getContext("2d", { willReadFrequently: true })
   if (!ndiCtx) {
     return { source: { canvas, ctx }, width: canvas.width, height: canvas.height, scratch: scratchCanvas }
   }

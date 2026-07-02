@@ -6,11 +6,15 @@
 use std::sync::Mutex;
 use std::time::Instant;
 
-use base64::Engine;
 use rhema_broadcast::ndi::{NdiRuntime, NdiSessionInfo, NdiStartRequest};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use tauri::ipc::{InvokeBody, Request};
 use tauri::State;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+const NDI_FRAME_OUTPUT_ID_HEADER: &str = "x-sabbathcue-output-id";
+const NDI_FRAME_WIDTH_HEADER: &str = "x-sabbathcue-width";
+const NDI_FRAME_HEIGHT_HEADER: &str = "x-sabbathcue-height";
 
 fn apply_projector_geometry(
     window: &tauri::WebviewWindow,
@@ -86,13 +90,11 @@ fn resolve_monitor_index(
     monitor_keys.get(fallback_index).map(|_| fallback_index)
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NdiFrameRequest {
-    pub output_id: String,
-    pub width: u32,
-    pub height: u32,
-    pub rgba_base64: String,
+struct NdiRawFrame<'a> {
+    output_id: String,
+    width: u32,
+    height: u32,
+    rgba_data: &'a [u8],
 }
 
 // Broadcast window/monitor commands are async so they run on the async
@@ -351,30 +353,85 @@ pub fn get_ndi_status(
 #[tauri::command]
 pub fn push_ndi_frame(
     runtime: State<'_, Mutex<NdiRuntime>>,
-    request: NdiFrameRequest,
+    request: Request<'_>,
 ) -> Result<(), String> {
-    let rgba_data = decode_ndi_frame_base64(&request.rgba_base64)?;
+    let frame = ndi_raw_frame_from_request(&request)?;
     let mut runtime = runtime.lock().map_err(|e| e.to_string())?;
     runtime
-        .send_frame_rgba(
-            &request.output_id,
-            request.width,
-            request.height,
-            &rgba_data,
-        )
+        .send_frame_rgba(&frame.output_id, frame.width, frame.height, frame.rgba_data)
         .map_err(|e| e.to_string())
 }
 
-fn decode_ndi_frame_base64(encoded: &str) -> Result<Vec<u8>, String> {
-    base64::engine::general_purpose::STANDARD
-        .decode(encoded)
-        .map_err(|e| format!("base64 decode error: {e}"))
+fn ndi_raw_frame_from_request<'a>(request: &'a Request<'_>) -> Result<NdiRawFrame<'a>, String> {
+    let output_id = ndi_frame_header(request, NDI_FRAME_OUTPUT_ID_HEADER)?.to_string();
+    if output_id.trim().is_empty() {
+        return Err(format!(
+            "{NDI_FRAME_OUTPUT_ID_HEADER} header cannot be empty"
+        ));
+    }
+
+    let width = ndi_frame_u32_header(request, NDI_FRAME_WIDTH_HEADER)?;
+    let height = ndi_frame_u32_header(request, NDI_FRAME_HEIGHT_HEADER)?;
+    let rgba_data = match request.body() {
+        InvokeBody::Raw(bytes) => bytes.as_slice(),
+        InvokeBody::Json(_) => return Err("push_ndi_frame expects a raw binary body".to_string()),
+    };
+
+    validate_ndi_frame_payload(width, height, rgba_data)?;
+
+    Ok(NdiRawFrame {
+        output_id,
+        width,
+        height,
+        rgba_data,
+    })
+}
+
+fn ndi_frame_header<'a>(request: &'a Request<'_>, name: &str) -> Result<&'a str, String> {
+    request
+        .headers()
+        .get(name)
+        .ok_or_else(|| format!("Missing {name} header"))?
+        .to_str()
+        .map_err(|e| format!("Invalid {name} header: {e}"))
+}
+
+fn ndi_frame_u32_header(request: &Request<'_>, name: &str) -> Result<u32, String> {
+    ndi_frame_header(request, name)?
+        .parse::<u32>()
+        .map_err(|e| format!("Invalid {name} header: {e}"))
+}
+
+fn validate_ndi_frame_payload(width: u32, height: u32, rgba_data: &[u8]) -> Result<(), String> {
+    let expected = expected_ndi_frame_payload_len(width, height)?;
+    if rgba_data.len() != expected {
+        return Err(format!(
+            "Invalid NDI frame byte length: expected {expected}, received {}",
+            rgba_data.len()
+        ));
+    }
+    Ok(())
+}
+
+fn expected_ndi_frame_payload_len(width: u32, height: u32) -> Result<usize, String> {
+    if width == 0 || height == 0 {
+        return Err(format!("Invalid NDI frame dimensions: {width}x{height}"));
+    }
+
+    let width = usize::try_from(width).map_err(|_| "NDI frame width is too large".to_string())?;
+    let height =
+        usize::try_from(height).map_err(|_| "NDI frame height is too large".to_string())?;
+    width
+        .checked_mul(height)
+        .and_then(|pixels| pixels.checked_mul(4))
+        .ok_or_else(|| "NDI frame byte length overflow".to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        build_monitor_key, decode_ndi_frame_base64, resolve_monitor_index, window_label, window_url,
+        build_monitor_key, expected_ndi_frame_payload_len, resolve_monitor_index,
+        validate_ndi_frame_payload, window_label, window_url,
     };
 
     #[test]
@@ -443,14 +500,22 @@ mod tests {
     }
 
     #[test]
-    fn decode_ndi_frame_base64_rejects_invalid_payload() {
-        let err = decode_ndi_frame_base64("not-valid-base64!!!").unwrap_err();
-        assert!(err.starts_with("base64 decode error:"));
+    fn expected_ndi_frame_payload_len_counts_rgba_bytes() {
+        assert_eq!(expected_ndi_frame_payload_len(2, 2), Ok(16));
     }
 
     #[test]
-    fn decode_ndi_frame_base64_accepts_valid_payload() {
-        let decoded = decode_ndi_frame_base64("AQID").unwrap();
-        assert_eq!(decoded, vec![1, 2, 3]);
+    fn validate_ndi_frame_payload_rejects_length_mismatch() {
+        let err = validate_ndi_frame_payload(2, 2, &[0; 12]).unwrap_err();
+        assert_eq!(
+            err,
+            "Invalid NDI frame byte length: expected 16, received 12"
+        );
+    }
+
+    #[test]
+    fn validate_ndi_frame_payload_rejects_zero_dimensions() {
+        let err = validate_ndi_frame_payload(0, 2, &[]).unwrap_err();
+        assert_eq!(err, "Invalid NDI frame dimensions: 0x2");
     }
 }

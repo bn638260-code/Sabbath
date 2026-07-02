@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CanvasPresentation } from "@/components/ui/canvas-verse"
 import { VideoControlBar } from "@/components/broadcast/VideoControlBar"
+import { VideoOverlayControls } from "@/components/broadcast/VideoOverlayControls"
 import { EmergencyLiveButton } from "@/components/queue/EmergencyLiveButton"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
@@ -22,12 +23,14 @@ import { commitPreviewToLive, presentItem } from "@/lib/presentation-workflow"
 import { cn } from "@/lib/utils"
 import { convertTauriFileSrc } from "@/lib/tauri-runtime"
 import { useBroadcastVideo } from "@/hooks/use-broadcast-video"
+import { useYoutubeEmbedUrl } from "@/hooks/use-broadcast-youtube"
 import {
   getBroadcastLiveStore,
   useBroadcastLiveStore,
   type BroadcastLiveItem,
 } from "@/stores/broadcast/live-store"
 import { selectActiveTheme, useBroadcastStore } from "@/stores/broadcast-store"
+import { useBroadcastVideoStore } from "@/stores/broadcast/video-store"
 import { useEgwSlideStore } from "@/stores/egw-slide-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
@@ -78,10 +81,72 @@ function liveVideoSrc(item: BroadcastLiveItem): string | null {
     return convertTauriFileSrc(video.videoPath)
   }
   if (video.source === "url" && video.url) return video.url
-  if (video.source === "youtube" && video.youtubeId) {
-    return `https://www.youtube-nocookie.com/embed/${video.youtubeId}?controls=1`
-  }
   return null
+}
+
+// The live-screen video is a monitor of the live output: playback belongs to
+// the VideoControlBar transport, so a remount (workspace switch) restores the
+// last known transport state instead of autoplaying from the top.
+function getLiveVideoResumeState() {
+  return useBroadcastVideoStore.getState().videoTransport
+}
+
+function liveYoutubeId(item: BroadcastLiveItem): string | undefined {
+  const video = item?.video
+  return video?.source === "youtube" ? video.youtubeId : undefined
+}
+
+function LiveVideoMedia({
+  item,
+  youtubeSrc,
+  videoSrc,
+  setVideoElement,
+}: {
+  item: NonNullable<BroadcastLiveItem>
+  youtubeSrc: string | null
+  videoSrc: string | null
+  setVideoElement: (element: HTMLVideoElement | null) => void
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const paused = useBroadcastVideoStore(
+    (s) => s.videoTransport?.paused ?? false
+  )
+  if (item.video?.source === "youtube") {
+    if (!youtubeSrc) return null
+    return (
+      <iframe
+        title={item.reference}
+        src={youtubeSrc}
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+        className="aspect-video max-h-full w-full rounded-md border border-[var(--border-subtle)] bg-black"
+      />
+    )
+  }
+  if (!videoSrc) return null
+  return (
+    <div
+      ref={wrapRef}
+      className="relative aspect-video max-h-full w-full rounded-md border border-[var(--border-subtle)] bg-black"
+    >
+      <video
+        key={videoSrc}
+        ref={setVideoElement}
+        src={videoSrc}
+        poster={item.video?.poster}
+        className="h-full w-full object-contain"
+      />
+      <VideoOverlayControls
+        paused={paused}
+        onTogglePlay={() =>
+          useBroadcastVideoStore.getState().sendVideoCommand({
+            type: paused ? "play" : "pause",
+          })
+        }
+        fullscreenTarget={() => wrapRef.current}
+      />
+    </div>
+  )
 }
 
 function navigateLiveDeck(
@@ -263,11 +328,16 @@ function LiveStage({
   const contentKey = visibleItem
     ? `${visibleItem.reference}#${visibleItem.hymnSlide?.slideIndex ?? 0}`
     : "empty"
+  // Same chrome-less embed as the audience output, so the in-app live box
+  // mirrors what the projector shows instead of offering YouTube controls
+  // that only affect the local copy.
+  const youtubeSrc = useYoutubeEmbedUrl(liveYoutubeId(visibleItem))
   const videoSrc = liveVideoSrc(visibleItem)
   useBroadcastVideo({
     video: videoElement,
     item: visibleItem?.kind === "video" ? visibleItem : null,
     outputId: "operator",
+    getResumeState: getLiveVideoResumeState,
   })
   return (
     <div
@@ -295,26 +365,13 @@ function LiveStage({
               liveTransitionClass(transitionType)
             )}
           >
-            {visibleItem.kind === "video" && videoSrc ? (
-              visibleItem.video?.source === "youtube" ? (
-                <iframe
-                  title={visibleItem.reference}
-                  src={videoSrc}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                  className="aspect-video max-h-full w-full rounded-md border border-[var(--border-subtle)] bg-black"
-                />
-              ) : (
-                <video
-                  key={videoSrc}
-                  ref={setVideoElement}
-                  src={videoSrc}
-                  poster={visibleItem.video?.poster}
-                  controls
-                  autoPlay
-                  className="aspect-video max-h-full w-full rounded-md border border-[var(--border-subtle)] bg-black object-contain"
-                />
-              )
+            {visibleItem.kind === "video" && (youtubeSrc || videoSrc) ? (
+              <LiveVideoMedia
+                item={visibleItem}
+                youtubeSrc={youtubeSrc}
+                videoSrc={videoSrc}
+                setVideoElement={setVideoElement}
+              />
             ) : (
               <CanvasPresentation
                 theme={activeTheme}

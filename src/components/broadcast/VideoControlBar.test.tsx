@@ -109,12 +109,32 @@ describe("VideoControlBar", () => {
     container.remove()
   })
 
-  it("ignores operator preview video updates and handles main output updates", async () => {
+  it("prefers main output updates and falls back to operator updates", async () => {
     await act(async () => {
       root.render(React.createElement(VideoControlBar, { item: videoItem }))
     })
     expect(videoListener).not.toBeNull()
 
+    // No projector window has reported yet: the in-app live copy is the
+    // only playback source, so its updates drive the transport bar.
+    await act(async () => {
+      videoListener?.({ payload: timeUpdate("operator", false) })
+    })
+    expect(setVideoTransportMock).toHaveBeenCalledWith(
+      timeUpdate("operator", false),
+    )
+    setVideoTransportMock.mockClear()
+
+    await act(async () => {
+      videoListener?.({ payload: timeUpdate("main", true) })
+    })
+    expect(setVideoTransportMock).toHaveBeenCalledWith(timeUpdate("main", true))
+    expect(handleVideoEndedMock).toHaveBeenCalled()
+    setVideoTransportMock.mockClear()
+    handleVideoEndedMock.mockClear()
+
+    // The projector window just reported, so it stays the source of truth
+    // and the in-app copy's updates are ignored.
     await act(async () => {
       videoListener?.({ payload: timeUpdate("operator", true) })
     })
@@ -122,10 +142,9 @@ describe("VideoControlBar", () => {
     expect(handleVideoEndedMock).not.toHaveBeenCalled()
 
     await act(async () => {
-      videoListener?.({ payload: timeUpdate("main", true) })
+      videoListener?.({ payload: timeUpdate("alt", false) })
     })
-    expect(setVideoTransportMock).toHaveBeenCalledWith(timeUpdate("main", true))
-    expect(handleVideoEndedMock).toHaveBeenCalled()
+    expect(setVideoTransportMock).not.toHaveBeenCalled()
   })
 
   it("wires transport buttons and toggles to video commands", async () => {

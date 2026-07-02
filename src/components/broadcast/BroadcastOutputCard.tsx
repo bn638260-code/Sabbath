@@ -38,6 +38,8 @@ export interface BroadcastOutputCardProps {
   monitorsRefreshing: boolean
   onRefreshMonitors: () => void
   ndiSdkInstalled: boolean
+  dataTour?: string
+  monitorDataTour?: string
 }
 
 function OutputTypeSelector({
@@ -95,16 +97,18 @@ function DisplayOutputSettings({
   monitorsRefreshing,
   onRefreshMonitors,
   settingsLocked,
+  monitorDataTour,
 }: {
   model: BroadcastOutputSettingsModel
   monitors: MonitorInfo[]
   monitorsRefreshing: boolean
   onRefreshMonitors: () => void
   settingsLocked: boolean
+  monitorDataTour?: string
 }) {
   return (
     <div className="space-y-3">
-      <div className="space-y-1.5">
+      <div data-tour={monitorDataTour} className="space-y-1.5">
         <div className="flex items-center justify-between">
           <label className="text-xs text-muted-foreground">Target Monitor</label>
           <Button
@@ -232,6 +236,8 @@ export function BroadcastOutputCard({
   monitorsRefreshing,
   onRefreshMonitors,
   ndiSdkInstalled,
+  dataTour,
+  monitorDataTour,
 }: BroadcastOutputCardProps) {
   const canEnable = canEnableBroadcastOutput(model, monitors, ndiSdkInstalled)
   const blockedReason = broadcastOutputBlockedReason(
@@ -242,7 +248,7 @@ export function BroadcastOutputCard({
   const settingsLocked = model.enabled
 
   return (
-    <div className="glass-panel relative space-y-4 p-4">
+    <div data-tour={dataTour} className="glass-panel relative space-y-4 p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TitleIcon className="size-4 text-muted-foreground" />
@@ -301,6 +307,7 @@ export function BroadcastOutputCard({
           monitorsRefreshing={monitorsRefreshing}
           onRefreshMonitors={onRefreshMonitors}
           settingsLocked={settingsLocked}
+          monitorDataTour={monitorDataTour}
         />
       ) : (
         <NdiOutputSettings model={model} />

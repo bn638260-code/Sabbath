@@ -20,13 +20,18 @@ async function loadModules() {
   const transcriptMod = await import("@/stores/transcript-store")
   const mod = await import("./use-deepgram-key-settings")
   const gladiaMod = await import("./use-gladia-key-settings")
+  const sonioxMod = await import("./use-soniox-key-settings")
+  const sttKeySettingsMod = await import("@/lib/stt-key-settings")
   return {
     useTranscriptStore: transcriptMod.useTranscriptStore,
     saveDeepgramApiKey: mod.saveDeepgramApiKey,
     clearDeepgramApiKey: mod.clearDeepgramApiKey,
     saveGladiaApiKey: gladiaMod.saveGladiaApiKey,
     clearGladiaApiKey: gladiaMod.clearGladiaApiKey,
-    restartActiveTranscriptionIfNeeded: mod.restartActiveTranscriptionIfNeeded,
+    saveSonioxApiKey: sonioxMod.saveSonioxApiKey,
+    clearSonioxApiKey: sonioxMod.clearSonioxApiKey,
+    restartActiveTranscriptionIfNeeded:
+      sttKeySettingsMod.restartActiveTranscriptionIfNeeded,
   }
 }
 
@@ -125,6 +130,32 @@ describe("use-deepgram-key-settings", () => {
       const { clearGladiaApiKey } = await loadModules()
       await expect(clearGladiaApiKey()).resolves.toEqual({})
       expect(mockInvoke).toHaveBeenCalledWith("clear_gladia_api_key")
+    })
+  })
+
+  describe("saveSonioxApiKey", () => {
+    it("persists the key and reports success when has_soniox_api_key is true", async () => {
+      mockInvoke.mockResolvedValueOnce(undefined).mockResolvedValueOnce(true)
+
+      const { saveSonioxApiKey } = await loadModules()
+      await expect(saveSonioxApiKey("secret-key")).resolves.toEqual({
+        hasKey: true,
+      })
+      expect(mockInvoke).toHaveBeenNthCalledWith(1, "set_soniox_api_key", {
+        apiKey: "secret-key",
+      })
+      expect(mockInvoke).toHaveBeenNthCalledWith(2, "has_soniox_api_key")
+    })
+  })
+
+  describe("clearSonioxApiKey", () => {
+    it("returns command failures without throwing", async () => {
+      mockInvoke.mockRejectedValue(new Error("clear failed"))
+
+      const { clearSonioxApiKey } = await loadModules()
+      await expect(clearSonioxApiKey()).resolves.toEqual({
+        error: "Error: clear failed",
+      })
     })
   })
 

@@ -8,7 +8,7 @@ targets = ["x86_64-pc-windows-msvc"]
 # Surface ALL unmaintained/unsound advisories (including transitive deps) so any
 # NEW one fails CI and must be triaged. Knowingly-accepted advisories are listed
 # in `ignore` below, each with its dependency source and rationale. Reviewed
-# against SECURITY_TEST_REPORT.md §2.7 (R8). Re-evaluate on every Tauri / tokenizers bump.
+# against docs/reports/SECURITY_TEST_REPORT.md §2.7 (R8). Re-evaluate on every Tauri / tokenizers bump.
 #
 # Scope note: this config checks the x86_64-pc-windows-msvc target only (see [graph]).
 # The GTK3-bindings family (atk/gdk/gtk/glib/gtk3-macros, RUSTSEC-2024-04xx) and

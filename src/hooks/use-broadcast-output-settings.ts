@@ -73,7 +73,10 @@ export async function reconcileBroadcastPreviewState(
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const windows = await getAllWindows()
-    if (windows.some((w) => w.label === label)) {
+    // Broadcast windows are prewarmed hidden for fast open; only a visible
+    // window means the output is actually on.
+    const target = windows.find((w) => w.label === label)
+    if (target && (await target.isVisible().catch(() => false))) {
       return true
     }
     if (attempt < retries) {

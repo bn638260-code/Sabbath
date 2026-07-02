@@ -47,6 +47,10 @@ const sampleMonitors = [
   },
 ]
 
+function broadcastWindow(label: string, visible = true) {
+  return { label, isVisible: () => Promise.resolve(visible) }
+}
+
 function baseState(
   overrides: Partial<BroadcastOutputCommandState> = {},
 ): BroadcastOutputCommandState {
@@ -111,7 +115,7 @@ describe("use-broadcast-output-settings commands", () => {
   describe("runToggleBroadcastPreview", () => {
     it("opens preview with monitor args then syncs output", async () => {
       mockInvoke.mockResolvedValue(undefined)
-      mockGetAllWindows.mockResolvedValue([{ label: "broadcast" }])
+      mockGetAllWindows.mockResolvedValue([broadcastWindow("broadcast")])
 
       const { runToggleBroadcastPreview } = await loadCommandModule()
       const deps = baseDeps()
@@ -188,7 +192,9 @@ describe("use-broadcast-output-settings commands", () => {
       mockGetAllWindows.mockImplementation(() => {
         windowChecks += 1
         // The window only becomes visible ~3.5s into the wait.
-        return Promise.resolve(windowChecks >= 15 ? [{ label: "broadcast" }] : [])
+        return Promise.resolve(
+          windowChecks >= 15 ? [broadcastWindow("broadcast")] : [],
+        )
       })
 
       const { runToggleBroadcastPreview } = await loadCommandModule()
@@ -201,6 +207,16 @@ describe("use-broadcast-output-settings commands", () => {
       expect(deps.onPreviewOpenChange).toHaveBeenCalledWith(true)
       expect(deps.onIssue).not.toHaveBeenCalled()
       expect(deps.onError).not.toHaveBeenCalled()
+    })
+
+    it("treats a hidden prewarmed window as not open", async () => {
+      mockGetAllWindows.mockResolvedValue([broadcastWindow("broadcast", false)])
+
+      const { reconcileBroadcastPreviewState } = await loadCommandModule()
+
+      expect(
+        await reconcileBroadcastPreviewState("main", { retries: 0 }),
+      ).toBe(false)
     })
 
     it("waits at least five seconds on the open path before giving up", async () => {
@@ -327,7 +343,9 @@ describe("use-broadcast-output-settings commands", () => {
 
     it("closes a preview discovered during disable reconciliation", async () => {
       mockInvoke.mockResolvedValue(undefined)
-      mockGetAllWindows.mockResolvedValueOnce([{ label: "broadcast" }]).mockResolvedValueOnce([])
+      mockGetAllWindows
+        .mockResolvedValueOnce([broadcastWindow("broadcast")])
+        .mockResolvedValueOnce([])
 
       const { runDisableBroadcastOutput } = await loadCommandModule()
       const deps = baseDeps()
@@ -493,7 +511,7 @@ describe("use-broadcast-output-settings commands", () => {
         return undefined
       })
       mockGetAllWindows.mockImplementation(async () =>
-        previewExists ? [{ label: "broadcast" }] : [],
+        previewExists ? [broadcastWindow("broadcast")] : [],
       )
 
       const { result, cleanup } = await renderHookResult(true)
@@ -552,7 +570,7 @@ describe("use-broadcast-output-settings commands", () => {
         return undefined
       })
       mockGetAllWindows.mockImplementation(async () =>
-        previewExists ? [{ label: "broadcast" }] : [],
+        previewExists ? [broadcastWindow("broadcast")] : [],
       )
 
       const { result, cleanup } = await renderHookResult(true)

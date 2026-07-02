@@ -76,7 +76,7 @@ describe("settings store", () => {
     // Defaults remain for keys with null
     expect(state.autoMode).toBe(false)
     expect(state.confidenceThreshold).toBe(0.85)
-    expect(state.semanticConfidenceThreshold).toBe(0.65)
+    expect(state.semanticConfidenceThreshold).toBe(0.70)
   })
 
   it("hydrate with no persisted values falls back to defaults", async () => {

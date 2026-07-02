@@ -234,6 +234,7 @@ describe("use-transcription", () => {
       expect(mockToastError).toHaveBeenCalledWith("Deepgram API key needed", {
         description:
           "Add a Deepgram API key in Speech settings, then start transcription again.",
+        id: "stt-status",
       })
     })
 
@@ -256,6 +257,7 @@ describe("use-transcription", () => {
         "Soniox needs more transcription credit",
         {
           description: expect.stringContaining("Add funds or enable autopay"),
+          id: "stt-status",
         }
       )
     })
@@ -271,6 +273,7 @@ describe("use-transcription", () => {
       expect(mockToastError).toHaveBeenCalledWith("Vosk model missing", {
         description:
           "The local speech model could not be found. Download the Vosk model from setup, then start transcription again.",
+        id: "stt-status",
       })
       expect(useTranscriptStore.getState().connectionStatus).toBe("error")
       expect(useTranscriptStore.getState().lastIssue?.kind).toBe(
@@ -321,6 +324,20 @@ describe("use-transcription", () => {
 
     it("silently swallows the exact 'Transcription is not running' error", async () => {
       mockInvoke.mockRejectedValue("Transcription is not running")
+      const { useTranscriptStore, transcriptionActions } = await loadModules()
+
+      useTranscriptStore.setState({ isTranscribing: true })
+
+      await transcriptionActions.stop()
+
+      expect(mockToastError).not.toHaveBeenCalled()
+      expect(useTranscriptStore.getState().isTranscribing).toBe(false)
+    })
+
+    it("silently swallows wrapped 'Transcription is not running' errors", async () => {
+      mockInvoke.mockRejectedValue(
+        "Command failed: Transcription is not running right now"
+      )
       const { useTranscriptStore, transcriptionActions } = await loadModules()
 
       useTranscriptStore.setState({ isTranscribing: true })
@@ -533,7 +550,10 @@ describe("use-transcription", () => {
       )
       useTranscriptStore.getState().setConnectionStatus("error")
       useTranscriptStore.getState().setIssue(issue)
-      mockToastError(issue.title, { description: issue.description })
+      mockToastError(issue.title, {
+        description: issue.description,
+        id: "stt-status",
+      })
 
       expect(useTranscriptStore.getState().connectionStatus).toBe("error")
       expect(useTranscriptStore.getState().lastIssue).toMatchObject({
@@ -542,6 +562,7 @@ describe("use-transcription", () => {
       })
       expect(mockToastError).toHaveBeenCalledWith(issue.title, {
         description: issue.description,
+        id: "stt-status",
       })
     })
   })

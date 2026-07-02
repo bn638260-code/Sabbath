@@ -20,6 +20,9 @@ const TUTORIAL_DATA_TOUR_IDS = [
   "context-search",
   "quick-nav",
   "broadcast",
+  "broadcast-output-main",
+  "broadcast-monitor-main",
+  "broadcast-output-alt",
   "theme",
   "settings",
   "settings-section-audio",
@@ -120,6 +123,9 @@ describe("controller UI guard — Proof B (banned surface tokens)", () => {
 
 function sourceDefinesDataTour(sources: string, id: string): boolean {
   if (sources.includes(`data-tour="${id}"`)) return true
+  // Anchors forwarded through a component prop, e.g. dataTour/monitorDataTour
+  // on BroadcastOutputCard.
+  if (new RegExp(`[dD]ataTour="${id}"`).test(sources)) return true
   return new RegExp(`data-tour=\\{[\\s\\S]*?["']${id}["']`).test(sources)
 }
 
@@ -150,6 +156,23 @@ describe("controller UI guard — tutorial targets", () => {
     expect(content).toContain("Windows display mode to Extend")
     expect(content).toContain("Refresh displays")
     expect(content).toContain("fullscreen projector output")
+  })
+
+  it("walks the broadcast output cards in the guided tour", () => {
+    const main = TUTORIAL_STEPS.find((item) => item.title === "Main Output")
+    expect(main?.target).toBe('[data-tour="broadcast-output-main"]')
+    expect(String(main?.content)).toContain("start Off")
+
+    const monitor = TUTORIAL_STEPS.find(
+      (item) => item.title === "Target Monitor"
+    )
+    expect(monitor?.target).toBe('[data-tour="broadcast-monitor-main"]')
+    expect(String(monitor?.content)).toContain("Refresh")
+
+    const alt = TUTORIAL_STEPS.find(
+      (item) => item.title === "Alternate Output"
+    )
+    expect(alt?.target).toBe('[data-tour="broadcast-output-alt"]')
   })
 
   it("explains the account cancellation workflow and disclaimer", () => {

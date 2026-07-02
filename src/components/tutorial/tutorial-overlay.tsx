@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Joyride, STATUS, type EventData } from "react-joyride"
 import { toast } from "sonner"
+import { useBroadcastSettingsDialogStore } from "@/lib/broadcast-settings-dialog"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
@@ -61,6 +62,7 @@ function DesktopTutorialOverlay() {
     if (data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {
       useTutorialStore.getState().stopTutorial()
       useServicePlanStore.getState().closePlanner()
+      useBroadcastSettingsDialogStore.getState().setOpen(false)
       useDashboardWorkspaceStore.getState().setWorkspace("live")
       persistOnboardingComplete()
 

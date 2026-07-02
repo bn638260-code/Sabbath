@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { LiveOutputPanel } from "@/components/panels/live-output-panel"
 import { PreviewPanel } from "@/components/panels/preview-panel"
+import { useBroadcastSettingsDialogStore } from "@/lib/broadcast-settings-dialog"
 import { useBroadcastDesignerStore } from "@/stores/broadcast/designer-store"
 import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
 import {
@@ -172,7 +173,8 @@ function ServiceSignalPanel({
 }
 
 export function LiveServicePlanPage() {
-  const [broadcastOpen, setBroadcastOpen] = useState(false)
+  const broadcastOpen = useBroadcastSettingsDialogStore((s) => s.open)
+  const setBroadcastOpen = useBroadcastSettingsDialogStore((s) => s.setOpen)
   const [broadcastSettingsMounted, setBroadcastSettingsMounted] =
     useState(false)
   const [themeDesignerMounted, setThemeDesignerMounted] = useState(false)
@@ -238,7 +240,7 @@ export function LiveServicePlanPage() {
         </div>
       </section>
 
-      {broadcastSettingsMounted && (
+      {(broadcastSettingsMounted || broadcastOpen) && (
         <Suspense fallback={null}>
           <LazyBroadcastSettings
             open={broadcastOpen}

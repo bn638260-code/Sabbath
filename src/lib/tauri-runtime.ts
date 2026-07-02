@@ -1,4 +1,9 @@
-import { convertFileSrc, invoke } from "@tauri-apps/api/core"
+import {
+  convertFileSrc,
+  invoke,
+  type InvokeArgs,
+  type InvokeOptions,
+} from "@tauri-apps/api/core"
 
 declare global {
   interface Window {
@@ -16,12 +21,20 @@ export function isTauriRuntime(): boolean {
   )
 }
 
-export async function invokeTauri<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+export async function invokeTauri<T>(
+  command: string,
+  args?: InvokeArgs,
+  options?: InvokeOptions
+): Promise<T> {
   if (!isTauriRuntime()) {
     throw new Error(`Tauri command "${command}" is unavailable outside the desktop runtime.`)
   }
 
-  return invoke<T>(command, args)
+  if (options === undefined) {
+    return invoke<T>(command, args)
+  }
+
+  return invoke<T>(command, args, options)
 }
 
 export function convertTauriFileSrc(filePath: string): string {

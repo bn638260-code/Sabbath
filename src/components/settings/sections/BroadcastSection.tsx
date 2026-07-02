@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useBroadcastSettingsDialogStore } from "@/lib/broadcast-settings-dialog"
 import { CastIcon } from "lucide-react"
 
 const LazyBroadcastSettings = lazy(() =>
@@ -9,7 +10,8 @@ const LazyBroadcastSettings = lazy(() =>
 )
 
 export function BroadcastSection() {
-  const [broadcastOpen, setBroadcastOpen] = useState(false)
+  const broadcastOpen = useBroadcastSettingsDialogStore((s) => s.open)
+  const setBroadcastOpen = useBroadcastSettingsDialogStore((s) => s.setOpen)
   const [broadcastSettingsMounted, setBroadcastSettingsMounted] = useState(false)
 
   return (
@@ -39,7 +41,8 @@ export function BroadcastSection() {
         </div>
       </div>
 
-      {broadcastSettingsMounted ? (
+      {/* The tour opens the dialog through the store, so mount on open too. */}
+      {broadcastSettingsMounted || broadcastOpen ? (
         <Suspense fallback={null}>
           <LazyBroadcastSettings
             open={broadcastOpen}

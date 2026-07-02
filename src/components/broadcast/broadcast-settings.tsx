@@ -166,6 +166,8 @@ export function BroadcastSettings({
             monitorsRefreshing={refreshing}
             onRefreshMonitors={() => void fetchMonitors()}
             ndiSdkInstalled={ndiSdkInstalled}
+            dataTour="broadcast-output-main"
+            monitorDataTour="broadcast-monitor-main"
           />
           <BroadcastOutputCard
             title="Alternate Output"
@@ -175,6 +177,7 @@ export function BroadcastSettings({
             monitorsRefreshing={refreshing}
             onRefreshMonitors={() => void fetchMonitors()}
             ndiSdkInstalled={ndiSdkInstalled}
+            dataTour="broadcast-output-alt"
           />
         </div>
       </DialogContent>

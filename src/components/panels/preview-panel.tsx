@@ -1,4 +1,10 @@
-import { useEffect, type KeyboardEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CanvasPresentation } from "@/components/ui/canvas-verse"
@@ -22,6 +28,7 @@ import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { PresentationDeckControls } from "@/components/panels/presentation-deck-controls"
 import { PresentationArrowControls } from "@/components/panels/presentation-arrow-controls"
 import { PreviewQuickSearch } from "@/components/panels/preview-quick-search"
+import { VideoOverlayControls } from "@/components/broadcast/VideoOverlayControls"
 import {
   presentationDeckKind,
   type PresentationDeckKind,
@@ -51,6 +58,39 @@ export function PreviewPanel({ className }: { className?: string }) {
   const readingModeAutoLive = useBroadcastLiveStore(
     (s) => s.readingModeAutoLive
   )
+  // The preview video is a local staging copy: its overlay controls act on
+  // the element directly and never touch the live transport.
+  const previewVideoWrapRef = useRef<HTMLDivElement>(null)
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null)
+  const previewVideoCleanupRef = useRef<(() => void) | null>(null)
+  const [previewVideoPaused, setPreviewVideoPaused] = useState(true)
+  const attachPreviewVideo = useCallback((el: HTMLVideoElement | null) => {
+    previewVideoCleanupRef.current?.()
+    previewVideoCleanupRef.current = null
+    previewVideoRef.current = el
+    setPreviewVideoPaused(el ? el.paused : true)
+    if (!el) return
+    const update = () => setPreviewVideoPaused(el.paused)
+    el.addEventListener("play", update)
+    el.addEventListener("pause", update)
+    previewVideoCleanupRef.current = () => {
+      el.removeEventListener("play", update)
+      el.removeEventListener("pause", update)
+    }
+  }, [])
+
+  const togglePreviewVideo = () => {
+    const el = previewVideoRef.current
+    if (!el) return
+    if (el.paused) {
+      if (el.ended) el.currentTime = 0
+      void el
+        .play()
+        .catch((error) => console.debug("[preview] video play failed", error))
+    } else {
+      el.pause()
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -182,12 +222,22 @@ export function PreviewPanel({ className }: { className?: string }) {
               className="aspect-video max-h-full w-full rounded-md border border-[var(--border-subtle)] bg-black"
             />
           ) : (
-            <video
-              src={previewVideoSrc(previewItem) ?? undefined}
-              poster={previewItem.video?.poster}
-              controls
-              className="aspect-video max-h-full w-full rounded-md border border-[var(--border-subtle)] bg-black object-contain"
-            />
+            <div
+              ref={previewVideoWrapRef}
+              className="relative aspect-video max-h-full w-full rounded-md border border-[var(--border-subtle)] bg-black"
+            >
+              <video
+                ref={attachPreviewVideo}
+                src={previewVideoSrc(previewItem) ?? undefined}
+                poster={previewItem.video?.poster}
+                className="h-full w-full object-contain"
+              />
+              <VideoOverlayControls
+                paused={previewVideoPaused}
+                onTogglePlay={togglePreviewVideo}
+                fullscreenTarget={() => previewVideoWrapRef.current}
+              />
+            </div>
           )
         ) : previewItem && activeTheme ? (
           <CanvasPresentation theme={activeTheme} item={previewItem} />
