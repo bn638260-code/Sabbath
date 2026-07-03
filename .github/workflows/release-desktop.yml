@@ -27,17 +27,27 @@ jobs:
             exit 1
           }
 
-          $repoJson = gh api "repos/$repo" 2>&1 | Out-String
-          if ($LASTEXITCODE -ne 0) {
+          $oldNativeCommandPreference = $PSNativeCommandUseErrorActionPreference
+          $PSNativeCommandUseErrorActionPreference = $false
+          try {
+            $repoJson = gh api "repos/$repo" 2>&1 | Out-String
+            $repoExitCode = $LASTEXITCODE
+
+            $probeOutput = gh api --method POST "repos/$repo/releases" `
+              --raw-field tag_name="" `
+              --raw-field name="SabbathCue release token probe" `
+              2>&1 | Out-String
+            $probeExitCode = $LASTEXITCODE
+          } finally {
+            $PSNativeCommandUseErrorActionPreference = $oldNativeCommandPreference
+          }
+
+          if ($repoExitCode -ne 0) {
             Write-Error "RELEASES_REPO_TOKEN cannot access $repo. Use a token scoped to $repo with Contents: Read and write. GitHub CLI output: $repoJson"
             exit 1
           }
 
-          $probeOutput = gh api --method POST "repos/$repo/releases" `
-            --raw-field tag_name="" `
-            --raw-field name="SabbathCue release token probe" `
-            2>&1 | Out-String
-          if ($LASTEXITCODE -eq 0) {
+          if ($probeExitCode -eq 0) {
             Write-Error "Release token probe unexpectedly created a release."
             exit 1
           }
