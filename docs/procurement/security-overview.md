@@ -58,4 +58,4 @@ LAN exposure is not currently enabled through the UI. Any future LAN mode should
 
 ### Vulnerability reporting
 
-See [.github/SECURITY.md](https://github.com/BongaNdlovu/SabbathCue/blob/main/.github/SECURITY.md) for the responsible disclosure process.
+See [.github/SECURITY.md](https://github.com/Bongisto/SabbathCue/blob/main/.github/SECURITY.md) for the responsible disclosure process.

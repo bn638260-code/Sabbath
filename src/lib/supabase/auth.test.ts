@@ -238,7 +238,7 @@ describe("supabase auth", () => {
 
     expect(result).toEqual({ ok: true })
     expect(mockResetPasswordForEmail).toHaveBeenCalledWith("user@example.com", {
-      redirectTo: "https://bongandlovu.github.io/SabbathCue/reset-password/",
+      redirectTo: "https://bongisto.github.io/SabbathCue/reset-password/",
     })
   })
 

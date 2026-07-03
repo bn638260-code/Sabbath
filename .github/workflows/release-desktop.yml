@@ -197,7 +197,7 @@ jobs:
 
           $tag = "v$version"
           $assetName = $setupExe.Name
-          $downloadUrl = "https://github.com/BongaNdlovu/sabbathcue-releases/releases/download/$tag/$assetName"
+          $downloadUrl = "https://github.com/Bongisto/sabbathcue-releases/releases/download/$tag/$assetName"
           $signature = (Get-Content $sigPath -Raw).Trim()
 
           $latest = [ordered]@{
@@ -286,10 +286,10 @@ jobs:
           Write-Host "Publishing $($assetArgs.Count) release assets"
 
           # Clean up partial release from a failed prior run
-          gh release delete $tag --repo BongaNdlovu/sabbathcue-releases --yes 2>$null
+          gh release delete $tag --repo Bongisto/sabbathcue-releases --yes 2>$null
 
           gh release create $tag `
-            --repo BongaNdlovu/sabbathcue-releases `
+            --repo Bongisto/sabbathcue-releases `
             --title "SabbathCue $version" `
             --notes "Windows installers for SabbathCue $version. Auto-update is supported via the NSIS .exe (recommended). MSI is provided as an alternate installer." `
             $assetArgs

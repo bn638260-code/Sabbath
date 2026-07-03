@@ -52,7 +52,7 @@ export default async function Image() {
           </div>
           <span style={{ color: "#FFFFFF", fontWeight: 600 }}>{SITE.name}</span>
           <span>·</span>
-          <span>github.com/BongaNdlovu/SabbathCue</span>
+          <span>github.com/Bongisto/SabbathCue</span>
         </div>
 
         <div

@@ -1,6 +1,6 @@
 # SabbathCue updater key management
 
-SabbathCue ships signed auto-updates via [Tauri updater](https://v2.tauri.app/plugin/updater/). Installers and `latest.json` are published to the **public** releases-only repo [`BongaNdlovu/sabbathcue-releases`](https://github.com/BongaNdlovu/sabbathcue-releases). The source repo stays private.
+SabbathCue ships signed auto-updates via [Tauri updater](https://v2.tauri.app/plugin/updater/). Installers and `latest.json` are published to the **public** releases-only repo [`Bongisto/sabbathcue-releases`](https://github.com/Bongisto/sabbathcue-releases). The source repo stays private.
 
 ## Why a separate public releases repo
 
@@ -23,7 +23,7 @@ GitHub anonymous downloads work for public release assets. The private `SabbathC
 
 4. Back up the private key and password in a password manager. **Losing the private key permanently bricks the update channel** for existing installs; users would need a manual reinstall.
 
-5. Create the public repo `BongaNdlovu/sabbathcue-releases` with a short README (no source code).
+5. Create the public repo `Bongisto/sabbathcue-releases` with a short README (no source code).
 
 ## Release workflow
 
@@ -31,11 +31,11 @@ GitHub anonymous downloads work for public release assets. The private `SabbathC
 
 1. Builds with signing env vars → NSIS `.exe`, MSI, `.sig` files
 2. Generates `latest.json` (canonical artifact: NSIS `.exe` on `windows-x86_64`)
-3. Publishes a **non-draft, non-prerelease** GitHub Release on `sabbathcue-releases` via `gh release create --repo BongaNdlovu/sabbathcue-releases`
+3. Publishes a **non-draft, non-prerelease** GitHub Release on `sabbathcue-releases` via `gh release create --repo Bongisto/sabbathcue-releases`
 
 Verify after release (logged-out browser / private window):
 
-`https://github.com/BongaNdlovu/sabbathcue-releases/releases/latest/download/latest.json`
+`https://github.com/Bongisto/sabbathcue-releases/releases/latest/download/latest.json`
 
 ## Bootstrap note
 

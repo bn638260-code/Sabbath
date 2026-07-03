@@ -189,7 +189,7 @@ cargo test
 
 ## How to pick up an issue
 
-- You don't need permission to work on an open issue. Browse the [issue list](https://github.com/BongaNdlovu/SabbathCue/issues) and start.
+- You don't need permission to work on an open issue. Browse the [issue list](https://github.com/Bongisto/SabbathCue/issues) and start.
 - If an issue looks good but you want to confirm the approach before spending time, leave a comment describing the direction you plan to take. A one-line "I'm picking this up" is not required and doesn't reserve the issue.
 - If two people end up working on the same thing, the later PR can still be useful as a second pair of eyes — review, validate, or merge ideas.
 - For non-trivial features, open a discussion or issue **before** the PR. Getting alignment on scope first saves rewrites later.
@@ -226,8 +226,8 @@ AI coding assistants are fine — many contributors (and maintainers) use them. 
 
 ## Getting help
 
-- **Questions, ideas, general discussion** — [GitHub Discussions](https://github.com/BongaNdlovu/SabbathCue/discussions).
-- **Bugs and feature requests** — use the [issue templates](https://github.com/BongaNdlovu/SabbathCue/issues/new/choose). A reproduction (short recording, minimal repo, or precise steps) speeds triage considerably.
+- **Questions, ideas, general discussion** — [GitHub Discussions](https://github.com/Bongisto/SabbathCue/discussions).
+- **Bugs and feature requests** — use the [issue templates](https://github.com/Bongisto/SabbathCue/issues/new/choose). A reproduction (short recording, minimal repo, or precise steps) speeds triage considerably.
 - **Security vulnerabilities** — don't open a public issue. Follow the process in [SECURITY.md](./SECURITY.md).
 
 ## Code of Conduct

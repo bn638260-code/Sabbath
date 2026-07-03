@@ -17,7 +17,7 @@ Legend: 🔴 high risk · 🟡 watch · 🟢 healthy
 | Field | Value |
 | --- | --- |
 | Project name | SabbathCue (package name `sabbathcue`; repo/working dir `rhema`) |
-| Repository / URL | <https://github.com/BongaNdlovu/SabbathCue> ([src-tauri/Cargo.toml:35](../src-tauri/Cargo.toml#L35)) |
+| Repository / URL | <https://github.com/Bongisto/SabbathCue> ([src-tauri/Cargo.toml:35](../src-tauri/Cargo.toml#L35)) |
 | Primary language(s) | TypeScript (~93.7k LOC across 312 files in `src/`), Rust (~26.6k LOC across 94 files in `src-tauri/`) |
 | Framework(s) | Tauri v2 desktop shell; React 19 + Vite frontend; Next.js (Fumadocs) for `web/` docs site |
 | Reviewer | Claude (automated, tool-verified) |

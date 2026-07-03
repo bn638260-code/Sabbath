@@ -59,4 +59,4 @@ Clippy. Release builds additionally generate SBOM and checksum artifacts.
 ## Contact
 
 For procurement questions or security inquiries, follow the responsible
-disclosure process in [SECURITY.md](https://github.com/BongaNdlovu/SabbathCue/blob/main/.github/SECURITY.md).
+disclosure process in [SECURITY.md](https://github.com/Bongisto/SabbathCue/blob/main/.github/SECURITY.md).

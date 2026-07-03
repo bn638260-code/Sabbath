@@ -1,6 +1,6 @@
 # SabbathCue marketing site
 
-Next.js 16 marketing site for [SabbathCue](https://github.com/BongaNdlovu/SabbathCue). Static-only — no API routes, no server actions. Deployed to GitHub Pages on push to `main`.
+Next.js 16 marketing site for [SabbathCue](https://github.com/Bongisto/SabbathCue). Static-only — no API routes, no server actions. Deployed to GitHub Pages on push to `main`.
 
 ## Develop
 
@@ -22,7 +22,7 @@ Outputs a static site to `web/out/`.
 
 ## Deploy
 
-Pushes to `main` that touch `web/**` trigger `.github/workflows/deploy-web.yml`, which builds the static export and publishes it to GitHub Pages at [https://github.com/BongaNdlovu/SabbathCue](https://github.com/BongaNdlovu/SabbathCue).
+Pushes to `main` that touch `web/**` trigger `.github/workflows/deploy-web.yml`, which builds the static export and publishes it to GitHub Pages at [https://github.com/Bongisto/SabbathCue](https://github.com/Bongisto/SabbathCue).
 
 To trigger a deploy without code changes (e.g., to refresh the GitHub stars count baked into the page), use the **Run workflow** button on the _Deploy web to GitHub Pages_ action in the GitHub UI.
 

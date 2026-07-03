@@ -80,7 +80,7 @@ body:
       label: Validations
       description: Before submitting the issue, please make sure you do the following
       options:
-        - label: Check that there isn't [already an issue](https://github.com/BongaNdlovu/SabbathCue/issues) that reports the same bug to avoid creating a duplicate.
+        - label: Check that there isn't [already an issue](https://github.com/Bongisto/SabbathCue/issues) that reports the same bug to avoid creating a duplicate.
           required: true
-        - label: This is a concrete bug, not a question. For questions, use [GitHub Discussions](https://github.com/BongaNdlovu/SabbathCue/discussions).
+        - label: This is a concrete bug, not a question. For questions, use [GitHub Discussions](https://github.com/Bongisto/SabbathCue/discussions).
           required: true
