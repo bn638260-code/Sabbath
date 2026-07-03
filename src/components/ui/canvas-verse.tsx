@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo, memo } from "react"
 import { getBroadcastRenderKey } from "@/lib/broadcast-render-key"
 import { renderPresentation } from "@/lib/verse-renderer"
-import { isKineticTheme } from "@/lib/kinetic-theme-renderer"
+import { isKineticTheme, onClothPortraitLoaded } from "@/lib/kinetic-theme-renderer"
 import type { BroadcastTheme, PresentationRenderData } from "@/types"
 import { cn } from "@/lib/utils"
 
@@ -170,6 +170,11 @@ export const CanvasPresentation = memo(function CanvasPresentation({
     }
     img.src = url
   }, [item, draw])
+
+  useEffect(() => {
+    if (theme.kinetic?.backgroundKind !== "cloth") return
+    return onClothPortraitLoaded(() => draw(true))
+  }, [theme.kinetic?.backgroundKind, draw])
 
   // Redraw whenever theme, verse, or container size changes.
   useEffect(() => {

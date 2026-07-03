@@ -386,7 +386,8 @@ export function drawVerseText(
   const lineHeightPx = lineHeightForPresentation(theme, verse, actualFontSize)
 
   ctx.save()
-  ctx.font = `${vt.fontWeight} ${actualFontSize}px "${vt.fontFamily}", serif`
+  const fontStylePrefix = vt.fontStyle === "italic" ? "italic " : ""
+  ctx.font = `${fontStylePrefix}${vt.fontWeight} ${actualFontSize}px "${vt.fontFamily}", serif`
   ctx.fillStyle = vt.color
   ctx.textBaseline = "top"
   ctx.textAlign = verseAlign === "justify" ? "left" : verseAlign

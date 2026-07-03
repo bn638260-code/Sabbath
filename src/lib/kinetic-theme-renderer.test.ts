@@ -15,6 +15,8 @@ interface Recorder {
   radial: unknown[][]
   linear: unknown[][]
   arcArgs: unknown[][]
+  transforms: unknown[][]
+  filters: string[]
   arcs: number
   paths: number
   fillRects: number
@@ -24,6 +26,9 @@ function createRecorder(): Recorder {
   const radial: unknown[][] = []
   const linear: unknown[][] = []
   const arcArgs: unknown[][] = []
+  const transforms: unknown[][] = []
+  const filters: string[] = []
+  let currentFilter = "none"
   const rec = { arcs: 0, paths: 0, fillRects: 0 }
   const gradient = { addColorStop: vi.fn() }
   const ctx = {
@@ -42,11 +47,28 @@ function createRecorder(): Recorder {
       rec.arcs += 1
       arcArgs.push(args)
     }),
+    ellipse: vi.fn((...args: unknown[]) => {
+      rec.arcs += 1
+      arcArgs.push(args)
+    }),
+    rect: vi.fn(),
+    strokeRect: vi.fn(),
     closePath: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
-    translate: vi.fn(),
-    rotate: vi.fn(),
+    translate: vi.fn((...args: unknown[]) => {
+      transforms.push(["translate", ...args])
+    }),
+    rotate: vi.fn((...args: unknown[]) => {
+      transforms.push(["rotate", ...args])
+    }),
+    scale: vi.fn((...args: unknown[]) => {
+      transforms.push(["scale", ...args])
+    }),
+    transform: vi.fn((...args: unknown[]) => {
+      transforms.push(["transform", ...args])
+    }),
+    drawImage: vi.fn(),
     createLinearGradient: vi.fn((...args: unknown[]) => {
       linear.push(args)
       return gradient
@@ -58,10 +80,37 @@ function createRecorder(): Recorder {
     fillStyle: "",
     strokeStyle: "",
     globalAlpha: 1,
-    filter: "none",
+    globalCompositeOperation: "source-over",
+    get filter() {
+      return currentFilter
+    },
+    set filter(value: string) {
+      currentFilter = value
+      filters.push(value)
+    },
     lineWidth: 1,
+    shadowColor: "",
+    shadowBlur: 0,
+    shadowOffsetX: 0,
+    shadowOffsetY: 0,
   } as unknown as CanvasRenderingContext2D
-  return { ctx, radial, linear, arcArgs, get arcs() { return rec.arcs }, get paths() { return rec.paths }, get fillRects() { return rec.fillRects } } as Recorder
+  return {
+    ctx,
+    radial,
+    linear,
+    arcArgs,
+    transforms,
+    filters,
+    get arcs() {
+      return rec.arcs
+    },
+    get paths() {
+      return rec.paths
+    },
+    get fillRects() {
+      return rec.fillRects
+    },
+  } as Recorder
 }
 
 describe("isKineticTheme", () => {
@@ -122,6 +171,75 @@ describe("drawKineticBackground", () => {
     const r = createRecorder()
     drawKineticBackground(r.ctx, preset("ocean"), 0)
     expect(r.arcs).toBe(0)
+  })
+
+  it("draws the desert cloth scene and reports handled", () => {
+    const r = createRecorder()
+    const drew = drawKineticBackground(r.ctx, preset("desert-cloth"), 0)
+    expect(drew).toBe(true)
+    // Base gradient + fold fills + vignette at minimum.
+    expect(r.fillRects).toBeGreaterThan(0)
+    expect(r.arcs).toBeGreaterThanOrEqual(6) // six fold ellipses
+  })
+
+  it("desert cloth is deterministic at a fixed timeMs", () => {
+    const a = createRecorder()
+    const b = createRecorder()
+    drawKineticBackground(a.ctx, preset("desert-cloth"), 0)
+    drawKineticBackground(b.ctx, preset("desert-cloth"), 0)
+    expect(a.transforms).toEqual(b.transforms)
+    expect(a.linear).toEqual(b.linear)
+    expect(a.radial).toEqual(b.radial)
+  })
+
+  it("desert cloth animates: fold transforms differ across timeMs", () => {
+    const a = createRecorder()
+    const b = createRecorder()
+    drawKineticBackground(a.ctx, preset("desert-cloth"), 0)
+    drawKineticBackground(b.ctx, preset("desert-cloth"), 1500)
+    expect(a.transforms).not.toEqual(b.transforms)
+  })
+
+  it("desert cloth scales CSS pixel effects for thumbnails", () => {
+    const r = createRecorder()
+    const theme = {
+      ...preset("desert-cloth"),
+      resolution: { width: 192, height: 108 },
+    }
+    drawKineticBackground(r.ctx, theme, 0)
+    expect(r.filters.some((f) => f.includes("blur(3.4"))).toBe(true)
+    expect(r.filters).not.toContain("blur(34px)")
+  })
+
+  it("notifies static hosts when the desert cloth portrait loads", async () => {
+    vi.resetModules()
+    const created: Array<{ onload: (() => void) | null }> = []
+    class MockImage {
+      onload: (() => void) | null = null
+      naturalWidth = 500
+      naturalHeight = 900
+      constructor() {
+        created.push(this)
+      }
+      set src(_value: string) {}
+    }
+    vi.stubGlobal("Image", MockImage)
+
+    const renderer = await import("./kinetic-theme-renderer")
+    const themes = await import("./kinetic-themes")
+    const p = themes.KINETIC_THEME_PRESETS.find((x) => x.presetId === "desert-cloth")
+    if (!p) throw new Error("missing desert-cloth preset")
+    const onLoad = vi.fn()
+    renderer.onClothPortraitLoaded(onLoad)
+    renderer.drawKineticBackground(
+      createRecorder().ctx,
+      themes.buildKineticBroadcastTheme(p),
+      0,
+    )
+    created[0]?.onload?.()
+
+    expect(onLoad).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
   })
 })
 

@@ -34,21 +34,23 @@ const EXPECTED_PRESET_IDS = [
   "nature-stars",
   "nature-meadow",
   "nature-aurora",
+  // worship scene
+  "desert-cloth",
 ]
 
 describe("KINETIC_THEME_PRESETS", () => {
-  it("contains exactly 24 presets with the expected ids", () => {
-    expect(KINETIC_THEME_PRESETS).toHaveLength(24)
+  it("contains exactly 25 presets with the expected ids", () => {
+    expect(KINETIC_THEME_PRESETS).toHaveLength(25)
     expect(KINETIC_THEME_PRESETS.map((p) => p.presetId)).toEqual(
       EXPECTED_PRESET_IDS,
     )
   })
 
-  it("has eight classical, six modern and ten nature presets", () => {
+  it("has nine classical, six modern and ten nature presets", () => {
     const classical = KINETIC_THEME_PRESETS.filter((p) => p.group === "classical")
     const modern = KINETIC_THEME_PRESETS.filter((p) => p.group === "modern")
     const nature = KINETIC_THEME_PRESETS.filter((p) => p.group === "nature")
-    expect(classical).toHaveLength(8)
+    expect(classical).toHaveLength(9)
     expect(modern).toHaveLength(6)
     expect(nature).toHaveLength(10)
   })
@@ -75,7 +77,7 @@ describe("buildKineticBroadcastThemes", () => {
   const themes = buildKineticBroadcastThemes()
 
   it("produces one builtin BroadcastTheme per preset", () => {
-    expect(themes).toHaveLength(24)
+    expect(themes).toHaveLength(25)
     for (const theme of themes) {
       expect(theme.builtin).toBe(true)
       expect(theme.kinetic).toBeDefined()
@@ -104,9 +106,40 @@ describe("buildKineticBroadcastThemes", () => {
       "Cinzel",
       "Playfair Display",
       "Bebas Neue",
+      // OS-installed system serif (Desert Cloth) — offline by definition.
+      "Georgia",
     ])
     for (const theme of themes) {
       expect(allowed.has(theme.verseText.fontFamily)).toBe(true)
+    }
+  })
+})
+
+describe("desert cloth preset", () => {
+  const theme = buildKineticBroadcastThemes().find(
+    (t) => t.id === "builtin-kinetic-desert-cloth",
+  )
+
+  it("carries the worship design's typography and transition", () => {
+    expect(theme).toBeDefined()
+    expect(theme?.kinetic?.backgroundKind).toBe("cloth")
+    expect(theme?.verseText.fontFamily).toBe("Georgia")
+    expect(theme?.verseText.fontStyle).toBe("italic")
+    expect(theme?.verseText.color).toBe("#fdf8ee")
+    expect(theme?.verseText.shadow?.color).toBe("rgba(61,43,23,0.55)")
+    expect(theme?.reference.color).toBe("#ffffff")
+    expect(theme?.reference.uppercase).toBe(false)
+    expect(theme?.reference.position).toBe("above")
+    expect(theme?.transition.duration).toBe(1600)
+    expect(theme?.kinetic?.motion.hueShiftDegrees).toBe(0)
+  })
+
+  it("does not leak its overrides into any other preset", () => {
+    for (const t of buildKineticBroadcastThemes()) {
+      if (t.id === "builtin-kinetic-desert-cloth") continue
+      expect(t.verseText.fontStyle).toBeUndefined()
+      expect(t.transition.duration).toBe(500)
+      expect(t.reference.uppercase).toBe(true)
     }
   })
 })

@@ -9,7 +9,7 @@ import type {
 // ---------------------------------------------------------------------------
 // Kinetic theme catalog
 //
-// These 24 presets mirror the moving "Kinetic Theme" selector from the
+// These 25 presets mirror the moving "Kinetic Theme" selector from the
 // SabbathCue HTML prototypes. The first 14 (classical + modern) are canvas-native
 // CSS themes: the four mesh-gradient colors, an accent, the motion envelope
 // (liquidMesh duration + hue/saturation breathing + drift), and an optional
@@ -64,6 +64,10 @@ const SANS = "Geist Variable"
 const CINZEL = "Cinzel"
 const PLAYFAIR = "Playfair Display"
 const BEBAS = "Bebas Neue"
+
+// OS-installed serif used by the Desert Cloth worship scene (the HTML design's
+// own font). System font: available to canvas offline with no loading step.
+const GEORGIA = "Georgia"
 
 // Nature scenes drift slowly and calmly. Particle speed is derived from
 // driftAmount in the renderer; the backdrop barely shifts hue so it reads as a
@@ -345,6 +349,20 @@ export const KINETIC_THEME_PRESETS: KineticThemePreset[] = [
     fontFamily: CINZEL,
     motion: NATURE_MOTION,
   },
+  // ---- Worship scene: Desert Cloth (canvas port of worship_background HTML)
+  {
+    presetId: "desert-cloth",
+    name: "Desert Cloth (Kinetic)",
+    group: "classical",
+    backgroundKind: "cloth",
+    colors: ["#cbab7f", "#b8956a", "#8a6a45"],
+    accentColor: "#f3e8d2",
+    textColor: "#fdf8ee",
+    fontFamily: GEORGIA,
+    // No hue/saturation breathing in this design; 6.5s matches the slowest
+    // fold loop so kinetic hosts keep animating continuously.
+    motion: { durationMs: 6500, driftAmount: 0.6, hueShiftDegrees: 0, saturationBoost: 0 },
+  },
 ]
 
 export function kineticThemeId(presetId: string): string {
@@ -389,7 +407,7 @@ export function buildKineticBroadcastTheme(
   preset: KineticThemePreset,
 ): BroadcastTheme {
   const isLight = preset.presetId === "editorial" || preset.presetId === "parchment"
-  return {
+  const theme: BroadcastTheme = {
     id: kineticThemeId(preset.presetId),
     name: preset.name,
     builtin: true,
@@ -458,6 +476,34 @@ export function buildKineticBroadcastTheme(
     },
     kinetic: toKineticMetadata(preset),
   }
+
+  // Desert Cloth carries the HTML design's own typography: Georgia italic
+  // cream verse text with ink shadow, white non-uppercase title above the
+  // verse, ~900px text column, and the design's 1.6s verse cross-fade.
+  if (preset.presetId === "desert-cloth") {
+    theme.verseText = {
+      ...theme.verseText,
+      fontStyle: "italic",
+      fontSize: 48,
+      fontWeight: 400,
+      lineHeight: 1.55,
+      shadow: { color: "rgba(61,43,23,0.55)", blur: 6, x: 0, y: 2 },
+    }
+    theme.reference = {
+      ...theme.reference,
+      color: "#ffffff",
+      fontSize: 68,
+      fontWeight: 400,
+      textTransform: "none",
+      uppercase: false,
+      letterSpacing: 0,
+      position: "above",
+    }
+    theme.layout = { ...theme.layout, textAreaWidth: 47 }
+    theme.transition = { ...theme.transition, duration: 1600 }
+  }
+
+  return theme
 }
 
 export function buildKineticBroadcastThemes(): BroadcastTheme[] {

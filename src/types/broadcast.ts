@@ -78,6 +78,8 @@ export type KineticBackgroundKind =
   | "stars"
   | "meadow"
   | "aurora"
+  // Worship scenes (deterministic canvas ports of standalone HTML designs).
+  | "cloth"
 
 export type KineticPattern = "dot-grid" | "diagonal-stripes"
 
@@ -158,6 +160,8 @@ export interface BroadcastTheme {
   }
   verseText: {
     fontFamily: string
+    /** Optional; absent on all pre-existing themes (renders as "normal"). */
+    fontStyle?: "normal" | "italic"
     fontSize: number
     fontWeight: number
     color: string

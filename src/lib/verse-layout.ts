@@ -413,7 +413,8 @@ function measureVerseHeight(
   )
   const lineHeightPx = lineHeightForPresentation(theme, verse, vt.fontSize)
   ctx.save()
-  ctx.font = `${vt.fontWeight} ${vt.fontSize}px "${vt.fontFamily}", serif`
+  const fontStylePrefix = vt.fontStyle === "italic" ? "italic " : ""
+  ctx.font = `${fontStylePrefix}${vt.fontWeight} ${vt.fontSize}px "${vt.fontFamily}", serif`
   if (vt.letterSpacing > 0) {
     try {
       ctx.letterSpacing = `${vt.letterSpacing}px`
