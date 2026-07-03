@@ -27,36 +27,40 @@ jobs:
             exit 1
           }
 
-          $oldNativeCommandPreference = $PSNativeCommandUseErrorActionPreference
-          $PSNativeCommandUseErrorActionPreference = $false
-          try {
-            $repoJson = gh api "repos/$repo" 2>&1 | Out-String
-            $repoExitCode = $LASTEXITCODE
+          $headers = @(
+            "-H", "Accept: application/vnd.github+json",
+            "-H", "Authorization: Bearer $env:GH_TOKEN",
+            "-H", "X-GitHub-Api-Version: 2022-11-28"
+          )
 
-            $probeOutput = gh api --method POST "repos/$repo/releases" `
-              --raw-field tag_name="" `
-              --raw-field name="SabbathCue release token probe" `
-              2>&1 | Out-String
-            $probeExitCode = $LASTEXITCODE
-          } finally {
-            $PSNativeCommandUseErrorActionPreference = $oldNativeCommandPreference
-          }
-
-          if ($repoExitCode -ne 0) {
-            Write-Error "RELEASES_REPO_TOKEN cannot access $repo. Use a token scoped to $repo with Contents: Read and write. GitHub CLI output: $repoJson"
+          $repoResponsePath = Join-Path $env:RUNNER_TEMP "release-repo-access.json"
+          $repoStatus = curl.exe -sS -o $repoResponsePath -w "%{http_code}" @headers "https://api.github.com/repos/$repo"
+          $repoJson = Get-Content $repoResponsePath -Raw
+          if ($repoStatus -ne "200") {
+            Write-Error "RELEASES_REPO_TOKEN cannot access $repo. Use a token scoped to $repo with Contents: Read and write. GitHub API output: $repoJson"
             exit 1
           }
 
-          if ($probeExitCode -eq 0) {
+          $probeBodyPath = Join-Path $env:RUNNER_TEMP "release-token-probe-request.json"
+          $probeResponsePath = Join-Path $env:RUNNER_TEMP "release-token-probe-response.json"
+          $probeBody = @{ tag_name = ""; name = "SabbathCue release token probe" } | ConvertTo-Json -Compress
+          [System.IO.File]::WriteAllText($probeBodyPath, $probeBody, [System.Text.UTF8Encoding]::new($false))
+
+          $probeStatus = curl.exe -sS -X POST -o $probeResponsePath -w "%{http_code}" @headers `
+            -H "Content-Type: application/json" `
+            --data-binary "@$probeBodyPath" `
+            "https://api.github.com/repos/$repo/releases"
+          $probeOutput = Get-Content $probeResponsePath -Raw
+          if ($probeStatus -eq "201") {
             Write-Error "Release token probe unexpectedly created a release."
             exit 1
           }
-          if ($probeOutput -match "HTTP 403|Resource not accessible by personal access token") {
-            Write-Error "RELEASES_REPO_TOKEN cannot create releases in $repo. Give the fine-grained PAT Contents: Read and write on $repo, or replace it with a classic PAT with repo/public_repo access. GitHub CLI output: $probeOutput"
+          if ($probeStatus -eq "403" -or $probeOutput -match "Resource not accessible by personal access token") {
+            Write-Error "RELEASES_REPO_TOKEN cannot create releases in $repo. Give the fine-grained PAT Contents: Read and write on $repo, or replace it with a classic PAT with repo/public_repo access. GitHub API output: $probeOutput"
             exit 1
           }
-          if ($probeOutput -notmatch "HTTP 422|Validation Failed") {
-            Write-Error "Release token probe returned an unexpected response. GitHub CLI output: $probeOutput"
+          if ($probeStatus -ne "422" -or $probeOutput -notmatch "Validation Failed") {
+            Write-Error "Release token probe returned an unexpected response. GitHub API output: $probeOutput"
             exit 1
           }
 
