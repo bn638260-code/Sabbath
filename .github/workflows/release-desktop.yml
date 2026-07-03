@@ -285,11 +285,21 @@ jobs:
           $assetArgs = $assets | Sort-Object Name -Unique | ForEach-Object { $_.FullName }
           Write-Host "Publishing $($assetArgs.Count) release assets"
 
-          # Clean up partial release from a failed prior run
-          gh release delete $tag --repo Bongisto/sabbathcue-releases --yes 2>$null
+          $repo = "Bongisto/sabbathcue-releases"
+          $releaseExists = $false
+          gh release view $tag --repo $repo *> $null
+          if ($LASTEXITCODE -eq 0) {
+            $releaseExists = $true
+          }
+
+          if ($releaseExists) {
+            Write-Host "Release $tag already exists; uploading assets with --clobber"
+            gh release upload $tag --repo $repo --clobber @assetArgs
+            exit $LASTEXITCODE
+          }
 
           gh release create $tag `
-            --repo Bongisto/sabbathcue-releases `
+            --repo $repo `
             --title "SabbathCue $version" `
             --notes "Windows installers for SabbathCue $version. Auto-update is supported via the NSIS .exe (recommended). MSI is provided as an alternate installer." `
-            $assetArgs
+            @assetArgs
