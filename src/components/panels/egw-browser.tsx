@@ -22,9 +22,11 @@ import {
   ArrowRightIcon,
   BookOpenIcon,
   SearchIcon,
+  SparklesIcon,
 } from "lucide-react"
 import { scrollIntoPanelView } from "@/lib/scroll-into-panel-view"
 import { useEgw, egwActions } from "@/hooks/use-egw"
+import { useTauriEvent } from "@/hooks/use-tauri-event"
 import { useEgwStore } from "@/stores/egw-store"
 import {
   createEgwQueueItem,
@@ -46,6 +48,9 @@ export function EgwBrowser() {
     currentParagraphs,
     searchResults,
     selectedParagraphId,
+    searchMode,
+    semanticStatus,
+    indexProgress,
   } = useEgw()
 
   const [view, setView] = useState<EgwView>("browse")
@@ -87,17 +92,62 @@ export function EgwBrowser() {
     [chapters, selectedChapter]
   )
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchInput(value)
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
-    if (value.trim().length >= 3) {
-      searchDebounceRef.current = setTimeout(() => {
-        egwActions.search(value, 20).catch(console.error)
-      }, 250)
+  const runSearch = useCallback((value: string) => {
+    const mode = useEgwStore.getState().searchMode
+    if (mode === "context") {
+      egwActions.contextSearch(value, 20).catch(console.error)
     } else {
-      useEgwStore.getState().setSearchResults([])
+      egwActions.search(value, 20).catch(console.error)
     }
   }, [])
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchInput(value)
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+      if (value.trim().length >= 3) {
+        searchDebounceRef.current = setTimeout(() => runSearch(value), 250)
+      } else {
+        useEgwStore.getState().setSearchResults([])
+      }
+    },
+    [runSearch],
+  )
+
+  const handleModeChange = useCallback(
+    (mode: "keyword" | "context") => {
+      useEgwStore.getState().setSearchMode(mode)
+      if (mode === "context") {
+        egwActions.loadSemanticStatus().catch(console.error)
+      }
+      if (searchInput.trim().length >= 3) runSearch(searchInput)
+    },
+    [runSearch, searchInput],
+  )
+
+  useEffect(() => {
+    if (view !== "search") return
+    egwActions.loadSemanticStatus().catch(console.error)
+  }, [view])
+
+  useTauriEvent<{ embedded: number; total: number }>("egw-semantic-progress", (p) => {
+    useEgwStore.getState().setIndexProgress(p)
+  })
+  useTauriEvent("egw-semantic-ready", () => {
+    useEgwStore.getState().setIndexProgress(null)
+    egwActions.loadSemanticStatus().catch(console.error)
+    if (
+      useEgwStore.getState().searchMode === "context" &&
+      searchInput.trim().length >= 3
+    ) {
+      runSearch(searchInput)
+    }
+  })
+  useTauriEvent<string>("egw-semantic-error", (message) => {
+    useEgwStore.getState().setIndexProgress(null)
+    egwActions.loadSemanticStatus().catch(console.error)
+    console.error("[egw-semantic] index build failed:", message)
+  })
 
   const handleParagraphClick = useCallback((p: EgwParagraph) => {
     useEgwStore.getState().setSelectedParagraphId(p.id)
@@ -263,12 +313,32 @@ export function EgwBrowser() {
             </div>
           </div>
         ) : (
-          <Input
-            placeholder="Search EGW paragraphs..."
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="h-7 text-xs"
-          />
+          <div className="flex items-center gap-1">
+            <Input
+              placeholder={
+                searchMode === "context"
+                  ? "Search EGW by meaning..."
+                  : "Search EGW paragraphs..."
+              }
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="h-7 flex-1 text-xs"
+            />
+            <Button
+              size="xs"
+              variant={searchMode === "keyword" ? "default" : "outline"}
+              onClick={() => handleModeChange("keyword")}
+            >
+              <SearchIcon className="size-3.5" /> Keyword
+            </Button>
+            <Button
+              size="xs"
+              variant={searchMode === "context" ? "default" : "outline"}
+              onClick={() => handleModeChange("context")}
+            >
+              <SparklesIcon className="size-3.5" /> Context
+            </Button>
+          </div>
         )}
       </div>
 
@@ -292,12 +362,46 @@ export function EgwBrowser() {
               {currentParagraphs.map((p) => renderRow(p))}
             </div>
           )
+        ) : searchMode === "context" && semanticStatus && !semanticStatus.model_available ? (
+          <div className="flex h-full items-center justify-center">
+            <PanelEmptyState
+              icon={<SparklesIcon className="size-8" />}
+              title="Context search unavailable"
+              description="The semantic model is not installed. Use keyword search instead."
+            />
+          </div>
+        ) : searchMode === "context" && semanticStatus && !semanticStatus.ready ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3">
+            <PanelEmptyState
+              icon={<SparklesIcon className="size-8" />}
+              title={semanticStatus.building ? "Building context index" : "Context index needed"}
+              description={
+                semanticStatus.building
+                  ? indexProgress
+                    ? `Embedding paragraphs: ${indexProgress.embedded} / ${indexProgress.total}`
+                    : "Preparing the Ellen G. White library for meaning-based search."
+                  : "One-time setup: index the Ellen G. White library for meaning-based search."
+              }
+            />
+            {!semanticStatus.building ? (
+              <Button
+                size="xs"
+                onClick={() => egwActions.buildSemanticIndex().catch(console.error)}
+              >
+                <SparklesIcon className="size-3.5" /> Build context index
+              </Button>
+            ) : null}
+          </div>
         ) : searchInput.trim().length < 3 ? (
           <div className="flex h-full items-center justify-center">
             <PanelEmptyState
               icon={<SearchIcon className="size-8" />}
               title="Type to search"
-              description="Search Ellen G. White paragraphs by keyword."
+              description={
+                searchMode === "context"
+                  ? "Describe a topic to find Ellen G. White passages by meaning."
+                  : "Search Ellen G. White paragraphs by keyword."
+              }
             />
           </div>
         ) : searchResults.length === 0 ? (

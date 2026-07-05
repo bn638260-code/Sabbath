@@ -48,8 +48,9 @@ export function handleQuickSearchKeyDown(
 export function useQuickVerseSearch(options: {
   books: Book[]
   activeTranslationId: number
+  onVerseSelected?: (verse: Verse) => void
 }) {
-  const { books, activeTranslationId } = options
+  const { books, activeTranslationId, onVerseSelected } = options
   const [quickInput, setQuickInput] = useState("")
   const [showQuickVerses, setShowQuickVerses] = useState(false)
   const [quickVersesList, setQuickVersesList] = useState<Verse[]>([])
@@ -136,15 +137,19 @@ export function useQuickVerseSearch(options: {
     [clearQuickSearch, quickInput, quickSuggestion],
   )
 
-  const handleQuickVerseClick = useCallback((verse: Verse) => {
-    useBibleStore.getState().setPendingNavigation({
-      bookNumber: verse.book_number,
-      chapter: verse.chapter,
-      verse: verse.verse,
-    })
-    setQuickInput("")
-    setShowQuickVerses(false)
-  }, [])
+  const handleQuickVerseClick = useCallback(
+    (verse: Verse) => {
+      useBibleStore.getState().setPendingNavigation({
+        bookNumber: verse.book_number,
+        chapter: verse.chapter,
+        verse: verse.verse,
+      })
+      onVerseSelected?.(verse)
+      setQuickInput("")
+      setShowQuickVerses(false)
+    },
+    [onVerseSelected],
+  )
 
   return {
     quickInput,

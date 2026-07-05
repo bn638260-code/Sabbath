@@ -1,6 +1,12 @@
 import { useEgwStore } from "@/stores/egw-store"
 import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
-import type { EgwBook, EgwChapterInfo, EgwParagraph } from "@/types"
+import type {
+  EgwBook,
+  EgwChapterInfo,
+  EgwParagraph,
+  EgwSemanticResult,
+  EgwSemanticStatus,
+} from "@/types"
 
 let chapterRequestId = 0
 let searchRequestId = 0
@@ -48,11 +54,40 @@ async function search(query: string, limit = 20) {
   return results
 }
 
+async function contextSearch(query: string, limit = 20) {
+  if (!isTauriRuntime()) return []
+  const reqId = ++searchRequestId
+  const results = await invokeTauri<EgwSemanticResult[]>("egw_semantic_search", {
+    query,
+    limit,
+  })
+  const paragraphs = results.map((r) => r.paragraph)
+  if (reqId !== searchRequestId) return paragraphs
+  useEgwStore.getState().setSearchResults(paragraphs)
+  return paragraphs
+}
+
+async function loadSemanticStatus() {
+  if (!isTauriRuntime()) return null
+  const status = await invokeTauri<EgwSemanticStatus>("egw_semantic_status")
+  useEgwStore.getState().setSemanticStatus(status)
+  return status
+}
+
+async function buildSemanticIndex() {
+  if (!isTauriRuntime()) return
+  await invokeTauri("egw_build_semantic_index")
+  await loadSemanticStatus()
+}
+
 export const egwActions = {
   loadBooks,
   loadChapters,
   loadChapter,
   search,
+  contextSearch,
+  loadSemanticStatus,
+  buildSemanticIndex,
 }
 
 export function useEgw() {
@@ -63,6 +98,9 @@ export function useEgw() {
   const currentParagraphs = useEgwStore((s) => s.currentParagraphs)
   const searchResults = useEgwStore((s) => s.searchResults)
   const selectedParagraphId = useEgwStore((s) => s.selectedParagraphId)
+  const searchMode = useEgwStore((s) => s.searchMode)
+  const semanticStatus = useEgwStore((s) => s.semanticStatus)
+  const indexProgress = useEgwStore((s) => s.indexProgress)
 
   return {
     books,
@@ -72,6 +110,9 @@ export function useEgw() {
     currentParagraphs,
     searchResults,
     selectedParagraphId,
+    searchMode,
+    semanticStatus,
+    indexProgress,
     ...egwActions,
   }
 }

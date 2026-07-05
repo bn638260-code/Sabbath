@@ -327,6 +327,24 @@ pub fn tokenizer_path(app: &AppHandle) -> PathBuf {
     })
 }
 
+pub const EGW_EMBEDDINGS_FILENAME: &str = "egw-minilm-l6-v2.bin";
+pub const EGW_EMBEDDING_IDS_FILENAME: &str = "egw-minilm-l6-v2-ids.bin";
+
+/// On-device EGW paragraph embeddings (user-generated, never shipped).
+pub fn egw_embeddings_path(app: &AppHandle) -> PathBuf {
+    app_data_dir(app)
+        .unwrap_or_else(|_| dev_root())
+        .join("embeddings")
+        .join(EGW_EMBEDDINGS_FILENAME)
+}
+
+pub fn egw_embedding_ids_path(app: &AppHandle) -> PathBuf {
+    app_data_dir(app)
+        .unwrap_or_else(|_| dev_root())
+        .join("embeddings")
+        .join(EGW_EMBEDDING_IDS_FILENAME)
+}
+
 pub fn embeddings_path(app: &AppHandle) -> PathBuf {
     let roots: Vec<PathBuf> = [
         app_data_dir(app).ok(),

@@ -126,6 +126,24 @@ impl DetectionPipeline {
         self.semantic.is_ready()
     }
 
+    /// Embed arbitrary text with the semantic embedder, if one is loaded.
+    /// Used by callers that maintain their own vector index (e.g. EGW
+    /// context search).
+    pub fn embed_text(&self, text: &str) -> Option<Vec<f32>> {
+        if !self.has_semantic() {
+            return None;
+        }
+        self.semantic.embed_text(text)
+    }
+
+    /// Dimensionality of the semantic embedder's vectors, if one is loaded.
+    pub fn embedding_dimension(&self) -> Option<usize> {
+        if !self.has_semantic() {
+            return None;
+        }
+        Some(self.semantic.embedding_dimension())
+    }
+
     /// Enable or disable synonym expansion (paraphrase detection mode).
     pub fn set_use_synonyms(&mut self, enabled: bool) {
         self.semantic.set_use_synonyms(enabled);

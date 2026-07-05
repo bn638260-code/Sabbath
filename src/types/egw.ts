@@ -12,6 +12,19 @@ export interface EgwChapterInfo {
   paragraph_count: number
 }
 
+export interface EgwSemanticStatus {
+  ready: boolean
+  building: boolean
+  model_available: boolean
+  has_content: boolean
+}
+
+export interface EgwSemanticResult {
+  paragraph: EgwParagraph
+  score: number
+  source: string
+}
+
 export interface EgwParagraph {
   id: number
   book_number: number

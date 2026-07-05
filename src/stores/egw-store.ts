@@ -1,5 +1,7 @@
 import { create } from "zustand"
-import type { EgwBook, EgwChapterInfo, EgwParagraph } from "@/types"
+import type { EgwBook, EgwChapterInfo, EgwParagraph, EgwSemanticStatus } from "@/types"
+
+export type EgwSearchMode = "keyword" | "context"
 
 interface EgwState {
   books: EgwBook[]
@@ -9,6 +11,9 @@ interface EgwState {
   currentParagraphs: EgwParagraph[]
   searchResults: EgwParagraph[]
   selectedParagraphId: number | null
+  searchMode: EgwSearchMode
+  semanticStatus: EgwSemanticStatus | null
+  indexProgress: { embedded: number; total: number } | null
 
   setBooks: (books: EgwBook[]) => void
   setSelectedBookNumber: (n: number | null) => void
@@ -17,6 +22,9 @@ interface EgwState {
   setCurrentParagraphs: (paragraphs: EgwParagraph[]) => void
   setSearchResults: (results: EgwParagraph[]) => void
   setSelectedParagraphId: (id: number | null) => void
+  setSearchMode: (mode: EgwSearchMode) => void
+  setSemanticStatus: (status: EgwSemanticStatus | null) => void
+  setIndexProgress: (progress: { embedded: number; total: number } | null) => void
 }
 
 export const useEgwStore = create<EgwState>((set) => ({
@@ -27,6 +35,9 @@ export const useEgwStore = create<EgwState>((set) => ({
   currentParagraphs: [],
   searchResults: [],
   selectedParagraphId: null,
+  searchMode: "keyword",
+  semanticStatus: null,
+  indexProgress: null,
 
   setBooks: (books) => set({ books }),
   setSelectedBookNumber: (selectedBookNumber) =>
@@ -42,4 +53,7 @@ export const useEgwStore = create<EgwState>((set) => ({
   setCurrentParagraphs: (currentParagraphs) => set({ currentParagraphs }),
   setSearchResults: (searchResults) => set({ searchResults }),
   setSelectedParagraphId: (selectedParagraphId) => set({ selectedParagraphId }),
+  setSearchMode: (searchMode) => set({ searchMode, searchResults: [] }),
+  setSemanticStatus: (semanticStatus) => set({ semanticStatus }),
+  setIndexProgress: (indexProgress) => set({ indexProgress }),
 }))

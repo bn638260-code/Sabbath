@@ -246,6 +246,17 @@ impl SemanticDetector {
         }
     }
 
+    /// Embed arbitrary text with the underlying embedder. Used by callers
+    /// that maintain their own vector index (e.g. EGW context search).
+    pub fn embed_text(&self, text: &str) -> Option<Vec<f32>> {
+        self.embedder.embed(text).ok()
+    }
+
+    /// Dimensionality of the embedder's vectors.
+    pub fn embedding_dimension(&self) -> usize {
+        self.embedder.dimension()
+    }
+
     // ---- private helpers ----
 
     #[expect(

@@ -54,6 +54,7 @@ pub fn run() {
             detection_cooldown,
         )))
         .manage(Mutex::new(rhema_detection::ReadingMode::new()))
+        .manage(Mutex::new(commands::egw_semantic::EgwSemanticState::default()))
         .manage(Mutex::new(commands::remote::OscRuntime::new()))
         .manage(Mutex::new(commands::remote::HttpRuntime::new()))
         .invoke_handler(tauri::generate_handler![
@@ -71,6 +72,9 @@ pub fn run() {
             commands::egw::egw_get_chapter,
             commands::egw::egw_get_paragraph,
             commands::egw::egw_search,
+            commands::egw_semantic::egw_semantic_status,
+            commands::egw_semantic::egw_build_semantic_index,
+            commands::egw_semantic::egw_semantic_search,
             commands::detection::detect_verses,
             commands::detection::detection_status,
             commands::detection::semantic_search,

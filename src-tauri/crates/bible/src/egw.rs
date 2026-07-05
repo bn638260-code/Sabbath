@@ -83,6 +83,39 @@ impl BibleDb {
         }
     }
 
+    /// All EGW paragraphs as `(id, text)` pairs, for embedding-index builds.
+    /// Returns an empty list when no EGW content has been imported.
+    pub fn list_egw_paragraph_texts(&self) -> Result<Vec<(i64, String)>, BibleError> {
+        let conn = self.conn()?;
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='egw_paragraphs'",
+                [],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+        if !table_exists {
+            return Ok(vec![]);
+        }
+        let mut stmt = conn.prepare("SELECT id, text FROM egw_paragraphs ORDER BY id")?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// Get a single paragraph by its row id.
+    pub fn get_egw_paragraph_by_id(&self, id: i64) -> Result<Option<EgwParagraph>, BibleError> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, book_number, book_title, chapter, chapter_title, paragraph, text \
+             FROM egw_paragraphs WHERE id = ?1",
+        )?;
+        let mut rows = stmt.query_map(rusqlite::params![id], map_egw_paragraph)?;
+        match rows.next() {
+            Some(row) => Ok(Some(row?)),
+            None => Ok(None),
+        }
+    }
+
     /// Full-text keyword search of EGW paragraphs via FTS5 (all terms, any order).
     pub fn search_egw(&self, query: &str, limit: usize) -> Result<Vec<EgwParagraph>, BibleError> {
         let conn = self.conn()?;
@@ -289,6 +322,22 @@ mod tests {
         let p = db.get_egw_paragraph(1, 1, 2).unwrap();
         assert_eq!(p.unwrap().text, "The history of the great conflict.");
         assert!(db.get_egw_paragraph(1, 1, 99).unwrap().is_none());
+    }
+
+    #[test]
+    fn lists_all_paragraph_texts_for_embedding() {
+        let db = test_db();
+        let texts = db.list_egw_paragraph_texts().unwrap();
+        assert_eq!(texts.len(), 2);
+        assert_eq!(texts[0], (1, "God is love.".to_string()));
+    }
+
+    #[test]
+    fn gets_paragraph_by_row_id() {
+        let db = test_db();
+        let p = db.get_egw_paragraph_by_id(2).unwrap().unwrap();
+        assert_eq!(p.text, "The history of the great conflict.");
+        assert!(db.get_egw_paragraph_by_id(99).unwrap().is_none());
     }
 
     #[test]

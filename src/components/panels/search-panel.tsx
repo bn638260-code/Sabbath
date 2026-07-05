@@ -3,6 +3,8 @@ import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { Input } from "@/components/ui/input"
 import { BookChapterBrowser } from "@/components/panels/search/BookChapterBrowser"
+import { PinnedVerseCard } from "@/components/panels/search/PinnedVerseCard"
+import { SearchTabButton } from "@/components/panels/search/SearchTabButton"
 import { ContextSearchTab } from "@/components/panels/search/ContextSearchTab"
 import { QuickVerseSearch } from "@/components/panels/search/QuickVerseSearch"
 import { TranslationSelect } from "@/components/panels/search/TranslationSelect"
@@ -21,7 +23,7 @@ import { selectPreviewVerse } from "@/lib/presentation-workflow"
 import { scrollIntoPanelView } from "@/lib/scroll-into-panel-view"
 import { useBibleStore } from "@/stores/bible-store"
 import { useQueueStore } from "@/stores/queue-store"
-import type { Book } from "@/types"
+import type { Book, Verse } from "@/types"
 import { BookOpenIcon, SearchIcon, SparklesIcon } from "lucide-react"
 
 type SearchTab = "book" | "context" | "egw"
@@ -37,6 +39,7 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
   const [chapter, setChapter] = useState(1)
   const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null)
+  const [pinnedVerse, setPinnedVerse] = useState<Verse | null>(null)
 
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -72,7 +75,7 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
     quickInputRef,
     handleQuickKeyDown,
     handleQuickVerseClick,
-  } = useQuickVerseSearch({ books, activeTranslationId })
+  } = useQuickVerseSearch({ books, activeTranslationId, onVerseSelected: setPinnedVerse })
 
   const effectiveSelectedVerseId = useMemo(
     () => resolveEffectiveVerseId(selectedVerseId, currentChapter, selectedVerse),
@@ -212,62 +215,30 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
 
       <div className="flex min-h-11 shrink-0 items-center gap-0 border-b border-[var(--border-subtle)]">
         <div className="flex items-center gap-1 px-3 py-1.5">
-          <button
-            data-tour="book-search"
+          <SearchTabButton
+            icon={BookOpenIcon}
+            label="Book search"
+            active={activeTab === "book"}
+            dataTour="book-search"
             onClick={() => setActiveTab("book")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
-              activeTab === "book"
-                ? "border-lime-500/50 bg-lime-500/15"
-                : "border-[var(--border-subtle)] text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <BookOpenIcon
-              className={cn(
-                "size-3.5",
-                activeTab === "book" ? "text-lime-700 dark:text-lime-400" : "text-muted-foreground",
-              )}
-            />
-            Book search
-          </button>
-          <button
-            data-tour="context-search"
+          />
+          <SearchTabButton
+            icon={SparklesIcon}
+            label="Context search"
+            active={activeTab === "context"}
+            dataTour="context-search"
+            inactiveClassName="border-[var(--border-subtle)] bg-[var(--shell-code-bg)] text-muted-foreground hover:text-foreground"
             onClick={() => {
               setActiveTab("context")
               clearContextQuery()
             }}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
-              activeTab === "context"
-                ? "border-lime-500/50 bg-lime-500/15"
-                : "border-[var(--border-subtle)] bg-[var(--shell-code-bg)] text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <SparklesIcon
-              className={cn(
-                "size-3.5",
-                activeTab === "context" ? "text-lime-700 dark:text-lime-400" : "text-muted-foreground",
-              )}
-            />
-            Context search
-          </button>
-          <button
+          />
+          <SearchTabButton
+            icon={BookOpenIcon}
+            label="EGW"
+            active={activeTab === "egw"}
             onClick={() => setActiveTab("egw")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
-              activeTab === "egw"
-                ? "border-lime-500/50 bg-lime-500/15"
-                : "border-[var(--border-subtle)] text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <BookOpenIcon
-              className={cn(
-                "size-3.5",
-                activeTab === "egw" ? "text-lime-700 dark:text-lime-400" : "text-muted-foreground",
-              )}
-            />
-            EGW
-          </button>
+          />
         </div>
 
         {activeTab === "book" ? (
@@ -304,6 +275,15 @@ export function SearchPanel({ embedded = false }: { embedded?: boolean }) {
           </div>
         ) : null}
       </div>
+
+      {activeTab === "book" && pinnedVerse ? (
+        <PinnedVerseCard
+          verse={pinnedVerse}
+          translationLabel={translationLabel}
+          onSelect={handleVerseClick}
+          onDismiss={() => setPinnedVerse(null)}
+        />
+      ) : null}
 
       {activeTab === "book" ? (
         <BookChapterBrowser

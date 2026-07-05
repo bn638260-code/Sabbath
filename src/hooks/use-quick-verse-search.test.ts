@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest"
-import { handleQuickSearchKeyDown } from "./use-quick-verse-search"
+import { act, renderHook } from "@testing-library/react"
+import { handleQuickSearchKeyDown, useQuickVerseSearch } from "./use-quick-verse-search"
+import type { Verse } from "@/types"
 
 describe("handleQuickSearchKeyDown", () => {
   it("accepts the autocomplete suggestion on Tab", () => {
@@ -60,5 +63,31 @@ describe("handleQuickSearchKeyDown", () => {
     )
 
     expect(clearQuickSearch).toHaveBeenCalled()
+  })
+})
+
+describe("useQuickVerseSearch", () => {
+  it("notifies onVerseSelected when a dropdown verse is clicked", () => {
+    const onVerseSelected = vi.fn()
+    const { result } = renderHook(() =>
+      useQuickVerseSearch({ books: [], activeTranslationId: 1, onVerseSelected }),
+    )
+
+    const verse: Verse = {
+      id: 42,
+      translation_id: 1,
+      book_number: 43,
+      book_name: "John",
+      book_abbreviation: "Jhn",
+      chapter: 3,
+      verse: 16,
+      text: "For God so loved the world...",
+    }
+
+    act(() => {
+      result.current.handleQuickVerseClick(verse)
+    })
+
+    expect(onVerseSelected).toHaveBeenCalledWith(verse)
   })
 })
