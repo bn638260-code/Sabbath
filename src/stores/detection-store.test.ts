@@ -772,6 +772,35 @@ describe("detection store", () => {
     expect(refs).toEqual(["Daniel 7:9"])
   })
 
+  it("drops existing semantic detections after semantic detection is disabled and a new batch arrives", () => {
+    const store = useDetectionStore.getState()
+
+    store.addDetections([
+      makeDetection({
+        verse_ref: "Romans 8:28",
+        source: "semantic",
+        confidence: 1,
+      }),
+    ])
+    expect(
+      useDetectionStore.getState().detections.map((d) => d.verse_ref)
+    ).toEqual(["Romans 8:28"])
+
+    useSettingsStore.setState({ semanticDetectionEnabled: false })
+    now = new Date("2026-05-19T00:00:01Z").getTime()
+
+    store.addDetections([
+      makeDetection({
+        verse_ref: "Daniel 7:9",
+        source: "direct",
+        confidence: 0.8,
+      }),
+    ])
+
+    const refs = useDetectionStore.getState().detections.map((d) => d.verse_ref)
+    expect(refs).toEqual(["Daniel 7:9"])
+  })
+
   it("evictStale removes detections older than the TTL and keeps fresh ones", () => {
     const store = useDetectionStore.getState()
 

@@ -406,6 +406,7 @@ export const useDetectionStore = create<DetectionState>((set) => ({
 
       // Merge existing detections
       for (const d of state.detections) {
+        if (isHiddenBySemanticSettings(d)) continue
         const key = findMapEntryKey(map, d) ?? detectionKey(d)
         const existing = map.get(key)
         const dWithMeta = withReceivedAt(d)
