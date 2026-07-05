@@ -34,7 +34,8 @@ pub(crate) const PARTIAL_SEMANTIC_MIN_WORDS: usize = 3;
 pub(crate) const LIVE_SEMANTIC_CAP: usize = 3;
 pub(crate) const LIVE_SEMANTIC_OVERLAP_BOOST: f64 = 0.10;
 /// Default minimum confidence for live semantic/FTS detections.
-/// The active value is synced from the app settings.
+/// The active value is synced from the app settings; tests use this default.
+#[cfg(test)]
 pub(crate) const LIVE_SEMANTIC_MIN_CONFIDENCE: f64 = 0.70;
 
 /// Maximum trailing words of the rolling transcript window fed to live
@@ -553,6 +554,41 @@ mod tests {
 
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].verse_ref, "Revelation 13:8");
+    }
+
+    #[test]
+    fn stale_reading_scope_releases_on_strong_out_of_book_semantic_hit() {
+        // Reading mode anchored on John 5, but no verse has matched for 20s+
+        // and the speaker is now paraphrasing Psalm 23 — release the scope.
+        let results = vec![make_detection_result("Psalm 23:1", 19, 23, 1, 0.93)];
+
+        assert!(detection_logic::should_release_stale_reading_scope(
+            &results, 43, 20
+        ));
+    }
+
+    #[test]
+    fn active_reading_scope_is_not_released_while_verses_still_match() {
+        // Parallel-passage echo while genuinely reading the chapter: reading
+        // mode advanced recently, so out-of-book hits stay suppressed.
+        let results = vec![make_detection_result("Mark 2:9", 41, 2, 9, 0.95)];
+
+        assert!(!detection_logic::should_release_stale_reading_scope(
+            &results, 43, 5
+        ));
+    }
+
+    #[test]
+    fn stale_reading_scope_holds_without_a_strong_out_of_book_hit() {
+        // Weak out-of-book noise and same-book hits never release the scope.
+        let results = vec![
+            make_detection_result("Job 23:2", 18, 23, 2, 0.72),
+            make_detection_result("John 5:8", 43, 5, 8, 0.97),
+        ];
+
+        assert!(!detection_logic::should_release_stale_reading_scope(
+            &results, 43, 60
+        ));
     }
 
     #[test]

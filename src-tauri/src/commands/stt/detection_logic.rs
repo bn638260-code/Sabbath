@@ -154,6 +154,33 @@ pub(crate) fn should_restart_reading(
     true
 }
 
+/// No verse match in the reading chapter for this long means the speaker has
+/// likely moved on; the scope may be released by a strong out-of-book hit.
+pub(crate) const READING_SCOPE_STALE_SECS: u64 = 20;
+
+/// Minimum confidence for an out-of-book semantic hit to release a stale
+/// reading scope. Kept well above `LIVE_SEMANTIC_MIN_CONFIDENCE` so keyword
+/// noise never unlocks the scope.
+pub(crate) const READING_SCOPE_RELEASE_MIN_CONFIDENCE: f64 = 0.85;
+
+/// While reading mode is advancing, out-of-book semantic hits are
+/// parallel-passage echoes and stay suppressed. Once the scope is stale (no
+/// verse matched for `READING_SCOPE_STALE_SECS`), a strong semantic hit in a
+/// *different book* means the speaker has moved on and the scope should be
+/// released instead of blanket-suppressing until the reading-mode timeout.
+pub(crate) fn should_release_stale_reading_scope(
+    results: &[crate::commands::detection::DetectionResult],
+    scope_book_number: i32,
+    seconds_since_last_verse_match: u64,
+) -> bool {
+    seconds_since_last_verse_match >= READING_SCOPE_STALE_SECS
+        && results.iter().any(|result| {
+            result.content_type == "bible"
+                && result.book_number != scope_book_number
+                && result.confidence >= READING_SCOPE_RELEASE_MIN_CONFIDENCE
+        })
+}
+
 pub(crate) fn filter_semantic_results_to_reading_scope(
     results: Vec<crate::commands::detection::DetectionResult>,
     scope: Option<(i32, i32)>,

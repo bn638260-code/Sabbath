@@ -12,11 +12,12 @@ use super::detection::{is_semantic_detection_enabled, FINAL_SEMANTIC_MIN_WORDS};
 use super::detection_jobs::finalize_live_semantic_results;
 use super::detection_logic::{
     choose_reading_candidate, direct_reading_candidates, filter_direct_results_to_scope_if_present,
-    filter_semantic_results_to_reading_scope, should_restart_reading, strip_reference_scaffolding,
+    filter_semantic_results_to_reading_scope, should_release_stale_reading_scope,
+    should_restart_reading, strip_reference_scaffolding,
     DirectReadingCandidate,
 };
 use super::utils::{transcript_logging_enabled, truncate_safe};
-fn active_reading_bible_scope(app: &AppHandle) -> Option<(i32, i32, String)> {
+fn active_reading_bible_scope(app: &AppHandle) -> Option<(i32, i32, String, u64)> {
     let reading_mode_state: State<'_, Mutex<ReadingMode>> = app.state();
     let Ok(reading_mode) = reading_mode_state.lock() else {
         log::warn!("[DET-SEMANTIC] ReadingMode busy; semantic scope filter skipped");
@@ -37,16 +38,34 @@ fn active_reading_bible_scope(app: &AppHandle) -> Option<(i32, i32, String)> {
         book_number,
         chapter,
         reading_mode.current_book_name().to_string(),
+        reading_mode.seconds_since_last_match(),
     ))
+}
+
+fn pause_stale_reading_scope(app: &AppHandle) {
+    let reading_mode_state: State<'_, Mutex<ReadingMode>> = app.state();
+    if let Ok(mut reading_mode) = reading_mode_state.lock() {
+        reading_mode.pause();
+    };
 }
 
 fn filter_live_semantic_results_to_reading_scope(
     app: &AppHandle,
     results: Vec<crate::commands::detection::DetectionResult>,
 ) -> Vec<crate::commands::detection::DetectionResult> {
-    let Some((book_number, chapter, book_name)) = active_reading_bible_scope(app) else {
+    let Some((book_number, chapter, book_name, stale_secs)) = active_reading_bible_scope(app)
+    else {
         return results;
     };
+
+    if should_release_stale_reading_scope(&results, book_number, stale_secs) {
+        log::info!(
+            "[DET-SEMANTIC] Releasing stale reading scope {book_name} {chapter} \
+             ({stale_secs}s since last verse match; strong out-of-book hit)"
+        );
+        pause_stale_reading_scope(app);
+        return results;
+    }
 
     let before = results.len();
     let results = filter_semantic_results_to_reading_scope(results, Some((book_number, chapter)));
@@ -64,7 +83,7 @@ fn filter_live_direct_results_to_reading_scope(
     app: &AppHandle,
     results: Vec<crate::commands::detection::DetectionResult>,
 ) -> Vec<crate::commands::detection::DetectionResult> {
-    let Some((book_number, chapter, book_name)) = active_reading_bible_scope(app) else {
+    let Some((book_number, chapter, book_name, _)) = active_reading_bible_scope(app) else {
         return results;
     };
 

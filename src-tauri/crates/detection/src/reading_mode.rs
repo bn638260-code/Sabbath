@@ -181,6 +181,27 @@ impl ReadingMode {
         }
     }
 
+    /// Pause reading mode without clearing verses (resumable), e.g. when the
+    /// speaker has clearly moved to a different passage before the timeout.
+    pub fn pause(&mut self) {
+        if self.active {
+            log::info!(
+                "[READING] Paused: {} {} (verses retained)",
+                self.book_name,
+                self.chapter
+            );
+        }
+        self.active = false;
+        // Drop the pre-pause transcript: the speaker has moved elsewhere, so
+        // letting it merge with post-resume speech can fake a verse overlap.
+        self.accumulated_text.clear();
+    }
+
+    /// Seconds since the last verse match (or since activation if none yet).
+    pub fn seconds_since_last_match(&self) -> u64 {
+        self.last_match_time.elapsed().as_secs()
+    }
+
     /// Get the book number being tracked.
     pub fn current_book(&self) -> i32 {
         self.book_number
@@ -415,7 +436,7 @@ impl ReadingMode {
         // This allows "verse N" references to re-activate.
         if self.last_match_time.elapsed().as_millis() > READING_MODE_TIMEOUT_MS && self.active {
             log::info!("[READING] Timeout — pausing (toggle still on, verses retained)");
-            self.active = false;
+            self.pause();
         }
 
         // Check for explicit verse number references like "verse three", "verse 4".
@@ -946,6 +967,42 @@ mod tests {
         // overlap and falsely advance.
         let r = rm.check_transcript("three four");
         assert!(r.is_none());
+        assert_eq!(rm.current_verse(), Some(1));
+    }
+
+    #[test]
+    fn test_pause_retains_verses_for_resume() {
+        let mut rm = ReadingMode::new();
+
+        rm.start(44, "Acts", 15, 28, sample_verses());
+        assert!(rm.is_active());
+        rm.pause();
+        assert!(!rm.is_active());
+        assert!(rm.has_verses());
+    }
+
+    #[test]
+    fn pause_clears_accumulated_text_so_stale_words_cannot_fake_a_match() {
+        let mut rm = ReadingMode::new();
+        let verses = vec![
+            (1, "alpha beta gamma delta".to_string()),
+            (
+                2,
+                "one two three four five six seven eight nine ten".to_string(),
+            ),
+        ];
+        rm.start(1, "Test", 1, 1, verses);
+
+        // Partial verse-2 words accumulate without matching anything.
+        assert!(rm.check_transcript("one two three").is_none());
+
+        // Speaker moves to a different passage — reading scope pauses.
+        rm.pause();
+        rm.resume();
+
+        // Post-resume fragment alone is below verse 2's overlap threshold;
+        // it must not combine with the pre-pause "one two three" to advance.
+        assert!(rm.check_transcript("four five").is_none());
         assert_eq!(rm.current_verse(), Some(1));
     }
 
