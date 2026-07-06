@@ -41,7 +41,7 @@ If PowerShell cannot find `bun` or `cargo`, restart the terminal after installin
 
 If PowerShell blocks `npm`, use `npm.cmd` explicitly.
 
-- [ ] `bun run tauri build`
+- [ ] `bun run tauri:build:release`
 
 ## Clean Machine Smoke Test
 

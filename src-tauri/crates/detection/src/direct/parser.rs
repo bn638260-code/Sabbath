@@ -128,8 +128,7 @@ fn is_chapter_keyword(word: &str) -> bool {
 fn is_verse_keyword(word: &str) -> bool {
     matches!(
         word,
-        "verse" | "verses" | "vers" | "versiculo" | "versículo" | "verso" | "verset"
-            | "versets"
+        "verse" | "verses" | "vers" | "versiculo" | "versículo" | "verso" | "verset" | "versets"
     )
 }
 
@@ -715,8 +714,7 @@ fn consume_number_at(tokens: &[Token], start: usize) -> Option<(i32, usize)> {
 /// Supports common spoken number words used by the STT language profiles.
 pub fn parse_spoken_number(word: &str) -> Option<i32> {
     match word.to_lowercase().as_str() {
-        "zero" | "nul" => Some(0),
-        "cero" | "zéro" => Some(0),
+        "zero" | "nul" | "cero" | "zéro" => Some(0),
         "one" | "een" | "uno" | "un" | "una" | "um" | "uma" => Some(1),
         "two" | "twee" | "dos" | "deux" | "dois" | "duas" => Some(2),
         "three" | "drie" | "tres" | "três" | "trois" => Some(3),
@@ -732,9 +730,7 @@ pub fn parse_spoken_number(word: &str) -> Option<i32> {
         "thirteen" | "dertien" | "trece" | "treize" | "treze" => Some(13),
         "fourteen" | "veertien" | "catorce" | "quatorze" => Some(14),
         "fifteen" | "vyftien" | "quince" | "quinze" => Some(15),
-        "sixteen" | "sestien" | "dieciseis" | "dieciséis" | "seize" | "dezesseis" => {
-            Some(16)
-        }
+        "sixteen" | "sestien" | "dieciseis" | "dieciséis" | "seize" | "dezesseis" => Some(16),
         "seventeen" | "sewentien" | "diecisiete" | "dezessete" => Some(17),
         "eighteen" | "agtien" | "dieciocho" | "dezoito" => Some(18),
         "nineteen" | "negentien" | "diecinueve" | "dezenove" => Some(19),

@@ -5,6 +5,7 @@ import {
   clampMonitorIndex,
   normalizeMonitorList,
   resolveMonitorIndexFromKey,
+  shouldPersistResolvedMonitorKey,
   type MonitorInfo,
 } from "./broadcast-settings-wiring"
 
@@ -90,6 +91,16 @@ describe("broadcast settings wiring", () => {
     ]
 
     expect(resolveMonitorIndexFromKey(monitors, "missing-key", 1)).toBe(1)
+  })
+
+  it("preserves a remembered projector key when refresh falls back to another monitor", () => {
+    const monitors = [
+      makeMonitor({ name: "Internal Display", width: 1920, height: 1080, x: 0, y: 0 }),
+    ]
+
+    expect(shouldPersistResolvedMonitorKey(monitors, "projector|1920x1080|1920,0")).toBe(false)
+    expect(shouldPersistResolvedMonitorKey(monitors, monitors[0].key)).toBe(true)
+    expect(shouldPersistResolvedMonitorKey(monitors, "")).toBe(true)
   })
 
   it("falls back to the primary monitor for invalid persisted selections", () => {

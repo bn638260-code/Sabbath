@@ -124,7 +124,7 @@
       <g transform="translate(940 88)">
         <rect width="428" height="56" rx="10" fill="#0f1521" stroke="#1f2734"/>
         <text x="20" y="24" font-size="14" font-weight="600" fill="#ffffff">SQLite + ONNX models</text>
-        <text x="20" y="44" font-size="12" fill="#9aa4b2">data/rhema.db (FTS5) · Qwen3-Embedding-0.6B INT8 ONNX</text>
+        <text x="20" y="44" font-size="12" fill="#9aa4b2">data/rhema.db (FTS5) · all-MiniLM-L6-v2 INT8 ONNX</text>
       </g>
     </g>
 

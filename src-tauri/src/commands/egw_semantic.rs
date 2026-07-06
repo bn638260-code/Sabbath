@@ -37,6 +37,10 @@ pub struct EgwSemanticState {
 }
 
 #[derive(Serialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Tauri status DTO mirrors frontend boolean readiness flags"
+)]
 pub struct EgwSemanticStatus {
     pub ready: bool,
     pub building: bool,
@@ -75,7 +79,9 @@ fn ensure_index_loaded(app: &AppHandle) {
 
     let dim = {
         let pipeline_state = app.state::<Mutex<DetectionPipeline>>();
-        let Ok(pipeline) = pipeline_state.lock() else { return };
+        let Ok(pipeline) = pipeline_state.lock() else {
+            return;
+        };
         pipeline.embedding_dimension()
     };
     let Some(dim) = dim else { return };
@@ -84,7 +90,9 @@ fn ensure_index_loaded(app: &AppHandle) {
         Ok(index) => {
             log::info!("[EGW-SEMANTIC] loaded index ({} vectors)", index.len());
             let egw_state = app.state::<Mutex<EgwSemanticState>>();
-            let Ok(mut state) = egw_state.lock() else { return };
+            let Ok(mut state) = egw_state.lock() else {
+                return;
+            };
             state.index = Some(index);
         }
         Err(error) => {

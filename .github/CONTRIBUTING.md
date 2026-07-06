@@ -84,7 +84,7 @@ Frontend and top-level commands:
 | Command | What it does |
 | --- | --- |
 | `bun run tauri dev` | Run the full app (Vite + Tauri) |
-| `bun run tauri build` | Produce a platform installer |
+| `bun run tauri:build:release` | Produce a signed release installer with updater artifacts |
 | `bun run dev` | Run the frontend only on the Vite dev server |
 | `bun run build` | `tsc -b && vite build` |
 | `bun run typecheck` | `tsc --noEmit` |

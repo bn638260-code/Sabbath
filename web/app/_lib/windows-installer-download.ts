@@ -5,7 +5,7 @@ export const R2_PUBLIC_BASE_URL =
 export const WINDOWS_INSTALLER_VERSION = "0.1.7" as const;
 
 export const WINDOWS_INSTALLER_R2_OBJECT_KEY =
-  "SabbathCue_0.1.7_x64-setup (2).exe" as const;
+  "SabbathCue_0.1.7_x64-setup.exe" as const;
 
 /** Filename users see when saving the installer (not the R2 object name). */
 export const WINDOWS_INSTALLER_SAVE_AS = "SabbathCue-Setup.exe" as const;

@@ -252,7 +252,9 @@ mod tests {
             "citation lead-in must be stripped: {chunks:?}"
         );
         assert!(
-            !chunks.iter().any(|c| c.to_lowercase().contains("bible says")),
+            !chunks
+                .iter()
+                .any(|c| c.to_lowercase().contains("bible says")),
             "meta-speech must not reach the embedder: {chunks:?}"
         );
     }
@@ -272,7 +274,10 @@ mod tests {
         let chunker = Chunker::new();
         let chunks = chunker.chunk("The Bible says.");
 
-        assert!(chunks.is_empty(), "meta-only sentence must be dropped: {chunks:?}");
+        assert!(
+            chunks.is_empty(),
+            "meta-only sentence must be dropped: {chunks:?}"
+        );
     }
 
     #[test]

@@ -279,6 +279,24 @@ describe("use-broadcast-output-settings commands", () => {
         "Use External Display over HDMI while NDI is being verified.",
       )
     })
+
+    it("clears persisted active NDI state without backend calls when the SDK is missing", async () => {
+      const { runToggleBroadcastNdi } = await loadCommandModule()
+      const deps = baseDeps()
+
+      await runToggleBroadcastNdi(
+        baseState({ ndiActive: true, ndiSdkInstalled: false }),
+        deps,
+      )
+
+      expect(mockInvoke).not.toHaveBeenCalled()
+      expect(deps.emitNdiConfig).toHaveBeenCalledWith(false, "fps24", "r1080p")
+      expect(deps.onNdiActiveChange).toHaveBeenCalledWith(false)
+      expect(deps.onError).toHaveBeenCalledWith(
+        "NDI output is coming soon.",
+        "Use External Display over HDMI while NDI is being verified.",
+      )
+    })
   })
 
   describe("runDisableBroadcastOutput", () => {

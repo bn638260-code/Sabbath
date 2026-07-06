@@ -53,7 +53,7 @@ The detection pipeline is intentionally heterogeneous:
 
 - **Aho-Corasick** (`aho-corasick = "1"`) for direct reference parsing
   — compiled once, scans in linear time with negligible memory.
-- **Qwen3-Embedding-0.6B** for semantic search, exported to ONNX and
+- **all-MiniLM-L6-v2** for semantic search, exported to ONNX and
   quantized to INT8 with the sentence-transformers ONNX backend
   so a normal CPU keeps up.
 - **ONNX Runtime** through the `ort = "2.0.0-rc.12"` Rust crate for

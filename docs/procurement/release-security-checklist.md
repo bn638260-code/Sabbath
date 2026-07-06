@@ -16,8 +16,8 @@ verification remains required for claims that cannot be proven by a test runner.
 - [ ] `bun run web:build` - Web documentation build succeeds
 - [ ] `cargo check --workspace` - Rust workspace compiles
 - [ ] `cargo test --workspace` - Rust test suite passes
-- [ ] `cargo clippy --workspace --all-targets` - Rust Clippy runs; warnings are reviewed and tracked
-- [ ] `npm audit --audit-level=moderate` - No moderate+ npm vulnerabilities
+- [ ] `cargo clippy --workspace --all-targets --locked -- -D warnings` - Rust Clippy runs with warnings treated as errors
+- [ ] `bun audit --audit-level=moderate` - No moderate+ npm vulnerabilities in `bun.lock`
 - [ ] `cargo deny check` - Cargo dependency license/security policy check passes in CI
 
 ## Release artifact evidence

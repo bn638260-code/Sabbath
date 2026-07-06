@@ -10,6 +10,11 @@ const DEFAULT_CONFIDENCE_THRESHOLD = 0.85
 const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD = 0.7
 const LEGACY_DEFAULT_CONFIDENCE_THRESHOLD = 0.8
 
+function normalizeConfidenceThreshold(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_CONFIDENCE_THRESHOLD
+  return Math.min(Math.max(value, 0), 1)
+}
+
 interface SettingsState {
   hasDeepgramApiKey: boolean
   hasGladiaApiKey: boolean
@@ -73,7 +78,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ autoPreviewDetections }),
   setSemanticDetectionEnabled: (semanticDetectionEnabled) =>
     set({ semanticDetectionEnabled }),
-  setConfidenceThreshold: (confidenceThreshold) => set({ confidenceThreshold }),
+  setConfidenceThreshold: (confidenceThreshold) =>
+    set({ confidenceThreshold: normalizeConfidenceThreshold(confidenceThreshold) }),
   setSemanticConfidenceThreshold: (semanticConfidenceThreshold) =>
     set({ semanticConfidenceThreshold }),
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
@@ -124,6 +130,9 @@ function parseConfidenceThreshold(value: unknown): unknown {
     Math.abs(value - LEGACY_DEFAULT_CONFIDENCE_THRESHOLD) < Number.EPSILON
   ) {
     return DEFAULT_CONFIDENCE_THRESHOLD
+  }
+  if (typeof value === "number") {
+    return normalizeConfidenceThreshold(value)
   }
   return value
 }

@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   type KeyboardEvent,
+  type ReactNode,
 } from "react"
 import {
   Select,
@@ -35,9 +36,144 @@ import {
   previewEgwParagraph,
 } from "@/lib/presentation-workflow"
 import { useQueueStore } from "@/stores/queue-store"
-import type { EgwParagraph } from "@/types"
+import type {
+  EgwBook,
+  EgwParagraph,
+  EgwSemanticStatus,
+} from "@/types"
 
 type EgwView = "browse" | "search"
+
+interface EgwBrowserBodyProps {
+  view: EgwView
+  books: EgwBook[]
+  currentChapterTitle: string
+  currentParagraphs: EgwParagraph[]
+  searchMode: "keyword" | "context"
+  semanticStatus: EgwSemanticStatus | null
+  indexProgress: { embedded: number; total: number } | null
+  searchInput: string
+  searchResults: EgwParagraph[]
+  renderRow: (paragraph: EgwParagraph) => ReactNode
+}
+
+function CenteredEmptyState({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+}) {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <PanelEmptyState icon={icon} title={title} description={description} />
+    </div>
+  )
+}
+
+function EgwBrowserBody({
+  view,
+  books,
+  currentChapterTitle,
+  currentParagraphs,
+  searchMode,
+  semanticStatus,
+  indexProgress,
+  searchInput,
+  searchResults,
+  renderRow,
+}: EgwBrowserBodyProps) {
+  if (view === "browse") {
+    if (books.length === 0) {
+      return (
+        <CenteredEmptyState
+          icon={<BookOpenIcon className="size-8" />}
+          title="No EGW books installed"
+          description="Add a book JSON to data/sources/egw and run bun run build:egw."
+        />
+      )
+    }
+
+    return (
+      <div className="flex flex-col gap-0 p-2">
+        {currentChapterTitle ? (
+          <h3 className="px-1 py-2 text-sm font-semibold text-foreground">
+            {currentChapterTitle}
+          </h3>
+        ) : null}
+        {currentParagraphs.map((p) => renderRow(p))}
+      </div>
+    )
+  }
+
+  if (searchMode === "context" && semanticStatus && !semanticStatus.model_available) {
+    return (
+      <CenteredEmptyState
+        icon={<SparklesIcon className="size-8" />}
+        title="Context search unavailable"
+        description="The semantic model is not installed. Use keyword search instead."
+      />
+    )
+  }
+
+  if (searchMode === "context" && semanticStatus && !semanticStatus.ready) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3">
+        <PanelEmptyState
+          icon={<SparklesIcon className="size-8" />}
+          title={semanticStatus.building ? "Building context index" : "Context index needed"}
+          description={
+            semanticStatus.building
+              ? indexProgress
+                ? `Embedding paragraphs: ${indexProgress.embedded} / ${indexProgress.total}`
+                : "Preparing the Ellen G. White library for meaning-based search."
+              : "One-time setup: index the Ellen G. White library for meaning-based search."
+          }
+        />
+        {!semanticStatus.building ? (
+          <Button
+            size="xs"
+            onClick={() => egwActions.buildSemanticIndex().catch(console.error)}
+          >
+            <SparklesIcon className="size-3.5" /> Build context index
+          </Button>
+        ) : null}
+      </div>
+    )
+  }
+
+  if (searchInput.trim().length < 3) {
+    return (
+      <CenteredEmptyState
+        icon={<SearchIcon className="size-8" />}
+        title="Type to search"
+        description={
+          searchMode === "context"
+            ? "Describe a topic to find Ellen G. White passages by meaning."
+            : "Search Ellen G. White paragraphs by keyword."
+        }
+      />
+    )
+  }
+
+  if (searchResults.length === 0) {
+    return (
+      <CenteredEmptyState
+        icon={<SearchIcon className="size-8" />}
+        title="No results found"
+        description="Try a different keyword."
+      />
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-0 p-2">
+      {searchResults.map((p) => renderRow(p))}
+    </div>
+  )
+}
 
 export function EgwBrowser() {
   const {
@@ -343,80 +479,18 @@ export function EgwBrowser() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto" onMouseDown={focusPanel}>
-        {view === "browse" ? (
-          books.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <PanelEmptyState
-                icon={<BookOpenIcon className="size-8" />}
-                title="No EGW books installed"
-                description="Add a book JSON to data/sources/egw and run bun run build:egw."
-              />
-            </div>
-          ) : (
-            <div className="flex flex-col gap-0 p-2">
-              {currentChapterTitle && (
-                <h3 className="px-1 py-2 text-sm font-semibold text-foreground">
-                  {currentChapterTitle}
-                </h3>
-              )}
-              {currentParagraphs.map((p) => renderRow(p))}
-            </div>
-          )
-        ) : searchMode === "context" && semanticStatus && !semanticStatus.model_available ? (
-          <div className="flex h-full items-center justify-center">
-            <PanelEmptyState
-              icon={<SparklesIcon className="size-8" />}
-              title="Context search unavailable"
-              description="The semantic model is not installed. Use keyword search instead."
-            />
-          </div>
-        ) : searchMode === "context" && semanticStatus && !semanticStatus.ready ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3">
-            <PanelEmptyState
-              icon={<SparklesIcon className="size-8" />}
-              title={semanticStatus.building ? "Building context index" : "Context index needed"}
-              description={
-                semanticStatus.building
-                  ? indexProgress
-                    ? `Embedding paragraphs: ${indexProgress.embedded} / ${indexProgress.total}`
-                    : "Preparing the Ellen G. White library for meaning-based search."
-                  : "One-time setup: index the Ellen G. White library for meaning-based search."
-              }
-            />
-            {!semanticStatus.building ? (
-              <Button
-                size="xs"
-                onClick={() => egwActions.buildSemanticIndex().catch(console.error)}
-              >
-                <SparklesIcon className="size-3.5" /> Build context index
-              </Button>
-            ) : null}
-          </div>
-        ) : searchInput.trim().length < 3 ? (
-          <div className="flex h-full items-center justify-center">
-            <PanelEmptyState
-              icon={<SearchIcon className="size-8" />}
-              title="Type to search"
-              description={
-                searchMode === "context"
-                  ? "Describe a topic to find Ellen G. White passages by meaning."
-                  : "Search Ellen G. White paragraphs by keyword."
-              }
-            />
-          </div>
-        ) : searchResults.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
-            <PanelEmptyState
-              icon={<SearchIcon className="size-8" />}
-              title="No results found"
-              description="Try a different keyword."
-            />
-          </div>
-        ) : (
-          <div className="flex flex-col gap-0 p-2">
-            {searchResults.map((p) => renderRow(p))}
-          </div>
-        )}
+        <EgwBrowserBody
+          view={view}
+          books={books}
+          currentChapterTitle={currentChapterTitle}
+          currentParagraphs={currentParagraphs}
+          searchMode={searchMode}
+          semanticStatus={semanticStatus}
+          indexProgress={indexProgress}
+          searchInput={searchInput}
+          searchResults={searchResults}
+          renderRow={renderRow}
+        />
       </div>
     </div>
   )

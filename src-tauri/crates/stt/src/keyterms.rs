@@ -147,6 +147,10 @@ pub fn bible_keyterms() -> Vec<String> {
     terms
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "language-specific Bible keyterm lists are clearer as contiguous data"
+)]
 pub fn bible_keyterms_for_language(language: &str) -> Vec<String> {
     match language {
         "af" => afrikaans_bible_keyterms(),

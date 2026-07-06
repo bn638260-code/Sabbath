@@ -150,7 +150,7 @@ pub fn run() {
             commands::secrets::set_soniox_api_key,
             commands::secrets::clear_soniox_api_key,
             commands::secrets::has_remote_http_token,
-            commands::secrets::rotate_remote_http_token,
+            commands::remote::rotate_remote_http_token,
             commands::secrets::has_verification_token,
             commands::secrets::set_verification_token,
             commands::secrets::get_verification_token,

@@ -581,10 +581,10 @@ fn main() {
         .unwrap_or_else(|| "models/minilm-l6-v2-int8/onnx/model_quantized.onnx".into());
     let tokenizer =
         arg(&args, "--tokenizer").unwrap_or_else(|| "models/minilm-l6-v2/tokenizer.json".into());
-    let embeddings = arg(&args, "--embeddings")
-        .unwrap_or_else(|| "embeddings/public-minilm-l6-v2.bin".into());
-    let ids = arg(&args, "--ids")
-        .unwrap_or_else(|| "embeddings/public-minilm-l6-v2-ids.bin".into());
+    let embeddings =
+        arg(&args, "--embeddings").unwrap_or_else(|| "embeddings/public-minilm-l6-v2.bin".into());
+    let ids =
+        arg(&args, "--ids").unwrap_or_else(|| "embeddings/public-minilm-l6-v2-ids.bin".into());
     let verses = arg(&args, "--verses").unwrap_or_else(|| "data/verses-for-embedding.json".into());
     let db_path = arg(&args, "--db").unwrap_or_else(|| "data/rhema.db".into());
     let cases_path = arg(&args, "--cases").unwrap_or_else(|| DEFAULT_EXTERNAL_CASES.into());
@@ -671,12 +671,18 @@ fn main() {
             CaseMode::Fire => match (&case.expected_refs.first(), &fired_ref, forbidden_hit) {
                 (Some(exp), Some(got), _) if ref_eq(exp, got) => {
                     tp += 1;
-                    (true, format!("OK  fired {} ({:.0}%)", got, fired_conf.unwrap() * 100.0))
+                    (
+                        true,
+                        format!("OK  fired {} ({:.0}%)", got, fired_conf.unwrap() * 100.0),
+                    )
                 }
                 (Some(_), Some(got), _) => {
                     fp += 1;
                     fn_ += 1;
-                    (false, format!("WRONG fired {} ({:.0}%)", got, fired_conf.unwrap() * 100.0))
+                    (
+                        false,
+                        format!("WRONG fired {} ({:.0}%)", got, fired_conf.unwrap() * 100.0),
+                    )
                 }
                 (Some(_), None, Some(forbidden)) => {
                     fn_ += 1;
@@ -693,7 +699,10 @@ fn main() {
                 match (&fired_ref, expected_hint, forbidden_hit) {
                     (Some(got), _, _) => {
                         fp += 1;
-                        (false, format!("FALSE-FIRE {} ({:.0}%)", got, fired_conf.unwrap() * 100.0))
+                        (
+                            false,
+                            format!("FALSE-FIRE {} ({:.0}%)", got, fired_conf.unwrap() * 100.0),
+                        )
                     }
                     // As in fire mode, a forbidden ref in the held candidate
                     // list next to the expected hint is acceptable
@@ -716,7 +725,10 @@ fn main() {
             CaseMode::Silent => match &fired_ref {
                 Some(got) => {
                     fp += 1;
-                    (false, format!("FALSE-FIRE {} ({:.0}%)", got, fired_conf.unwrap() * 100.0))
+                    (
+                        false,
+                        format!("FALSE-FIRE {} ({:.0}%)", got, fired_conf.unwrap() * 100.0),
+                    )
                 }
                 None if forbidden_hit.is_none() => {
                     tn += 1;
@@ -857,7 +869,9 @@ fn built_in_cases() -> Vec<BenchCase> {
 }
 
 fn built_in_case(language: &str, case: &Case) -> BenchCase {
-    let expected_refs = case.2.map_or_else(Vec::new, |expected| vec![expected.to_string()]);
+    let expected_refs = case
+        .2
+        .map_or_else(Vec::new, |expected| vec![expected.to_string()]);
     let mode = if expected_refs.is_empty() {
         CaseMode::Silent
     } else {

@@ -28,7 +28,7 @@ missing_panics_doc = "allow"
 
 [package]
 name = "sabbathcue"
-version = "0.1.6"
+version = "0.1.7"
 description = "SabbathCue - Real-Time AI Bible Verse Detection"
 authors = ["BongaNdlovu"]
 license = "MIT"

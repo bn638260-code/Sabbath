@@ -89,7 +89,10 @@ export function AppControllerHeader() {
         rememberedMonitorKey,
         rememberedFullscreen
       ),
-      isLive,
+      // The header cannot observe the Main output window's enabled state, only
+      // global broadcast content state. Keep this chip about setup readiness and
+      // let the separate "On Air" chip report global live status.
+      isLive: false,
     })
   )
   const [clock, setClock] = useState(() => formatClock(new Date()))

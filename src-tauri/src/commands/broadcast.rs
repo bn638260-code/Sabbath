@@ -341,18 +341,17 @@ pub async fn flash_monitor_labels(
             size.width,
             size.height
         );
-        let window =
-            WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
-                .title("Identify display")
-                .position(f64::from(pos.x), f64::from(pos.y))
-                .inner_size(f64::from(size.width), f64::from(size.height))
-                .decorations(false)
-                .always_on_top(true)
-                .skip_taskbar(true)
-                .focused(false)
-                .visible(false)
-                .build()
-                .map_err(|e| e.to_string());
+        let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
+            .title("Identify display")
+            .position(f64::from(pos.x), f64::from(pos.y))
+            .inner_size(f64::from(size.width), f64::from(size.height))
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .focused(false)
+            .visible(false)
+            .build()
+            .map_err(|e| e.to_string());
 
         let window = match window {
             Ok(window) => window,

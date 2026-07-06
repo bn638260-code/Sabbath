@@ -45,20 +45,17 @@ export function useMonitorWatcher(): void {
 
     void refreshMonitors()
 
-    let unlisten: (() => void) | undefined
-    void getCurrentWebviewWindow()
+    const unlistenFocusChanged = getCurrentWebviewWindow()
       .onFocusChanged(({ payload: focused }) => {
         if (focused) void refreshMonitors()
       })
-      .then((fn) => {
-        unlisten = fn
-      })
       .catch(() => {
         // focus events are best-effort
+        return undefined
       })
 
     return () => {
-      unlisten?.()
+      void unlistenFocusChanged.then((unlisten) => unlisten?.())
     }
   }, [])
 

@@ -298,6 +298,12 @@ fn validate_service_attachment_path_inner(
         return Err("Unsupported attachment extension".to_string());
     }
 
+    let link_metadata = std::fs::symlink_metadata(trimmed)
+        .map_err(|_| "Attachment path does not exist".to_string())?;
+    if link_metadata.file_type().is_symlink() {
+        return Err("Symlinked paths are not allowed".to_string());
+    }
+
     let canonical = PathBuf::from(trimmed)
         .canonicalize()
         .map_err(|_| "Attachment path does not exist".to_string())?;
@@ -413,6 +419,22 @@ mod tests {
         assert_eq!(validated.label, "sample.pdf");
         assert_eq!(validated.kind, "deck");
         assert!(validated.size_bytes > 0);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlinked_attachment_paths() {
+        let dir =
+            std::env::temp_dir().join(format!("sabbathcue-attach-symlink-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("temp dir");
+        let target = dir.join("target.pdf");
+        fs::write(&target, b"pdf").expect("write target");
+        let link = dir.join("linked.pdf");
+        std::os::unix::fs::symlink(&target, &link).expect("create symlink");
+
+        let err = validate_service_attachment_path_inner(link.to_str().unwrap()).unwrap_err();
+        assert_eq!(err, "Symlinked paths are not allowed");
         let _ = fs::remove_dir_all(dir);
     }
 

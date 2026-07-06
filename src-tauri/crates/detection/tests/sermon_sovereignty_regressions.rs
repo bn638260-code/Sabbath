@@ -95,9 +95,8 @@ fn bare_chapter_verse_reference_resolves_book_from_context() {
     let mut detector = DirectDetector::new();
 
     detector.detect("Now, Daniel 3:15, can you read that one?");
-    let detections = detector.detect(
-        "Chapter 2, verse 37, the Bible says, you O king are the king of kings.",
-    );
+    let detections =
+        detector.detect("Chapter 2, verse 37, the Bible says, you O king are the king of kings.");
 
     let daniel = detections
         .iter()
@@ -131,10 +130,11 @@ fn prose_numbers_do_not_become_context_resolved_references() {
     let mut detector = DirectDetector::new();
 
     detector.detect("Now, Daniel 3:15, can you read that one?");
-    let bc = detector
-        .detect("This is around 605, 606 BC, and so the record says, and they came and besieged it.");
-    let start_at_four =
-        detector.detect("Don't read it from one, two, three, you're going to get lost. Start at four.");
+    let bc = detector.detect(
+        "This is around 605, 606 BC, and so the record says, and they came and besieged it.",
+    );
+    let start_at_four = detector
+        .detect("Don't read it from one, two, three, you're going to get lost. Start at four.");
 
     assert!(
         bc.is_empty(),

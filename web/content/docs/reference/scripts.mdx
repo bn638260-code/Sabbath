@@ -31,12 +31,11 @@ repository's top-level `package.json`.
 | ---------------------------- | ------------------------------------------------------------------------------ |
 | `download:bible-data`        | Download the bundled translation archive + cross-references zip                |
 | `build:bible`                | Build SQLite Bible database from the downloaded JSON sources                   |
-| `download:model`             | Export `Qwen3-Embedding-0.6B` to ONNX + quantize to INT8                       |
+| `download:model`             | Export `all-MiniLM-L6-v2` to ONNX + quantize to INT8                           |
 | `export:verses`              | Export KJV verses to JSON for embedding precomputation                         |
 | `precompute:embeddings`      | Precompute embeddings via the `rhema-detection` Rust ONNX binary (recommended) |
 | `precompute:embeddings-onnx` | Same, but via Python ONNX Runtime                                              |
 | `precompute:embeddings-py`   | Same, but via Python sentence-transformers (GPU path)                          |
-| `quantize:model`             | Re-run the Qwen3 ONNX export and INT8 quantization                             |
 | `download:vosk`              | Download the default local Vosk STT model                                      |
 | `download:whisper`           | Download the Whisper tiny English ggml model used by CI/release builds         |
 | `build:vosk-sidecar`         | Build the self-contained Vosk worker used by release builds                    |
@@ -80,13 +79,13 @@ dependency weight:
 | Reinstall the default local Vosk model | `bun run download:vosk`                                   |
 | Reinstall the CI Whisper model         | `bun run download:whisper`                                |
 | Just want to see the UI                | `bun run tauri dev`                                       |
-| Cutting a release                      | `bun run tauri build`                                     |
+| Cutting a release                      | `bun run tauri:build:release`                     |
 
 ## CI usage
 
-![Terminal output of a CI job running setup:all, cargo test, and bun run test in sequence with green checkmarks](/docs/screenshots/terminal-ci-success.png)
-
-\*A successful CI run on a fresh checkout: `setup:all` walks the setup phases, `cargo test --workspace` exercises the Rust crates, then `bun run test` runs the frontend Vitest suite. Idempotent skip lines appear when artifacts already exist, so subsequent runs are much faster. **Click to expand.\***
+A successful CI run on a fresh checkout runs setup phases, `cargo test
+--workspace`, the frontend Vitest suite, and typechecking. Idempotent skip lines
+appear when artifacts already exist, so subsequent runs are much faster.
 
 The setup pipeline is designed to be CI-safe — every script is
 idempotent and exits non-zero on real failure (rather than silently

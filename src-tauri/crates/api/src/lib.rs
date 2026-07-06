@@ -15,7 +15,7 @@ pub use command::RemoteCommand;
 pub use dispatch::{CommandDispatcher, CommandSink};
 pub use error::CommandError;
 pub use http::{
-    new_shared_status, start_http_server, HttpConfig, HttpHandle, HttpStartResult, SharedStatus,
-    StatusSnapshot,
+    new_shared_status, start_http_server, update_shared_http_token, HttpConfig, HttpHandle,
+    HttpStartResult, SharedHttpToken, SharedStatus, StatusSnapshot,
 };
 pub use osc::{start_osc_listener, OscConfig, OscHandle, OscStartResult};

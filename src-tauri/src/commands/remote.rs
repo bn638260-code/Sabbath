@@ -3,8 +3,9 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 
 use rhema_api::{
-    new_shared_status, start_http_server, start_osc_listener, CommandError, CommandSink,
-    HttpConfig, HttpHandle, OscConfig, OscHandle, SharedStatus,
+    new_shared_status, start_http_server, start_osc_listener, update_shared_http_token,
+    CommandError, CommandSink, HttpConfig, HttpHandle, OscConfig, OscHandle, SharedHttpToken,
+    SharedStatus,
 };
 
 use super::validation::{
@@ -151,6 +152,7 @@ pub struct HttpRuntime {
     handle: Option<HttpHandle>,
     bound_port: Option<u16>,
     status: SharedStatus,
+    token: Option<SharedHttpToken>,
     starting: bool,
 }
 
@@ -160,6 +162,7 @@ impl HttpRuntime {
             handle: None,
             bound_port: None,
             status: new_shared_status(),
+            token: None,
             starting: false,
         }
     }
@@ -226,6 +229,7 @@ pub async fn start_http(
         let mut runtime = state.lock().map_err(|e| e.to_string())?;
         runtime.handle = Some(result.handle);
         runtime.bound_port = Some(bound_port);
+        runtime.token = Some(result.token);
         runtime.starting = false;
     }
 
@@ -242,11 +246,30 @@ pub async fn stop_http(state: State<'_, Mutex<HttpRuntime>>) -> Result<(), Strin
         Some(mut handle) => {
             handle.stop();
             runtime.bound_port = None;
+            runtime.token = None;
             log::info!("HTTP API server stopped");
             Ok(())
         }
         None => Err("HTTP API server is not running".into()),
     }
+}
+
+/// Rotate the remote HTTP token and apply it to a running HTTP server.
+#[tauri::command]
+pub async fn rotate_remote_http_token(
+    state: State<'_, Mutex<HttpRuntime>>,
+) -> Result<String, String> {
+    let token = secrets::rotate_remote_http_token()?;
+    let shared_token = {
+        let runtime = state.lock().map_err(|e| e.to_string())?;
+        runtime.token.clone()
+    };
+
+    if let Some(shared_token) = shared_token {
+        update_shared_http_token(&shared_token, token.clone()).await;
+    }
+
+    Ok(token)
 }
 
 /// Get the current HTTP API server status.

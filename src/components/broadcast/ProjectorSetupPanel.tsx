@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import {
   ChevronDownIcon,
   ExternalLinkIcon,
@@ -52,6 +52,11 @@ const TONE_BANNER: Record<ProjectorChipTone, string> = {
     "border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] text-muted-foreground",
 }
 
+interface PendingEnableTarget {
+  monitorKey: string
+  fullscreen: boolean
+}
+
 async function openDisplaySettings(): Promise<void> {
   try {
     const { openUrl } = await import("@tauri-apps/plugin-opener")
@@ -86,16 +91,27 @@ export function ProjectorSetupPanel() {
   )
 
   const [showHelp, setShowHelp] = useState(false)
-  // "Go live" changes the target monitor first, then enables once the model has
-  // applied that selection (avoids opening on a stale monitor).
-  const [pendingEnableKey, setPendingEnableKey] = useState<string | null>(null)
+  // "Go live" applies target settings first, then enables once the model has
+  // observed them (avoids opening on a stale monitor/fullscreen value).
+  const pendingEnableRef = useRef<PendingEnableTarget | null>(null)
+  const handleToggleEnabledEvent = useEffectEvent(model.handleToggleEnabled)
 
   useEffect(() => {
-    if (pendingEnableKey === null) return
-    if (model.selectedMonitor !== pendingEnableKey) return
-    setPendingEnableKey(null)
-    void model.handleToggleEnabled(true)
-  }, [pendingEnableKey, model.selectedMonitor, model.handleToggleEnabled])
+    const pendingEnable = pendingEnableRef.current
+    if (pendingEnable === null) return
+    if (model.selectedMonitor !== pendingEnable.monitorKey) return
+    if (model.projectorFullscreen !== pendingEnable.fullscreen) return
+    void Promise.resolve(handleToggleEnabledEvent(true))
+      .then(() => {
+        if (pendingEnableRef.current === pendingEnable) {
+          pendingEnableRef.current = null
+        }
+      })
+      .catch(() => {
+        // The model surfaces the error; keep the pending target so a later retry
+        // still uses the intended monitor/fullscreen pair.
+      })
+  }, [model.projectorFullscreen, model.selectedMonitor])
 
   const isLive = model.enabled
   const readiness = deriveProjectorReadiness({ monitors, remembered, isLive })
@@ -109,12 +125,19 @@ export function ProjectorSetupPanel() {
   function goLive(): void {
     const targetKey = restoreTarget
     if (!targetKey) return
-    model.handleProjectorFullscreenChange(remembered?.fullscreen ?? true)
-    if (model.selectedMonitor === targetKey) {
+    const fullscreen = remembered?.fullscreen ?? true
+    if (
+      model.selectedMonitor === targetKey &&
+      model.projectorFullscreen === fullscreen
+    ) {
       void model.handleToggleEnabled(true)
-    } else {
+      return
+    }
+
+    pendingEnableRef.current = { monitorKey: targetKey, fullscreen }
+    model.handleProjectorFullscreenChange(fullscreen)
+    if (model.selectedMonitor !== targetKey) {
       model.handleMonitorChange(targetKey)
-      setPendingEnableKey(targetKey)
     }
   }
 

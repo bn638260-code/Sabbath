@@ -471,10 +471,7 @@ mod tests {
     #[test]
     fn trim_to_sentence_start_ignores_semicolons_and_no_punctuation() {
         assert_eq!(
-            detection_logic::trim_to_sentence_start(
-                "The Lord is my shepherd; I shall not want",
-                6
-            ),
+            detection_logic::trim_to_sentence_start("The Lord is my shepherd; I shall not want", 6),
             "The Lord is my shepherd; I shall not want"
         );
     }

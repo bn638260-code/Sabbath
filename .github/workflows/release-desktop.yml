@@ -78,7 +78,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install frontend dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Download Bible source data
         run: bun run download:bible-data
@@ -135,12 +135,12 @@ jobs:
           bun run export:verses
           bun run precompute:embeddings
 
-      - name: npm audit
-        run: npm audit --audit-level=moderate
+      - name: Bun audit
+        run: bun audit --audit-level=moderate
 
       - name: Clippy
         working-directory: src-tauri
-        run: cargo clippy --workspace --all-targets
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Test workspace
         working-directory: src-tauri

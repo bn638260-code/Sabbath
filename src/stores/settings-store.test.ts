@@ -109,6 +109,19 @@ describe("settings store", () => {
     expect(useSettingsStore.getState().confidenceThreshold).toBe(0.85)
   })
 
+  it("clamps confidence threshold updates to a finite 0-1 range", async () => {
+    const { useSettingsStore } = await import("./settings-store")
+
+    useSettingsStore.getState().setConfidenceThreshold(2)
+    expect(useSettingsStore.getState().confidenceThreshold).toBe(1)
+
+    useSettingsStore.getState().setConfidenceThreshold(-0.5)
+    expect(useSettingsStore.getState().confidenceThreshold).toBe(0)
+
+    useSettingsStore.getState().setConfidenceThreshold(Number.NaN)
+    expect(useSettingsStore.getState().confidenceThreshold).toBe(0.85)
+  })
+
   it("does not trust persisted Deepgram key status when keychain status is unavailable", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "hasDeepgramApiKey") return true

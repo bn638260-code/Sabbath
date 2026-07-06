@@ -201,8 +201,8 @@ impl DetectionPipeline {
             // quotes routinely arrive as keyword-band OR hits.
             let overlap_confidence = quote_overlap_confidence(text, &fts.text);
             let rank_confidence = fts_confidence(rank, fts.rank, fts.is_broad_match);
-            let confidence = overlap_confidence
-                .map_or(rank_confidence, |overlap| overlap.max(rank_confidence));
+            let confidence =
+                overlap_confidence.map_or(rank_confidence, |overlap| overlap.max(rank_confidence));
             log::debug!(
                 "[DET-SEMANTIC] FTS5 candidate idx={rank} bm25={:.3} {} {}:{} conf={:.0}% overlap={:?}",
                 fts.rank,
@@ -906,7 +906,11 @@ mod tests {
             &fts_results,
         );
 
-        assert_eq!(results.len(), 1, "partial quote must surface as a candidate");
+        assert_eq!(
+            results.len(),
+            1,
+            "partial quote must surface as a candidate"
+        );
         let confidence = results[0].detection.confidence;
         assert!(
             (0.70..0.90).contains(&confidence),

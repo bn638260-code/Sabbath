@@ -13,9 +13,8 @@ use super::detection_jobs::finalize_live_semantic_results;
 use super::detection_logic::{
     choose_reading_candidate, direct_reading_candidates, filter_direct_results_to_scope_if_present,
     filter_semantic_results_to_reading_scope, should_release_stale_reading_scope,
-    strong_out_of_scope_bible_book, READING_SCOPE_RELEASE_STREAK,
-    should_restart_reading, strip_reference_scaffolding,
-    DirectReadingCandidate,
+    should_restart_reading, strip_reference_scaffolding, strong_out_of_scope_bible_book,
+    DirectReadingCandidate, READING_SCOPE_RELEASE_STREAK,
 };
 use super::utils::{transcript_logging_enabled, truncate_safe};
 fn active_reading_bible_scope(app: &AppHandle) -> Option<(i32, i32, String, u64)> {

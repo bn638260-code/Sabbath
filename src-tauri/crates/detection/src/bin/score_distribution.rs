@@ -95,10 +95,10 @@ fn main() {
         .unwrap_or_else(|| "models/minilm-l6-v2-int8/onnx/model_quantized.onnx".into());
     let tokenizer =
         arg(&args, "--tokenizer").unwrap_or_else(|| "models/minilm-l6-v2/tokenizer.json".into());
-    let embeddings = arg(&args, "--embeddings")
-        .unwrap_or_else(|| "embeddings/public-minilm-l6-v2.bin".into());
-    let ids = arg(&args, "--ids")
-        .unwrap_or_else(|| "embeddings/public-minilm-l6-v2-ids.bin".into());
+    let embeddings =
+        arg(&args, "--embeddings").unwrap_or_else(|| "embeddings/public-minilm-l6-v2.bin".into());
+    let ids =
+        arg(&args, "--ids").unwrap_or_else(|| "embeddings/public-minilm-l6-v2-ids.bin".into());
     let verses = arg(&args, "--verses").unwrap_or_else(|| "data/verses-for-embedding.json".into());
 
     let embedder = OnnxEmbedder::load(&PathBuf::from(&model), &PathBuf::from(&tokenizer))

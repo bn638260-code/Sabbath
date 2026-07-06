@@ -272,7 +272,7 @@ cd src-tauri && cargo test --workspace
 
 **CI/CD & deployment:** three GitHub Actions workflows ([.github/workflows/](../.github/workflows/)):
 
-- `desktop-ci.yml` — three jobs: **frontend** (typecheck → unit → lint → build → Playwright E2E → `npm audit --audit-level=moderate`), **web-docs** (build + lint), **rust** (data pipeline → `cargo check` → `cargo test` → `cargo clippy --all-targets` → `cargo deny check`). All on `windows-latest`.
+- `desktop-ci.yml` — three jobs: **frontend** (typecheck → unit → lint → build → Playwright E2E → `bun audit --audit-level=moderate`), **web-docs** (build + lint), **rust** (data pipeline → `cargo check` → `cargo test` → strict `cargo clippy --all-targets` → `cargo deny check`). All on `windows-latest`.
 - `release-desktop.yml` — signed release bundle (updater secrets).
 - `deploy-web.yml` — docs site deploy.
 - This **resolves a prior review finding** that E2E was not gated in CI ([code-logic-review-fix-report.md:52](reports/code-logic-review-fix-report.md#L52)); `desktop-ci.yml` now runs the Playwright step on every PR.

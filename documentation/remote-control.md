@@ -33,21 +33,22 @@ Both protocols support the same command set and can run simultaneously.
 
 - **Toggle**: Enable/disable OSC listener
 - **Port**: Default `8000` (UDP)
-- **Host**: Binds to `0.0.0.0` (all network interfaces)
+- **Host**: Binds to `127.0.0.1` (local machine only)
 
 #### HTTP API
 
 - **Toggle**: Enable/disable HTTP server
 - **Port**: Default `8080` (TCP)
-- **Host**: Binds to `0.0.0.0` (all network interfaces)
+- **Host**: Binds to `127.0.0.1` (local machine only)
+- **Auth**: Private endpoints require `Authorization: Bearer <remote-http-token>`. Rotate the token in Settings → Remote Control to reveal a new one.
 
 ### Firewall & Network
 
-If accessing SabbathCue from another device on your network:
+Remote control is local-only in the current app. Run HTTP scripts and OSC clients on the same computer as SabbathCue:
 
-- Allow incoming connections on your chosen ports (default 8000/8080)
-- Use your computer's local IP address (e.g., `192.168.1.100`)
-- For local-only access, change host to `127.0.0.1` in settings
+- Use `localhost` or `127.0.0.1`.
+- Keep the HTTP bearer token private.
+- LAN exposure is not currently enabled through the UI.
 
 ## Available Commands
 
@@ -66,8 +67,9 @@ Moves forward in the verse queue and presents the next verse.
 **HTTP:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"next"}'
 ```
 
@@ -84,8 +86,9 @@ Moves backward in the verse queue and presents the previous verse.
 **HTTP:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"prev"}'
 ```
 
@@ -102,8 +105,9 @@ Makes the broadcast output visible (sets live state to true).
 **HTTP:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"show"}'
 ```
 
@@ -120,8 +124,9 @@ Hides the broadcast output (sets live state to false).
 **HTTP:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"hide"}'
 ```
 
@@ -143,8 +148,9 @@ Sets the broadcast live state to a specific value.
 **HTTP:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"on_air","value":true}'
 ```
 
@@ -166,8 +172,9 @@ Changes the active broadcast theme by name (case-insensitive).
 **HTTP:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"theme","value":"Classic Dark"}'
 ```
 
@@ -189,8 +196,9 @@ Adjusts the opacity of the broadcast output.
 **HTTP:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"opacity","value":0.75}'
 ```
 
@@ -213,8 +221,9 @@ Adjusts the minimum confidence threshold for verse detection.
 **HTTP:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"confidence","value":0.8}'
 ```
 
@@ -229,7 +238,8 @@ Returns current application status snapshot.
 **Request:**
 
 ```bash
-curl http://localhost:8080/api/v1/status
+curl http://localhost:8080/api/v1/status \
+  -H "Authorization: Bearer <remote-http-token>"
 ```
 
 **Response:**
@@ -244,15 +254,16 @@ curl http://localhost:8080/api/v1/status
 }
 ```
 
-### POST /api/v1/command
+### POST /api/v1/control
 
 Executes a remote command (see Available Commands above).
 
 **Request:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"next"}'
 ```
 
@@ -271,8 +282,8 @@ curl -X POST http://localhost:8080/api/v1/command \
 [Bitfocus Companion](https://bitfocus.io/companion) provides Stream Deck integration with OSC support.
 
 1. **Install Companion** and configure your Stream Deck
-2. **Add Generic OSC module**:
-   - Host: `127.0.0.1` (or your SabbathCue computer's IP)
+2. **Add Generic OSC module on the SabbathCue computer**:
+   - Host: `127.0.0.1`
    - Port: `8000`
 3. **Create buttons** for each command:
    - **Next Verse**: OSC path `/sabbathcue/next`
@@ -283,12 +294,12 @@ curl -X POST http://localhost:8080/api/v1/command \
 
 ### TouchOSC / Lemur
 
-Mobile control surfaces can send OSC commands directly.
+Mobile control surfaces are not supported directly by the current loopback-only listener. Use a local bridge on the SabbathCue computer if you need to translate mobile actions into OSC messages.
 
 **TouchOSC Example:**
 
 1. Create buttons with OSC message type
-2. Set destination to SabbathCue computer IP:8000
+2. Set destination to a local bridge or to `127.0.0.1:8000` when running on the SabbathCue computer
 3. Configure OSC addresses:
    - `/sabbathcue/next`
    - `/sabbathcue/prev`
@@ -301,25 +312,33 @@ Mobile control surfaces can send OSC commands directly.
 
 ```javascript
 const SABBATHCUE_URL = "http://localhost:8080/api/v1"
+const SABBATHCUE_TOKEN = process.env.SABBATHCUE_REMOTE_HTTP_TOKEN
+
+const authHeaders = {
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${SABBATHCUE_TOKEN}`,
+}
 
 async function nextVerse() {
-  await fetch(`${SABBATHCUE_URL}/command`, {
+  await fetch(`${SABBATHCUE_URL}/control`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders,
     body: JSON.stringify({ command: "next" }),
   })
 }
 
 async function setTheme(themeName) {
-  await fetch(`${SABBATHCUE_URL}/command`, {
+  await fetch(`${SABBATHCUE_URL}/control`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders,
     body: JSON.stringify({ command: "theme", value: themeName }),
   })
 }
 
 async function getStatus() {
-  const res = await fetch(`${SABBATHCUE_URL}/status`)
+  const res = await fetch(`${SABBATHCUE_URL}/status`, {
+    headers: { Authorization: `Bearer ${SABBATHCUE_TOKEN}` },
+  })
   return res.json()
 }
 
@@ -351,19 +370,24 @@ osc.send("/sabbathcue/on_air", true)
 
 ```python
 import requests
+import os
 
 SABBATHCUE_URL = 'http://localhost:8080/api/v1'
+SABBATHCUE_TOKEN = os.environ['SABBATHCUE_REMOTE_HTTP_TOKEN']
+HEADERS = {'Authorization': f'Bearer {SABBATHCUE_TOKEN}'}
 
 def next_verse():
-    requests.post(f'{SABBATHCUE_URL}/command',
+    requests.post(f'{SABBATHCUE_URL}/control',
+                  headers=HEADERS,
                   json={'command': 'next'})
 
 def set_theme(theme_name):
-    requests.post(f'{SABBATHCUE_URL}/command',
+    requests.post(f'{SABBATHCUE_URL}/control',
+                  headers=HEADERS,
                   json={'command': 'theme', 'value': theme_name})
 
 def get_status():
-    response = requests.get(f'{SABBATHCUE_URL}/status')
+    response = requests.get(f'{SABBATHCUE_URL}/status', headers=HEADERS)
     return response.json()
 
 # Usage
@@ -397,8 +421,9 @@ While SabbathCue uses NDI for video output, you can use remote control for autom
 ```bash
 #!/bin/bash
 # next-verse.sh
-curl -X POST http://localhost:8080/api/v1/command \
+curl -X POST http://localhost:8080/api/v1/control \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <remote-http-token>" \
   -d '{"command":"next"}'
 ```
 
@@ -428,19 +453,19 @@ Use this to verify your integration is working correctly.
 
    ```bash
    # Test HTTP locally
-   curl -X POST http://localhost:8080/api/v1/command \
+   curl -X POST http://localhost:8080/api/v1/control \
      -H "Content-Type: application/json" \
+     -H "Authorization: Bearer <remote-http-token>" \
      -d '{"command":"next"}'
    ```
 
 3. **Firewall Issues**
-   - Allow incoming connections on OSC/HTTP ports
-   - On macOS: System Preferences → Security & Privacy → Firewall
+   - Remote network access is not currently exposed by the app UI.
+   - For local scripts, firewall rules are usually not involved because listeners bind to `127.0.0.1`.
 
 4. **Network Issues**
-   - Verify computer IP address: `ifconfig` (macOS/Linux) or `ipconfig` (Windows)
-   - Test connectivity: `ping <rhema-computer-ip>`
-   - Ensure both devices on same network (if remote)
+   - Verify the script or controller is running on the same computer as SabbathCue.
+   - For HTTP, confirm it includes the current bearer token from Settings → Remote Control.
 
 #### Port Already in Use
 
@@ -471,18 +496,19 @@ If you see "Port already in use" error:
 
 ### Network Exposure
 
-By default, both OSC and HTTP bind to `0.0.0.0`, making them accessible from any device on your network.
+By default, both OSC and HTTP bind to `127.0.0.1`, making them available only on the SabbathCue computer.
 
-**For local-only access:**
+**For HTTP access:**
 
-- Bind to `127.0.0.1` instead (requires editing settings)
-- This prevents remote network access
+- Private endpoints require `Authorization: Bearer <remote-http-token>`.
+- Rotate the token in Settings → Remote Control to issue a new one.
+- `/api/v1/health` remains unauthenticated and minimal.
 
 **For production environments:**
 
-- Use firewall rules to restrict access
-- Consider VPN or SSH tunneling for remote access
-- HTTP does not include authentication (add reverse proxy with auth if needed)
+- Keep the HTTP token out of scripts committed to source control.
+- Use OS user permissions to protect local automation scripts.
+- Treat any future LAN bridge or tunnel as an explicit extra exposure and secure it separately.
 
 ### Command Validation
 

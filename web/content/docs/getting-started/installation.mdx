@@ -85,9 +85,8 @@ bun run tauri dev
 The Tauri shell opens with hot-reload for the React frontend at port 3000
 and live-reloads the Rust backend on file changes.
 
-![Terminal showing setup:all running through its eight phases](/docs/screenshots/terminal-setup-all.png)
-
-\*Terminal output during `bun run setup:all` - each phase prints its own progress block, and skip lines appear when an artifact is already present from a previous run. **Click to expand.\***
+During `bun run setup:all`, each phase prints its own progress block, and skip
+lines appear when an artifact is already present from a previous run.
 
   </Step>
 </Steps>
@@ -97,7 +96,7 @@ and live-reloads the Rust backend on file changes.
 When you're ready to ship a native installer:
 
 ```bash
-bun run tauri build
+bun run tauri:build:release
 ```
 
 The output lands in `src-tauri/target/release/bundle/` — `.dmg` on macOS,

@@ -355,7 +355,6 @@ pub fn has_remote_http_token_with_store(store: &dyn KeychainStore) -> Result<boo
 }
 
 /// Rotate the remote HTTP token (generates a new one and persists it).
-#[command]
 pub fn rotate_remote_http_token() -> Result<String, String> {
     rotate_remote_http_token_with_store(&DEFAULT_STORE)
 }

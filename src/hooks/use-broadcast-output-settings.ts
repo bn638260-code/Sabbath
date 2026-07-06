@@ -218,9 +218,19 @@ export async function runToggleBroadcastNdi(
     ndiActive,
     ndiResolution,
     ndiFrameRate,
+    ndiSdkInstalled,
   } = state
 
   try {
+    if (!ndiSdkInstalled) {
+      if (ndiActive) {
+        deps.emitNdiConfig(false, ndiFrameRate, ndiResolution)
+        deps.onNdiActiveChange(false)
+      }
+      deps.onError(NDI_COMING_SOON_MESSAGE, NDI_COMING_SOON_DESCRIPTION)
+      return
+    }
+
     if (!ndiActive) {
       deps.onError(NDI_COMING_SOON_MESSAGE, NDI_COMING_SOON_DESCRIPTION)
       return

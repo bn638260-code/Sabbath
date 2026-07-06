@@ -15,7 +15,7 @@ bun run typecheck
 bun run lint
 bun run test -- --run
 cd src-tauri && cargo test --workspace
-cd src-tauri && cargo clippy --workspace --all-targets
+cd src-tauri && cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
 ## Rollback notes

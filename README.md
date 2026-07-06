@@ -26,7 +26,7 @@ bun run build:vosk-sidecar
 bun run download:model
 bun run export:verses
 bun run precompute:embeddings
-bun run tauri build
+bun run tauri:build:release
 ```
 
 This creates an installer that includes only public-domain Bible translations
@@ -241,7 +241,7 @@ bun run tauri dev
 ### Build for production
 
 ```bash
-bun run tauri build
+bun run tauri:build:release
 ```
 
 ## Project Structure
@@ -309,7 +309,6 @@ sabbathcue/
 | `precompute:embeddings`                         | Precompute embeddings via Rust ONNX binary (recommended)                                     |
 | `precompute:embeddings-onnx`                    | Precompute embeddings via Python ONNX Runtime                                                |
 | `precompute:embeddings-py`                      | Precompute embeddings via Python sentence-transformers (GPU path)                            |
-| `quantize:model`                                | Quantize ONNX model to INT8 for ARM64                                                        |
 | `download:vosk`                                 | Download the English Vosk model for local STT                                                |
 | `build:vosk-sidecar`                            | Build the self-contained Vosk worker executable bundled in public installers                 |
 | `download:ndi-sdk`                              | Download NDI 6 SDK headers and platform libraries                                            |

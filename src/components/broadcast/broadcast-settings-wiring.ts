@@ -62,6 +62,14 @@ export function resolveMonitorIndexFromKey(
   return fallback
 }
 
+export function shouldPersistResolvedMonitorKey(
+  monitors: MonitorInfo[],
+  persistedKey: string,
+): boolean {
+  if (persistedKey.trim() === "") return true
+  return monitors.some((monitor) => monitor.key === persistedKey)
+}
+
 export function buildOpenBroadcastWindowArgs(
   outputId: BroadcastOutputId,
   monitors: MonitorInfo[],

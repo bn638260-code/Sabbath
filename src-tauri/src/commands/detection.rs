@@ -100,6 +100,10 @@ pub fn toggle_paraphrase_detection(
 }
 
 #[derive(Serialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Tauri status DTO mirrors frontend boolean readiness flags"
+)]
 pub struct DetectionStatusResult {
     pub has_direct: bool,
     pub has_semantic: bool,
@@ -162,6 +166,10 @@ pub fn stop_reading_mode(state: State<'_, Mutex<ReadingMode>>) -> Result<(), Str
 }
 
 #[tauri::command]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Tauri command parameters are the serialized frontend settings payload"
+)]
 pub fn update_detection_settings(
     state: State<'_, Mutex<AppState>>,
     merger_state: State<'_, Mutex<rhema_detection::DetectionMerger>>,

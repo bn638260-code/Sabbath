@@ -1050,8 +1050,14 @@ mod tests {
     fn out_of_scope_streak_resets_when_a_scoped_verse_matches() {
         let mut rm = ReadingMode::new();
         let verses = vec![
-            (1, "for it seemed good to the holy ghost and to us".to_string()),
-            (2, "one two three four five six seven eight nine ten".to_string()),
+            (
+                1,
+                "for it seemed good to the holy ghost and to us".to_string(),
+            ),
+            (
+                2,
+                "one two three four five six seven eight nine ten".to_string(),
+            ),
         ];
         rm.start(44, "Acts", 15, 1, verses);
 

@@ -1201,11 +1201,6 @@ impl DirectDetector {
         Some(detection)
     }
 
-    /// Build a Detection from a resolved `VerseRef`.
-    #[expect(
-        clippy::unused_self,
-        reason = "method kept on self for future extensibility"
-    )]
     /// Resolve an explicit spoken "verse N" / "chapter N verse M" that carries
     /// no book name using the recent reference context (60s window). Preachers
     /// routinely cite this way minutes after last naming the book — long past
@@ -1243,18 +1238,18 @@ impl DirectDetector {
             return None;
         }
 
-        let detection = self.make_direct_detection(
-            &resolved,
-            CONTEXT_RESOLVED_CONFIDENCE,
-            text,
-            0,
-            text.len(),
-        );
+        let detection =
+            self.make_direct_detection(&resolved, CONTEXT_RESOLVED_CONFIDENCE, text, 0, text.len());
         self.push_recent(&resolved);
         self.context.update(&resolved);
         Some(detection)
     }
 
+    /// Build a Detection from a resolved `VerseRef`.
+    #[expect(
+        clippy::unused_self,
+        reason = "method kept on self for future extensibility"
+    )]
     fn make_direct_detection(
         &self,
         verse_ref: &VerseRef,

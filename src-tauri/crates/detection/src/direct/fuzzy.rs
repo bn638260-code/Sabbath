@@ -48,10 +48,9 @@ fn levenshtein(a: &str, b: &str) -> usize {
 /// canonical path, so genuine "Numbers chapter 1" is unaffected. Audited against
 /// the 66 canonical names; keep sorted.
 const FUZZY_NON_BOOK_WORDS: &[&str] = &[
-    "ants", "arts", "dude", "duke", "game", "games", "hope", "house",
-    "jade", "jobs", "join", "judge", "judged", "june", "kings", "lake", "like",
-    "marks", "much", "name", "names", "noel", "number", "numbers", "romance",
-    "rude", "title", "truth", "woman",
+    "ants", "arts", "dude", "duke", "game", "games", "hope", "house", "jade", "jobs", "join",
+    "judge", "judged", "june", "kings", "lake", "like", "marks", "much", "name", "names", "noel",
+    "number", "numbers", "romance", "rude", "title", "truth", "woman",
 ];
 
 /// Determine the maximum allowed edit distance for a book name.

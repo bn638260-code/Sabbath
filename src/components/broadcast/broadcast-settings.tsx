@@ -12,6 +12,7 @@ import {
   clampMonitorIndex,
   normalizeMonitorList,
   resolveMonitorIndexFromKey,
+  shouldPersistResolvedMonitorKey,
   type MonitorInfo,
 } from "@/components/broadcast/broadcast-settings-wiring"
 import { BroadcastOutputCard } from "@/components/broadcast/BroadcastOutputCard"
@@ -75,8 +76,18 @@ export function BroadcastSettings({
       store.setAltDisplayMonitorIndex(altIndex)
       const mainMonitor = result[mainIndex]
       const altMonitor = result[altIndex]
-      if (mainMonitor) store.setMainDisplayMonitorKey(mainMonitor.key)
-      if (altMonitor) store.setAltDisplayMonitorKey(altMonitor.key)
+      if (
+        mainMonitor &&
+        shouldPersistResolvedMonitorKey(result, store.mainDisplayMonitorKey)
+      ) {
+        store.setMainDisplayMonitorKey(mainMonitor.key)
+      }
+      if (
+        altMonitor &&
+        shouldPersistResolvedMonitorKey(result, store.altDisplayMonitorKey)
+      ) {
+        store.setAltDisplayMonitorKey(altMonitor.key)
+      }
     } catch (error) {
       setMonitors([])
       showBroadcastError("Could not load display monitors", error)

@@ -90,6 +90,10 @@ impl SemanticDetector {
     /// The returned `Detection` objects have placeholder `VerseRef`
     /// fields (all zeros / empty) — the caller is expected to resolve
     /// them using the `verse_id` from the underlying `SearchResult`.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "semantic detection keeps ensemble and fallback branches together"
+    )]
     pub fn detect(&mut self, text: &str) -> Vec<Detection> {
         if !self.is_ready() {
             return vec![];

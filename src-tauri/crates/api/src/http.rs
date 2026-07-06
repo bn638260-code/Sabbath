@@ -65,13 +65,25 @@ impl Drop for HttpHandle {
 pub struct HttpStartResult {
     pub handle: HttpHandle,
     pub bound_port: u16,
+    pub token: SharedHttpToken,
+}
+
+/// Shared bearer token for a running HTTP server.
+pub type SharedHttpToken = Arc<tokio::sync::RwLock<String>>;
+
+pub fn new_shared_http_token(token: String) -> SharedHttpToken {
+    Arc::new(tokio::sync::RwLock::new(token))
+}
+
+pub async fn update_shared_http_token(token: &SharedHttpToken, value: String) {
+    *token.write().await = value;
 }
 
 /// Shared state for axum route handlers.
 struct AppState<S: CommandSink> {
     sink: Arc<S>,
     status: Arc<tokio::sync::RwLock<StatusSnapshot>>,
-    token: String,
+    token: SharedHttpToken,
 }
 
 /// Snapshot of the current application state, served by `GET /api/v1/status`.
@@ -137,10 +149,11 @@ where
         .parse()
         .map_err(|e| CommandError::DispatchFailed(format!("Invalid bind address: {e}")))?;
 
+    let token = new_shared_http_token(config.token);
     let state = Arc::new(AppState {
         sink,
         status,
-        token: config.token,
+        token: token.clone(),
     });
 
     let cors = CorsLayer::new()
@@ -199,6 +212,7 @@ where
             shutdown_tx: Some(shutdown_tx),
         },
         bound_port,
+        token,
     })
 }
 
@@ -245,7 +259,8 @@ async fn status_handler<S: CommandSink + 'static>(
     AxumState(state): AxumState<Arc<AppState<S>>>,
     headers: HeaderMap,
 ) -> Response {
-    if !bearer_authorized(&headers, &state.token) {
+    let token = state.token.read().await;
+    if !bearer_authorized(&headers, &token) {
         return (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
@@ -278,7 +293,8 @@ async fn control_handler<S: CommandSink + 'static>(
     headers: HeaderMap,
     Json(request): Json<ControlRequest>,
 ) -> impl IntoResponse {
-    if !bearer_authorized(&headers, &state.token) {
+    let token = state.token.read().await;
+    if !bearer_authorized(&headers, &token) {
         return (
             StatusCode::UNAUTHORIZED,
             Json(ControlResponse {
@@ -590,6 +606,69 @@ mod tests {
         assert!(resp.contains("200 OK"), "Expected 200, got: {resp}");
         assert!(resp.contains("\"success\":true"));
         assert_eq!(sink.command_count(), 1);
+
+        let mut handle = result.handle;
+        handle.stop();
+    }
+
+    #[tokio::test]
+    async fn token_updates_revoke_old_bearer_without_restart() {
+        let sink = Arc::new(MockSink::new());
+        let status = new_shared_status();
+        let config = HttpConfig {
+            port: 0,
+            host: "127.0.0.1".into(),
+            token: "old-secret".into(),
+        };
+
+        let result = start_http_server(config, sink.clone(), status)
+            .await
+            .expect("should bind");
+        let port = result.bound_port;
+
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        let body = r#"{"command":"show"}"#;
+        let old_before_rotation = raw_http_request_with_headers(
+            port,
+            "POST",
+            "/api/v1/control",
+            &[("Authorization", "Bearer old-secret")],
+            Some(body),
+        )
+        .await;
+        assert!(
+            old_before_rotation.contains("200 OK"),
+            "Expected old token to work before rotation, got: {old_before_rotation}"
+        );
+
+        update_shared_http_token(&result.token, "new-secret".to_string()).await;
+
+        let old_after_rotation = raw_http_request_with_headers(
+            port,
+            "POST",
+            "/api/v1/control",
+            &[("Authorization", "Bearer old-secret")],
+            Some(body),
+        )
+        .await;
+        assert!(
+            old_after_rotation.contains("401 Unauthorized"),
+            "Expected old token to be revoked, got: {old_after_rotation}"
+        );
+
+        let new_after_rotation = raw_http_request_with_headers(
+            port,
+            "POST",
+            "/api/v1/control",
+            &[("Authorization", "Bearer new-secret")],
+            Some(body),
+        )
+        .await;
+        assert!(
+            new_after_rotation.contains("200 OK"),
+            "Expected new token to work, got: {new_after_rotation}"
+        );
 
         let mut handle = result.handle;
         handle.stop();

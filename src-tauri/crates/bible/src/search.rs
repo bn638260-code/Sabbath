@@ -555,11 +555,20 @@ mod tests {
         );
         assert!(!query.contains("27"), "digits must be filtered: {query}");
         assert!(
-            !query.to_lowercase().split_whitespace().any(|t| t == "verse"),
+            !query
+                .to_lowercase()
+                .split_whitespace()
+                .any(|t| t == "verse"),
             "'verse' keyword must be filtered: {query}"
         );
-        assert!(query.contains("counsel"), "content words must survive: {query}");
-        assert!(query.contains("acceptable"), "content words must survive: {query}");
+        assert!(
+            query.contains("counsel"),
+            "content words must survive: {query}"
+        );
+        assert!(
+            query.contains("acceptable"),
+            "content words must survive: {query}"
+        );
     }
 
     #[test]
@@ -567,9 +576,18 @@ mod tests {
         let query = build_or_query(
             "Chapter 2 verse 37 the Bible says you O king are the king of kings for the God of heaven has given you a kingdom power strength and glory",
         );
-        assert!(!query.contains("\"37\""), "digits must be filtered: {query}");
-        assert!(!query.contains("\"verse\""), "'verse' must be filtered: {query}");
-        assert!(!query.contains("\"chapter\""), "'chapter' must be filtered: {query}");
+        assert!(
+            !query.contains("\"37\""),
+            "digits must be filtered: {query}"
+        );
+        assert!(
+            !query.contains("\"verse\""),
+            "'verse' must be filtered: {query}"
+        );
+        assert!(
+            !query.contains("\"chapter\""),
+            "'chapter' must be filtered: {query}"
+        );
         assert_eq!(
             query.matches("\"king\"").count(),
             1,
@@ -577,8 +595,14 @@ mod tests {
         );
         // With noise and duplicates gone, the 10-term cap reaches deep into
         // the quote instead of stalling on "chapter 2 verse 37 … verse verse".
-        assert!(query.contains("\"kingdom\""), "content words must survive: {query}");
-        assert!(query.contains("\"strength\""), "content words must survive: {query}");
+        assert!(
+            query.contains("\"kingdom\""),
+            "content words must survive: {query}"
+        );
+        assert!(
+            query.contains("\"strength\""),
+            "content words must survive: {query}"
+        );
     }
 
     #[test]
