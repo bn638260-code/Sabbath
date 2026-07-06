@@ -308,6 +308,72 @@ pub async fn close_broadcast_window(
     Ok(())
 }
 
+/// Briefly flash a large number on every connected display so the operator can
+/// tell which physical screen is which ("screen 2 is the projector"). Each
+/// overlay window auto-closes after `duration_ms`.
+#[tauri::command]
+pub async fn flash_monitor_labels(
+    app: tauri::AppHandle,
+    duration_ms: Option<u64>,
+) -> Result<(), String> {
+    let duration = duration_ms.unwrap_or(4000).clamp(500, 15_000);
+    let monitors = app.available_monitors().map_err(|e| e.to_string())?;
+
+    let mut overlays: Vec<tauri::WebviewWindow> = Vec::new();
+    for (index, monitor) in monitors.iter().enumerate() {
+        let pos = monitor.position();
+        let size = monitor.size();
+        let label = format!("identify-{index}");
+
+        if let Some(existing) = app.get_webview_window(&label) {
+            let _ = existing.close();
+        }
+
+        let url = format!(
+            "identify.html?n={}&w={}&h={}",
+            index + 1,
+            size.width,
+            size.height
+        );
+        let window =
+            WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
+                .title("Identify display")
+                .position(f64::from(pos.x), f64::from(pos.y))
+                .inner_size(f64::from(size.width), f64::from(size.height))
+                .decorations(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .focused(false)
+                .visible(false)
+                .build()
+                .map_err(|e| e.to_string())?;
+
+        window
+            .set_position(tauri::Position::Physical(*pos))
+            .map_err(|e| e.to_string())?;
+        window
+            .set_size(tauri::Size::Physical(*size))
+            .map_err(|e| e.to_string())?;
+        window.show().map_err(|e| e.to_string())?;
+        overlays.push(window);
+    }
+
+    log::info!(
+        "[BROADCAST] flash_monitor_labels count={} duration_ms={}",
+        overlays.len(),
+        duration
+    );
+
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(duration));
+        for window in overlays {
+            let _ = window.close();
+        }
+    });
+
+    Ok(())
+}
+
 #[tauri::command]
 pub fn start_ndi(
     output_id: String,

@@ -156,6 +156,15 @@ export const TUTORIAL_STEPS: Step[] = [
   },
   {
     ...STEP_DEFAULTS,
+    target: '[data-tour="projector-setup"]',
+    title: "Projector Setup",
+    content:
+      "Tap here before the service to get the projector working. It remembers last week's screen and goes live in one tap, notices when you plug the projector in, and can flash a big number on each screen so you know which one is the projector. If the projector mirrors your laptop, it tells you to press Win+P and choose Extend.",
+    placement: "bottom",
+    before: () => prepareTarget('[data-tour="projector-setup"]', { workspace: "live" }),
+  },
+  {
+    ...STEP_DEFAULTS,
     target: '[data-tour="broadcast"]',
     title: "Broadcast",
     content:
@@ -167,7 +176,7 @@ export const TUTORIAL_STEPS: Step[] = [
     target: '[data-tour="settings-section-broadcast"]',
     title: "HDMI Projector Setup",
     content:
-      "Connect the projector or TV by HDMI, set Windows display mode to Extend, then use Broadcast Settings to Refresh displays, select the HDMI monitor, turn on fullscreen projector output, and open Preview before service.",
+      "For the quickest setup, use Projector Setup in the top bar. Broadcast Settings here is the advanced path: it configures two independent outputs (Main and Alt) with their own themes and target monitors. Set Windows display mode to Extend, then Refresh displays, pick the HDMI monitor, and turn on fullscreen projector output.",
     placement: "left",
     before: () =>
       prepareTarget('[data-tour="settings-section-broadcast"]', {

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Identify display</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at 50% 40%, #142042, #06080f);
+        color: #fff;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      .wrap {
+        text-align: center;
+      }
+      .num {
+        font-size: min(42vw, 42vh);
+        font-weight: 800;
+        line-height: 1;
+        color: #7dd3fc;
+        text-shadow: 0 0 60px rgba(125, 211, 252, 0.55);
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+      .res {
+        margin-top: 2vh;
+        font-size: min(6vw, 6vh);
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        opacity: 0.92;
+      }
+      .hint {
+        margin-top: 1.5vh;
+        font-size: min(3.4vw, 3.4vh);
+        opacity: 0.55;
+        text-transform: uppercase;
+        letter-spacing: 0.28em;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="num" id="num">?</div>
+      <div class="res" id="res"></div>
+      <div class="hint">This screen</div>
+    </div>
+    <script>
+      var params = new URLSearchParams(location.search)
+      document.getElementById("num").textContent = params.get("n") || "?"
+      var w = params.get("w")
+      var h = params.get("h")
+      document.getElementById("res").textContent =
+        w && h ? w + " × " + h : ""
+    </script>
+  </body>
+</html>

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react"
-import { CircleDotIcon, MoonIcon, SunIcon } from "lucide-react"
+import { CircleDotIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { APP_DISPLAY_NAME } from "@/lib/app-brand"
 import { AppLogo } from "@/components/ui/app-logo"
@@ -8,7 +8,15 @@ import {
   type AccentTheme,
 } from "@/stores/accent-theme-store"
 import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
+import { useBroadcastMonitorStore } from "@/stores/broadcast/monitor-store"
 import { useColorModeStore } from "@/stores/color-mode-store"
+import {
+  openProjectorSetup,
+  useProjectorSetupStore,
+} from "@/stores/projector-setup-store"
+import { deriveProjectorReadiness } from "@/lib/projector-setup/projector-readiness"
+import { projectorReadinessCopy } from "@/lib/projector-setup/projector-readiness-copy"
+import { parseRememberedSetupKey } from "@/lib/projector-setup/remembered-setup-key"
 import { WorkspaceTopNav } from "@/components/layout/workspace-top-nav"
 import packageJson from "../../../package.json"
 
@@ -67,6 +75,23 @@ export function AppControllerHeader() {
   const colorMode = useColorModeStore((s) => s.mode)
   const toggleColorMode = useColorModeStore((s) => s.toggle)
   const isLive = useBroadcastLiveStore((s) => s.isLive)
+  const projectorMonitors = useProjectorSetupStore((s) => s.monitors)
+  const rememberedMonitorKey = useBroadcastMonitorStore(
+    (s) => s.mainDisplayMonitorKey
+  )
+  const rememberedFullscreen = useBroadcastMonitorStore(
+    (s) => s.mainProjectorFullscreen
+  )
+  const projectorChip = projectorReadinessCopy(
+    deriveProjectorReadiness({
+      monitors: projectorMonitors,
+      remembered: parseRememberedSetupKey(
+        rememberedMonitorKey,
+        rememberedFullscreen
+      ),
+      isLive,
+    })
+  )
   const [clock, setClock] = useState(() => formatClock(new Date()))
 
   useEffect(() => {
@@ -103,6 +128,20 @@ export function AppControllerHeader() {
       </div>
 
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          data-tour="projector-setup"
+          onClick={() => openProjectorSetup()}
+          title="Open Projector Setup"
+          aria-label="Open Projector Setup"
+          className="hidden cursor-pointer transition-transform hover:scale-[1.03] md:inline-flex"
+        >
+          <HeaderStatusChip
+            icon={<MonitorIcon className="size-3" />}
+            label={projectorChip.chipLabel}
+            tone={projectorChip.chipTone}
+          />
+        </button>
         <div className="hidden items-center gap-1.5 xl:flex">
           <HeaderStatusChip
             icon={<CircleDotIcon className="size-3" />}

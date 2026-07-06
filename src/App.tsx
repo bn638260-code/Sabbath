@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from "react"
 import { Dashboard } from "@/components/layout/dashboard"
+import { ProjectorSetupPanel } from "@/components/broadcast/ProjectorSetupPanel"
+import { useMonitorWatcher } from "@/hooks/use-monitor-watcher"
 import { useRemoteControl } from "@/hooks/use-remote-control"
 import { useTranscriptionEventBridge } from "@/hooks/use-transcription"
 import { useDetectionSettingsSync } from "@/hooks/use-detection-settings-sync"
@@ -151,6 +153,7 @@ export function App() {
   useWelcomeToast()
   useAnnouncements()
   useAppUpdateLauncher()
+  useMonitorWatcher()
   const apiKeyPromptOpen = useApiKeyPromptStore((s) => s.isOpen)
   const setApiKeyPromptOpen = useApiKeyPromptStore((s) => s.setOpen)
   const onboardingComplete = useSettingsStore((s) => s.onboardingComplete)
@@ -161,6 +164,7 @@ export function App() {
   return (
     <>
       <Dashboard />
+      <ProjectorSetupPanel />
       {shouldMountTutorial ? (
         <Suspense fallback={null}>
           <LazyTutorialOverlay />

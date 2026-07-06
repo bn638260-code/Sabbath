@@ -148,6 +148,10 @@ function DisplayOutputSettings({
 
       <div className="rounded-md border border-[var(--border-dim)] bg-[var(--shell-bg-sunken)] px-3 py-2 text-xs text-muted-foreground">
         <p className="font-medium text-foreground">HDMI setup</p>
+        <p className="mt-1">
+          Tip: use <span className="font-medium">Projector Setup</span> in the top
+          bar for one-tap setup. These steps are the manual path:
+        </p>
         <ol className="mt-2 list-decimal space-y-1 pl-4">
           <li>Connect the HDMI cable from this computer to the projector or TV.</li>
           <li>In Windows display settings, choose Extend these displays.</li>

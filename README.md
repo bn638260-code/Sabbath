@@ -54,8 +54,9 @@ Local builds create an unsigned NSIS installer; official release CI uses
 - **Verse queue** with drag-and-drop ordering (`@dnd-kit/react`) and duplicate prevention (flash-highlight on duplicates)
 - **Quick navigation** — keyboard-driven verse entry with autocomplete (e.g., type "J" → Joshua, Tab through book → chapter → verse)
 - **Fuzzy contextual search** (Fuse.js client-side)
+- **Guided Projector Setup** — one-tap "go live on the projector" that remembers last week's display, hot-plug detection (no manual Refresh), on-screen **Identify screens**, and plain-language Duplicate-vs-Extend guidance; reachable from a header status chip
 - **Audio level metering** and on-air indicator
-- **Interactive onboarding tutorial** — 11-step guided tour covering all panels, auto-launches on first startup
+- **Interactive onboarding tutorial** — guided tour covering all panels and Projector Setup, auto-launches on first startup
 - **Light/dark mode** with system theme detection (light, dark, or follow OS)
 - **Settings persistence** — all preferences auto-saved to disk across restarts
 - **Cross-platform** — Windows, macOS, and Linux

@@ -128,6 +128,7 @@ pub fn run() {
             commands::broadcast::ensure_broadcast_window,
             commands::broadcast::open_broadcast_window,
             commands::broadcast::close_broadcast_window,
+            commands::broadcast::flash_monitor_labels,
             commands::broadcast::start_ndi,
             commands::broadcast::stop_ndi,
             commands::broadcast::get_ndi_status,
