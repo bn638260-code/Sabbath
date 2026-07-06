@@ -308,6 +308,12 @@ pub async fn close_broadcast_window(
     Ok(())
 }
 
+fn close_identify_overlays(overlays: &mut Vec<tauri::WebviewWindow>) {
+    for window in overlays.drain(..) {
+        let _ = window.close();
+    }
+}
+
 /// Briefly flash a large number on every connected display so the operator can
 /// tell which physical screen is which ("screen 2 is the projector"). Each
 /// overlay window auto-closes after `duration_ms`.
@@ -346,15 +352,37 @@ pub async fn flash_monitor_labels(
                 .focused(false)
                 .visible(false)
                 .build()
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| e.to_string());
 
-        window
+        let window = match window {
+            Ok(window) => window,
+            Err(error) => {
+                close_identify_overlays(&mut overlays);
+                return Err(error);
+            }
+        };
+
+        if let Err(error) = window
             .set_position(tauri::Position::Physical(*pos))
-            .map_err(|e| e.to_string())?;
-        window
+            .map_err(|e| e.to_string())
+        {
+            let _ = window.close();
+            close_identify_overlays(&mut overlays);
+            return Err(error);
+        }
+        if let Err(error) = window
             .set_size(tauri::Size::Physical(*size))
-            .map_err(|e| e.to_string())?;
-        window.show().map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())
+        {
+            let _ = window.close();
+            close_identify_overlays(&mut overlays);
+            return Err(error);
+        }
+        if let Err(error) = window.show().map_err(|e| e.to_string()) {
+            let _ = window.close();
+            close_identify_overlays(&mut overlays);
+            return Err(error);
+        }
         overlays.push(window);
     }
 
