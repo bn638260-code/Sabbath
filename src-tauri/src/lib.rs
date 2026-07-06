@@ -29,6 +29,39 @@ fn poisoned_lock_error(name: &str) -> io::Error {
     io::Error::other(format!("{name} lock was poisoned"))
 }
 
+/// Verbatim KJV Genesis 1:1 — a verse guaranteed to be in every corpus.
+const SEMANTIC_SANITY_PROBE: &str = "In the beginning God created the heaven and the earth.";
+/// A healthy index returns its own verse at ~0.93+ cosine; a mismatched
+/// embeddings file (built with a different model/pipeline) lands below the
+/// 0.42 retrieval cutoff. Anything under this floor means the file does not
+/// match the runtime embedder.
+const SEMANTIC_SANITY_MIN_SIMILARITY: f64 = 0.80;
+
+/// Embed a known verse and require the index to find it with near-self
+/// similarity, so a mismatched embeddings file fails loudly at startup
+/// instead of silently returning nothing for every live query.
+fn semantic_index_sanity_check(
+    embedder: &rhema_detection::OnnxEmbedder,
+    index: &rhema_detection::HnswVectorIndex,
+) -> Result<f64, String> {
+    let embedding = embedder
+        .embed(SEMANTIC_SANITY_PROBE)
+        .map_err(|e| format!("sanity probe embed failed: {e}"))?;
+    let results = index
+        .search(&embedding, 1)
+        .map_err(|e| format!("sanity probe search failed: {e}"))?;
+    let top = results.first().map_or(0.0, |r| r.similarity);
+    if top >= SEMANTIC_SANITY_MIN_SIMILARITY {
+        Ok(top)
+    } else {
+        Err(format!(
+            "top similarity {top:.3} for a verbatim verse (need >= {SEMANTIC_SANITY_MIN_SIMILARITY}); \
+             the embeddings file does not match the runtime embedder — \
+             regenerate it with `bun run precompute:embeddings`"
+        ))
+    }
+}
+
 #[expect(clippy::too_many_lines, reason = "app setup is inherently complex")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -234,6 +267,21 @@ pub fn run() {
                             let dim = embedder.dimension();
                             match rhema_detection::HnswVectorIndex::load(&embeddings_path, &ids_path, dim) {
                                 Ok(index) => {
+                                    match semantic_index_sanity_check(&embedder, &index) {
+                                        Ok(similarity) => {
+                                            log::info!(
+                                                "Semantic index sanity check passed (self-similarity {similarity:.3})"
+                                            );
+                                        }
+                                        Err(reason) => {
+                                            log::error!(
+                                                "SEMANTIC VECTOR SEARCH DISABLED — index failed sanity check: {reason} \
+                                                 (embeddings={})",
+                                                embeddings_path.display()
+                                            );
+                                            return Ok(());
+                                        }
+                                    }
                                     let semantic_corpus = if embeddings_path
                                         .file_name()
                                         .and_then(|name| name.to_str())

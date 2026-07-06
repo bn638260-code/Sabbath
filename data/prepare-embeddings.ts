@@ -148,14 +148,11 @@ async function main() {
 
   console.log("\n--- Phase 7/8: Pre-compute verse embeddings ---")
   if (!shouldSkip("precomputed embeddings", EMB_BIN, IDS_BIN)) {
-    const venvPython = getVenvBin(
-      process.platform === "win32" ? "python" : "python3"
-    )
-    await run(
-      [venvPython, join(DATA_DIR, "precompute-embeddings.py")],
-      undefined,
-      { PYTHONUTF8: "1" }
-    )
+    // Must use the Rust precompute bin: it embeds with the exact same ONNX
+    // int8 model + pooling the app uses at runtime. The old Python
+    // (sentence-transformers) path produced vectors mismatched with the
+    // runtime embedder, silently killing the vector search leg.
+    await run(["bun", "run", "precompute:embeddings"])
   }
 
   console.log("\n--- Phase 8/8: Download Vosk model ---")

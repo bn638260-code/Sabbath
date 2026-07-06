@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 """
+DEPRECATED — do not use for the app's verse embeddings.
+
+This script embeds with sentence-transformers (fp32 torch), which does NOT
+match the app's runtime embedder (ONNX int8 via the Rust OnnxEmbedder).
+Vectors it produces fail the startup sanity check and silently break live
+vector search. Generate embeddings with `bun run precompute:embeddings`
+(the Rust precompute bin) instead — setup Phase 7 now does exactly that.
+
 Pre-compute verse embeddings for SabbathCue.
 
 Automatically picks the fastest available backend:
