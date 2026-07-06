@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
-import { drawKineticBackground, isKineticTheme, kineticLoopPhase } from "./kinetic-theme-renderer"
+import {
+  drawKineticBackground,
+  getNatureEnvironmentLayer,
+  isKineticTheme,
+  kineticLoopPhase,
+} from "./kinetic-theme-renderer"
 import { buildKineticBroadcastTheme, KINETIC_THEME_PRESETS } from "./kinetic-themes"
 import { BUILTIN_THEMES } from "./builtin-themes"
 import type { BroadcastTheme } from "@/types"
@@ -313,6 +318,57 @@ describe("nature scenes", () => {
     ).toBeGreaterThan(0)
   })
 
+  it("draws ground ripples for rain", () => {
+    const r = createRecorder()
+    drawKineticBackground(r.ctx, preset("nature-rain"), 2000)
+    expect(
+      (r.ctx.ellipse as ReturnType<typeof vi.fn>).mock.calls.length,
+    ).toBeGreaterThan(0)
+  })
+
+  it("draws a horizon silhouette behind the stars", () => {
+    const r = createRecorder()
+    drawKineticBackground(r.ctx, preset("nature-stars"), 0)
+    expect(
+      (r.ctx.quadraticCurveTo as ReturnType<typeof vi.fn>).mock.calls.length,
+    ).toBeGreaterThan(0)
+  })
+
+  it("draws hill silhouettes behind the snow", () => {
+    const r = createRecorder()
+    drawKineticBackground(r.ctx, preset("nature-snow"), 0)
+    expect(
+      (r.ctx.quadraticCurveTo as ReturnType<typeof vi.fn>).mock.calls.length,
+    ).toBeGreaterThan(0)
+  })
+
+  it("draws a dusk treeline behind the fireflies", () => {
+    const r = createRecorder()
+    drawKineticBackground(r.ctx, preset("nature-fireflies"), 0)
+    expect(
+      (r.ctx.quadraticCurveTo as ReturnType<typeof vi.fn>).mock.calls.length,
+    ).toBeGreaterThan(0)
+  })
+
+  it("renders every nature kind without throwing at zero and nonzero times", () => {
+    const ids = [
+      "nature-foliage",
+      "nature-forest",
+      "nature-rain",
+      "nature-autumn",
+      "nature-blossom",
+      "nature-snow",
+      "nature-fireflies",
+      "nature-stars",
+      "nature-meadow",
+      "nature-aurora",
+    ]
+    for (const id of ids) {
+      expect(drawKineticBackground(createRecorder().ctx, preset(id), 0)).toBe(true)
+      expect(drawKineticBackground(createRecorder().ctx, preset(id), 40000)).toBe(true)
+    }
+  })
+
   it("is deterministic at a fixed timeMs and animates as time advances", () => {
     const a = createRecorder()
     const b = createRecorder()
@@ -322,5 +378,63 @@ describe("nature scenes", () => {
     drawKineticBackground(c.ctx, preset("nature-snow"), 1500)
     expect(a.arcArgs).toEqual(b.arcArgs)
     expect(a.arcArgs).not.toEqual(c.arcArgs)
+  })
+})
+
+describe("nature environment layer cache", () => {
+  function stubCanvasDocument() {
+    const createElement = vi.fn((tag: string) => {
+      if (tag !== "canvas") throw new Error(`unexpected tag ${tag}`)
+      return {
+        width: 0,
+        height: 0,
+        getContext: () => createRecorder().ctx,
+      }
+    })
+    vi.stubGlobal("document", { createElement })
+    return createElement
+  }
+
+  it("returns the same canvas for identical args and repaints on palette change", () => {
+    stubCanvasDocument()
+    try {
+      const theme = preset("nature-forest")
+      if (!isKineticTheme(theme)) throw new Error("expected kinetic theme")
+      const kinetic = theme.kinetic
+      const a = getNatureEnvironmentLayer(kinetic, 640, 360)
+      const b = getNatureEnvironmentLayer(kinetic, 640, 360)
+      expect(a).not.toBeNull()
+      expect(b).toBe(a)
+      const recolored = { ...kinetic, accentColor: "#ff0000" }
+      const c = getNatureEnvironmentLayer(recolored, 640, 360)
+      expect(c).not.toBe(a)
+      const resized = getNatureEnvironmentLayer(kinetic, 320, 180)
+      expect(resized).not.toBe(a)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it("returns null without a DOM and the scene still renders inline", () => {
+    const theme = preset("nature-forest")
+    if (!isKineticTheme(theme)) throw new Error("expected kinetic theme")
+    expect(getNatureEnvironmentLayer(theme.kinetic, 641, 361)).toBeNull()
+    const r = createRecorder()
+    expect(drawKineticBackground(r.ctx, theme, 0)).toBe(true)
+    expect(r.fillRects).toBeGreaterThan(0)
+    expect((r.ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0)
+  })
+
+  it("blits the cached environment layer when a DOM is available", () => {
+    stubCanvasDocument()
+    try {
+      const r = createRecorder()
+      drawKineticBackground(r.ctx, preset("nature-forest"), 0)
+      expect(
+        (r.ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls.length,
+      ).toBeGreaterThan(0)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
