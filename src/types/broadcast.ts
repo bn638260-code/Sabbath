@@ -127,6 +127,17 @@ export interface BroadcastTransition {
   direction: BroadcastTransitionDirection
 }
 
+/** Optional hymn slide layout overrides any theme can adopt. */
+export interface HymnPresentationStyle {
+  /** Show the hymn title instead of the full reference string. */
+  titleOnly?: boolean
+  slideCounter?: {
+    position?: "top-right" | "bottom-right"
+    format?: "of" | "slash"
+    style?: "badge" | "plain"
+  }
+}
+
 export interface BroadcastTheme {
   id: string
   name: string
@@ -219,4 +230,6 @@ export interface BroadcastTheme {
    * themes remain fully backward-compatible.
    */
   kinetic?: BroadcastKineticTheme
+  /** Optional hymn-specific layout; omitted on themes that keep the default. */
+  hymnPresentation?: HymnPresentationStyle
 }

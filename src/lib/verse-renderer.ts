@@ -10,6 +10,7 @@ import {
   calculateScaledFontSize,
   wrapText,
   textForPresentation,
+  referenceForPresentation,
   clampCornerRadius,
   type VerseLayoutMetrics,
   type VerseLayoutRect,
@@ -147,7 +148,7 @@ function renderPresentationImpl(
     drawReference(
       ctx,
       scaledTheme,
-      data.reference,
+      referenceForPresentation(scaledTheme, data),
       metrics.textRect.x,
       metrics.textRect.width,
       referenceRect.y

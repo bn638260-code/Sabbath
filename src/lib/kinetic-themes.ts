@@ -406,7 +406,8 @@ function fallbackBackground(preset: KineticThemePreset): BroadcastTheme["backgro
 export function buildKineticBroadcastTheme(
   preset: KineticThemePreset,
 ): BroadcastTheme {
-  const isLight = preset.presetId === "editorial" || preset.presetId === "parchment"
+  const isLight =
+    preset.presetId === "editorial" || preset.presetId === "parchment"
   const theme: BroadcastTheme = {
     id: kineticThemeId(preset.presetId),
     name: preset.name,

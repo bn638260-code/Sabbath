@@ -284,7 +284,37 @@ export function drawHymnSlideCounter(
   const slide = data.hymnSlide
   if (!["hymn", "slideDeck"].includes(data.kind ?? "") || !slide || slide.slideCount <= 0) return
 
-  const text = `${slide.slideIndex + 1} of ${slide.slideCount}`
+  const counter = theme.hymnPresentation?.slideCounter
+  const format = counter?.format ?? "of"
+  const text =
+    format === "slash"
+      ? `${slide.slideIndex + 1}/${slide.slideCount}`
+      : `${slide.slideIndex + 1} of ${slide.slideCount}`
+  const position = counter?.position ?? "top-right"
+  const style = counter?.style ?? "badge"
+
+  if (position === "bottom-right" && style === "plain") {
+    const fontSize = Math.max(
+      18,
+      Math.round(theme.verseText.fontSize * 0.65 * (theme.resolution.width / 1920))
+    )
+    const margin = Math.round(theme.resolution.width * 0.05)
+
+    ctx.save()
+    ctx.font = `${theme.verseText.fontWeight} ${fontSize}px "${theme.verseText.fontFamily}", sans-serif`
+    ctx.textBaseline = "bottom"
+    ctx.textAlign = "right"
+    ctx.fillStyle = theme.verseText.color
+    ctx.globalAlpha = 0.9
+    ctx.fillText(
+      text,
+      theme.resolution.width - margin,
+      theme.resolution.height - margin
+    )
+    ctx.restore()
+    return
+  }
+
   const fontSize = Math.max(14, Math.round(theme.resolution.width * 0.018))
   const paddingX = Math.round(fontSize * 0.75)
   const paddingY = Math.round(fontSize * 0.35)

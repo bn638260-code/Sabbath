@@ -19,6 +19,7 @@ export interface PresentationSegment {
 export interface PresentationRenderData {
   reference: string
   segments: PresentationSegment[]
+  hymnTitle?: string
   kind?: PresentationItemKind
   scripture?: Verse
   egwParagraph?: EgwParagraph
@@ -175,6 +176,7 @@ export function getPresentationRenderData(
     return {
       kind: "hymn",
       reference: item.reference,
+      hymnTitle: item.hymnTitle,
       segments: item.segments,
       hymnSlide: {
         screenId: item.screenId,

@@ -12,6 +12,9 @@ import {
 const FONT_FAMILIES = [
   "Geist Variable",
   "Source Serif 4 Variable",
+  "Plus Jakarta Sans Variable",
+  "Outfit Variable",
+  "Playfair Display",
   "Georgia",
   "Arial",
   "Helvetica",

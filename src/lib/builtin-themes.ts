@@ -460,6 +460,79 @@ const HYMNS_BIG_LYRICS: BroadcastTheme = {
   },
 }
 
+const HYMN_SANCTUARY_PRESENTATION: BroadcastTheme["hymnPresentation"] = {
+  titleOnly: true,
+  slideCounter: {
+    position: "bottom-right",
+    format: "slash",
+    style: "plain",
+  },
+}
+
+const HYMN_SANCTUARY_SOLID: BroadcastTheme = {
+  ...MODERN_LIGHT,
+  id: "builtin-hymn-sanctuary-solid",
+  name: "Pure Classic (Hymn)",
+  hymnPresentation: HYMN_SANCTUARY_PRESENTATION,
+  background: {
+    type: "solid",
+    color: "#f8f5f0",
+    gradient: null,
+    image: null,
+  },
+  verseText: {
+    fontFamily: "Plus Jakarta Sans Variable",
+    fontSize: 58,
+    fontWeight: 400,
+    color: "#4d2414",
+    horizontalAlign: "center",
+    verticalAlign: "middle",
+    textTransform: "none",
+    textDecoration: "none",
+    lineHeight: 1.55,
+    letterSpacing: 0,
+    shadow: { color: "rgba(255,255,255,0.7)", blur: 1, x: 0, y: 1 },
+    outline: null,
+  },
+  verseNumbers: {
+    visible: false,
+    fontSize: 16,
+    color: "#4d2414",
+    superscript: true,
+  },
+  reference: {
+    fontFamily: "Plus Jakarta Sans Variable",
+    fontSize: 72,
+    fontWeight: 700,
+    color: "#4d2414",
+    horizontalAlign: "center",
+    verticalAlign: "top",
+    textTransform: "none",
+    textDecoration: "none",
+    uppercase: false,
+    letterSpacing: 0,
+    position: "above",
+  },
+  layout: {
+    anchor: "center",
+    offsetX: 0,
+    offsetY: 0,
+    padding: { top: 96, right: 120, bottom: 96, left: 120 },
+    textAlign: "center",
+    backgroundWidth: 100,
+    backgroundHeight: 100,
+    textAreaWidth: 78,
+    textAreaHeight: 82,
+    referenceGap: 48,
+  },
+  transition: {
+    type: "fade",
+    duration: 400,
+    easing: "ease-in-out",
+    direction: "up",
+  },
+}
+
 const CALM_BLUE_WHITE: BroadcastTheme = {
   ...MODERN_LIGHT,
   id: "builtin-calm-blue-white",
@@ -1438,6 +1511,7 @@ export const BUILTIN_THEMES: BroadcastTheme[] = [
   PAPER_READING,
   MIDNIGHT_GOLD,
   HYMNS_BIG_LYRICS,
+  HYMN_SANCTUARY_SOLID,
   CALM_BLUE_WHITE,
   CINEMA_AMBER,
   CINEMA_STEEL,

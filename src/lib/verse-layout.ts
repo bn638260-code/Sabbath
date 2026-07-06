@@ -157,6 +157,20 @@ function presentationKind(data: VerseRenderData | PresentationRenderData): Prese
   return "kind" in data ? data.kind : undefined
 }
 
+export function referenceForPresentation(
+  theme: BroadcastTheme,
+  data: VerseRenderData | PresentationRenderData
+): string {
+  if (
+    theme.hymnPresentation?.titleOnly &&
+    presentationKind(data) === "hymn" &&
+    data.hymnTitle
+  ) {
+    return data.hymnTitle
+  }
+  return data.reference
+}
+
 export function lineHeightForPresentation(
   theme: BroadcastTheme,
   data: VerseRenderData | PresentationRenderData,
@@ -164,11 +178,13 @@ export function lineHeightForPresentation(
 ): number {
   const kind = presentationKind(data)
   const lineHeight =
-    kind === "hymn"
-      ? Math.min(theme.verseText.lineHeight, 1.14)
-      : kind === "egw"
-        ? Math.min(theme.verseText.lineHeight, 1.32)
-        : theme.verseText.lineHeight
+    kind === "hymn" && theme.hymnPresentation
+      ? theme.verseText.lineHeight
+      : kind === "hymn"
+        ? Math.min(theme.verseText.lineHeight, 1.14)
+        : kind === "egw"
+          ? Math.min(theme.verseText.lineHeight, 1.32)
+          : theme.verseText.lineHeight
 
   return fontSize * lineHeight
 }
@@ -520,13 +536,13 @@ function blockVerticalAlignForTheme(theme: BroadcastTheme): TextVerticalAlign {
 function measureReferenceWidth(
   ctx: CanvasRenderingContext2D,
   theme: BroadcastTheme,
-  verse: VerseRenderData,
+  verse: VerseRenderData | PresentationRenderData,
   maxWidth: number
 ): number {
   const refText = applyTextTransform(
     theme.reference.uppercase
-      ? verse.reference.toUpperCase()
-      : verse.reference,
+      ? referenceForPresentation(theme, verse).toUpperCase()
+      : referenceForPresentation(theme, verse),
     resolveTextTransform(theme.reference.textTransform)
   )
   ctx.save()
@@ -542,7 +558,12 @@ function presentationBlockHeight(
   verseHeight: number,
   referenceGap: number
 ): number {
-  if (theme.reference.position === "above") return referenceHeight + verseHeight
+  if (theme.reference.position === "above") {
+    if (theme.hymnPresentation?.titleOnly) {
+      return referenceHeight + referenceGap + verseHeight
+    }
+    return referenceHeight + verseHeight
+  }
   if (theme.reference.position === "below") {
     return verseHeight + referenceGap + referenceHeight
   }
@@ -552,7 +573,7 @@ function presentationBlockHeight(
 export function computeVerseLayoutMetrics(
   ctx: CanvasRenderingContext2D,
   theme: BroadcastTheme,
-  verse: VerseRenderData | null,
+  verse: VerseRenderData | PresentationRenderData | null,
   options?: RenderOptions
 ): VerseLayoutMetrics {
   const { scaledTheme, textAreaRect, textRect } = baseLayoutMetrics(
@@ -623,7 +644,8 @@ export function computeVerseLayoutMetrics(
   let verseRect: VerseLayoutRect
   if (scaledTheme.reference.position === "above") {
     const refY = blockStartY
-    const verseY = blockStartY + referenceHeight
+    const titleGap = scaledTheme.hymnPresentation?.titleOnly ? referenceGap : 0
+    const verseY = blockStartY + referenceHeight + titleGap
     referenceRect = rectForAlignedText(
       referenceAlign === "justify" ? "left" : referenceAlign,
       referenceDrawX,

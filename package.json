@@ -53,6 +53,8 @@
   "dependencies": {
     "@dnd-kit/react": "^0.3.2",
     "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/outfit": "^5.2.8",
+    "@fontsource-variable/plus-jakarta-sans": "^5.2.8",
     "@fontsource-variable/source-sans-3": "^5.2.9",
     "@fontsource/bebas-neue": "^5.2.7",
     "@fontsource/cinzel": "^5.2.8",
