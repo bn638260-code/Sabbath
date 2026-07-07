@@ -652,17 +652,17 @@ mod tests {
         let results = vec![make_detection_result("Genesis 17:1", 1, 17, 1, 0.71)];
 
         assert_eq!(
-            detection_logic::live_pause_out_of_scope_bible_book(&results, 59, 2, 7, 0.60),
+            detection_logic::live_pause_out_of_scope_bible_book(&results, 59, 2, 5, 0.60),
             None
         );
         assert_eq!(
-            detection_logic::live_pause_out_of_scope_bible_book(&results, 59, 2, 8, 0.60),
+            detection_logic::live_pause_out_of_scope_bible_book(&results, 59, 2, 6, 0.60),
             Some((1, 17))
         );
 
         let weak = vec![make_detection_result("Job 23:2", 18, 23, 2, 0.59)];
         assert_eq!(
-            detection_logic::live_pause_out_of_scope_bible_book(&weak, 59, 2, 8, 0.60),
+            detection_logic::live_pause_out_of_scope_bible_book(&weak, 59, 2, 6, 0.60),
             None
         );
     }

@@ -187,7 +187,7 @@ pub(crate) const READING_SCOPE_STALE_SECS: u64 = 20;
 /// Short live-speech pause before repeated out-of-scope semantic hits may
 /// release reading scope at the operator's threshold. Single hits still wait
 /// for `READING_SCOPE_STALE_SECS`.
-pub(crate) const READING_SCOPE_LIVE_PAUSE_SECS: u64 = 8;
+pub(crate) const READING_SCOPE_LIVE_PAUSE_SECS: u64 = 6;
 
 /// Minimum confidence for an out-of-scope semantic hit to release the reading
 /// scope via the fast consecutive-hit streak (before the scope is stale).

@@ -816,15 +816,15 @@ describe("detection store", () => {
     expect(refs).not.toContain("Old 1:1")
   })
 
-  it("evictStale keeps detections for 10 seconds", () => {
+  it("evictStale keeps detections for 8 seconds", () => {
     const store = useDetectionStore.getState()
 
     store.addDetection(makeDetection({ verse_ref: "John 3:16" }))
 
-    store.evictStale(now + 9_999)
+    store.evictStale(now + 7_999)
     expect(useDetectionStore.getState().detections).toHaveLength(1)
 
-    store.evictStale(now + 10_000)
+    store.evictStale(now + 8_000)
     expect(useDetectionStore.getState().detections).toHaveLength(0)
   })
 
