@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs"
 import { cleanEgwParagraphs } from "./egw-text-cleanup"
+import { reconstructPageParagraphs, type PdfTextItemLike } from "./egw-paragraph-layout"
 
 export interface EgwChapterConfig {
   chapter: number
@@ -305,32 +306,29 @@ function assignPageParagraphNumbers(chapters: DraftChapter[]): OutputChapter[] {
   }))
 }
 
-async function extractPages(pdfPath: string): Promise<Array<{ page: number; text: string }>> {
+async function extractPages(
+  pdfPath: string,
+): Promise<Array<{ page: number; text: string; continuesFromPreviousPage: boolean }>> {
   const loadingTask = getDocument(pdfPath)
   const pdf = await loadingTask.promise
-  const pages: Array<{ page: number; text: string }> = []
+  const pages: Array<{ page: number; text: string; continuesFromPreviousPage: boolean }> = []
 
   for (let i = 1; i <= pdf.numPages; i += 1) {
     const page = await pdf.getPage(i)
     const textContent = await page.getTextContent()
     const items = textContent.items
 
-    let pageText = ""
-    for (const item of items) {
-      if (!("str" in item)) continue
-      pageText += item.str
-      if ("hasEOL" in item && item.hasEOL) {
-        pageText += "\n"
-      } else {
-        pageText += " "
-      }
-    }
-
-    const text = preserveStandalonePrintedPageMarker(normalizePageText(pageText))
+    const reconstructed = reconstructPageParagraphs(
+      items.filter((item): item is typeof item & PdfTextItemLike => "str" in item),
+    )
+    const text = preserveStandalonePrintedPageMarker(
+      normalizePageText(reconstructed.text),
+    )
 
     pages.push({
       page: i,
       text,
+      continuesFromPreviousPage: reconstructed.continuesFromPreviousPage,
     })
   }
 
@@ -353,7 +351,15 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
   const pages = await extractPages(config.pdfPath)
   writeFileSync(debugPagesJson, `${JSON.stringify(pages, null, 2)}\n`)
 
-  const rawFullText = pages.map((page) => page.text).join("\n\n")
+  let rawFullText = ""
+  for (const page of pages) {
+    if (rawFullText.length === 0) {
+      rawFullText = page.text
+    } else {
+      rawFullText += page.continuesFromPreviousPage ? "\n" : "\n\n"
+      rawFullText += page.text
+    }
+  }
   writeFileSync(debugTextTxt, rawFullText)
 
   ensureUsableText(rawFullText, config.requiredTokens)
