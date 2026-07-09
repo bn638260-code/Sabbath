@@ -31,6 +31,7 @@ function imageAsset(): LibraryAsset {
     height: 1080,
     mimeType: "image/png",
     thumbnail: "data:image/png;base64,abc",
+    importOrder: 1,
     createdAt: 1,
     updatedAt: 1,
   }
@@ -101,6 +102,8 @@ describe("AssetCard", () => {
 
   it("previews and queues image assets as slide deck items", () => {
     render(<AssetCard asset={imageAsset()} />)
+
+    expect(screen.getByText("#001")).toBeTruthy()
 
     fireEvent.click(screen.getByRole("button", { name: /preview/i }))
     expect(useBroadcastStore.getState().previewItem).toMatchObject({

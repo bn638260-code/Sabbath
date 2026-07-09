@@ -16,7 +16,7 @@ vi.mock("@/lib/library/library-image", () => ({
 
 const { useLibraryStore } = await import("./library-store")
 
-function imageAsset(id = "image-1"): LibraryAsset {
+function imageAsset(id = "image-1", createdAt = 1): LibraryAsset {
   return {
     id,
     name: "Image",
@@ -26,8 +26,8 @@ function imageAsset(id = "image-1"): LibraryAsset {
     width: 100,
     height: 100,
     mimeType: "image/png",
-    createdAt: 1,
-    updatedAt: 1,
+    createdAt,
+    updatedAt: createdAt,
   }
 }
 
@@ -67,7 +67,9 @@ describe("library store", () => {
   it("creates, updates, and deletes assets", async () => {
     const asset = imageAsset()
     useLibraryStore.getState().addAsset(asset)
-    expect(useLibraryStore.getState().assets).toEqual([asset])
+    expect(useLibraryStore.getState().assets).toEqual([
+      { ...asset, importOrder: 1 },
+    ])
 
     useLibraryStore.getState().updateAsset(asset.id, { name: "Updated" })
     expect(useLibraryStore.getState().assets[0]).toMatchObject({
@@ -81,6 +83,30 @@ describe("library store", () => {
     expect(deleteLibraryImage).toHaveBeenCalledWith("image-1.png")
     await flushPersistence()
     expect(saveLibrarySnapshot).toHaveBeenCalled()
+  })
+
+  it("assigns stable import numbers and keeps assets in import order", () => {
+    const first = imageAsset("first")
+    const second = imageAsset("second")
+
+    useLibraryStore.getState().addAsset(first)
+    useLibraryStore.getState().addAsset(second)
+
+    expect(
+      useLibraryStore.getState().assets.map((asset) => [asset.id, asset.importOrder])
+    ).toEqual([
+      ["first", 1],
+      ["second", 2],
+    ])
+
+    useLibraryStore.getState().addAsset({ ...first, name: "Updated first" })
+
+    expect(
+      useLibraryStore.getState().assets.map((asset) => [asset.id, asset.importOrder])
+    ).toEqual([
+      ["first", 1],
+      ["second", 2],
+    ])
   })
 
   it("creates, renames, and deletes collections", () => {
@@ -121,7 +147,7 @@ describe("library store", () => {
 
   it("hydrates from persistence", async () => {
     const snapshot = {
-      assets: [imageAsset()],
+      assets: [imageAsset("newer", 2), imageAsset("older", 1)],
       collections: [collection()],
     }
     loadLibrarySnapshot.mockResolvedValue(snapshot)
@@ -129,7 +155,10 @@ describe("library store", () => {
     await useLibraryStore.getState().hydrate()
 
     expect(useLibraryStore.getState()).toMatchObject({
-      assets: snapshot.assets,
+      assets: [
+        { ...snapshot.assets[1], importOrder: 1 },
+        { ...snapshot.assets[0], importOrder: 2 },
+      ],
       collections: snapshot.collections,
       hydrated: true,
     })

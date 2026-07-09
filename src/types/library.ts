@@ -30,6 +30,8 @@ interface LibraryAssetBase {
   collectionIds: string[]
   tags?: string[]
   thumbnail?: string
+  /** Stable number assigned when the asset enters the library. */
+  importOrder?: number
   createdAt: number
   updatedAt: number
 }

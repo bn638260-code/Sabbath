@@ -8,6 +8,7 @@ import type {
 } from "@/types"
 import { videoAssetToPresentation } from "@/lib/library/library-video"
 import { songDocToDeck } from "@/lib/library/song-doc"
+import { sortLibraryAssetsByImportOrder } from "@/lib/library/library-order"
 import { presentItem, selectPreviewItem } from "@/lib/presentation-workflow"
 import { createHymnDeckQueueItems } from "@/services/hymnal/hymn-presentation"
 import { slideWithExtractedTextTheme } from "@/services/slides/slide-deck"
@@ -179,11 +180,34 @@ export function createQueueItemsForLibraryAsset(asset: LibraryAsset): QueueItem[
   ]
 }
 
+export function createQueueItemsForLibraryAssets(
+  assets: LibraryAsset[]
+): QueueItem[] {
+  return sortLibraryAssetsByImportOrder(assets).flatMap((asset) =>
+    isPresentableLibraryAsset(asset) ? createQueueItemsForLibraryAsset(asset) : []
+  )
+}
+
 export function queueLibraryAsset(asset: LibraryAsset): number {
   const items = createQueueItemsForLibraryAsset(asset)
   if (items.length === 0) return 0
 
   const first = libraryAssetToFirstPresentation(asset)
+  if (first) prepareDeckStores(first)
+  useQueueStore.getState().addItems(items)
+  return items.length
+}
+
+export function queueLibraryAssetsInImportOrder(assets: LibraryAsset[]): number {
+  const items = createQueueItemsForLibraryAssets(assets)
+  if (items.length === 0) return 0
+
+  const first = sortLibraryAssetsByImportOrder(assets)
+    .filter(isPresentableLibraryAsset)
+    .map(libraryAssetToFirstPresentation)
+    .find((presentation): presentation is LibraryPresentation =>
+      Boolean(presentation)
+    )
   if (first) prepareDeckStores(first)
   useQueueStore.getState().addItems(items)
   return items.length

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { FolderInputIcon, LibraryIcon } from "lucide-react"
+import { FolderInputIcon, LibraryIcon, PlusIcon } from "lucide-react"
 import { AddAssetMenu } from "@/components/library/AddAssetMenu"
 import { AssetGrid } from "@/components/library/AssetGrid"
 import {
@@ -14,6 +14,11 @@ import {
   collectionAssets,
   libraryAssetToServiceItem,
 } from "@/lib/library/asset-to-service-item"
+import { sortLibraryAssetsByImportOrder } from "@/lib/library/library-order"
+import {
+  isPresentableLibraryAsset,
+  queueLibraryAssetsInImportOrder,
+} from "@/lib/library/library-presentation"
 import { useLibraryStore } from "@/stores/library-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 
@@ -34,27 +39,38 @@ export function LibraryWorkspace() {
 
   const visibleAssets = useMemo(() => {
     const normalized = query.trim().toLowerCase()
-    return assets.filter((asset) => {
-      if (filter !== "all") {
-        if (selectedCollectionId) {
-          if (!asset.collectionIds.includes(selectedCollectionId)) return false
-        } else if (asset.type !== filter) {
-          return false
+    return sortLibraryAssetsByImportOrder(
+      assets.filter((asset) => {
+        if (filter !== "all") {
+          if (selectedCollectionId) {
+            if (!asset.collectionIds.includes(selectedCollectionId)) return false
+          } else if (asset.type !== filter) {
+            return false
+          }
         }
-      }
-      if (!normalized) return true
-      return (
-        asset.name.toLowerCase().includes(normalized) ||
-        asset.type.toLowerCase().includes(normalized)
-      )
-    })
+        if (!normalized) return true
+        return (
+          asset.name.toLowerCase().includes(normalized) ||
+          asset.type.toLowerCase().includes(normalized)
+        )
+      })
+    )
   }, [assets, filter, query, selectedCollectionId])
+
+  const visibleQueueableAssets = useMemo(
+    () => visibleAssets.filter(isPresentableLibraryAsset),
+    [visibleAssets]
+  )
 
   const addCollectionToPlan = () => {
     if (!selectedCollection) return
     for (const asset of collectionAssets(selectedCollection, assets)) {
       addItem(libraryAssetToServiceItem(asset))
     }
+  }
+
+  const queueVisibleAssets = () => {
+    queueLibraryAssetsInImportOrder(visibleQueueableAssets)
   }
 
   return (
@@ -75,6 +91,16 @@ export function LibraryWorkspace() {
               Add collection to plan
             </Button>
           ) : null}
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={queueVisibleAssets}
+            disabled={visibleQueueableAssets.length === 0}
+          >
+            <PlusIcon className="size-3" />
+            Queue visible
+          </Button>
           <AddAssetMenu onCreateSong={() => setSongEditorOpen(true)} />
         </PanelHeader>
 

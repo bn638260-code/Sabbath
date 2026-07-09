@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  createQueueItemsForLibraryAssets,
   createQueueItemsForLibraryAsset,
   libraryAssetToFirstPresentation,
+  queueLibraryAssetsInImportOrder,
   queueLibraryAsset,
 } from "./library-presentation"
 import { useQueueStore } from "@/stores/queue-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
-import type { LibrarySlideTemplateAsset } from "@/types/library"
+import type { LibraryAsset, LibrarySlideTemplateAsset } from "@/types/library"
 
 vi.mock("@tauri-apps/api/event", () => ({
   emitTo: vi.fn().mockResolvedValue(undefined),
@@ -45,6 +47,23 @@ function slideTemplateAsset(): LibrarySlideTemplateAsset {
     ],
     createdAt: 1,
     updatedAt: 1,
+  }
+}
+
+function imageAsset(id: string, name: string, importOrder: number): LibraryAsset {
+  return {
+    id,
+    name,
+    type: "image",
+    collectionIds: [],
+    fileName: `${id}.png`,
+    width: 1920,
+    height: 1080,
+    mimeType: "image/png",
+    thumbnail: `data:image/png;base64,${id}`,
+    importOrder,
+    createdAt: importOrder,
+    updatedAt: importOrder,
   }
 }
 
@@ -110,6 +129,25 @@ describe("library presentation helpers", () => {
       "Emergency Deck - Slide 2",
     ])
     expect(items.every((item) => item.slideDeck?.length === 2)).toBe(true)
+  })
+
+  it("creates and queues bulk library items in import order", () => {
+    const assets = [
+      imageAsset("third", "Third", 3),
+      imageAsset("first", "First", 1),
+      imageAsset("second", "Second", 2),
+    ]
+
+    expect(
+      createQueueItemsForLibraryAssets(assets).map(
+        (item) => item.presentation.reference
+      )
+    ).toEqual(["First", "Second", "Third"])
+
+    expect(queueLibraryAssetsInImportOrder(assets)).toBe(3)
+    expect(
+      useQueueStore.getState().items.map((item) => item.presentation.reference)
+    ).toEqual(["First", "Second", "Third"])
   })
 
   it("queues a slide-template asset and primes the sermon slide deck", () => {

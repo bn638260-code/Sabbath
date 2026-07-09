@@ -3,6 +3,11 @@ import {
   loadLibrarySnapshot,
   saveLibrarySnapshot,
 } from "@/lib/library/library-persistence"
+import {
+  assignLibraryImportOrder,
+  normalizeLibraryImportOrder,
+  sortLibraryAssetsByImportOrder,
+} from "@/lib/library/library-order"
 import { deleteLibraryImage } from "@/lib/library/library-image"
 import type { LibraryAsset, LibraryCollection } from "@/types/library"
 
@@ -50,7 +55,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     if (hydrationPromise) return hydrationPromise
     hydrationPromise = loadLibrarySnapshot()
       .then((snapshot) => {
-        set({ ...snapshot, hydrated: true })
+        set({
+          ...snapshot,
+          assets: normalizeLibraryImportOrder(snapshot.assets),
+          hydrated: true,
+        })
       })
       .catch((error) => {
         console.warn("[library] failed to hydrate library", error)
@@ -61,13 +70,20 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   addAsset: (asset) => {
-    set((state) => ({
-      assets: state.assets.some((existing) => existing.id === asset.id)
-        ? state.assets.map((existing) =>
-            existing.id === asset.id ? asset : existing,
-          )
-        : [asset, ...state.assets],
-    }))
+    set((state) => {
+      const assets = normalizeLibraryImportOrder(state.assets)
+      return {
+        assets: sortLibraryAssetsByImportOrder(
+          assets.some((existing) => existing.id === asset.id)
+            ? assets.map((existing) =>
+                existing.id === asset.id
+                  ? assignLibraryImportOrder(asset, assets, existing)
+                  : existing,
+              )
+            : [assignLibraryImportOrder(asset, assets), ...assets],
+        ),
+      }
+    })
     persistSoon()
   },
 

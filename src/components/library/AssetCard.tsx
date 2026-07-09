@@ -5,6 +5,7 @@ import {
   SendIcon,
   Trash2Icon,
 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { libraryAssetToServiceItem } from "@/lib/library/asset-to-service-item"
 import {
@@ -81,9 +82,16 @@ export function AssetCard({ asset }: AssetCardProps) {
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">
-            {asset.name}
-          </p>
+          <div className="flex min-w-0 items-center gap-2">
+            {asset.importOrder ? (
+              <Badge variant="outline">
+                #{String(asset.importOrder).padStart(3, "0")}
+              </Badge>
+            ) : null}
+            <p className="truncate text-sm font-semibold text-foreground">
+              {asset.name}
+            </p>
+          </div>
           <p className="mt-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
             {asset.type}
           </p>
