@@ -30,7 +30,7 @@ bun run tauri:build:release
 ```
 
 This creates an installer that includes only public-domain Bible translations
-(KJV, Reina-Valera 1909, J.N. Darby French 1885, Biblia Livre) and defaults
+(KJV, WEB, Reina-Valera 1909, J.N. Darby French 1885, Biblia Livre) and defaults
 to local Vosk speech recognition with the model and self-contained worker bundled.
 Local builds create an unsigned NSIS installer; official release CI uses
 `bun run tauri:build:release` with updater signing secrets.
@@ -47,7 +47,7 @@ Local builds create an unsigned NSIS installer; official release CI uses
   - Reading mode — locks to book/chapter as soon as it's mentioned, with voice navigation ("next chapter", "chapter 5")
   - Sermon context tracking and sentence buffering
 - **SQLite Bible database** with FTS5 full-text search (BM25 ranking by default)
-- **Public-release translations** — KJV, SpaRV (Spanish), FreJND (French), and PorBLivre (Portuguese) ship in the free public installer. NIV, ESV, NASB, NKJV, NLT, and AMP are supported only for licensed/private builds or user-provided data.
+- **Public-release translations** — KJV, WEB, SpaRV (Spanish), FreJND (French), and PorBLivre (Portuguese) ship in the free public installer. NIV, ESV, NASB, NKJV, NLT, and AMP are supported only for licensed/private builds or user-provided data.
 - **Cross-reference lookup** (340k+ refs from openbible.info; the bundled file ships with 344,800 entries)
 - **NDI broadcast output** for live production integration — configurable resolution, 24/30/60 fps, and three alpha modes (none, straight, premultiplied)
 - **Theme designer** — visual canvas editor for verse overlays with backgrounds (solid, gradient, image, transparent), text styling, positioning, shadows, and outlines
@@ -139,7 +139,7 @@ This runs 8 idempotent phases in sequence, skipping any whose output artifacts a
 3. Build SQLite Bible database (`data/rhema.db` with FTS5 + cross-references)
 4. Import EGW books into the SQLite database
 5. Download and export the ONNX embedding model plus INT8 quantization
-6. Export KJV/NKJV/NLT verses to JSON for embedding precomputation
+6. Export public-domain multi-vector verses to JSON for embedding precomputation
 7. Precompute verse embeddings (GPU sentence-transformers when available, ONNX CPU fallback otherwise)
 8. Download local Vosk speech assets into `models/vosk/`
 
@@ -210,7 +210,7 @@ bun run build:bible:public           # Build redistributable public-release DB o
 bun run build:bible                  # Build SQLite database
 bun run build:egw                    # Import EGW JSON into data/rhema.db (run after build:bible)
 bun run download:model               # Download & export ONNX model
-bun run export:verses                # Export verses to JSON
+bun run export:verses                # Export public-domain verses to JSON
 bun run precompute:embeddings        # Rust ONNX (recommended); see also -onnx and -py variants
 bun run download:vosk                # Vosk STT model
 bun run build:vosk-sidecar           # Self-contained Vosk worker for release builds
@@ -305,7 +305,7 @@ sabbathcue/
 | `download:bible-data`                           | Download bundled Bible translation archive + cross-references                                |
 | `build:bible`                                   | Build SQLite Bible database from JSON sources                                                |
 | `download:model`                                | Export all-MiniLM-L6-v2 to ONNX + quantize to INT8                                           |
-| `export:verses`                                 | Export KJV verses to JSON for embedding precomputation                                       |
+| `export:verses`                                 | Export public-domain multi-vector verses to JSON for embedding precomputation                |
 | `precompute:embeddings`                         | Precompute embeddings via Rust ONNX binary (recommended)                                     |
 | `precompute:embeddings-onnx`                    | Precompute embeddings via Python ONNX Runtime                                                |
 | `precompute:embeddings-py`                      | Precompute embeddings via Python sentence-transformers (GPU path)                            |

@@ -102,6 +102,7 @@ const TRANSLATIONS_META: Array<{
     isCopyrighted: true,
     includeInPublicRelease: false,
   },
+  { file: "WEB.json", abbreviation: "WEB", title: "World English Bible", language: "en", license: "Public Domain (eBible.org engwebp)", isCopyrighted: false, includeInPublicRelease: true },
 ]
 
 type ParsedOsis = { book: number; chapter: number; verse: number }

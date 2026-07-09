@@ -308,7 +308,7 @@ pub fn run() {
                                 .and_then(|name| name.to_str())
                                 == Some(asset_paths::PREFERRED_EMBEDDINGS_FILENAME)
                             {
-                                "KJV/NKJV/NLT canonical blend"
+                                "public-domain multi-vector corpus"
                             } else {
                                 "KJV canonical legacy"
                             };

@@ -6,7 +6,7 @@
  * Phase 3: Build rhema.db (SQLite + FTS5)
  * Phase 4: Import EGW books into rhema.db
  * Phase 5: Download and export ONNX model + INT8 quantization
- * Phase 6: Export canonical KJV/NKJV/NLT verses to JSON
+ * Phase 6: Export public-domain multi-vector verses to JSON
  * Phase 7: Pre-compute verse embeddings
  * Phase 8: Download Vosk model for local STT
  *
@@ -28,6 +28,7 @@ const MODELS_DIR_INT8 = join(PROJECT_ROOT, "models", "minilm-l6-v2-int8")
 const KJV_SOURCE = join(DATA_DIR, "sources", "KJV.json")
 const NIV_SOURCE = join(DATA_DIR, "sources", "NIV.json")
 const ESV_SOURCE = join(DATA_DIR, "sources", "ESV.json")
+const WEB_SOURCE = join(DATA_DIR, "sources", "WEB.json")
 const CROSS_REFS = join(DATA_DIR, "cross-refs", "cross_references.txt")
 const DB_PATH = join(DATA_DIR, "rhema.db")
 const EGW_SOURCE_DIR = join(DATA_DIR, "sources", "egw")
@@ -107,6 +108,7 @@ async function main() {
       KJV_SOURCE,
       NIV_SOURCE,
       ESV_SOURCE,
+      WEB_SOURCE,
       CROSS_REFS
     )
   ) {

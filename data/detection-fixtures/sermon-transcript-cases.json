@@ -159,6 +159,20 @@
   },
   {
     "language": "en",
+    "category": "web-quote",
+    "mode": "fire",
+    "text": "Before I formed you in the womb I knew you, and before you were born I sanctified you.",
+    "expected": "Jeremiah 1:5"
+  },
+  {
+    "language": "en",
+    "category": "web-quote",
+    "mode": "fire",
+    "text": "Before I formed you in the womb, I knew you. Before you were born, I sanctified you. I have appointed you a prophet to the nations.",
+    "expected": "Jeremiah 1:5"
+  },
+  {
+    "language": "en",
     "category": "sovereignty-contextual",
     "mode": "fire",
     "text": "Verse 27. Remember we read it? Verse 27. Therefore, O king, let my counsel be acceptable unto thee. Break off your sins by righteousness and thy iniquities by showing mercy to the poor. It may be a lengthening of your tranquility.",

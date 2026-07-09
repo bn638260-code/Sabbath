@@ -2,9 +2,9 @@
 /**
  * Prepares canonical verse text for semantic embeddings.
  *
- * The semantic index stores one vector per Bible reference, keyed by the KJV
- * verse row id. Only redistributable translations are blended so locked
- * licensed editions are not used for detection.
+ * The semantic index stores vectors keyed by the KJV verse row id. The legacy
+ * public-domain blend stays as one vector, and modern-English WEB is exported
+ * as a separate vector for the same reference so either wording can match.
  *
  * Usage:
  * 1. Run: bun run data/download-model.ts
@@ -24,7 +24,12 @@ import { join } from "node:path"
 const DATA_DIR = import.meta.dir
 const DB_PATH = join(DATA_DIR, "rhema.db")
 const OUTPUT_PATH = join(DATA_DIR, "verses-for-embedding.json")
-const EMBEDDING_TRANSLATIONS = ["KJV", "SpaRV", "FreJND", "PorBLivre"] as const
+const BLENDED_TRANSLATIONS = ["KJV", "SpaRV", "FreJND", "PorBLivre"] as const
+const SEPARATE_VECTOR_TRANSLATIONS = ["WEB"] as const
+const EMBEDDING_TRANSLATIONS = [
+  ...BLENDED_TRANSLATIONS,
+  ...SEPARATE_VECTOR_TRANSLATIONS,
+] as const
 
 type TranslationRow = {
   id: number
@@ -113,23 +118,32 @@ async function main() {
 
   console.log(`  Found ${kjvVerses.length} canonical KJV verse references`)
 
-  const output = kjvVerses.map((verse) => {
+  const output = kjvVerses.flatMap((verse) => {
     const texts = textByReference.get(
       verseKey(verse.book_number, verse.chapter, verse.verse),
     )
-    const blendedText = translations
-      .map((translation) => texts?.get(translation.abbreviation))
+    const ref = `${verse.book_name} ${verse.chapter}:${verse.verse}`
+    const blendedText = BLENDED_TRANSLATIONS
+      .map((abbreviation) => texts?.get(abbreviation))
       .filter((text): text is string => Boolean(text && text.trim()))
       .join(" ")
 
-    return {
+    const entries = [{
       id: verse.id,
       text: blendedText || verse.text,
-      ref: `${verse.book_name} ${verse.chapter}:${verse.verse}`,
+      ref,
+    }]
+
+    for (const translation of SEPARATE_VECTOR_TRANSLATIONS) {
+      const text = texts?.get(translation)?.trim()
+      if (text) entries.push({ id: verse.id, text, ref })
     }
+
+    return entries
   })
 
   await Bun.write(OUTPUT_PATH, JSON.stringify(output))
+  console.log(`  Exported ${output.length} embedding records`)
   console.log(`  Exported to ${OUTPUT_PATH}`)
   console.log(
     "\n  Next: run the embedding precompute step to generate the binary index.\n",
