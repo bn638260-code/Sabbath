@@ -345,6 +345,15 @@ pub fn egw_embedding_ids_path(app: &AppHandle) -> PathBuf {
         .join(EGW_EMBEDDING_IDS_FILENAME)
 }
 
+/// Sidecar content fingerprint for the on-device EGW index, used to detect and
+/// discard a stale index after the EGW corpus is re-imported.
+///
+/// `.with_extension("meta.json")` replaces the `.bin` extension, yielding
+/// `egw-minilm-l6-v2.meta.json` alongside the embeddings file.
+pub fn egw_embeddings_meta_path(app: &AppHandle) -> PathBuf {
+    egw_embeddings_path(app).with_extension("meta.json")
+}
+
 /// All existing embeddings/ids file pairs, in resolution order (app data,
 /// bundled resources, dev tree; preferred filename before legacy).
 ///

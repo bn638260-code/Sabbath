@@ -54,6 +54,33 @@ struct EgwSemanticProgress {
     total: usize,
 }
 
+/// Content fingerprint persisted next to the on-disk EGW index so a stale
+/// index (built from a different corpus revision) can be detected and
+/// discarded on load.
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug)]
+struct EgwIndexMeta {
+    count: i64,
+    #[serde(rename = "idSum")]
+    id_sum: i64,
+}
+
+/// Fingerprint of the currently imported EGW corpus, or `None` if the database
+/// is unavailable.
+fn current_egw_meta(app: &AppHandle) -> Option<EgwIndexMeta> {
+    let app_state = app.state::<Mutex<AppState>>();
+    let state = app_state.lock().ok()?;
+    let (count, id_sum) = state.bible_db.as_ref()?.egw_content_fingerprint().ok()?;
+    Some(EgwIndexMeta { count, id_sum })
+}
+
+/// Fingerprint recorded when the on-disk index was last built, or `None` if the
+/// meta sidecar is missing or unreadable.
+fn stored_egw_meta(app: &AppHandle) -> Option<EgwIndexMeta> {
+    let path = asset_paths::egw_embeddings_meta_path(app);
+    let raw = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
 #[derive(Serialize)]
 pub struct EgwSemanticResult {
     pub paragraph: EgwParagraph,
@@ -74,6 +101,22 @@ fn ensure_index_loaded(app: &AppHandle) {
     let embeddings_path = asset_paths::egw_embeddings_path(app);
     let ids_path = asset_paths::egw_embedding_ids_path(app);
     if !embeddings_path.exists() || !ids_path.exists() {
+        return;
+    }
+
+    // Discard an index built from a stale EGW corpus (a re-import renumbers
+    // paragraph ids, so the persisted vectors would map to the wrong text).
+    let fresh = match (stored_egw_meta(app), current_egw_meta(app)) {
+        (Some(stored), Some(current)) => stored == current,
+        _ => false,
+    };
+    if !fresh {
+        log::info!(
+            "[EGW-SEMANTIC] on-disk index is stale (content fingerprint mismatch) — discarding"
+        );
+        let _ = std::fs::remove_file(&embeddings_path);
+        let _ = std::fs::remove_file(&ids_path);
+        let _ = std::fs::remove_file(asset_paths::egw_embeddings_meta_path(app));
         return;
     }
 
@@ -241,6 +284,14 @@ fn build_index(app: &AppHandle) -> Result<HnswVectorIndex, String> {
     }
     std::fs::rename(&tmp_embeddings, &embeddings_path).map_err(|e| e.to_string())?;
     std::fs::rename(&tmp_ids, &ids_path).map_err(|e| e.to_string())?;
+
+    // Record the corpus fingerprint so a later re-import can invalidate this
+    // index. Best-effort: a missing meta file simply forces a rebuild.
+    if let Some(meta) = current_egw_meta(app) {
+        if let Ok(json) = serde_json::to_string(&meta) {
+            let _ = std::fs::write(asset_paths::egw_embeddings_meta_path(app), json);
+        }
+    }
 
     HnswVectorIndex::load(&embeddings_path, &ids_path, dim).map_err(|e| e.to_string())
 }

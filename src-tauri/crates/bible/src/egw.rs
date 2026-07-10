@@ -175,6 +175,29 @@ impl BibleDb {
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
+    /// Cheap content fingerprint for the EGW corpus: (row count, sum of ids)
+    /// over page-resolved paragraphs. Changes whenever EGW content is
+    /// re-imported (the import drops and recreates the table, renumbering ids).
+    pub fn egw_content_fingerprint(&self) -> Result<(i64, i64), BibleError> {
+        let conn = self.conn()?;
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='egw_paragraphs'",
+                [],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+        if !table_exists {
+            return Ok((0, 0));
+        }
+        Ok(conn.query_row(
+            "SELECT COUNT(*), COALESCE(SUM(id), 0) FROM egw_paragraphs \
+             WHERE page > 0 AND page_paragraph > 0",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?)
+    }
+
     /// Get a single paragraph by its row id.
     pub fn get_egw_paragraph_by_id(&self, id: i64) -> Result<Option<EgwParagraph>, BibleError> {
         let conn = self.conn()?;
@@ -455,5 +478,12 @@ mod tests {
     fn empty_query_returns_no_results() {
         let db = test_db();
         assert!(db.search_egw("   ", 10).unwrap().is_empty());
+    }
+
+    #[test]
+    fn fingerprint_counts_only_page_resolved_paragraphs() {
+        let db = test_db();
+        // test_db has 2 page-resolved paragraphs (ids 1, 2) and 1 hidden (id 3).
+        assert_eq!(db.egw_content_fingerprint().unwrap(), (2, 3));
     }
 }
