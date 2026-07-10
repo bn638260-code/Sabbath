@@ -268,16 +268,20 @@ function queueEgwParagraphAdvance(
 // forward, its LAST slide going backward. Only fires when the live content
 // actually corresponds to the active queue item (matchesActive), and never
 // wraps around either end of the queue.
+//
+// Returns `undefined` (not `false`) when the walk does not apply, so callers
+// using `?? stopAtBoundary` fall through to their kind's default boundary
+// behavior (hymn/sermon consume the key; EGW falls to paragraph navigation).
 function advanceQueueAtBoundary(
   delta: number,
   isLive: boolean,
   matchesActive: (item: QueueItem) => boolean
-): boolean {
-  if (!isLive) return false
+): boolean | undefined {
+  if (!isLive) return undefined
   const queue = useQueueStore.getState()
-  if (queue.activeIndex === null) return false
+  if (queue.activeIndex === null) return undefined
   const active = queue.items[queue.activeIndex]
-  if (!active || !matchesActive(active)) return false
+  if (!active || !matchesActive(active)) return undefined
 
   const nextIndex = queue.activeIndex + delta
   const next = queue.items[nextIndex]
@@ -331,7 +335,7 @@ function advanceDeck<T extends Parameters<typeof presentItem>[0]>(
     activeIndex: number
     setActive: (nextIndex: number) => void
     stopAtBoundary: boolean
-    onBoundary?: () => boolean
+    onBoundary?: () => boolean | undefined
   }
 ): boolean {
   if (config.rawDeck.length === 0) return false
