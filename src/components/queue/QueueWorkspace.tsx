@@ -27,6 +27,15 @@ import { useQueueStore } from "@/stores/queue-store"
 import { type PresentationRenderData } from "@/types"
 import type { LibraryAsset } from "@/types/library"
 
+/** Narrow a drag source to the sortable fields we commit from. */
+function hasSortableIndexes(
+  source: unknown
+): source is { index: number; initialIndex: number } {
+  if (!source || typeof source !== "object") return false
+  const s = source as Record<string, unknown>
+  return typeof s.index === "number" && typeof s.initialIndex === "number"
+}
+
 function selectedAssetRenderData(
   asset: LibraryAsset | null
 ): PresentationRenderData | null {
@@ -146,17 +155,38 @@ export function QueueWorkspace() {
     canceled: boolean
   }) => {
     if (event.canceled) return
-    const sourceId = event.operation.source?.id
+    const source = event.operation.source
+    const sourceId = source?.id
+    if (typeof sourceId !== "string") return
+
     const targetId = event.operation.target?.id
-    if (typeof sourceId !== "string" || typeof targetId !== "string") return
-    const drop = computeDrop(
-      orderedIds,
-      visibleSelection.ids,
-      sourceId,
-      targetId
-    )
-    if (!drop) return
-    useQueueStore.getState().moveItems(drop.movingIds, drop.insertAt)
+    if (typeof targetId === "string" && targetId !== sourceId) {
+      const drop = computeDrop(
+        orderedIds,
+        visibleSelection.ids,
+        sourceId,
+        targetId
+      )
+      if (drop) {
+        useQueueStore.getState().moveItems(drop.movingIds, drop.insertAt)
+        return
+      }
+    }
+
+    // The sortable plugin reorders the DOM optimistically during the drag, so
+    // a drop without a usable target (empty space, or onto the card's own
+    // moved slot) must still commit the sortable's final index — otherwise the
+    // DOM order and the store (and its position numbers) desync permanently.
+    if (hasSortableIndexes(source) && source.initialIndex !== source.index) {
+      const selected = new Set(visibleSelection.ids)
+      const movingIds = selected.has(sourceId)
+        ? orderedIds.filter((id) => selected.has(id))
+        : [sourceId]
+      const moving = new Set(movingIds)
+      const remaining = orderedIds.filter((id) => !moving.has(id))
+      const insertAt = Math.max(0, Math.min(source.index, remaining.length))
+      useQueueStore.getState().moveItems(movingIds, insertAt)
+    }
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
