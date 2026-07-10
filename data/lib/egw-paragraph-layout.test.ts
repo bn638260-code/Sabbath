@@ -70,6 +70,35 @@ describe("reconstructPageParagraphs", () => {
     expect(page.continuesFromPreviousPage).toBe(false)
   })
 
+  test("does not let wrapped headings become the body-height baseline", () => {
+    const page = reconstructPageParagraphs(
+      [
+        item("Chapter 2", 120, 720, 17),
+        item("The Sinner's Need of", 120, 700, 17),
+        item("Christ", 120, 680, 17),
+        item("Man was originally endowed", 68, 650, 10),
+        item("with noble powers.", 50, 636, 10),
+      ],
+      { headingHeightRatio: 1.1 },
+    )
+
+    expect(page.continuesFromPreviousPage).toBe(false)
+  })
+
+  test("ignores mid-page headings when measuring body paragraph gaps", () => {
+    const page = reconstructPageParagraphs(
+      [
+        item("First paragraph line one.", 50, 700),
+        item("First paragraph line two.", 50, 686),
+        item("A New Section", 120, 650, 17),
+        item("Second paragraph starts unindented.", 50, 636),
+      ],
+      { headingHeightRatio: 1.1 },
+    )
+
+    expect(page.text.split(/\n\s*\n/)).toHaveLength(2)
+  })
+
   test("keeps standalone page-number lines as their own line without breaking paragraphs", () => {
     const items = [
       item("21", 300, 720), // centered folio

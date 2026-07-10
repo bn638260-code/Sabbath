@@ -88,6 +88,54 @@ function modal(values: number[]): number {
   return best
 }
 
+function estimateBodyHeight(
+  lines: Line[],
+  headingHeightRatio: number | undefined,
+): number {
+  const heights = lines.map((line) => line.height).filter((height) => height > 0)
+  if (heights.length === 0) return 10
+  if (headingHeightRatio == null) return median(heights) || 10
+
+  const sorted = [...heights].sort((a, b) => a - b)
+  const lowerHalf = sorted.slice(0, Math.max(1, Math.ceil(sorted.length / 2)))
+  return median(lowerHalf) || 10
+}
+
+function isHeadingLayoutLine(
+  line: Line,
+  headingHeightRatio: number | undefined,
+  bodyHeight: number,
+): boolean {
+  return headingHeightRatio != null && line.height >= headingHeightRatio * bodyHeight
+}
+
+function measureParagraphStats(
+  lines: Line[],
+  indentEm: number,
+  headingHeightRatio: number | undefined,
+): { baseX: number; em: number; indentThreshold: number; modalGap: number } {
+  const textLines = lines.filter((line) => !isStandaloneNumberLine(lineText(line)))
+  const initialStatsLines = textLines.length > 0 ? textLines : lines
+  const em = estimateBodyHeight(initialStatsLines, headingHeightRatio)
+  const nonHeadingStatsLines = initialStatsLines.filter(
+    (line) => !isHeadingLayoutLine(line, headingHeightRatio, em),
+  )
+  const statsLines =
+    nonHeadingStatsLines.length > 0 ? nonHeadingStatsLines : initialStatsLines
+  const gaps: number[] = []
+  for (let i = 1; i < initialStatsLines.length; i += 1) {
+    const gap = initialStatsLines[i - 1].y - initialStatsLines[i].y
+    if (gap > 0) gaps.push(gap)
+  }
+
+  return {
+    baseX: modal(statsLines.map((line) => lineLeftX(line))),
+    em,
+    indentThreshold: indentEm * em,
+    modalGap: median(gaps) || em * 1.2,
+  }
+}
+
 function buildLines(items: PdfTextItemLike[], yTolerance: number): Line[] {
   const positioned = items
     .filter((item) => item.str.trim().length > 0)
@@ -137,17 +185,11 @@ export function reconstructPageParagraphs(
   const lines = buildLines(items, yTolerance)
   if (lines.length === 0) return { text: "", continuesFromPreviousPage: false }
 
-  const bodyLines = lines.filter((line) => !isStandaloneNumberLine(lineText(line)))
-  const statsLines = bodyLines.length > 0 ? bodyLines : lines
-  const baseX = modal(statsLines.map((line) => lineLeftX(line)))
-  const em = median(statsLines.map((line) => line.height)) || 10
-  const indentThreshold = indentEm * em
-  const gaps: number[] = []
-  for (let i = 1; i < statsLines.length; i += 1) {
-    const gap = statsLines[i - 1].y - statsLines[i].y
-    if (gap > 0) gaps.push(gap)
-  }
-  const modalGap = median(gaps) || em * 1.2
+  const { baseX, em, indentThreshold, modalGap } = measureParagraphStats(
+    lines,
+    indentEm,
+    headingHeightRatio,
+  )
 
   const chunks: string[][] = []
   let current: string[] = []
@@ -171,8 +213,7 @@ export function reconstructPageParagraphs(
     // A heading/title line (font notably taller than the body) is never a
     // paragraph start; keeping it with the preceding line holds wrapped,
     // often-centered chapter titles together for anchor matching.
-    const isHeadingLine =
-      headingHeightRatio != null && line.height >= headingHeightRatio * em
+    const isHeadingLine = isHeadingLayoutLine(line, headingHeightRatio, em)
     const indented = !isHeadingLine && lineLeftX(line) - baseX >= indentThreshold
     const gapBreak =
       !isHeadingLine &&
@@ -189,7 +230,9 @@ export function reconstructPageParagraphs(
     }
 
     current.push(text)
-    previousBodyY = line.y
+    if (!isHeadingLine) {
+      previousBodyY = line.y
+    }
   }
   if (current.length > 0) chunks.push(current)
 
