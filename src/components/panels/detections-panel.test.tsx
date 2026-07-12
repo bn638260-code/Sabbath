@@ -9,9 +9,11 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DetectionsPanel } from "./detections-panel"
 import { useSettingsStore } from "@/stores/settings-store"
+import { useCollectedDetectionsStore } from "@/stores/collected-detections-store"
 import type { DetectionResult, Verse } from "@/types"
 
 const {
+  addOrFlashItemMock,
   clearDetectionsMock,
   detection,
   hymnDetection,
@@ -65,6 +67,7 @@ const {
   }
 
   return {
+    addOrFlashItemMock: vi.fn(),
     clearDetectionsMock: vi.fn(),
     detection,
     hymnDetection,
@@ -109,7 +112,7 @@ vi.mock("@/services/hymnal/hymn-voice-control", () => ({
 vi.mock("@/stores/queue-store", () => ({
   useQueueStore: {
     getState: () => ({
-      addOrFlashItem: vi.fn(),
+      addOrFlashItem: addOrFlashItemMock,
     }),
   },
 }))
@@ -120,9 +123,11 @@ describe("DetectionsPanel", () => {
     selectPreviewVerseMock.mockClear()
     presentVerseMock.mockClear()
     clearDetectionsMock.mockClear()
+    addOrFlashItemMock.mockClear()
     presentHymnMock.mockClear()
     previewHymnMock.mockClear()
     queueHymnMock.mockClear()
+    useCollectedDetectionsStore.getState().clear()
     useSettingsStore.setState({ autoMode: true })
   })
 
@@ -160,6 +165,33 @@ describe("DetectionsPanel", () => {
       verse,
       expect.objectContaining({ navigate: true })
     )
+  })
+
+  it("collects detections that are presented or queued, but not previewed", () => {
+    render(<DetectionsPanel />)
+
+    fireEvent.click(screen.getByRole("button", { name: /preview/i }))
+    expect(screen.getByText(/verses you present or queue/i)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: /present/i }))
+    expect(screen.getByText("Collected for this service")).toBeTruthy()
+    expect(screen.getAllByText("John 3:16")).toHaveLength(2)
+
+    fireEvent.click(screen.getAllByRole("button", { name: /^queue$/i })[0])
+    expect(screen.getByText("x2")).toBeTruthy()
+  })
+
+  it("removes and clears collected detections", () => {
+    render(<DetectionsPanel />)
+
+    fireEvent.click(screen.getByRole("button", { name: /present/i }))
+    fireEvent.click(screen.getByRole("button", { name: /remove john 3:16/i }))
+    expect(screen.queryByText("x1")).toBeNull()
+    expect(screen.getByText(/verses you present or queue/i)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: /present/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^clear$/i }))
+    expect(screen.getByText(/verses you present or queue/i)).toBeTruthy()
   })
 
   it("renders an Ellen White detection card in the box", () => {
