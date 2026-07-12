@@ -161,7 +161,8 @@ export const TUTORIAL_STEPS: Step[] = [
     content:
       "Tap here before the service to get the projector working. It remembers last week's screen and goes live in one tap, notices when you plug the projector in, and can flash a big number on each screen so you know which one is the projector. If the projector mirrors your laptop, it tells you to press Win+P and choose Extend.",
     placement: "bottom",
-    before: () => prepareTarget('[data-tour="projector-setup"]', { workspace: "live" }),
+    before: () =>
+      prepareTarget('[data-tour="projector-setup"]', { workspace: "live" }),
   },
   {
     ...STEP_DEFAULTS,
@@ -256,7 +257,7 @@ export const TUTORIAL_STEPS: Step[] = [
     target: '[data-tour="settings-section-speech"]',
     title: "Cloud API keys",
     content:
-      "Deepgram and Gladia require your own paid third-party accounts; they are not free or included with SabbathCue. Create an account with the provider, generate an API key in that provider's dashboard, then paste it into the key field in Settings > Speech Recognition, press Save, and choose that cloud provider. Vosk is local and does not need an API key.",
+      "Deepgram and Soniox require your own paid third-party accounts; they are not free or included with SabbathCue. Create an account with the provider, generate an API key in that provider's dashboard, then paste it into the key field in Settings > Speech Recognition, press Save, and choose that cloud provider. Vosk is local and does not need an API key.",
     placement: "left",
     before: () =>
       prepareTarget('[data-tour="settings-section-speech"]', {
@@ -304,7 +305,7 @@ export const TUTORIAL_STEPS: Step[] = [
     target: '[data-tour="settings-section-api-keys"]',
     title: "API Key Status",
     content:
-      "Settings > API Keys shows at a glance whether your Deepgram and Gladia keys are configured. Keys are entered and saved in the Speech Recognition section; no key is needed when using local Vosk.",
+      "Settings > API Keys shows at a glance whether your Deepgram and Soniox keys are configured. Keys are entered and saved in the Speech Recognition section; no key is needed when using local Vosk.",
     placement: "left",
     before: () =>
       prepareTarget('[data-tour="settings-section-api-keys"]', {

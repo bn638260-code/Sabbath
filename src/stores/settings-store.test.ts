@@ -136,21 +136,7 @@ describe("settings store", () => {
     expect(mockGet).not.toHaveBeenCalledWith("hasDeepgramApiKey")
   })
 
-  it("does not trust persisted Gladia key status when keychain status is unavailable", async () => {
-    mockGet.mockImplementation(async (key: string) => {
-      if (key === "hasGladiaApiKey") return true
-      return null
-    })
-
-    const { hydrateSettings, useSettingsStore } =
-      await import("./settings-store")
-    await hydrateSettings()
-
-    expect(useSettingsStore.getState().hasGladiaApiKey).toBe(false)
-    expect(mockGet).not.toHaveBeenCalledWith("hasGladiaApiKey")
-  })
-
-  it("hydrates persisted Gladia provider", async () => {
+  it("migrates persisted Gladia provider to Vosk", async () => {
     mockGet.mockImplementation(async (key: string) => {
       if (key === "sttProvider") return "gladia"
       return null
@@ -160,7 +146,7 @@ describe("settings store", () => {
       await import("./settings-store")
     await hydrateSettings()
 
-    expect(useSettingsStore.getState().sttProvider).toBe("gladia")
+    expect(useSettingsStore.getState().sttProvider).toBe("vosk")
   })
 
   it("migrates persisted Sherpa provider to Vosk", async () => {

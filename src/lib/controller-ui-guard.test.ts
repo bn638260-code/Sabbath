@@ -70,11 +70,11 @@ describe("controller UI guard - light mode regression", () => {
   it("keeps broadcast output on a dark shell independent of controller mode", () => {
     const broadcastOutput = readFileSync(
       join(REPO_ROOT, "src/broadcast-output.tsx"),
-      "utf8",
+      "utf8"
     )
 
     expect(broadcastOutput).toMatch(
-      /root\.className = `dark \$\{accentThemeClassName\(theme\)\}`/,
+      /root\.className = `dark \$\{accentThemeClassName\(theme\)\}`/
     )
     expect(broadcastOutput).toMatch(/background: "#000"/)
     expect(broadcastOutput).not.toMatch(/useColorModeStore/)
@@ -131,13 +131,13 @@ function sourceDefinesDataTour(sources: string, id: string): boolean {
 }
 
 describe("controller UI guard — tutorial targets", () => {
-  it("reminds users that Deepgram and Gladia need paid provider API keys", () => {
+  it("reminds users that Deepgram and Soniox need paid provider API keys", () => {
     const step = TUTORIAL_STEPS.find((item) => item.title === "Cloud API keys")
     const content = String(step?.content ?? "")
 
     expect(step?.target).toBe('[data-tour="settings-section-speech"]')
     expect(content).toContain("Deepgram")
-    expect(content).toContain("Gladia")
+    expect(content).toContain("Soniox")
     expect(content).toContain("paid")
     expect(content).toContain("not free")
     expect(content).toContain("generate an API key")
@@ -180,9 +180,7 @@ describe("controller UI guard — tutorial targets", () => {
     expect(monitor?.target).toBe('[data-tour="broadcast-monitor-main"]')
     expect(String(monitor?.content)).toContain("Refresh")
 
-    const alt = TUTORIAL_STEPS.find(
-      (item) => item.title === "Alternate Output"
-    )
+    const alt = TUTORIAL_STEPS.find((item) => item.title === "Alternate Output")
     expect(alt?.target).toBe('[data-tour="broadcast-output-alt"]')
   })
 

@@ -63,18 +63,6 @@ pub fn normalize_deepgram_api_key(api_key: &str) -> String {
     without_header.to_string()
 }
 
-pub fn normalize_gladia_api_key(api_key: &str) -> String {
-    let trimmed = api_key
-        .trim()
-        .trim_matches(|c| matches!(c, '"' | '\'' | '`'));
-    let without_header = trimmed
-        .strip_prefix("x-gladia-key:")
-        .or_else(|| trimmed.strip_prefix("X-Gladia-Key:"))
-        .map_or(trimmed, str::trim);
-
-    without_header.to_string()
-}
-
 #[command]
 pub fn has_deepgram_api_key() -> Result<bool, String> {
     has_deepgram_api_key_with_store(&DEFAULT_STORE)
@@ -87,21 +75,6 @@ pub fn has_deepgram_api_key_with_store(store: &dyn KeychainStore) -> Result<bool
         Err(keyring::Error::NoEntry) => Ok(false),
         Err(e) => Err(format!(
             "Could not read Deepgram API key from OS keychain: {e}"
-        )),
-    }
-}
-
-#[command]
-pub fn has_gladia_api_key() -> Result<bool, String> {
-    has_gladia_api_key_with_store(&DEFAULT_STORE)
-}
-
-pub fn has_gladia_api_key_with_store(store: &dyn KeychainStore) -> Result<bool, String> {
-    match store.get_password("gladia_api_key") {
-        Ok(pw) => Ok(!normalize_gladia_api_key(&pw).is_empty()),
-        Err(keyring::Error::NoEntry) => Ok(false),
-        Err(e) => Err(format!(
-            "Could not read Gladia API key from OS keychain: {e}"
         )),
     }
 }
@@ -146,55 +119,10 @@ pub fn set_deepgram_api_key_with_store(
 }
 
 #[command]
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "Tauri command extractors require pass-by-value"
-)]
-pub fn set_gladia_api_key(api_key: String) -> Result<(), String> {
-    set_gladia_api_key_with_store(&DEFAULT_STORE, &api_key)
-}
-
-pub fn set_gladia_api_key_with_store(
-    store: &dyn KeychainStore,
-    api_key: &str,
-) -> Result<(), String> {
-    let normalized = normalize_gladia_api_key(api_key);
-    if normalized.is_empty() {
-        return Err("API key cannot be empty".into());
-    }
-    store
-        .set_password("gladia_api_key", &normalized)
-        .map_err(|e| {
-            log::error!("[KEYCHAIN] Failed to store Gladia API key: {e}");
-            format!("Could not store Gladia API key in OS keychain: {e}")
-        })?;
-    match store.get_password("gladia_api_key") {
-        Ok(pw) if !normalize_gladia_api_key(&pw).is_empty() => Ok(()),
-        Ok(_) | Err(keyring::Error::NoEntry) => {
-            log::error!("[KEYCHAIN] Gladia API key read-back failed: stored value empty or missing after write");
-            Err("Gladia API key was not saved in OS keychain".into())
-        }
-        Err(e) => {
-            log::error!("[KEYCHAIN] Gladia API key read-back failed: {e}");
-            Err(format!(
-                "Could not verify Gladia API key in OS keychain: {e}"
-            ))
-        }
-    }
-}
-
-#[command]
 pub fn clear_deepgram_api_key() -> Result<(), String> {
     DEFAULT_STORE
         .delete_password("deepgram_api_key")
         .map_err(|e| format!("Could not remove Deepgram API key from OS keychain: {e}"))
-}
-
-#[command]
-pub fn clear_gladia_api_key() -> Result<(), String> {
-    DEFAULT_STORE
-        .delete_password("gladia_api_key")
-        .map_err(|e| format!("Could not remove Gladia API key from OS keychain: {e}"))
 }
 
 pub fn normalize_soniox_api_key(api_key: &str) -> String {
@@ -417,20 +345,6 @@ pub fn get_deepgram_api_key_or_empty_with_store(
     }
 }
 
-pub fn get_gladia_api_key_or_empty() -> Result<String, String> {
-    get_gladia_api_key_or_empty_with_store(&DEFAULT_STORE)
-}
-
-pub fn get_gladia_api_key_or_empty_with_store(store: &dyn KeychainStore) -> Result<String, String> {
-    match store.get_password("gladia_api_key") {
-        Ok(key) => Ok(normalize_gladia_api_key(&key)),
-        Err(keyring::Error::NoEntry) => Ok(String::new()),
-        Err(e) => Err(format!(
-            "Could not read Gladia API key from OS keychain: {e}"
-        )),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -635,14 +549,6 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_gladia_key_wrappers() {
-        assert_eq!(normalize_gladia_api_key(" abc "), "abc");
-        assert_eq!(normalize_gladia_api_key("\"abc\""), "abc");
-        assert_eq!(normalize_gladia_api_key("x-gladia-key: abc"), "abc");
-        assert_eq!(normalize_gladia_api_key("X-Gladia-Key: abc"), "abc");
-    }
-
-    #[test]
     fn has_deepgram_api_key_returns_false_when_not_set() {
         let store = MockKeychainStore::new();
         let result = has_deepgram_api_key_with_store(&store);
@@ -717,69 +623,6 @@ mod tests {
             .set_password("deepgram_api_key", "  Token abc  ")
             .unwrap();
         let result = get_deepgram_api_key_or_empty_with_store(&store).unwrap();
-        assert_eq!(result, "abc");
-    }
-
-    #[test]
-    fn has_gladia_api_key_returns_false_when_not_set() {
-        let store = MockKeychainStore::new();
-        let result = has_gladia_api_key_with_store(&store);
-        assert!(!result.unwrap());
-    }
-
-    #[test]
-    fn has_gladia_api_key_returns_true_when_set() {
-        let store = MockKeychainStore::new();
-        store.set_password("gladia_api_key", "test-key").unwrap();
-        let result = has_gladia_api_key_with_store(&store);
-        assert!(result.unwrap());
-    }
-
-    #[test]
-    fn has_gladia_api_key_returns_false_when_empty() {
-        let store = MockKeychainStore::new();
-        store.set_password("gladia_api_key", "   ").unwrap();
-        let result = has_gladia_api_key_with_store(&store);
-        assert!(!result.unwrap());
-    }
-
-    #[test]
-    fn set_gladia_api_key_saves_and_reads_back() {
-        let store = MockKeychainStore::new();
-        set_gladia_api_key_with_store(&store, "my-api-key").unwrap();
-        let stored = store.get_password("gladia_api_key").unwrap();
-        assert_eq!(stored, "my-api-key");
-    }
-
-    #[test]
-    fn set_gladia_api_key_normalizes_input() {
-        let store = MockKeychainStore::new();
-        set_gladia_api_key_with_store(&store, "  x-gladia-key: abc  ").unwrap();
-        let stored = store.get_password("gladia_api_key").unwrap();
-        assert_eq!(stored, "abc");
-    }
-
-    #[test]
-    fn set_gladia_api_key_rejects_empty() {
-        let store = MockKeychainStore::new();
-        let result = set_gladia_api_key_with_store(&store, "");
-        assert_eq!(result, Err("API key cannot be empty".into()));
-    }
-
-    #[test]
-    fn get_gladia_api_key_or_empty_returns_empty_when_not_set() {
-        let store = MockKeychainStore::new();
-        let result = get_gladia_api_key_or_empty_with_store(&store).unwrap();
-        assert_eq!(result, "");
-    }
-
-    #[test]
-    fn get_gladia_api_key_or_empty_normalizes_output() {
-        let store = MockKeychainStore::new();
-        store
-            .set_password("gladia_api_key", "  x-gladia-key: abc  ")
-            .unwrap();
-        let result = get_gladia_api_key_or_empty_with_store(&store).unwrap();
         assert_eq!(result, "abc");
     }
 

@@ -37,7 +37,7 @@ describe("help-legal content", () => {
 
     expect(guideText).toContain("Vosk")
     expect(guideText).toContain("Deepgram")
-    expect(guideText).toContain("Gladia")
+    expect(guideText).toContain("Soniox")
     expect(guideText).toContain("Ellen White")
     expect(guideText).toContain("85%")
     expect(guideText).toContain("Semantic detection")

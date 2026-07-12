@@ -1109,7 +1109,7 @@ function SettingsScene() {
       >
         {[
           ["Audio", "Microphone feed and input gain."],
-          ["Speech", "Local Vosk or cloud Deepgram and Gladia keys."],
+          ["Speech", "Local Vosk or cloud Deepgram and Soniox keys."],
           ["Bible", "Active translation for detections, search, and output."],
           [
             "Display Mode",

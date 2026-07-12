@@ -49,7 +49,6 @@ interface UseTranscriptionOptions {
 }
 
 const MISSING_DEEPGRAM_KEY_MARKER = "No Deepgram API key"
-const MISSING_GLADIA_KEY_MARKER = "No Gladia API key"
 const MISSING_SONIOX_KEY_MARKER = "No Soniox API key"
 const NOT_RUNNING_ERROR = "Transcription is not running"
 const MAYBE_HYMN_CUE_PATTERN =
@@ -66,7 +65,6 @@ const STT_STATUS_TOAST_ID = "stt-status"
 
 const PROVIDER_LABELS: Record<SttProvider, string> = {
   deepgram: "Deepgram",
-  gladia: "Gladia",
   soniox: "Soniox",
   vosk: "Vosk",
 }
@@ -74,14 +72,12 @@ const PROVIDER_LABELS: Record<SttProvider, string> = {
 function isMissingApiKeyMessage(message: string): boolean {
   return (
     message.includes(MISSING_DEEPGRAM_KEY_MARKER) ||
-    message.includes(MISSING_GLADIA_KEY_MARKER) ||
     message.includes(MISSING_SONIOX_KEY_MARKER)
   )
 }
 
 function providerFromMessage(message: string): SttProvider | null {
   if (message.includes(MISSING_DEEPGRAM_KEY_MARKER)) return "deepgram"
-  if (message.includes(MISSING_GLADIA_KEY_MARKER)) return "gladia"
   if (message.includes(MISSING_SONIOX_KEY_MARKER)) return "soniox"
   return null
 }

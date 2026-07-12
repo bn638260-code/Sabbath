@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn stoplist_ignores_trailing_punctuation() {
-        // STT providers (Deepgram/Gladia) can attach punctuation to tokens.
+        // STT providers such as Deepgram can attach punctuation to tokens.
         let matches = fuzzy_find_books("pick a number, then wait");
         assert!(matches.iter().all(|m| m.book_name != "Numbers"));
     }

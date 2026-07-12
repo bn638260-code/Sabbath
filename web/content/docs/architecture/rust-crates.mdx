@@ -13,7 +13,7 @@ dependencies follow a strict downward fan-out from the API layer.
 | Crate             | Responsibility                                                                                                        |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `rhema-audio`     | Audio device enumeration, capture, voice activity detection (cpal)                                                    |
-| `rhema-stt`       | Local Vosk STT plus Deepgram/Gladia cloud streaming                                                                   |
+| `rhema-stt`       | Local Vosk STT plus Deepgram/Soniox cloud streaming                                                                   |
 | `rhema-bible`     | SQLite Bible database, FTS5 search, cross-references                                                                  |
 | `rhema-detection` | Verse detection pipeline: direct, semantic, quotation, ensemble merger, sentence buffer, sermon context, reading mode |
 | `rhema-broadcast` | NDI video frame output via FFI                                                                                        |
@@ -28,7 +28,7 @@ Each crate maps to a clear external responsibility:
   here so the rest of the workspace can pretend audio is just bytes.
 
 - **`rhema-stt`** owns network and local STT. Vosk, Deepgram, and
-  Gladia all emit the same transcript event type, so the consumer doesn't
+  Soniox all emit the same transcript event type, so the consumer doesn't
   know (or care) which engine is wired in.
 
 - **`rhema-bible`** owns the database. FTS5 query construction,

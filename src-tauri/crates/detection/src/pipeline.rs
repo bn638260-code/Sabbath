@@ -381,7 +381,7 @@ mod tests {
         let cases = [
             ("vosk", "john chapter three verse sixteen"),
             ("deepgram", "John 3:16"),
-            ("gladia", "John three sixteen"),
+            ("deepgram", "John three sixteen"),
         ];
 
         for (provider, transcript) in cases {
@@ -525,7 +525,7 @@ mod tests {
                 "God loved the world enough to give his only Son.",
             ),
             (
-                "gladia",
+                "deepgram",
                 "God loved the world so much that he gave his only son",
             ),
         ];

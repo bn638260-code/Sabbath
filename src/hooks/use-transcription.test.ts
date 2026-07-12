@@ -128,12 +128,12 @@ describe("use-transcription", () => {
       )
     })
 
-    it("invokes gladia provider without forwarding secrets", async () => {
+    it("invokes soniox provider without forwarding secrets", async () => {
       mockInvoke.mockResolvedValue(undefined)
       const { useSettingsStore, transcriptionActions } = await loadModules()
 
       useSettingsStore.setState({
-        sttProvider: "gladia",
+        sttProvider: "soniox",
         audioDeviceId: null,
         gain: 1.0,
       })
@@ -143,7 +143,7 @@ describe("use-transcription", () => {
       expect(mockInvoke).toHaveBeenCalledWith(
         "start_transcription",
         expect.objectContaining({
-          provider: "gladia",
+          provider: "soniox",
           deviceId: null,
           gain: 1.0,
         })
@@ -187,22 +187,6 @@ describe("use-transcription", () => {
       expect(mockToastError).not.toHaveBeenCalled()
       expect(useTranscriptStore.getState().connectionStatus).toBe("error")
       expect(useTranscriptStore.getState().isTranscribing).toBe(false)
-    })
-
-    it("routes a missing-Gladia-key error to onMissingApiKey (no toast)", async () => {
-      mockInvoke.mockRejectedValue(
-        "No Gladia API key configured. Set it in Settings."
-      )
-      const { useSettingsStore, useTranscriptStore, transcriptionActions } =
-        await loadModules()
-      const onMissingApiKey = vi.fn()
-
-      useSettingsStore.setState({ sttProvider: "gladia" })
-      await transcriptionActions.start(onMissingApiKey)
-
-      expect(onMissingApiKey).toHaveBeenCalledWith("gladia")
-      expect(mockToastError).not.toHaveBeenCalled()
-      expect(useTranscriptStore.getState().connectionStatus).toBe("error")
     })
 
     it("routes a missing-Soniox-key error and stores a visible issue", async () => {
@@ -290,14 +274,14 @@ describe("use-transcription", () => {
         classifyTranscriptionIssue("invalid api key", "deepgram")
       ).toMatchObject({ kind: "auth", provider: "deepgram" })
       expect(
-        classifyTranscriptionIssue("quota exceeded for this account", "gladia")
-      ).toMatchObject({ kind: "billing", provider: "gladia" })
+        classifyTranscriptionIssue("quota exceeded for this account", "soniox")
+      ).toMatchObject({ kind: "billing", provider: "soniox" })
       expect(
         classifyTranscriptionIssue("websocket closed unexpectedly", "soniox")
       ).toMatchObject({ kind: "network", provider: "soniox" })
       expect(
-        classifyTranscriptionIssue("provider returned malformed JSON", "gladia")
-      ).toMatchObject({ kind: "provider", provider: "gladia" })
+        classifyTranscriptionIssue("provider returned malformed JSON", "soniox")
+      ).toMatchObject({ kind: "provider", provider: "soniox" })
     })
   })
 

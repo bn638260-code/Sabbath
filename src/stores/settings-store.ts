@@ -3,7 +3,7 @@ import { load, type Store } from "@tauri-apps/plugin-store"
 import { isTauriRuntime, invokeTauri } from "@/lib/tauri-runtime"
 import { useBroadcastOutputIssueStore } from "@/stores/broadcast/output-issue-store"
 
-export type SttProvider = "deepgram" | "gladia" | "soniox" | "vosk"
+export type SttProvider = "deepgram" | "soniox" | "vosk"
 export type SttLanguage = "en" | "af" | "es" | "fr" | "pt"
 
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.85
@@ -17,7 +17,6 @@ function normalizeConfidenceThreshold(value: number): number {
 
 interface SettingsState {
   hasDeepgramApiKey: boolean
-  hasGladiaApiKey: boolean
   audioDeviceId: string | null
   gain: number
   autoMode: boolean
@@ -35,7 +34,6 @@ interface SettingsState {
   lowPowerMode: boolean
 
   setHasDeepgramApiKey: (has: boolean) => void
-  setHasGladiaApiKey: (has: boolean) => void
   setAudioDeviceId: (id: string | null) => void
   setGain: (gain: number) => void
   setAutoMode: (auto: boolean) => void
@@ -53,7 +51,6 @@ interface SettingsState {
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   hasDeepgramApiKey: false,
-  hasGladiaApiKey: false,
   hasSonioxApiKey: false,
   audioDeviceId: null,
   gain: 1.0,
@@ -69,7 +66,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   lowPowerMode: false,
 
   setHasDeepgramApiKey: (hasDeepgramApiKey) => set({ hasDeepgramApiKey }),
-  setHasGladiaApiKey: (hasGladiaApiKey) => set({ hasGladiaApiKey }),
   setHasSonioxApiKey: (hasSonioxApiKey) => set({ hasSonioxApiKey }),
   setAudioDeviceId: (audioDeviceId) => set({ audioDeviceId }),
   setGain: (gain) => set({ gain }),
@@ -79,7 +75,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSemanticDetectionEnabled: (semanticDetectionEnabled) =>
     set({ semanticDetectionEnabled }),
   setConfidenceThreshold: (confidenceThreshold) =>
-    set({ confidenceThreshold: normalizeConfidenceThreshold(confidenceThreshold) }),
+    set({
+      confidenceThreshold: normalizeConfidenceThreshold(confidenceThreshold),
+    }),
   setSemanticConfidenceThreshold: (semanticConfidenceThreshold) =>
     set({ semanticConfidenceThreshold }),
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
@@ -105,12 +103,7 @@ const PERSISTED_KEYS = [
 ] as const satisfies readonly (keyof SettingsState)[]
 
 function parseSttProvider(value: unknown): SttProvider {
-  if (
-    value === "deepgram" ||
-    value === "gladia" ||
-    value === "soniox" ||
-    value === "vosk"
-  ) {
+  if (value === "deepgram" || value === "soniox" || value === "vosk") {
     return value
   }
   // Migrate removed/legacy local providers (whisper, faster-whisper,
@@ -190,15 +183,13 @@ export function hydrateSettings(): Promise<void> {
         }
       }
 
-      // Resolve keyring-backed secret presence (Deepgram + Gladia) and write only a boolean flag.
+      // Resolve keyring-backed secret presence and write only boolean flags.
       // Best-effort and independent: if a command isn't available (web/dev), keep the default.
-      const [deepgram, gladia, soniox] = await Promise.all([
+      const [deepgram, soniox] = await Promise.all([
         invokeTauri<boolean>("has_deepgram_api_key").catch(() => undefined),
-        invokeTauri<boolean>("has_gladia_api_key").catch(() => undefined),
         invokeTauri<boolean>("has_soniox_api_key").catch(() => undefined),
       ])
       if (deepgram !== undefined) patch.hasDeepgramApiKey = deepgram
-      if (gladia !== undefined) patch.hasGladiaApiKey = gladia
       if (soniox !== undefined) patch.hasSonioxApiKey = soniox
 
       if (Object.keys(patch).length > 0) {

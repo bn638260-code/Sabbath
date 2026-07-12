@@ -26,16 +26,13 @@ pub(crate) fn partial_semantic_detection_enabled(low_power: Option<bool>) -> boo
 
 pub(crate) fn partial_semantic_detection_enabled_for_provider(
     low_power: Option<bool>,
-    provider: &str,
+    _provider: &str,
 ) -> bool {
-    partial_semantic_detection_enabled(low_power) && provider != "gladia"
+    partial_semantic_detection_enabled(low_power)
 }
 
-pub(crate) fn final_semantic_detection_allowed(provider: &str, confidence: f64) -> bool {
-    if provider != "gladia" || confidence <= 0.0 {
-        return true;
-    }
-    confidence >= 0.50
+pub(crate) fn final_semantic_detection_allowed(_provider: &str, _confidence: f64) -> bool {
+    true
 }
 
 pub(crate) fn final_semantic_detection_allowed_by_settings(
@@ -118,9 +115,9 @@ mod tests {
     }
 
     #[test]
-    fn gladia_partials_do_not_run_semantic_detection() {
-        assert!(!partial_semantic_detection_enabled_for_provider(
-            None, "gladia"
+    fn active_provider_partials_can_run_semantic_detection() {
+        assert!(partial_semantic_detection_enabled_for_provider(
+            None, "soniox"
         ));
         assert!(partial_semantic_detection_enabled_for_provider(
             None, "deepgram"
@@ -129,7 +126,7 @@ mod tests {
 
     #[test]
     fn active_provider_semantic_policy_matches_production_matrix() {
-        let providers = ["vosk", "deepgram", "gladia"];
+        let providers = ["vosk", "deepgram", "soniox"];
 
         for provider in providers {
             assert!(
@@ -148,20 +145,17 @@ mod tests {
         assert!(partial_semantic_detection_enabled_for_provider(
             None, "deepgram"
         ));
-        assert!(!partial_semantic_detection_enabled_for_provider(
-            None, "gladia"
-        ));
 
         assert!(final_semantic_detection_allowed("vosk", 0.40));
         assert!(final_semantic_detection_allowed("deepgram", 0.40));
-        assert!(!final_semantic_detection_allowed("gladia", 0.40));
+        assert!(final_semantic_detection_allowed("soniox", 0.40));
     }
 
     #[test]
-    fn gladia_low_confidence_finals_do_not_run_semantic_detection() {
-        assert!(!final_semantic_detection_allowed("gladia", 0.40));
-        assert!(final_semantic_detection_allowed("gladia", 0.50));
-        assert!(final_semantic_detection_allowed("gladia", 0.0));
+    fn active_provider_low_confidence_finals_can_run_semantic_detection() {
+        assert!(final_semantic_detection_allowed("soniox", 0.40));
+        assert!(final_semantic_detection_allowed("soniox", 0.50));
+        assert!(final_semantic_detection_allowed("soniox", 0.0));
         assert!(final_semantic_detection_allowed("deepgram", 0.20));
     }
 

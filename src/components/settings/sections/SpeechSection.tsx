@@ -5,9 +5,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { useAssets } from "@/hooks/use-assets"
 import { useDeepgramKeySettings } from "@/hooks/use-deepgram-key-settings"
-import { useGladiaKeySettings } from "@/hooks/use-gladia-key-settings"
 import { useSonioxKeySettings } from "@/hooks/use-soniox-key-settings"
-import { useSettingsStore, type SttLanguage, type SttProvider } from "@/stores/settings-store"
+import {
+  useSettingsStore,
+  type SttLanguage,
+  type SttProvider,
+} from "@/stores/settings-store"
 import { CheckIcon, DownloadIcon, HardDriveIcon, ZapIcon } from "lucide-react"
 
 function ProviderOption({
@@ -66,12 +69,6 @@ function ProviderSelector({
           description="Uses Deepgram Nova-3 for real-time streaming transcription. Requires an API key and internet connection. Best accuracy with keyword boosting for Bible terms."
         />
         <ProviderOption
-          value="gladia"
-          activeProvider={sttProvider}
-          title="Cloud (Gladia)"
-          description="Uses Gladia Solaria-1 for real-time streaming transcription. Requires an API key and internet connection. Runs English-only live captions through the same verse detection pipeline."
-        />
-        <ProviderOption
           value="soniox"
           activeProvider={sttProvider}
           title="Cloud (Soniox, Afrikaans)"
@@ -127,10 +124,12 @@ function VoskModelStatus({
 
       <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
         Vosk runs with a verse-focused constrained grammar. For better offline
-        recognition, install <code className="text-[0.5625rem]">vosk-model-en-us-0.22-lgraph</code>
-        . The smaller <code className="text-[0.5625rem]">vosk-model-small-en-us</code>{" "}
-        model remains supported as a fallback. Development builds using the
-        Python worker also need the <code className="text-[0.5625rem]">vosk</code>{" "}
+        recognition, install{" "}
+        <code className="text-[0.5625rem]">vosk-model-en-us-0.22-lgraph</code>.
+        The smaller{" "}
+        <code className="text-[0.5625rem]">vosk-model-small-en-us</code> model
+        remains supported as a fallback. Development builds using the Python
+        worker also need the <code className="text-[0.5625rem]">vosk</code>{" "}
         package installed. Place the model folder here or set{" "}
         <code className="text-[0.5625rem]">SABBATHCUE_VOSK_MODEL_DIR</code>.
       </p>
@@ -177,8 +176,11 @@ type KeySettings = {
   handleClearKey: () => Promise<void>
 }
 
-function voskMissingMessageFor(status: ReturnType<typeof useAssets>["status"]): string | null {
-  if (status?.vosk_model && status?.vosk_worker && status?.vosk_runtime) return null
+function voskMissingMessageFor(
+  status: ReturnType<typeof useAssets>["status"]
+): string | null {
+  if (status?.vosk_model && status?.vosk_worker && status?.vosk_runtime)
+    return null
   if (!status?.vosk_model) {
     return "Vosk model files are missing from the app resources or configured model path."
   }
@@ -191,25 +193,11 @@ function voskMissingMessageFor(status: ReturnType<typeof useAssets>["status"]): 
   )
 }
 
-function deepgramKeyAdapter(settings: ReturnType<typeof useDeepgramKeySettings>): KeySettings {
+function deepgramKeyAdapter(
+  settings: ReturnType<typeof useDeepgramKeySettings>
+): KeySettings {
   return {
     hasApiKey: settings.hasDeepgramApiKey,
-    keyValue: settings.keyValue,
-    setKeyValue: settings.setKeyValue,
-    editingSavedKey: settings.editingSavedKey,
-    setEditingSavedKey: settings.setEditingSavedKey,
-    saved: settings.saved,
-    keyError: settings.keyError,
-    displayedKeyValue: settings.displayedKeyValue,
-    keyActionLabel: settings.keyActionLabel,
-    handleKeyAction: settings.handleKeyAction,
-    handleClearKey: settings.handleClearKey,
-  }
-}
-
-function gladiaKeyAdapter(settings: ReturnType<typeof useGladiaKeySettings>): KeySettings {
-  return {
-    hasApiKey: settings.hasGladiaApiKey,
     keyValue: settings.keyValue,
     setKeyValue: settings.setKeyValue,
     editingSavedKey: settings.editingSavedKey,
@@ -239,9 +227,7 @@ function ProviderKeySettings({
   settings: KeySettings
 }) {
   const inputType =
-    settings.hasApiKey &&
-    !settings.editingSavedKey &&
-    !settings.keyValue
+    settings.hasApiKey && !settings.editingSavedKey && !settings.keyValue
       ? "text"
       : "password"
 
@@ -415,12 +401,8 @@ export function SpeechSection() {
   const lowPowerMode = useSettingsStore((s) => s.lowPowerMode)
   const sttLanguage = useSettingsStore((s) => s.sttLanguage)
   const deepgramKeySettings = useDeepgramKeySettings()
-  const {
-    sttProvider,
-    switchingStt,
-    handleProviderChange,
-  } = deepgramKeySettings
-  const gladiaKeySettings = useGladiaKeySettings(handleProviderChange)
+  const { sttProvider, switchingStt, handleProviderChange } =
+    deepgramKeySettings
   const sonioxKeySettings = useSonioxKeySettings(handleProviderChange)
 
   const {
@@ -478,21 +460,6 @@ export function SpeechSection() {
             settings={deepgramKeyAdapter(deepgramKeySettings)}
           />
         </>
-      )}
-
-      {sttProvider === "gladia" && (
-        <ProviderKeySettings
-          providerName="Gladia"
-          signupUrl="app.gladia.io"
-          steps={[
-            "Sign up and open API Keys.",
-            "Copy the default key (or create one).",
-            "Paste it above and save.",
-          ]}
-          cost="free for 10 hours/month, then about R12.30/hour (billed in USD)."
-          pricingUrl="gladia.io/pricing"
-          settings={gladiaKeyAdapter(gladiaKeySettings)}
-        />
       )}
 
       {sttProvider === "soniox" && (

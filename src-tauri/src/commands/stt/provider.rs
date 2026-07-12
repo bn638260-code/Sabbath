@@ -4,7 +4,7 @@ use tauri::AppHandle;
 
 use crate::asset_paths;
 use crate::commands::secrets;
-use rhema_stt::{DeepgramClient, GladiaClient, SonioxClient, SttConfig, SttProvider, VoskProvider};
+use rhema_stt::{DeepgramClient, SonioxClient, SttConfig, SttProvider, VoskProvider};
 
 pub(crate) fn missing_vosk_model_error(model_path: &Path) -> String {
     format!(
@@ -70,7 +70,7 @@ async fn build_vosk_provider(
 
 fn removed_provider_error(provider_name: &str) -> String {
     format!(
-        "The {provider_name} speech-to-text provider has been removed. Choose Vosk, Deepgram, Gladia, or Soniox."
+        "The {provider_name} speech-to-text provider has been removed. Choose Vosk, Deepgram, or Soniox."
     )
 }
 
@@ -92,34 +92,9 @@ pub(crate) async fn build_stt_provider(
 ) -> Result<Box<dyn SttProvider>, String> {
     match provider_name {
         "vosk" => build_vosk_provider(app, device_id).await,
-        "whisper" | "legacy-whisper" | "faster-whisper" => {
+        "whisper" | "legacy-whisper" | "faster-whisper" | "gladia" => {
             log::warn!("[STT-MODEL] failed provider={provider_name} reason=removed_provider");
             Err(removed_provider_error(provider_name))
-        }
-        "gladia" => {
-            let resolved_api_key = secrets::get_gladia_api_key_or_empty()?;
-
-            if resolved_api_key.is_empty() {
-                log::warn!(
-                    "[STT-MODEL] failed provider=gladia model=solaria-1 reason=missing_api_key"
-                );
-                return Err("No Gladia API key configured. Set it in Settings.".into());
-            }
-
-            let model = "solaria-1";
-            log::info!(
-                "[STT-MODEL] selected provider=gladia model={model} source=remote api_key_configured=true device_id={device_id:?} gain={gain:?}"
-            );
-
-            let stt_config = SttConfig {
-                api_key: resolved_api_key,
-                model: model.to_string(),
-                sample_rate: 16_000,
-                encoding: "wav/pcm".to_string(),
-                language: Some("en".to_string()),
-            };
-
-            Ok(Box::new(GladiaClient::new(stt_config)))
         }
         "deepgram" => {
             let resolved_api_key = secrets::get_deepgram_api_key_or_empty()?;
@@ -175,7 +150,7 @@ pub(crate) async fn build_stt_provider(
         _ => {
             log::warn!("[STT-MODEL] failed provider={provider_name} reason=unknown_provider");
             Err(format!(
-                "Unknown speech-to-text provider \"{provider_name}\". Choose Vosk, Deepgram, Gladia, or Soniox."
+                "Unknown speech-to-text provider \"{provider_name}\". Choose Vosk, Deepgram, or Soniox."
             ))
         }
     }
@@ -219,7 +194,17 @@ mod tests {
 
         assert_eq!(
             error,
-            "The faster-whisper speech-to-text provider has been removed. Choose Vosk, Deepgram, Gladia, or Soniox."
+            "The faster-whisper speech-to-text provider has been removed. Choose Vosk, Deepgram, or Soniox."
+        );
+    }
+
+    #[test]
+    fn gladia_uses_removed_provider_error() {
+        let error = removed_provider_error("gladia");
+
+        assert_eq!(
+            error,
+            "The gladia speech-to-text provider has been removed. Choose Vosk, Deepgram, or Soniox."
         );
     }
 

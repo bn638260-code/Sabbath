@@ -13,7 +13,7 @@ SabbathCue listens to a live sermon audio feed, transcribes speech in real time,
 SabbathCue's public desktop installer is local-first and free to operate. It ships
 with redistributable Bible content only, defaults to local Vosk speech-to-text,
 does not require Deepgram, and does not bundle NDI SDK binaries. Deepgram,
-Gladia, and NDI remain optional integrations that users configure separately.
+Soniox, and NDI remain optional integrations that users configure separately.
 
 ### Building for Public Release
 
@@ -37,7 +37,7 @@ Local builds create an unsigned NSIS installer; official release CI uses
 
 ## Features
 
-- **Real-time speech-to-text** via local Vosk or cloud Deepgram/Gladia
+- **Real-time speech-to-text** via local Vosk or cloud Deepgram/Soniox
   - Vosk runs locally with no API costs; cloud providers stream through their live APIs
 - **Voice-controlled translation switching** — say "read in NIV" or "switch to ESV" to change translations instantly during a sermon
 - **Multi-strategy verse detection**
@@ -72,14 +72,14 @@ Local builds create an unsigned NSIS installer; official release CI uses
 | **AI/ML**     | ONNX Runtime (MiniLM-L6-v2 embeddings), Aho-Corasick, Fuse.js     |
 | **Database**  | SQLite via rusqlite (bundled) with FTS5                           |
 | **Broadcast** | NDI 6 SDK via dynamic loading (libloading FFI)                    |
-| **STT**       | Local Vosk worker; Deepgram/Gladia streaming APIs                 |
+| **STT**       | Local Vosk worker; Deepgram/Soniox streaming APIs                 |
 
 ### Rust Crates
 
 | Crate             | Purpose                                                                                                               |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `rhema-audio`     | Audio device enumeration, capture, VAD (cpal)                                                                         |
-| `rhema-stt`       | Local Vosk STT plus Deepgram/Gladia cloud streaming                                                                   |
+| `rhema-stt`       | Local Vosk STT plus Deepgram/Soniox cloud streaming                                                                   |
 | `rhema-bible`     | SQLite Bible DB, FTS5 search, cross-references                                                                        |
 | `rhema-detection` | Verse detection pipeline: direct, semantic, quotation, ensemble merger, sentence buffer, sermon context, reading mode |
 | `rhema-broadcast` | NDI video frame output via FFI                                                                                        |
@@ -91,7 +91,7 @@ Local builds create an unsigned NSIS installer; official release CI uses
 - [Rust](https://rustup.rs/) toolchain (stable, 1.77.2+)
 - [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/) (platform-specific system dependencies)
 - [Python 3](https://www.python.org/) (for downloading copyrighted translations and embedding model export)
-- [Deepgram API key](https://deepgram.com/) or Gladia API key (optional, for cloud speech-to-text instead of local STT)
+- [Deepgram API key](https://deepgram.com/) or Soniox API key (optional, for cloud speech-to-text instead of local STT)
 
 ### Platform-specific setup
 
@@ -166,14 +166,14 @@ The key is stored in the OS keychain, not the settings file.
 
 **Cost:** new accounts get about **R3,280** in free credit, then pay-as-you-go from about **R0.08/min** for streaming — no subscription, no minimums, no card required. Billed in USD (≈ R16.40/$); current rates at [deepgram.com/pricing](https://deepgram.com/pricing).
 
-**Option 3: Gladia (Cloud, Paid)**
+**Option 3: Soniox (Cloud, Paid)**
 The key is stored in the OS keychain.
 
-1. Sign up at [app.gladia.io](https://app.gladia.io).
-2. Open [**API Keys**](https://app.gladia.io/apikeys) — a default key is created for you, or create your own.
-3. Copy the key and paste it into the app under **Settings → Speech Recognition** (Gladia).
+1. Sign up at [console.soniox.com](https://console.soniox.com).
+2. Create an API key in the Soniox console.
+3. Copy the key and paste it into the app under **Settings -> Speech Recognition** (Soniox).
 
-**Cost:** the free plan includes **10 hours per month**, then about **R12.30/hour** pay-as-you-go for real-time (less on a committed plan). Billed in USD (≈ R16.40/$); current rates at [gladia.io/pricing](https://gladia.io/pricing).
+**Cost:** pay-as-you-go streaming; check current rates at [soniox.com/pricing](https://soniox.com/pricing).
 
 #### Account verification (Supabase)
 

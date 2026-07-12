@@ -1918,7 +1918,7 @@ mod tests {
         let cases = [
             ("vosk", "john chapter three verse sixteen"),
             ("deepgram", "John 3:16"),
-            ("gladia", "John three sixteen"),
+            ("deepgram", "John three sixteen"),
         ];
 
         for (provider, transcript) in cases {

@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn active_provider_finals_route_hymn_commands_authoritatively() {
-        for provider in ["vosk", "deepgram", "gladia"] {
+        for provider in ["vosk", "deepgram", "soniox"] {
             let mut router = TranscriptRouter::default();
             let route = router.route(TranscriptRouteInput {
                 provider,

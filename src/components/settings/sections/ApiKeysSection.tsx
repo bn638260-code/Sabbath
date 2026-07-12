@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge"
 import { useSettingsStore } from "@/stores/settings-store"
 
 export function ApiKeysSection() {
-  const { hasDeepgramApiKey, hasGladiaApiKey, sttProvider } = useSettingsStore()
+  const { hasDeepgramApiKey, hasSonioxApiKey, sttProvider } = useSettingsStore()
 
   return (
     <div className="flex flex-col gap-6">
@@ -34,9 +34,9 @@ export function ApiKeysSection() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-            Gladia API Key
+            Soniox API Key
           </label>
-          {hasGladiaApiKey ? (
+          {hasSonioxApiKey ? (
             <Badge variant="outline" className="text-[0.5rem]">
               Key configured
             </Badge>

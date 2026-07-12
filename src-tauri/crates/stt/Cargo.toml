@@ -22,8 +22,7 @@ async-trait = "0.1"
 tempfile = "3"
 
 [features]
-default = ["rest-fallback", "gladia"]
-gladia = ["reqwest"]
+default = ["rest-fallback"]
 rest-fallback = ["reqwest"]
 
 [[example]]

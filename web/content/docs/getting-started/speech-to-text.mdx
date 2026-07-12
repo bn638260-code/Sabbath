@@ -1,6 +1,6 @@
 ---
 title: Speech-to-Text Engines
-description: Choose between local Vosk and cloud Deepgram or Gladia.
+description: Choose between local Vosk and cloud Deepgram or Soniox.
 icon: Mic
 ---
 
@@ -21,8 +21,8 @@ managed STT service.
     description="Streams audio to Deepgram Nova-3 with Bible keyterm boosting and a REST fallback."
   />
   <Card
-    title="Gladia (cloud, paid)"
-    description="Streams audio through Gladia Solaria-1 and feeds the same live verse detection pipeline."
+    title="Soniox (cloud, paid)"
+    description="Streams audio through Soniox with language hints and feeds the same live verse detection pipeline."
   />
 </Cards>
 
@@ -58,19 +58,19 @@ disconnects.
 
 The key is stored in the OS keychain.
 
-## Option 3: Gladia
+## Option 3: Soniox
 
-Gladia is another cloud STT option using the Gladia live API.
+Soniox is another cloud STT option with multilingual live streaming support.
 
-1. Get an API key at [gladia.io](https://www.gladia.io/).
+1. Get an API key at [soniox.com](https://soniox.com/).
 2. Open Settings -> Speech.
-3. Choose **Gladia** and save the key.
+3. Choose **Soniox** and save the key.
 
 The key is stored in the OS keychain.
 
 ## Comparing Providers
 
-|                     | Vosk (local)                       | Deepgram (cloud)          | Gladia (cloud)      |
+|                     | Vosk (local)                       | Deepgram (cloud)          | Soniox (cloud)      |
 | ------------------- | ---------------------------------- | ------------------------- | ------------------- |
 | API cost            | Free                               | Per-minute billing        | Per-minute billing  |
 | Internet required   | No                                 | Yes                       | Yes                 |
@@ -78,5 +78,5 @@ The key is stored in the OS keychain.
 | Transcript coverage | Best for verse/reference cues      | Full general speech       | Full general speech |
 | Works offline       | Yes                                | No                        | No                  |
 
-Pick Vosk for the no-cost offline path. Pick Deepgram or Gladia when you have
+Pick Vosk for the no-cost offline path. Pick Deepgram or Soniox when you have
 a reliable network and want cloud transcription quality.

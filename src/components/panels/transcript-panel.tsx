@@ -33,7 +33,10 @@ const LazyApiKeyPrompt = lazy(() =>
 const TRANSCRIPT_STICKY_THRESHOLD_PX = 40
 
 export function isNearTranscriptBottom(
-  scrollNode: Pick<HTMLDivElement, "scrollTop" | "scrollHeight" | "clientHeight">,
+  scrollNode: Pick<
+    HTMLDivElement,
+    "scrollTop" | "scrollHeight" | "clientHeight"
+  >,
   threshold = TRANSCRIPT_STICKY_THRESHOLD_PX
 ): boolean {
   return (
@@ -56,8 +59,6 @@ function providerLabel(provider: SttProvider): string {
   switch (provider) {
     case "deepgram":
       return "Deepgram"
-    case "gladia":
-      return "Gladia"
     case "soniox":
       return "Soniox"
     case "vosk":
