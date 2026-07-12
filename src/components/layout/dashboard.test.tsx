@@ -93,7 +93,7 @@ describe("Dashboard workspace routing", () => {
     ).toBeNull()
   })
 
-  it("Kinetic Themes workspace renders the dedicated theme page", async () => {
+  it("Themes workspace renders the dedicated theme page", async () => {
     useDashboardWorkspaceStore.setState({ workspace: "kinetic-themes" })
     render(<Dashboard />)
 

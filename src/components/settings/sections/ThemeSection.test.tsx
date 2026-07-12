@@ -29,10 +29,10 @@ describe("ThemeSection", () => {
 
   afterEach(() => cleanup())
 
-  it("opens the dedicated kinetic themes workspace", () => {
+  it("opens the dedicated themes workspace", () => {
     render(<ThemeSection />)
 
-    fireEvent.click(screen.getByRole("button", { name: /Open kinetic themes/ }))
+    fireEvent.click(screen.getByRole("button", { name: /Open themes/ }))
 
     expect(mockSetWorkspace).toHaveBeenCalledWith("kinetic-themes")
   })

@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from "react"
 import {
   CheckCircleIcon,
   EditIcon,
+  PaletteIcon,
   SearchIcon,
   SparklesIcon,
   Trash2Icon,
@@ -26,7 +27,7 @@ const PREVIEW_VERSE: VerseRenderData = {
   segments: [{ text: "Sing unto the Lord a new song" }],
 }
 
-function KineticThemeCard({
+function ThemeCatalogCard({
   theme,
   active,
   onApply,
@@ -40,11 +41,12 @@ function KineticThemeCard({
   onEdit: () => void
 }) {
   const [hovered, setHovered] = useState(false)
+  const isKinetic = Boolean(theme.kinetic)
 
   return (
     <article
       className={cn(
-        "group overflow-hidden rounded-lg border bg-[var(--bg-surface)] transition-colors",
+        "group flex h-full min-h-[236px] flex-col overflow-hidden rounded-lg border bg-[var(--bg-surface)] transition-colors",
         active
           ? "border-[var(--accent-border)] ring-1 ring-[var(--accent)]/35"
           : "border-[var(--border-subtle)] hover:border-[var(--accent-border)]"
@@ -57,11 +59,17 @@ function KineticThemeCard({
           theme={theme}
           verse={PREVIEW_VERSE}
           className="h-full w-full"
-          animate={active || hovered}
+          animate={isKinetic && (active || hovered)}
         />
-        <Badge className="absolute top-2 left-2 bg-indigo-600 text-foreground hover:bg-indigo-600">
-          Kinetic
-        </Badge>
+        {isKinetic ? (
+          <Badge className="absolute top-2 left-2 bg-indigo-600 text-foreground hover:bg-indigo-600">
+            Kinetic
+          </Badge>
+        ) : (
+          <Badge className="absolute top-2 left-2 bg-slate-700 text-foreground hover:bg-slate-700">
+            Static
+          </Badge>
+        )}
         {active ? (
           <Badge className="absolute top-2 right-2 bg-emerald-600 text-foreground hover:bg-emerald-600">
             Active
@@ -69,16 +77,21 @@ function KineticThemeCard({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2 p-3">
+      <div className="flex min-h-[88px] flex-1 items-start gap-2 p-3">
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold text-foreground">
             {theme.name}
           </h2>
-          <p className="truncate text-[0.6875rem] text-muted-foreground">
-            {theme.kinetic?.backgroundKind ?? "motion"} /{" "}
-            {theme.kinetic?.motion.durationMs
-              ? `${Math.round(theme.kinetic.motion.durationMs / 1000)}s`
-              : "loop"}
+          <p className="mt-1 line-clamp-2 min-h-[2rem] text-[0.6875rem] leading-4 text-muted-foreground">
+            {isKinetic
+              ? `${theme.kinetic?.backgroundKind ?? "motion"} / ${
+                  theme.kinetic?.motion.durationMs
+                    ? `${Math.round(theme.kinetic.motion.durationMs / 1000)}s`
+                    : "loop"
+                }`
+              : theme.builtin
+                ? "Static built-in theme"
+                : "Static custom theme"}
           </p>
         </div>
         <Button
@@ -122,22 +135,19 @@ export function KineticThemesPage() {
   const [search, setSearch] = useState("")
   const [designerMounted, setDesignerMounted] = useState(false)
 
-  const kineticThemes = useMemo(
-    () => themes.filter((theme) => Boolean(theme.kinetic)),
-    [themes]
-  )
   const filteredThemes = useMemo(() => {
     const query = search.trim().toLowerCase()
-    if (!query) return kineticThemes
-    return kineticThemes.filter((theme) =>
-      theme.name.toLowerCase().includes(query)
-    )
-  }, [kineticThemes, search])
+    if (!query) return themes
+    return themes.filter((theme) => theme.name.toLowerCase().includes(query))
+  }, [themes, search])
 
-  const activeKineticTheme =
-    kineticThemes.find((theme) => theme.id === activeThemeId) ??
-    kineticThemes[0] ??
-    null
+  const staticThemes = filteredThemes.filter((theme) => !theme.kinetic)
+  const kineticThemes = filteredThemes.filter((theme) => Boolean(theme.kinetic))
+  const totalStaticThemes = themes.filter((theme) => !theme.kinetic).length
+  const totalKineticThemes = themes.filter((theme) =>
+    Boolean(theme.kinetic)
+  ).length
+  const activeTheme = themes.find((theme) => theme.id === activeThemeId) ?? null
 
   const applyTheme = (themeId: string) => {
     useBroadcastThemeStore.getState().setActiveTheme(themeId)
@@ -162,16 +172,17 @@ export function KineticThemesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)]">
-            <SparklesIcon className="size-5 text-[var(--accent)]" />
+            <PaletteIcon className="size-5 text-[var(--accent)]" />
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold text-foreground">
-              Kinetic Themes
+              Themes
             </h1>
             <div className="mt-1 flex items-center gap-2">
-              <Badge variant="outline">{kineticThemes.length} presets</Badge>
-              {activeKineticTheme ? (
-                <Badge variant="outline">{activeKineticTheme.name}</Badge>
+              <Badge variant="outline">{totalStaticThemes} static</Badge>
+              <Badge variant="outline">{totalKineticThemes} kinetic</Badge>
+              {activeTheme ? (
+                <Badge variant="outline">{activeTheme.name}</Badge>
               ) : null}
             </div>
           </div>
@@ -180,8 +191,8 @@ export function KineticThemesPage() {
         <div className="relative w-full max-w-xs">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            aria-label="Search kinetic themes"
-            placeholder="Search kinetic themes"
+            aria-label="Search themes"
+            placeholder="Search themes"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="pl-8"
@@ -189,20 +200,18 @@ export function KineticThemesPage() {
         </div>
       </div>
 
-      {activeKineticTheme ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-          <div className="min-w-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-            <CanvasVerse
-              theme={activeKineticTheme}
-              verse={PREVIEW_VERSE}
-              className="aspect-video w-full"
-              animate
-            />
+      <div className="grid min-w-0 flex-1 gap-4 lg:grid-cols-2">
+        <section className="min-w-0">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <PaletteIcon className="size-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Static</h2>
+            </div>
+            <Badge variant="outline">{staticThemes.length}</Badge>
           </div>
-
-          <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            {filteredThemes.map((theme) => (
-              <KineticThemeCard
+          <div className="grid auto-rows-fr gap-3 sm:grid-cols-2">
+            {staticThemes.map((theme) => (
+              <ThemeCatalogCard
                 key={theme.id}
                 theme={theme}
                 active={theme.id === activeThemeId}
@@ -213,18 +222,43 @@ export function KineticThemesPage() {
                 }
               />
             ))}
-            {filteredThemes.length === 0 ? (
-              <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 text-sm text-muted-foreground">
-                No kinetic themes found
-              </p>
-            ) : null}
           </div>
-        </div>
-      ) : (
-        <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 text-sm text-muted-foreground">
-          No kinetic themes found
-        </p>
-      )}
+          {staticThemes.length === 0 ? (
+            <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 text-sm text-muted-foreground">
+              No static themes found
+            </p>
+          ) : null}
+        </section>
+
+        <section className="min-w-0">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <SparklesIcon className="size-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Kinetic</h2>
+            </div>
+            <Badge variant="outline">{kineticThemes.length}</Badge>
+          </div>
+          <div className="grid auto-rows-fr gap-3 sm:grid-cols-2">
+            {kineticThemes.map((theme) => (
+              <ThemeCatalogCard
+                key={theme.id}
+                theme={theme}
+                active={theme.id === activeThemeId}
+                onApply={() => applyTheme(theme.id)}
+                onEdit={() => editTheme(theme.id)}
+                onDelete={
+                  theme.builtin ? undefined : () => deleteTheme(theme.id)
+                }
+              />
+            ))}
+          </div>
+          {kineticThemes.length === 0 ? (
+            <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 text-sm text-muted-foreground">
+              No kinetic themes found
+            </p>
+          ) : null}
+        </section>
+      </div>
 
       {designerMounted ? (
         <Suspense fallback={null}>

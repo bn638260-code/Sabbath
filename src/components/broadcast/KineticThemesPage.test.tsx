@@ -47,21 +47,31 @@ describe("KineticThemesPage", () => {
     })
   })
 
-  it("renders the kinetic catalog as a dedicated page", () => {
+  it("renders the unified themes catalog as a dedicated page", () => {
+    const staticThemes = initialThemes.filter((theme) => !theme.kinetic)
     const kineticThemes = initialThemes.filter((theme) => theme.kinetic)
+    expect(staticThemes.length).toBeGreaterThan(0)
     expect(kineticThemes.length).toBeGreaterThanOrEqual(14)
 
     render(<KineticThemesPage />)
 
-    expect(screen.getByRole("heading", { name: "Kinetic Themes" })).toBeTruthy()
-    expect(screen.getByText(`${kineticThemes.length} presets`)).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Themes" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Static" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Kinetic" })).toBeTruthy()
+    expect(
+      screen.getAllByText(`${staticThemes.length} static`).length
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(`${kineticThemes.length} kinetic`).length
+    ).toBeGreaterThan(0)
+    expect(screen.getAllByText(staticThemes[0].name).length).toBeGreaterThan(0)
     expect(screen.getAllByText(kineticThemes[0].name).length).toBeGreaterThan(0)
   })
 
-  it("filters kinetic themes by name", () => {
+  it("filters themes by name", () => {
     render(<KineticThemesPage />)
 
-    fireEvent.change(screen.getByLabelText("Search kinetic themes"), {
+    fireEvent.change(screen.getByLabelText("Search themes"), {
       target: { value: "Emerald" },
     })
 

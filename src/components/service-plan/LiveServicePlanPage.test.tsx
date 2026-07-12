@@ -209,7 +209,7 @@ describe("LiveServicePlanPage", () => {
 
     expect(text()).toContain("Production Output")
     expect(text()).toContain("Broadcast settings")
-    expect(text()).toContain("Kinetic themes")
+    expect(text()).toContain("Themes")
     expect(text()).toContain("Theme designer")
     expect(
       container?.querySelector('[data-testid="preview-panel"]')
@@ -248,7 +248,7 @@ describe("LiveServicePlanPage", () => {
     ).toBeTruthy()
 
     await act(async () => {
-      clickButton("Kinetic themes")
+      clickButton("Themes")
       await Promise.resolve()
     })
     expect(mockClosePlanner).toHaveBeenCalled()

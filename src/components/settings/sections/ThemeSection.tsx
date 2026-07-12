@@ -38,7 +38,7 @@ export function ThemeSection() {
               }}
             >
               <SparklesIcon className="size-3.5" />
-              Open kinetic themes
+              Open themes
             </Button>
             <Button
               size="sm"

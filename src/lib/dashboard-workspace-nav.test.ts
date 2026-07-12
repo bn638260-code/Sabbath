@@ -65,7 +65,7 @@ describe("dashboard-workspace-nav", () => {
     expect(workspaceNavLabel("scripture-search")).toBe("Scripture & EGW")
     expect(workspaceNavLabel("queue")).toBe("Queue")
     expect(workspaceNavLabel("live-service")).toBe("Broadcast Control")
-    expect(workspaceNavLabel("kinetic-themes")).toBe("Kinetic Themes")
+    expect(workspaceNavLabel("kinetic-themes")).toBe("Themes")
     expect(workspaceNavLabel("settings")).toBe("System Settings")
     expect(workspaceNavLabel("help-legal")).toBe("Help & Legal")
   })

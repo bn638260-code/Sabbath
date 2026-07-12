@@ -64,9 +64,9 @@ describe("WorkspaceTopNav", () => {
     expect(useDashboardWorkspaceStore.getState().workspace).toBe("library")
   })
 
-  it("switches to the Kinetic Themes workspace", () => {
+  it("switches to the Themes workspace", () => {
     renderTopNav()
-    fireEvent.click(screen.getByRole("button", { name: /Kinetic Themes/ }))
+    fireEvent.click(screen.getByRole("button", { name: /^Themes/ }))
     expect(useDashboardWorkspaceStore.getState().workspace).toBe(
       "kinetic-themes"
     )
@@ -87,7 +87,7 @@ describe("WorkspaceTopNav", () => {
     expect(inactive.getAttribute("aria-current")).toBeNull()
   })
 
-  it("exposes broadcast, kinetic theme, and settings tutorial anchors", () => {
+  it("exposes broadcast, themes, and settings tutorial anchors", () => {
     renderTopNav()
     expect(
       screen
@@ -95,9 +95,7 @@ describe("WorkspaceTopNav", () => {
         .getAttribute("data-tour")
     ).toBe("broadcast")
     expect(
-      screen
-        .getByRole("button", { name: /Kinetic Themes/ })
-        .getAttribute("data-tour")
+      screen.getByRole("button", { name: /^Themes/ }).getAttribute("data-tour")
     ).toBe("kinetic-themes")
     expect(
       screen

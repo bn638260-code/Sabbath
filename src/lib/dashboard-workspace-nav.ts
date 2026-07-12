@@ -66,7 +66,7 @@ export const DASHBOARD_WORKSPACE_NAV: DashboardWorkspaceNavItem[] = [
     shortcut: "Ctrl/Cmd + 2",
   },
   { id: "live-service", label: "Broadcast Control", icon: RadioIcon },
-  { id: "kinetic-themes", label: "Kinetic Themes", icon: SparklesIcon },
+  { id: "kinetic-themes", label: "Themes", icon: SparklesIcon },
   {
     id: "hymns",
     label: "SDA Hymns Search",

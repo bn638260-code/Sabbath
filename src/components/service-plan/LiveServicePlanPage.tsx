@@ -223,7 +223,7 @@ export function LiveServicePlanPage() {
             }}
           >
             <SparklesIcon className="size-3.5" />
-            Kinetic themes
+            Themes
           </Button>
           <Button
             variant="chrome"

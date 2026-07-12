@@ -74,7 +74,7 @@ function ThemeCard({
         onSelect()
       }}
       className={cn(
-        "group relative flex w-full flex-col gap-1.5 rounded-lg p-1.5 text-left transition-colors hover:bg-muted/50",
+        "group relative flex h-full min-h-[188px] w-full flex-col gap-1.5 rounded-lg p-1.5 text-left transition-colors hover:bg-muted/50",
         isSelected && "ring-2 ring-primary"
       )}
     >
@@ -110,7 +110,7 @@ function ThemeCard({
       </div>
 
       {/* Info */}
-      <div className="flex items-center gap-1.5 px-0.5">
+      <div className="flex min-h-10 items-start gap-1.5 px-0.5">
         <div className="min-w-0 flex-1">
           {isRenaming && !theme.builtin ? (
             <Input
@@ -144,9 +144,9 @@ function ThemeCard({
             </p>
           )}
 
-          {isActive && (
-            <p className="text-[0.5rem] text-muted-foreground">Default</p>
-          )}
+          <p className="min-h-3 text-[0.5rem] leading-3 text-muted-foreground">
+            {isActive ? "Default" : theme.builtin ? "Built-in" : "Custom"}
+          </p>
         </div>
 
         {/* Tags */}
