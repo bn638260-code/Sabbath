@@ -50,4 +50,26 @@ describe("stripChapterFurniture", () => {
     expect(out).toContain("the wisdom of God")
     expect(out).toContain("More and more fully he lived")
   })
+
+  it("converts an odd-page header for a quoted chapter title", () => {
+    const out = stripChapterFurniture(
+      'He gave back the scepter into the "God With Us" 12 Father\'s hands.',
+      "The Desire of Ages",
+      '"God With Us"',
+    )
+
+    expect(out).toContain("[12]")
+    expect(out).toContain("Father's hands")
+  })
+
+  it("does not convert a chapter title that starts inside another word", () => {
+    const out = stripChapterFurniture(
+      "XYZSource and Aim of True Education 11 should remain ordinary text.",
+      "Education",
+      "Source and Aim of True Education",
+    )
+
+    expect(out).toContain("XYZSource and Aim of True Education 11")
+    expect(out).not.toContain("[11]")
+  })
 })

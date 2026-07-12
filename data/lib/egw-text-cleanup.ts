@@ -196,6 +196,15 @@ function shouldMergeParagraphs(
   previous: CleanedParagraph,
   next: CleanedParagraph,
 ): boolean {
+  // A sentence mis-split mid-flow: the previous fragment has no closing
+  // punctuation and the next resumes it in lower case or with a conjunction.
+  // This is the reliable continuation signal and holds whether the break fell
+  // across a printed page or within one, so it is checked before the older
+  // page-artifact heuristics (which refused to merge across differing pages and
+  // ignored same-page layout splits that carried no page artifact).
+  if (!hasTerminalPunctuation(previous.text) && startsAsContinuation(next.text)) {
+    return true
+  }
   if (
     previous.page != null &&
     next.page != null &&
@@ -220,6 +229,28 @@ function joinFragments(left: string, right: string): string {
     .replace(/\s+([,.;:!?])/g, "$1")
     .replace(/[ \t]{2,}/g, " ")
     .trim()
+}
+
+function mergedContinuedPages(
+  previous: CleanedParagraph,
+  next: CleanedParagraph,
+): number[] | undefined {
+  const pages: number[] = []
+  const addPage = (page: number | undefined) => {
+    if (page != null && !pages.includes(page)) pages.push(page)
+  }
+
+  for (const page of previous.continued_pages ?? []) addPage(page)
+  if (
+    previous.page != null &&
+    next.page != null &&
+    previous.page !== next.page
+  ) {
+    addPage(next.page)
+  }
+  for (const page of next.continued_pages ?? []) addPage(page)
+
+  return pages.length > 0 ? pages : undefined
 }
 
 function splitOversizedSentence(sentence: string): string[] {
@@ -295,10 +326,7 @@ function mergeReadableContinuations(
     ) {
       previous.text = joinFragments(previous.text, paragraph.text)
       previous.page = previous.page ?? paragraph.page
-      previous.continued_pages = [
-        ...(previous.continued_pages ?? []),
-        ...(paragraph.continued_pages ?? []),
-      ]
+      previous.continued_pages = mergedContinuedPages(previous, paragraph)
       previous.hadPageArtifact =
         previous.hadPageArtifact || paragraph.hadPageArtifact
       continue
@@ -328,10 +356,7 @@ export function cleanEgwParagraphs(
     if (previous && shouldMergeParagraphs(previous, paragraph)) {
       previous.text = joinFragments(previous.text, paragraph.text)
       previous.page = previous.page ?? paragraph.page
-      previous.continued_pages = [
-        ...(previous.continued_pages ?? []),
-        ...(paragraph.continued_pages ?? []),
-      ]
+      previous.continued_pages = mergedContinuedPages(previous, paragraph)
       previous.hadPageArtifact =
         previous.hadPageArtifact || paragraph.hadPageArtifact
       continue

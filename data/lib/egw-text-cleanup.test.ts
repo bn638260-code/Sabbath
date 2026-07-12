@@ -95,6 +95,48 @@ describe("EGW text cleanup", () => {
     )
   })
 
+  it("merges a same-page sentence split that has no page artifact", () => {
+    // The layout heuristics sometimes break one sentence in two on the same
+    // page (e.g. the Education ch.1 epigraph). Neither fragment carries a page
+    // artifact, but the first has no closing punctuation and the second
+    // continues it in lower case, so they must be rejoined.
+    const paragraphs = cleanEgwParagraphs(
+      [
+        {
+          paragraph: 1,
+          page: 8,
+          text: 'the knowledge of the holy is understanding; "Acquaint now',
+        },
+        { paragraph: 2, page: 8, text: 'thyself with Him."' },
+      ],
+      options,
+    )
+
+    expect(paragraphs).toHaveLength(1)
+    expect(paragraphs[0]?.text).toContain("Acquaint now thyself with Him")
+  })
+
+  it("merges a continuation that spans a printed page and records the span", () => {
+    const paragraphs = cleanEgwParagraphs(
+      [
+        { paragraph: 1, page: 9, text: "More and more fully would he" },
+        {
+          paragraph: 2,
+          page: 10,
+          text: "have fulfilled the object of his creation.",
+        },
+      ],
+      options,
+    )
+
+    expect(paragraphs).toHaveLength(1)
+    expect(paragraphs[0]?.text).toBe(
+      "More and more fully would he have fulfilled the object of his creation.",
+    )
+    expect(paragraphs[0]?.page).toBe(9)
+    expect(paragraphs[0]?.continued_pages).toContain(10)
+  })
+
   it("restores Desire of Ages Sabbath text damaged by the legacy importer", () => {
     const paragraphs = cleanEgwParagraphs(
       [

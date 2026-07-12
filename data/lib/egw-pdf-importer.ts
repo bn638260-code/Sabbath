@@ -223,7 +223,7 @@ export function stripChapterFurniture(
     // former `<Chapter Title>\s+\d+` strip discarded the page number with the
     // header, which lost whole printed pages (e.g. Education pp. 9-13).
     .replace(new RegExp(`\\b(\\d{1,3})\\s+${escBook}\\b`, "gi"), " [$1] ")
-    .replace(new RegExp(`${escTitle}\\s+(\\d{1,3})\\b`, "gi"), " [$1] ")
+    .replace(new RegExp(`(?<!\\w)${escTitle}\\s+(\\d{1,3})\\b`, "gi"), " [$1] ")
     .replace(/^\s*\d+\s*$/gm, "")
     .replace(/^\s*Contents\s*$/gim, "")
     .replace(/^\s*Appendix\s*$/gim, "")
