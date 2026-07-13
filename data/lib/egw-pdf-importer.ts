@@ -35,6 +35,9 @@ export interface EgwBookConfig {
    * markers and the table of contents seeds chapter start pages.
    */
   pageSource?: "brackets" | "legacy"
+  splitReadableParagraphs?: boolean
+  countContinuedPagesForPageParagraphs?: boolean
+  postprocessChapters?: (chapters: EgwDraftChapter[]) => EgwDraftChapter[]
   chapters: readonly EgwChapterConfig[]
 }
 
@@ -57,6 +60,8 @@ type DraftChapter = Omit<OutputChapter, "paragraphs"> & {
     text: string
   }>
 }
+
+export type EgwDraftChapter = DraftChapter
 
 const PAGE_MARKER_PATTERN_SOURCE = String.raw`\[([ivxlcdm\d]{1,8})\]`
 
@@ -350,7 +355,10 @@ function pageFromNextMarkerAfter(text: string, pos: number): number | undefined 
   return undefined
 }
 
-function assignPageParagraphNumbers(chapters: DraftChapter[]): OutputChapter[] {
+function assignPageParagraphNumbers(
+  chapters: DraftChapter[],
+  { countContinuedPages }: { countContinuedPages: boolean },
+): OutputChapter[] {
   const countsByPage = new Map<number, number>()
 
   return chapters.map((chapter) => ({
@@ -363,8 +371,13 @@ function assignPageParagraphNumbers(chapters: DraftChapter[]): OutputChapter[] {
       }
       const pageParagraph = (countsByPage.get(paragraph.page) ?? 0) + 1
       countsByPage.set(paragraph.page, pageParagraph)
-      for (const continuedPage of paragraph.continued_pages ?? []) {
-        countsByPage.set(continuedPage, (countsByPage.get(continuedPage) ?? 0) + 1)
+      if (countContinuedPages) {
+        for (const continuedPage of paragraph.continued_pages ?? []) {
+          countsByPage.set(
+            continuedPage,
+            (countsByPage.get(continuedPage) ?? 0) + 1,
+          )
+        }
       }
       return {
         paragraph: paragraph.paragraph,
@@ -558,12 +571,17 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
         {
           bookTitle: config.title,
           chapterTitle: current.title,
+          splitReadableParagraphs: config.splitReadableParagraphs,
         },
       ),
     })
   }
 
-  const outputChapters = assignPageParagraphNumbers(chapters)
+  const processedChapters = config.postprocessChapters?.(chapters) ?? chapters
+
+  const outputChapters = assignPageParagraphNumbers(processedChapters, {
+    countContinuedPages: config.countContinuedPagesForPageParagraphs ?? true,
+  })
 
   if (outputChapters.length !== config.expectedChapterCount) {
     throw new Error(

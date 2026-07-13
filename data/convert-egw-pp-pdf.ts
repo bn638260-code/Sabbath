@@ -1,5 +1,9 @@
 import { join } from "node:path"
-import { importEgwPdf, type EgwBookConfig } from "./lib/egw-pdf-importer"
+import {
+  importEgwPdf,
+  type EgwBookConfig,
+  type EgwDraftChapter,
+} from "./lib/egw-pdf-importer"
 
 const CHAPTERS = [
   { chapter: 1, title: "Why was Sin Permitted?" },
@@ -77,7 +81,93 @@ const CHAPTERS = [
   { chapter: 73, title: "The Last Years of David" },
 ] as const
 
-const inputPdf = process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_PP (2).pdf`
+const inputPdf = process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_PP (1).pdf`
+
+type PpParagraph = EgwDraftChapter["paragraphs"][number]
+
+function normalizeJoinedText(text: string): string {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim()
+}
+
+function renumberChapter(chapter: EgwDraftChapter): EgwDraftChapter {
+  return {
+    ...chapter,
+    paragraphs: chapter.paragraphs.map((paragraph, index) => ({
+      ...paragraph,
+      paragraph: index + 1,
+    })),
+  }
+}
+
+function mergeParagraphs(
+  paragraphs: PpParagraph[],
+  page: number,
+): PpParagraph {
+  const [first] = paragraphs
+  if (!first) {
+    throw new Error("Cannot merge an empty Patriarchs and Prophets range")
+  }
+
+  const continuedPages = paragraphs.flatMap(
+    (paragraph) => paragraph.continued_pages ?? [],
+  )
+
+  return {
+    paragraph: first.paragraph,
+    page,
+    continued_pages:
+      continuedPages.length > 0
+        ? Array.from(new Set(continuedPages))
+        : undefined,
+    text: normalizeJoinedText(
+      paragraphs.map((paragraph) => paragraph.text).join(" "),
+    ),
+  }
+}
+
+function alignChapter1CanonicalParagraphs(
+  chapter: EgwDraftChapter,
+): EgwDraftChapter {
+  if (chapter.chapter !== 1) return chapter
+
+  const paragraphs = chapter.paragraphs
+  const expectedOpening =
+    paragraphs[0]?.text.startsWith('"God is love."') === true &&
+    paragraphs[1]?.text.startsWith("Every manifestation") === true &&
+    paragraphs[2]?.text.startsWith('"Strong is Thy hand') === true &&
+    paragraphs[14]?.text === "Version.]" &&
+    paragraphs[15]?.text.startsWith("The history of the great conflict") === true
+
+  if (!expectedOpening) {
+    throw new Error(
+      "Unexpected Patriarchs and Prophets chapter 1 opening layout; canonical postprocess needs review.",
+    )
+  }
+
+  const aligned = [
+    { ...paragraphs[0], page: 33 },
+    { ...paragraphs[1], page: 33 },
+    mergeParagraphs(paragraphs.slice(2, 15), 33),
+    { ...paragraphs[15], page: 33 },
+    ...paragraphs.slice(16).map((paragraph) =>
+      paragraph.text.startsWith("So long as all created beings")
+        ? { ...paragraph, page: 35 }
+        : paragraph,
+    ),
+  ]
+
+  return renumberChapter({ ...chapter, paragraphs: aligned })
+}
+
+function alignPatriarchsAndProphetsCanonicalParagraphs(
+  chapters: EgwDraftChapter[],
+): EgwDraftChapter[] {
+  return chapters.map(alignChapter1CanonicalParagraphs)
+}
+
 const config: EgwBookConfig = {
   title: "Patriarchs and Prophets",
   abbreviation: "PP",
@@ -99,6 +189,9 @@ const config: EgwBookConfig = {
     "Appendix",
   ],
   appendixMarker: "Appendix [",
+  splitReadableParagraphs: false,
+  countContinuedPagesForPageParagraphs: false,
+  postprocessChapters: alignPatriarchsAndProphetsCanonicalParagraphs,
   chapters: CHAPTERS,
 }
 

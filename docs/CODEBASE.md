@@ -1,5 +1,5 @@
 # Codebase Map - SabbathCue
-Created: 2026-07-12 - Last verified: 2026-07-12 - Confidence: Medium
+Created: 2026-07-12 - Last verified: 2026-07-13 - Confidence: Medium
 
 ## 0 - Snapshot
 | Field | Value |
@@ -51,6 +51,7 @@ Where the pattern is violated or watchlisted: the theme catalog still exports `K
 | `/src/lib` | Shared frontend logic, guards, search helpers, presentation workflow, rendering helpers. | Receipt: src/lib/quick-search.ts:167 |
 | `/src-tauri/src/commands` | Tauri command layer for native features and STT orchestration. | Receipts: src-tauri/src/commands/stt/provider.rs:95, src-tauri/src/lib.rs:126 |
 | `/src-tauri/crates/stt` | STT provider implementations and shared provider traits. | Receipts: src-tauri/crates/stt/src/lib.rs:27, src-tauri/crates/stt/src/lib.rs:32 |
+| `/data` | Bible/EGW source conversion, validation, and SQLite import scripts. | Receipts: data/build-egw.ts:2, data/convert-egw-sc-pdf.ts:26, data/lib/egw-pdf-importer.ts:18 |
 | `/landing` and `/web/content/docs` | Public marketing/docs content aligned with app capabilities. | Receipts: landing/index.html:544, web/content/docs/getting-started/speech-to-text.mdx:9 |
 
 ## 5 - Entry points & core modules
@@ -124,6 +125,59 @@ Search-panel quick search uses same helper
   -> src/components/panels/search/QuickVerseSearch.tsx:36
 ```
 
+### Flow: Steps to Christ EGW source alignment
+```text
+SC PDF conversion reads the local Steps to Christ PDF
+  -> data/convert-egw-sc-pdf.ts:24
+Layout-aware importer reconstructs PDF paragraphs and printed page markers
+  -> data/lib/egw-pdf-importer.ts:392
+SC converter preserves EGW Writings-style paragraph bodies, applies the
+verified poetry boundary fixes, then assigns page.paragraph labels
+  -> data/convert-egw-sc-pdf.ts:70
+  -> data/convert-egw-sc-pdf.ts:188
+Build script imports the generated JSON into egw_books / egw_paragraphs
+  -> data/build-egw.ts:2
+```
+
+### Flow: The Great Controversy EGW source alignment
+```text
+GC PDF conversion reads the local en_GC PDF with bracket citation markers
+  -> data/convert-egw-gc-pdf.ts:49
+Layout-aware importer treats bracket markers as citation pages
+  -> data/lib/egw-pdf-importer.ts:442
+GC converter preserves EGW Writings-style paragraph bodies and assigns
+page.paragraph labels without counting continuation pages
+  -> data/convert-egw-gc-pdf.ts:70
+  -> data/convert-egw-gc-pdf.ts:71
+Regression coverage locks the verified Chapter 1 visible-label sequence
+  -> data/the-great-controversy-source.test.ts:27
+Build script imports the generated JSON into egw_books / egw_paragraphs
+  -> data/build-egw.ts:2
+```
+
+### Flow: Patriarchs and Prophets / Desire of Ages EGW source alignment
+```text
+PP and DA PDF converters read the local user-supplied PDFs with bracket
+citation markers
+  -> data/convert-egw-pp-pdf.ts:84
+  -> data/convert-egw-da-pdf.ts:99
+Both converters preserve EGW Writings-style paragraph bodies and assign
+page.paragraph labels without counting continuation pages
+  -> data/convert-egw-pp-pdf.ts:192
+  -> data/convert-egw-pp-pdf.ts:193
+  -> data/convert-egw-da-pdf.ts:219
+  -> data/convert-egw-da-pdf.ts:220
+Book-specific postprocessors repair verified Chapter 1 PDF extraction
+artifacts before page.paragraph assignment
+  -> data/convert-egw-pp-pdf.ts:131
+  -> data/convert-egw-da-pdf.ts:153
+Regression coverage locks the verified Chapter 1 visible-label sequences
+  -> data/patriarchs-and-prophets-source.test.ts:27
+  -> data/the-desire-of-ages-source.test.ts:27
+Build script imports the generated JSON into egw_books / egw_paragraphs
+  -> data/build-egw.ts:2
+```
+
 ## 7 - Data model & persistence
 | Entity | Storage | Key fields | Relationships | Defined at |
 |---|---|---|---|---|
@@ -132,6 +186,7 @@ Search-panel quick search uses same helper
 | Collected detections | In-memory Zustand only | detection, source, kind, useCount, timestamps | Detections panel action reuse | src/stores/collected-detections-store.ts:20, src/stores/collected-detections-store.ts:85 |
 | Broadcast themes | Broadcast Zustand slice | activeThemeId, themes, kinetic flag | Theme catalog and renderer | src/components/broadcast/KineticThemesPage.tsx:146, src/components/broadcast/theme-library.tsx:54 |
 | Bible/EGW content | SQLite | translations, verses, EGW paragraphs | Search/detection/presentation | README.md:49, src-tauri/Cargo.toml:75 |
+| EGW source JSON | data/sources/egw/*.json | book_number, chapter, paragraph, page, page_paragraph, text | Built into SQLite by `build:egw` | data/build-egw.ts:2, data/validate-egw-sources.ts:7 |
 
 Migrations / schema management: not fully mapped in this pass. See open questions.
 
@@ -188,6 +243,20 @@ npm.cmd run build
 
 git diff --check
 # Result after implementation: passed; Git reported line-ending notices only.
+
+bun test data/lib/egw-text-cleanup.test.ts data/lib/egw-paragraph-layout.test.ts data/steps-to-christ-source.test.ts
+# Result after SC paragraph alignment: passed, 19 tests.
+
+bun test data/lib/egw-text-cleanup.test.ts data/lib/egw-paragraph-layout.test.ts data/steps-to-christ-source.test.ts data/the-great-controversy-source.test.ts data/patriarchs-and-prophets-source.test.ts data/the-desire-of-ages-source.test.ts
+# Result after PP/DA paragraph alignment: passed, 25 tests.
+
+npm.cmd run validate:egw
+# Result after SC paragraph alignment: passed; SC=273 paragraphs.
+# Result after PP/DA paragraph alignment: passed; PP=2544, DA=2794, GC=1810 paragraphs.
+
+npm.cmd run build:egw
+# Result after SC paragraph alignment: passed; EGW import complete with 8,930 paragraphs.
+# Result after PP/DA paragraph alignment: passed; EGW import complete with 8,732 paragraphs.
 ```
 
 CI/CD & deployment: not fully mapped in this pass. See open questions.
@@ -228,3 +297,4 @@ Top risks (ranked): 1. STT provider removal can leave stale docs or tests if his
 | Date | Change | Sections touched |
 |---|---|---|
 | 2026-07-12 | Initial scoped map for STT cleanup, collected detections, theme catalog, and quick-search ghost text work. | 0-15 |
+| 2026-07-13 | Added EGW source-generation map for Steps to Christ paragraph/page alignment. | 4, 6, 7, 10, 15 |

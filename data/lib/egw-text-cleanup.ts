@@ -9,6 +9,7 @@ export interface EgwParagraphSource {
 export interface CleanEgwParagraphsOptions {
   bookTitle: string
   chapterTitle: string
+  splitReadableParagraphs?: boolean
 }
 
 interface CleanedParagraph {
@@ -304,20 +305,27 @@ export function cleanEgwParagraphs(
     }
   })
 
-  const readable = mergeReadableContinuations(
-    healed.flatMap((paragraph) =>
-      paragraph.hadPageArtifact ||
-      paragraph.text.length > OVERLONG_PARAGRAPH_CHARS
-        ? splitReadableParagraph(paragraph.text).map((text, index, pieces) => ({
-            page: paragraph.page,
-            continued_pages:
-              index === pieces.length - 1 ? paragraph.continued_pages : undefined,
-            text,
-            hadPageArtifact: true,
-          }))
-        : [paragraph],
-    ),
-  )
+  const splitReadableParagraphs = options.splitReadableParagraphs ?? true
+  const readable = splitReadableParagraphs
+    ? mergeReadableContinuations(
+        healed.flatMap((paragraph) =>
+          paragraph.hadPageArtifact ||
+          paragraph.text.length > OVERLONG_PARAGRAPH_CHARS
+            ? splitReadableParagraph(paragraph.text).map(
+                (text, index, pieces) => ({
+                  page: paragraph.page,
+                  continued_pages:
+                    index === pieces.length - 1
+                      ? paragraph.continued_pages
+                      : undefined,
+                  text,
+                  hadPageArtifact: true,
+                }),
+              )
+            : [paragraph],
+        ),
+      )
+    : healed
 
   return readable.map((paragraph, index) => ({
     paragraph: index + 1,

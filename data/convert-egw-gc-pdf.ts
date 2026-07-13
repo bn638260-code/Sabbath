@@ -70,6 +70,8 @@ const config: EgwBookConfig = {
     "Chapter 42-The Controversy Ended",
   ],
   appendixMarker: "Appendix",
+  splitReadableParagraphs: false,
+  countContinuedPagesForPageParagraphs: false,
   chapters: CHAPTERS,
 }
 

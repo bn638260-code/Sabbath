@@ -1,5 +1,9 @@
 import { join } from "node:path"
-import { importEgwPdf, type EgwBookConfig } from "./lib/egw-pdf-importer"
+import {
+  importEgwPdf,
+  type EgwBookConfig,
+  type EgwDraftChapter,
+} from "./lib/egw-pdf-importer"
 
 const CHAPTERS = [
   { chapter: 1, title: "\"God With Us\"" },
@@ -92,7 +96,99 @@ const CHAPTERS = [
 ] as const
 
 const inputPdf =
-  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_DA.pdf`
+  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\The-Desire-of-Ages (1).pdf`
+
+type DaParagraph = EgwDraftChapter["paragraphs"][number]
+
+function normalizeJoinedText(text: string): string {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\s+(["'])\./g, "$1.")
+    .trim()
+}
+
+function renumberChapter(chapter: EgwDraftChapter): EgwDraftChapter {
+  return {
+    ...chapter,
+    paragraphs: chapter.paragraphs.map((paragraph, index) => ({
+      ...paragraph,
+      paragraph: index + 1,
+    })),
+  }
+}
+
+function mergeParagraphs(
+  paragraphs: DaParagraph[],
+  textTransform: (text: string) => string = (text) => text,
+): DaParagraph {
+  const [first] = paragraphs
+  if (!first) {
+    throw new Error("Cannot merge an empty Desire of Ages range")
+  }
+
+  const continuedPages = paragraphs.flatMap(
+    (paragraph) => paragraph.continued_pages ?? [],
+  )
+
+  return {
+    paragraph: first.paragraph,
+    page: first.page,
+    continued_pages:
+      continuedPages.length > 0
+        ? Array.from(new Set(continuedPages))
+        : undefined,
+    text: normalizeJoinedText(
+      paragraphs
+        .map((paragraph) => textTransform(paragraph.text))
+        .join(" "),
+    ),
+  }
+}
+
+function stripLeadingPdfFolio(text: string): string {
+  return text.replace(/^\d{1,4}\s+(?=[a-z])/, "")
+}
+
+function alignChapter1CanonicalParagraphs(
+  chapter: EgwDraftChapter,
+): EgwDraftChapter {
+  if (chapter.chapter !== 1) return chapter
+
+  const aligned: DaParagraph[] = []
+  for (let index = 0; index < chapter.paragraphs.length; index += 1) {
+    const current = chapter.paragraphs[index]
+    const next = chapter.paragraphs[index + 1]
+
+    if (
+      current?.text.startsWith("In the beginning, God was revealed") &&
+      next?.text.startsWith("9 earth with beauty")
+    ) {
+      aligned.push(mergeParagraphs([current, next], stripLeadingPdfFolio))
+      index += 1
+      continue
+    }
+
+    if (
+      current?.text.startsWith("The work of redemption will be complete") &&
+      next?.text.startsWith('Immanuel, "God with us')
+    ) {
+      aligned.push(mergeParagraphs([current, next]))
+      index += 1
+      continue
+    }
+
+    if (current) aligned.push(current)
+  }
+
+  return renumberChapter({ ...chapter, paragraphs: aligned })
+}
+
+function alignDesireOfAgesCanonicalParagraphs(
+  chapters: EgwDraftChapter[],
+): EgwDraftChapter[] {
+  return chapters.map(alignChapter1CanonicalParagraphs)
+}
 
 const config: EgwBookConfig = {
   title: "The Desire of Ages",
@@ -120,6 +216,9 @@ const config: EgwBookConfig = {
     'Chapter 1-"God With Us"',
     'Chapter 87-"To My Father, and Your Father"',
   ],
+  splitReadableParagraphs: false,
+  countContinuedPagesForPageParagraphs: false,
+  postprocessChapters: alignDesireOfAgesCanonicalParagraphs,
   chapters: CHAPTERS,
 }
 
