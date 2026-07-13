@@ -18,7 +18,7 @@ const CHAPTERS = [
 ] as const
 
 const inputPdf =
-  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\Steps-to-Christ.pdf`
+  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\Steps-to-Christ (1).pdf`
 
 const config: EgwBookConfig = {
   title: "Steps to Christ",
