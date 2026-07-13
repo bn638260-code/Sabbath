@@ -92,7 +92,7 @@ const CHAPTERS = [
 ] as const
 
 const inputPdf =
-  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\The-Desire-of-Ages.pdf`
+  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_DA.pdf`
 
 const config: EgwBookConfig = {
   title: "The Desire of Ages",
@@ -108,6 +108,7 @@ const config: EgwBookConfig = {
     "the-desire-of-ages.json",
   ),
   debugSlug: "the-desire-of-ages",
+  pageSource: "brackets",
   // Chapter titles render in a ~17pt display font over ~14pt body text. A long
   // title (e.g. ch. 75 "Before Annas and the Court of / Caiaphas") wraps to a
   // centered second line whose large indent would otherwise be read as a new

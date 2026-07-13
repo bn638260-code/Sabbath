@@ -26,6 +26,15 @@ export interface EgwBookConfig {
   appendixMarker?: string
   /** Per-book overrides for layout-aware paragraph reconstruction. */
   layout?: ParagraphLayoutOptions
+  /**
+   * Where printed page numbers come from. "brackets": the PDF embeds
+   * standard-edition page breaks as inline [n] markers (PP/DA/Ed/GC) — these
+   * are the citation pages, and the PDF's own folio/header numbers are a
+   * different sequence that must be ignored. "legacy" (default): no reliable
+   * bracket markers (SC); standalone printed-page lines are promoted to [n]
+   * markers and the table of contents seeds chapter start pages.
+   */
+  pageSource?: "brackets" | "legacy"
   chapters: readonly EgwChapterConfig[]
 }
 
@@ -215,21 +224,50 @@ export function stripChapterFurniture(
   const escTitle = escapeRegExp(currentTitle)
   return raw
     // Running headers only — never a bare title word. Even pages print
-    // "<page> <Book Title>", odd pages "<Chapter Title> <page>". Convert each to
-    // a [page] marker so the printed page survives (that number appears nowhere
-    // else) while the title text is dropped. The former `\b<Book Title>\b` strip
-    // also deleted every ordinary occurrence of the title word — erasing
-    // "education" from Education and "the great controversy" from GC — and the
-    // former `<Chapter Title>\s+\d+` strip discarded the page number with the
-    // header, which lost whole printed pages (e.g. Education pp. 9-13).
-    .replace(new RegExp(`\\b(\\d{1,3})\\s+${escBook}\\b`, "gi"), " [$1] ")
-    .replace(new RegExp(`(?<!\\w)${escTitle}\\s+(\\d{1,3})\\b`, "gi"), " [$1] ")
+    // "<page> <Book Title>", odd pages "<Chapter Title> <page>"; both are
+    // removed number-and-all. The header number is the PDF file's own print
+    // pagination, a different sequence from the standard-edition [n] bracket
+    // markers that carry citation pages, so it must not leak into the page
+    // stream. The former `\b<Book Title>\b` strip also deleted every ordinary
+    // occurrence of the title word — erasing "education" from Education and
+    // "the great controversy" from GC — which is why only full headers match.
+    .replace(new RegExp(`\\b\\d{1,3}\\s+${escBook}\\b`, "gi"), " ")
+    .replace(new RegExp(`(?<!\\w)${escTitle}\\s+\\d{1,3}\\b`, "gi"), " ")
     .replace(/^\s*\d+\s*$/gm, "")
     .replace(/^\s*Contents\s*$/gim, "")
     .replace(/^\s*Appendix\s*$/gim, "")
     .replace(/^\s*Foreword\s*$/gim, "")
     .replace(/^\s*Preface\s*$/gim, "")
     .trim()
+}
+
+/**
+ * Locate a chapter anchor, tolerating a printed-page marker interleaved between
+ * the anchor's words (a wrapped chapter title can have "[698]" land between its
+ * lines, e.g. DA ch. 75 "…the Court of [698] Caiaphas"). Returns the LAST
+ * occurrence — mirroring the previous lastIndexOf behavior, which skips the
+ * table-of-contents entry — with the matched length so callers can slice past
+ * whatever variant actually matched.
+ */
+export function findChapterAnchor(
+  text: string,
+  anchor: string,
+): { pos: number; length: number } | null {
+  const pattern = new RegExp(
+    anchor
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(escapeRegExp)
+      .join(String.raw`\s+(?:\[[ivxlcdm\d]{1,8}\]\s+)?`),
+    "g",
+  )
+
+  let last: { pos: number; length: number } | null = null
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(text)) !== null) {
+    last = { pos: match.index, length: match[0].length }
+  }
+  return last
 }
 
 function chapterAnchor(template: string, chapter: number, title: string): string {
@@ -294,6 +332,24 @@ function nearestPageMarkerBefore(text: string, pos: number): number | undefined 
   return page
 }
 
+/**
+ * Page open at `pos` when no numeric marker precedes it (e.g. a chapter that
+ * opens right after roman-numeral front matter): the next numeric marker [N]
+ * starts page N, so the text before it sits on page N - 1.
+ */
+function pageFromNextMarkerAfter(text: string, pos: number): number | undefined {
+  const markerPattern = pageMarkerPattern()
+  markerPattern.lastIndex = pos
+  let match: RegExpExecArray | null
+  while ((match = markerPattern.exec(text)) !== null) {
+    const parsed = parseNumericPageMarker(match[1] ?? "")
+    if (parsed != null) {
+      return parsed > 1 ? parsed - 1 : parsed
+    }
+  }
+  return undefined
+}
+
 function assignPageParagraphNumbers(chapters: DraftChapter[]): OutputChapter[] {
   const countsByPage = new Map<number, number>()
 
@@ -322,7 +378,8 @@ function assignPageParagraphNumbers(chapters: DraftChapter[]): OutputChapter[] {
 
 async function extractPages(
   pdfPath: string,
-  layout?: ParagraphLayoutOptions,
+  layout: ParagraphLayoutOptions | undefined,
+  pageSource: "brackets" | "legacy",
 ): Promise<Array<{ page: number; text: string; continuesFromPreviousPage: boolean }>> {
   const loadingTask = getDocument(pdfPath)
   const pdf = await loadingTask.promise
@@ -337,9 +394,14 @@ async function extractPages(
       items.filter((item): item is typeof item & PdfTextItemLike => "str" in item),
       layout,
     )
-    const text = preserveStandalonePrintedPageMarker(
-      normalizePageText(reconstructed.text),
-    )
+    // In brackets mode a standalone number line is the PDF's own folio — a
+    // different pagination from the [n] citation markers — so promoting it
+    // would mix two page sequences.
+    const normalizedText = normalizePageText(reconstructed.text)
+    const text =
+      pageSource === "brackets"
+        ? normalizedText
+        : preserveStandalonePrintedPageMarker(normalizedText)
 
     pages.push({
       page: i,
@@ -364,7 +426,8 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
   mkdirSync(debugDir, { recursive: true })
   mkdirSync(dirname(config.outputJsonPath), { recursive: true })
 
-  const pages = await extractPages(config.pdfPath, config.layout)
+  const pageSource = config.pageSource ?? "legacy"
+  const pages = await extractPages(config.pdfPath, config.layout, pageSource)
   writeFileSync(debugPagesJson, `${JSON.stringify(pages, null, 2)}\n`)
 
   let rawFullText = ""
@@ -386,6 +449,7 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
     title: string
     anchor: string
     pos: number
+    anchorLength: number
     tocPage?: number
   }> =
     []
@@ -398,15 +462,16 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
         chapter.title,
       ),
     )
-    const pos = normalized.lastIndexOf(anchor)
-    if (pos === -1) {
+    const found = findChapterAnchor(normalized, anchor)
+    if (!found) {
       throw new Error(`Missing chapter anchor: ${anchor}`)
     }
     chapterPositions.push({
       chapter: chapter.chapter,
       title: chapter.title,
       anchor,
-      pos,
+      pos: found.pos,
+      anchorLength: found.length,
     })
   }
 
@@ -419,7 +484,7 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
   }
 
   const lastChapter = chapterPositions[chapterPositions.length - 1]
-  const searchStart = lastChapter.pos + lastChapter.anchor.length
+  const searchStart = lastChapter.pos + lastChapter.anchorLength
   const appendixIdx = config.appendixMarker
     ? normalized.indexOf(config.appendixMarker, searchStart)
     : -1
@@ -429,9 +494,27 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
 
   const tocText = normalized.slice(0, chapterPositions[0].pos)
   for (const chapter of chapterPositions) {
-    chapter.tocPage =
-      parseTocPageNumber(tocText, chapter) ??
-      nearestPageMarkerBefore(normalized, chapter.pos)
+    if (pageSource === "brackets") {
+      // TOC page numbers are the PDF's own pagination, not citation pages.
+      // The chapter starts on the page of the [n] marker inside its heading
+      // (a wrapped title can swallow one), else the page open at the anchor —
+      // the nearest marker before it.
+      const anchorSlice = normalized.slice(
+        chapter.pos,
+        chapter.pos + chapter.anchorLength,
+      )
+      const markerInAnchor = pageMarkerPattern().exec(anchorSlice)
+      chapter.tocPage =
+        (markerInAnchor
+          ? (parseNumericPageMarker(markerInAnchor[1] ?? "") ?? undefined)
+          : undefined) ??
+        nearestPageMarkerBefore(normalized, chapter.pos) ??
+        pageFromNextMarkerAfter(normalized, chapter.pos + chapter.anchorLength)
+    } else {
+      chapter.tocPage =
+        parseTocPageNumber(tocText, chapter) ??
+        nearestPageMarkerBefore(normalized, chapter.pos)
+    }
   }
 
   const chapters: DraftChapter[] = []
@@ -440,7 +523,7 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
     const current = chapterPositions[i]
     const next = i + 1 < chapterPositions.length ? chapterPositions[i + 1] : null
 
-    const start = current.pos + current.anchor.length
+    const start = current.pos + current.anchorLength
     const end = next ? next.pos : mainText.length
     if (end <= start) {
       throw new Error(`Invalid text range for chapter ${current.chapter}`)

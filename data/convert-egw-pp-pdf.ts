@@ -77,7 +77,7 @@ const CHAPTERS = [
   { chapter: 73, title: "The Last Years of David" },
 ] as const
 
-const inputPdf = process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_PP.pdf`
+const inputPdf = process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_PP (2).pdf`
 const config: EgwBookConfig = {
   title: "Patriarchs and Prophets",
   abbreviation: "PP",
@@ -92,6 +92,7 @@ const config: EgwBookConfig = {
     "patriarchs-and-prophets.json",
   ),
   debugSlug: "en_PP",
+  pageSource: "brackets",
   requiredTokens: [
     "Contents",
     "Chapter 1—Why was Sin Permitted?",

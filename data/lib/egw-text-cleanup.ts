@@ -114,76 +114,6 @@ function stripPageArtifacts(
   }
 }
 
-function restoreKnownLegacyDropouts(
-  text: string,
-  { bookTitle, chapterTitle }: CleanEgwParagraphsOptions,
-): string {
-  if (
-    bookTitle !== "The Desire of Ages" ||
-    chapterTitle !== "The Sabbath"
-  ) {
-    return text
-  }
-
-  let next = text
-
-  if (/^was hallowed at the creation\./.test(next)) {
-    next = `The Sabbath ${next}`
-  }
-
-  const replacements: Array<[RegExp, string]> = [
-    [/\bBecause He had rested upon,/g, "Because He had rested upon the Sabbath,"],
-    [/\bAnd since is a memorial/g, "And since the Sabbath is a memorial"],
-    [/\bcalls our thoughts to nature/g, "The Sabbath calls our thoughts to nature"],
-    [/\bwhich is appointed to keep in memory/g, "which the Sabbath is appointed to keep in memory"],
-    [/\bR\. V\. was embodied/g, "R. V. The Sabbath was embodied"],
-    [/\bOn the way thither was kept/g, "On the way thither the Sabbath was kept"],
-    [/\bwas not for Israel merely/g, "The Sabbath was not for Israel merely"],
-    [/\bwill continue as a sign/g, "the Sabbath will continue as a sign"],
-    [/\bas did\./g, "as did the Sabbath."],
-    [/\bRemember day/g, "Remember the Sabbath day"],
-    [/\bOnly thus could distinguish Israel/g, "Only thus could the Sabbath distinguish Israel"],
-    [/\blost its significance/g, "the Sabbath lost its significance"],
-    [/\bworked to pervert,/g, "worked to pervert the Sabbath,"],
-    [/\bkeeping according to the law/g, "keeping the Sabbath according to the law"],
-    [/\bon was held/g, "on the Sabbath was held"],
-    [/\bupon day/g, "upon the Sabbath day"],
-    [/\bperformed on by those/g, "performed on the Sabbath by those"],
-    [/" was made for man/g, '"The Sabbath was made for man'],
-    [/\bon days/g, "on Sabbath days"],
-    [/\bprofane,/g, "profane the Sabbath,"],
-    [/\bLord also of\./g, "Lord also of the Sabbath."],
-    [/\bhours of\./g, "hours of the Sabbath."],
-    [/\bgreater labor on than/g, "greater labor on the Sabbath than"],
-    [/\bobject of\./g, "object of the Sabbath."],
-    [/\bdo on day/g, "do on the Sabbath day"],
-    [/\bSo with\./g, "So with the Sabbath."],
-    [/\bobject of was thwarted/g, "object of the Sabbath was thwarted"],
-    [/\bon He would/g, "on the Sabbath He would"],
-    [/\bbarricaded\./g, "barricaded the Sabbath."],
-    [/\bto slay upon,/g, "to slay upon the Sabbath,"],
-    [/\bChrist honored,/g, "Christ honored the Sabbath,"],
-    [/\bbroke and justified/g, "broke the Sabbath and justified"],
-    [/\blaw of\./g, "law of the Sabbath."],
-    [/\bof which forms a part/g, "of which the Sabbath forms a part"],
-    [/\bkeep " from polluting it/g, 'keep "the Sabbath from polluting it'],
-    [/\bBecause was made/g, "Because the Sabbath was made"],
-    [/\bHe made\./g, "He made the Sabbath."],
-    [/\bThen is a sign/g, "Then the Sabbath is a sign"],
-    [/\bpower, is given/g, "power, the Sabbath is given"],
-    [/\bfoot from, from/g, "foot from the Sabbath, from"],
-    [/\bcall a delight/g, "call the Sabbath a delight"],
-    [/\breceive as a sign/g, "receive the Sabbath as a sign"],
-    [/\bpoints them to/g, "The Sabbath points them to"],
-  ]
-
-  for (const [pattern, replacement] of replacements) {
-    next = next.replace(pattern, replacement)
-  }
-
-  return next
-}
-
 function startsAsContinuation(text: string): boolean {
   return /^[a-z]/.test(text) || /^(?:and|or|but|for|nor|so|yet)\b/i.test(text)
 }
@@ -369,7 +299,7 @@ export function cleanEgwParagraphs(
     return {
       page: paragraph.page,
       continued_pages: paragraph.continued_pages,
-      text: restoreKnownLegacyDropouts(cleanedAgain.text, options),
+      text: cleanedAgain.text,
       hadPageArtifact: paragraph.hadPageArtifact || cleanedAgain.hadPageArtifact,
     }
   })

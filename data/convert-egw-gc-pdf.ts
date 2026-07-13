@@ -63,6 +63,7 @@ const config: EgwBookConfig = {
     "the-great-controversy.json",
   ),
   debugSlug: "en_GC",
+  pageSource: "brackets",
   requiredTokens: [
     "Contents",
     "Chapter 1-The Destruction of Jerusalem",

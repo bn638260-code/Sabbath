@@ -51,6 +51,7 @@ const config: EgwBookConfig = {
   pdfPath: inputPdf,
   outputJsonPath: join(import.meta.dir, "sources", "egw", "education.json"),
   debugSlug: "en_Ed",
+  pageSource: "brackets",
   requiredTokens: [
     "Contents",
     "Chapter 1-Source and Aim of True Education",
