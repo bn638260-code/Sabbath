@@ -186,10 +186,41 @@ function alignChapter1CanonicalParagraphs(
   return renumberChapter({ ...chapter, paragraphs: aligned })
 }
 
+// Canonical DA 285.2 is one paragraph, but the PDF page 234→235 break lands
+// after "in the service of" and the layout heuristic reads page 235's running
+// header as an indented first line, splitting the paragraph mid-sentence.
+function alignChapter29CanonicalParagraphs(
+  chapter: EgwDraftChapter
+): EgwDraftChapter {
+  if (chapter.chapter !== 29) return chapter
+
+  const aligned: DaParagraph[] = []
+  for (let index = 0; index < chapter.paragraphs.length; index += 1) {
+    const current = chapter.paragraphs[index]
+    const next = chapter.paragraphs[index + 1]
+
+    if (
+      current?.text.startsWith("If it was right for David") &&
+      current.text.endsWith("was in the service of") &&
+      next?.text.startsWith("God. They were performing")
+    ) {
+      aligned.push(mergeParagraphs([current, next]))
+      index += 1
+      continue
+    }
+
+    if (current) aligned.push(current)
+  }
+
+  return renumberChapter({ ...chapter, paragraphs: aligned })
+}
+
 export function alignDesireOfAgesCanonicalParagraphs(
   chapters: EgwDraftChapter[]
 ): EgwDraftChapter[] {
-  return chapters.map(alignChapter1CanonicalParagraphs)
+  return chapters.map((chapter) =>
+    alignChapter29CanonicalParagraphs(alignChapter1CanonicalParagraphs(chapter))
+  )
 }
 
 const config: EgwBookConfig = {
