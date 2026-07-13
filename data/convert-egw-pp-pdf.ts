@@ -81,7 +81,8 @@ const CHAPTERS = [
   { chapter: 73, title: "The Last Years of David" },
 ] as const
 
-const inputPdf = process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_PP (1).pdf`
+const inputPdf =
+  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_PP (2).pdf`
 
 type PpParagraph = EgwDraftChapter["paragraphs"][number]
 
@@ -102,34 +103,32 @@ function renumberChapter(chapter: EgwDraftChapter): EgwDraftChapter {
   }
 }
 
-function mergeParagraphs(
-  paragraphs: PpParagraph[],
-  page: number,
-): PpParagraph {
+function mergeParagraphs(paragraphs: PpParagraph[]): PpParagraph {
   const [first] = paragraphs
   if (!first) {
     throw new Error("Cannot merge an empty Patriarchs and Prophets range")
   }
 
-  const continuedPages = paragraphs.flatMap(
-    (paragraph) => paragraph.continued_pages ?? [],
-  )
+  const continuedPages = paragraphs.flatMap((paragraph) => [
+    ...(paragraph.page !== first.page ? [paragraph.page] : []),
+    ...(paragraph.continued_pages ?? []),
+  ])
 
   return {
     paragraph: first.paragraph,
-    page,
+    page: first.page,
     continued_pages:
       continuedPages.length > 0
         ? Array.from(new Set(continuedPages))
         : undefined,
     text: normalizeJoinedText(
-      paragraphs.map((paragraph) => paragraph.text).join(" "),
+      paragraphs.map((paragraph) => paragraph.text).join(" ")
     ),
   }
 }
 
 function alignChapter1CanonicalParagraphs(
-  chapter: EgwDraftChapter,
+  chapter: EgwDraftChapter
 ): EgwDraftChapter {
   if (chapter.chapter !== 1) return chapter
 
@@ -139,31 +138,28 @@ function alignChapter1CanonicalParagraphs(
     paragraphs[1]?.text.startsWith("Every manifestation") === true &&
     paragraphs[2]?.text.startsWith('"Strong is Thy hand') === true &&
     paragraphs[14]?.text === "Version.]" &&
-    paragraphs[15]?.text.startsWith("The history of the great conflict") === true
+    paragraphs[15]?.text.startsWith("The history of the great conflict") ===
+      true
 
   if (!expectedOpening) {
     throw new Error(
-      "Unexpected Patriarchs and Prophets chapter 1 opening layout; canonical postprocess needs review.",
+      "Unexpected Patriarchs and Prophets chapter 1 opening layout; canonical postprocess needs review."
     )
   }
 
   const aligned = [
-    { ...paragraphs[0], page: 33 },
-    { ...paragraphs[1], page: 33 },
-    mergeParagraphs(paragraphs.slice(2, 15), 33),
-    { ...paragraphs[15], page: 33 },
-    ...paragraphs.slice(16).map((paragraph) =>
-      paragraph.text.startsWith("So long as all created beings")
-        ? { ...paragraph, page: 35 }
-        : paragraph,
-    ),
+    paragraphs[0],
+    paragraphs[1],
+    mergeParagraphs(paragraphs.slice(2, 15)),
+    paragraphs[15],
+    ...paragraphs.slice(16),
   ]
 
   return renumberChapter({ ...chapter, paragraphs: aligned })
 }
 
 function alignPatriarchsAndProphetsCanonicalParagraphs(
-  chapters: EgwDraftChapter[],
+  chapters: EgwDraftChapter[]
 ): EgwDraftChapter[] {
   return chapters.map(alignChapter1CanonicalParagraphs)
 }
@@ -179,15 +175,11 @@ const config: EgwBookConfig = {
     import.meta.dir,
     "sources",
     "egw",
-    "patriarchs-and-prophets.json",
+    "patriarchs-and-prophets.json"
   ),
   debugSlug: "en_PP",
-  pageSource: "brackets",
-  requiredTokens: [
-    "Contents",
-    "Chapter 1—Why was Sin Permitted?",
-    "Appendix",
-  ],
+  pageSource: "folios",
+  requiredTokens: ["Contents", "Chapter 1—Why was Sin Permitted?", "Appendix"],
   appendixMarker: "Appendix [",
   splitReadableParagraphs: false,
   countContinuedPagesForPageParagraphs: false,

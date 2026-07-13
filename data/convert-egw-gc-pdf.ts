@@ -47,7 +47,7 @@ const CHAPTERS = [
 ] as const
 
 const inputPdf =
-  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_GC (1).pdf`
+  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_GC.pdf`
 
 const config: EgwBookConfig = {
   title: "The Great Controversy",
@@ -60,10 +60,10 @@ const config: EgwBookConfig = {
     import.meta.dir,
     "sources",
     "egw",
-    "the-great-controversy.json",
+    "the-great-controversy.json"
   ),
   debugSlug: "en_GC",
-  pageSource: "brackets",
+  pageSource: "folios",
   requiredTokens: [
     "Contents",
     "Chapter 1-The Destruction of Jerusalem",

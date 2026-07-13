@@ -1,5 +1,9 @@
 import { join } from "node:path"
-import { importEgwPdf, type EgwBookConfig } from "./lib/egw-pdf-importer"
+import {
+  importEgwPdf,
+  type EgwBookConfig,
+  type EgwDraftChapter,
+} from "./lib/egw-pdf-importer"
 
 const CHAPTERS = [
   { chapter: 1, title: "Source and Aim of True Education" },
@@ -40,7 +44,81 @@ const CHAPTERS = [
 ] as const
 
 const inputPdf =
-  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_Ed (1).pdf`
+  process.argv[2] ?? String.raw`C:\Users\fanel\Downloads\en_Ed (2).pdf`
+
+type EdParagraph = EgwDraftChapter["paragraphs"][number]
+
+function normalizeJoinedText(text: string): string {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim()
+}
+
+function renumberChapter(chapter: EgwDraftChapter): EgwDraftChapter {
+  return {
+    ...chapter,
+    paragraphs: chapter.paragraphs.map((paragraph, index) => ({
+      ...paragraph,
+      paragraph: index + 1,
+    })),
+  }
+}
+
+function mergeParagraphs(paragraphs: EdParagraph[]): EdParagraph {
+  const [first] = paragraphs
+  if (!first) {
+    throw new Error("Cannot merge an empty Education paragraph range")
+  }
+
+  const continuedPages = paragraphs.flatMap((paragraph) => [
+    ...(paragraph.page !== first.page ? [paragraph.page] : []),
+    ...(paragraph.continued_pages ?? []),
+  ])
+
+  return {
+    paragraph: first.paragraph,
+    page: first.page,
+    continued_pages:
+      continuedPages.length > 0
+        ? Array.from(new Set(continuedPages))
+        : undefined,
+    text: normalizeJoinedText(
+      paragraphs.map((paragraph) => paragraph.text).join(" ")
+    ),
+  }
+}
+
+function alignChapter6CanonicalParagraphs(
+  chapter: EgwDraftChapter
+): EgwDraftChapter {
+  if (chapter.chapter !== 6) return chapter
+
+  const paragraphs = chapter.paragraphs
+  const expectedPageBreakSplit =
+    paragraphs[5]?.text.startsWith("In both the school and the home") ===
+      true && paragraphs[6]?.text.startsWith("God things new and old") === true
+
+  if (!expectedPageBreakSplit) {
+    throw new Error(
+      "Unexpected Education chapter 6 layout; canonical postprocess needs review."
+    )
+  }
+
+  const aligned = [
+    ...paragraphs.slice(0, 5),
+    mergeParagraphs(paragraphs.slice(5, 7)),
+    ...paragraphs.slice(7),
+  ]
+
+  return renumberChapter({ ...chapter, paragraphs: aligned })
+}
+
+function alignEducationCanonicalParagraphs(
+  chapters: EgwDraftChapter[]
+): EgwDraftChapter[] {
+  return chapters.map(alignChapter6CanonicalParagraphs)
+}
 
 const config: EgwBookConfig = {
   title: "Education",
@@ -51,7 +129,9 @@ const config: EgwBookConfig = {
   pdfPath: inputPdf,
   outputJsonPath: join(import.meta.dir, "sources", "egw", "education.json"),
   debugSlug: "en_Ed",
-  pageSource: "brackets",
+  pageSource: "folios",
+  countContinuedPagesForPageParagraphs: false,
+  postprocessChapters: alignEducationCanonicalParagraphs,
   requiredTokens: [
     "Contents",
     "Chapter 1-Source and Aim of True Education",

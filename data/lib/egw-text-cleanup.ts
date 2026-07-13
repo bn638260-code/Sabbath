@@ -3,6 +3,8 @@ export interface EgwParagraphSource {
   page?: number
   page_paragraph?: number
   continued_pages?: number[]
+  output_page?: number
+  output_continued_pages?: number[]
   text: string
 }
 
@@ -15,6 +17,8 @@ export interface CleanEgwParagraphsOptions {
 interface CleanedParagraph {
   page?: number
   continued_pages?: number[]
+  output_page?: number
+  output_continued_pages?: number[]
   text: string
   hadPageArtifact: boolean
 }
@@ -46,7 +50,7 @@ function normalizeTypography(text: string): string {
 
 function stripPageArtifacts(
   text: string,
-  { bookTitle, chapterTitle }: CleanEgwParagraphsOptions,
+  { bookTitle, chapterTitle }: CleanEgwParagraphsOptions
 ): CleanedParagraph {
   let next = normalizeTypography(text).trim()
   let hadPageArtifact = false
@@ -61,19 +65,15 @@ function stripPageArtifacts(
           title,
           title.replace(/^(?:the|a|an)\s+/i, "").trim(),
         ])
-        .filter(Boolean),
-    ),
+        .filter(Boolean)
+    )
   )
   const titleWordPatterns = chapterTitleVariants.map((title) =>
-    title
-      .split(/\s+/)
-      .filter(Boolean)
-      .map(escapeRegExp)
-      .join("\\s+"),
+    title.split(/\s+/).filter(Boolean).map(escapeRegExp).join("\\s+")
   )
   const titlePatterns = [
     ...titleWordPatterns.map(
-      (pattern) => new RegExp(`^${pattern}\\s+${pageNumber}\\s+`, "i"),
+      (pattern) => new RegExp(`^${pattern}\\s+${pageNumber}\\s+`, "i")
     ),
     new RegExp(`^${escapeRegExp(bookTitle)}\\s+${pageNumber}\\s+`, "i"),
   ]
@@ -88,7 +88,7 @@ function stripPageArtifacts(
   for (const titleWordPattern of titleWordPatterns) {
     const inlineTitleHeader = new RegExp(
       `\\s+${titleWordPattern}\\s+${pageNumber}\\s+`,
-      "i",
+      "i"
     )
     if (inlineTitleHeader.test(next)) {
       next = next.replace(inlineTitleHeader, " ")
@@ -125,7 +125,7 @@ function hasTerminalPunctuation(text: string): boolean {
 
 function shouldMergeParagraphs(
   previous: CleanedParagraph,
-  next: CleanedParagraph,
+  next: CleanedParagraph
 ): boolean {
   // A sentence mis-split mid-flow: the previous fragment has no closing
   // punctuation and the next resumes it in lower case or with a conjunction.
@@ -133,7 +133,10 @@ function shouldMergeParagraphs(
   // across a printed page or within one, so it is checked before the older
   // page-artifact heuristics (which refused to merge across differing pages and
   // ignored same-page layout splits that carried no page artifact).
-  if (!hasTerminalPunctuation(previous.text) && startsAsContinuation(next.text)) {
+  if (
+    !hasTerminalPunctuation(previous.text) &&
+    startsAsContinuation(next.text)
+  ) {
     return true
   }
   if (
@@ -152,9 +155,7 @@ function joinFragments(left: string, right: string): string {
   if (!left) return right.trim()
   if (!right) return left.trim()
 
-  const joined = /[-/]$/.test(left)
-    ? `${left}${right}`
-    : `${left} ${right}`
+  const joined = /[-/]$/.test(left) ? `${left}${right}` : `${left} ${right}`
 
   return joined
     .replace(/\s+([,.;:!?])/g, "$1")
@@ -164,7 +165,7 @@ function joinFragments(left: string, right: string): string {
 
 function mergedContinuedPages(
   previous: CleanedParagraph,
-  next: CleanedParagraph,
+  next: CleanedParagraph
 ): number[] | undefined {
   const pages: number[] = []
   const addPage = (page: number | undefined) => {
@@ -180,6 +181,28 @@ function mergedContinuedPages(
     addPage(next.page)
   }
   for (const page of next.continued_pages ?? []) addPage(page)
+
+  return pages.length > 0 ? pages : undefined
+}
+
+function mergedOutputContinuedPages(
+  previous: CleanedParagraph,
+  next: CleanedParagraph
+): number[] | undefined {
+  const pages: number[] = []
+  const addPage = (page: number | undefined) => {
+    if (page != null && !pages.includes(page)) pages.push(page)
+  }
+
+  for (const page of previous.output_continued_pages ?? []) addPage(page)
+  if (
+    previous.output_page != null &&
+    next.output_page != null &&
+    previous.output_page !== next.output_page
+  ) {
+    addPage(next.output_page)
+  }
+  for (const page of next.output_continued_pages ?? []) addPage(page)
 
   return pages.length > 0 ? pages : undefined
 }
@@ -210,9 +233,9 @@ function splitOversizedSentence(sentence: string): string[] {
 
 function splitIntoSentences(text: string): string[] {
   return (
-    text.match(/[^.!?]+[.!?]["')\]]*|[^.!?]+$/g)?.map((sentence) =>
-      sentence.trim(),
-    ) ?? [text.trim()]
+    text
+      .match(/[^.!?]+[.!?]["')\]]*|[^.!?]+$/g)
+      ?.map((sentence) => sentence.trim()) ?? [text.trim()]
   ).filter(Boolean)
 }
 
@@ -241,7 +264,7 @@ function splitReadableParagraph(text: string): string[] {
 }
 
 function mergeReadableContinuations(
-  paragraphs: CleanedParagraph[],
+  paragraphs: CleanedParagraph[]
 ): CleanedParagraph[] {
   const merged: CleanedParagraph[] = []
 
@@ -258,6 +281,11 @@ function mergeReadableContinuations(
       previous.text = joinFragments(previous.text, paragraph.text)
       previous.page = previous.page ?? paragraph.page
       previous.continued_pages = mergedContinuedPages(previous, paragraph)
+      previous.output_page = previous.output_page ?? paragraph.output_page
+      previous.output_continued_pages = mergedOutputContinuedPages(
+        previous,
+        paragraph
+      )
       previous.hadPageArtifact =
         previous.hadPageArtifact || paragraph.hadPageArtifact
       continue
@@ -270,13 +298,15 @@ function mergeReadableContinuations(
 
 export function cleanEgwParagraphs(
   paragraphs: EgwParagraphSource[],
-  options: CleanEgwParagraphsOptions,
+  options: CleanEgwParagraphsOptions
 ): EgwParagraphSource[] {
   const cleaned = paragraphs
     .map((paragraph) => ({
       ...stripPageArtifacts(paragraph.text, options),
       page: paragraph.page,
       continued_pages: paragraph.continued_pages,
+      output_page: paragraph.output_page,
+      output_continued_pages: paragraph.output_continued_pages,
     }))
     .filter((paragraph) => paragraph.text.length > 0)
 
@@ -288,6 +318,11 @@ export function cleanEgwParagraphs(
       previous.text = joinFragments(previous.text, paragraph.text)
       previous.page = previous.page ?? paragraph.page
       previous.continued_pages = mergedContinuedPages(previous, paragraph)
+      previous.output_page = previous.output_page ?? paragraph.output_page
+      previous.output_continued_pages = mergedOutputContinuedPages(
+        previous,
+        paragraph
+      )
       previous.hadPageArtifact =
         previous.hadPageArtifact || paragraph.hadPageArtifact
       continue
@@ -300,8 +335,11 @@ export function cleanEgwParagraphs(
     return {
       page: paragraph.page,
       continued_pages: paragraph.continued_pages,
+      output_page: paragraph.output_page,
+      output_continued_pages: paragraph.output_continued_pages,
       text: cleanedAgain.text,
-      hadPageArtifact: paragraph.hadPageArtifact || cleanedAgain.hadPageArtifact,
+      hadPageArtifact:
+        paragraph.hadPageArtifact || cleanedAgain.hadPageArtifact,
     }
   })
 
@@ -318,19 +356,25 @@ export function cleanEgwParagraphs(
                     index === pieces.length - 1
                       ? paragraph.continued_pages
                       : undefined,
+                  output_page: paragraph.output_page,
+                  output_continued_pages:
+                    index === pieces.length - 1
+                      ? paragraph.output_continued_pages
+                      : undefined,
                   text,
                   hadPageArtifact: true,
-                }),
+                })
               )
-            : [paragraph],
-        ),
+            : [paragraph]
+        )
       )
     : healed
 
   return readable.map((paragraph, index) => ({
     paragraph: index + 1,
-    page: paragraph.page,
-    continued_pages: paragraph.continued_pages,
+    page: paragraph.output_page ?? paragraph.page,
+    continued_pages:
+      paragraph.output_continued_pages ?? paragraph.continued_pages,
     text: paragraph.text,
   }))
 }

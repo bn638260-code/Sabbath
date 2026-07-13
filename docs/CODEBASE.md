@@ -142,38 +142,51 @@ Build script imports the generated JSON into egw_books / egw_paragraphs
 ### Flow: The Great Controversy EGW source alignment
 ```text
 GC PDF conversion reads the local en_GC PDF with bracket citation markers
+and the supplied PDF's visible folio page sequence
   -> data/convert-egw-gc-pdf.ts:49
-Layout-aware importer treats bracket markers as citation pages
-  -> data/lib/egw-pdf-importer.ts:442
-GC converter preserves EGW Writings-style paragraph bodies and assigns
-page.paragraph labels without counting continuation pages
-  -> data/convert-egw-gc-pdf.ts:70
-  -> data/convert-egw-gc-pdf.ts:71
-Regression coverage locks the verified Chapter 1 visible-label sequence
-  -> data/the-great-controversy-source.test.ts:27
+Shared PDF importer keeps a canonical citation-marker stream for paragraph
+cleanup and a separate folio stream for output page labels
+  -> data/lib/egw-pdf-importer.ts:281
+  -> data/lib/egw-pdf-importer.ts:628
+GC converter preserves EGW Writings-style paragraph bodies, assigns supplied
+PDF folio page.paragraph labels, and does not count continuation pages
+  -> data/convert-egw-gc-pdf.ts:66
+  -> data/convert-egw-gc-pdf.ts:74
+Regression coverage locks the verified Chapter 1 folio-label sequence
+  -> data/the-great-controversy-source.test.ts:30
 Build script imports the generated JSON into egw_books / egw_paragraphs
   -> data/build-egw.ts:2
 ```
 
-### Flow: Patriarchs and Prophets / Desire of Ages EGW source alignment
+### Flow: Patriarchs and Prophets / Desire of Ages / Education EGW source alignment
 ```text
-PP and DA PDF converters read the local user-supplied PDFs with bracket
-citation markers
+PP, DA, and Education PDF converters read the local user-supplied PDFs with bracket
+citation markers and visible folio page sequences
   -> data/convert-egw-pp-pdf.ts:84
   -> data/convert-egw-da-pdf.ts:99
-Both converters preserve EGW Writings-style paragraph bodies and assign
-page.paragraph labels without counting continuation pages
-  -> data/convert-egw-pp-pdf.ts:192
-  -> data/convert-egw-pp-pdf.ts:193
+  -> data/convert-egw-ed-pdf.ts:46
+These converters preserve EGW Writings-style paragraph bodies and use the
+shared two-stream folio mode to assign the supplied PDFs' visible folio page
+labels without counting continuation pages
+  -> data/convert-egw-pp-pdf.ts:181
+  -> data/convert-egw-da-pdf.ts:206
+  -> data/convert-egw-ed-pdf.ts:132
+  -> data/convert-egw-pp-pdf.ts:185
   -> data/convert-egw-da-pdf.ts:219
+  -> data/convert-egw-ed-pdf.ts:133
   -> data/convert-egw-da-pdf.ts:220
-Book-specific postprocessors repair verified Chapter 1 PDF extraction
+Book-specific postprocessors repair verified PDF extraction
 artifacts before page.paragraph assignment
-  -> data/convert-egw-pp-pdf.ts:131
+  -> data/convert-egw-pp-pdf.ts:130
   -> data/convert-egw-da-pdf.ts:153
-Regression coverage locks the verified Chapter 1 visible-label sequences
-  -> data/patriarchs-and-prophets-source.test.ts:27
+  -> data/convert-egw-ed-pdf.ts:92
+Regression coverage locks the verified visible-label sequences and chapter
+start folios
+  -> data/patriarchs-and-prophets-source.test.ts:30
   -> data/the-desire-of-ages-source.test.ts:27
+  -> data/education-source.test.ts:30
+  -> data/education-source.test.ts:88
+  -> data/education-source.test.ts:109
 Build script imports the generated JSON into egw_books / egw_paragraphs
   -> data/build-egw.ts:2
 ```
@@ -250,13 +263,18 @@ bun test data/lib/egw-text-cleanup.test.ts data/lib/egw-paragraph-layout.test.ts
 bun test data/lib/egw-text-cleanup.test.ts data/lib/egw-paragraph-layout.test.ts data/steps-to-christ-source.test.ts data/the-great-controversy-source.test.ts data/patriarchs-and-prophets-source.test.ts data/the-desire-of-ages-source.test.ts
 # Result after PP/DA paragraph alignment: passed, 25 tests.
 
+bun test data/lib/egw-text-cleanup.test.ts data/lib/egw-paragraph-layout.test.ts data/lib/egw-pdf-importer.test.ts data/steps-to-christ-source.test.ts data/the-great-controversy-source.test.ts data/patriarchs-and-prophets-source.test.ts data/the-desire-of-ages-source.test.ts data/education-source.test.ts
+# Result after Education folio alignment: passed, 43 tests.
+
 npm.cmd run validate:egw
 # Result after SC paragraph alignment: passed; SC=273 paragraphs.
 # Result after PP/DA paragraph alignment: passed; PP=2544, DA=2794, GC=1810 paragraphs.
+# Result after Education folio alignment: passed; Ed=1310 paragraphs.
 
 npm.cmd run build:egw
 # Result after SC paragraph alignment: passed; EGW import complete with 8,930 paragraphs.
 # Result after PP/DA paragraph alignment: passed; EGW import complete with 8,732 paragraphs.
+# Result after Education folio alignment: passed; EGW import complete with 8,731 paragraphs.
 ```
 
 CI/CD & deployment: not fully mapped in this pass. See open questions.

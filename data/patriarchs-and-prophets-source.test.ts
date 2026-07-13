@@ -21,54 +21,56 @@ function loadPatriarchsAndProphets(): EgwSource {
   return JSON.parse(
     readFileSync(
       join(import.meta.dir, "sources", "egw", "patriarchs-and-prophets.json"),
-      "utf-8",
-    ),
+      "utf-8"
+    )
   ) as EgwSource
 }
 
 describe("Patriarchs and Prophets source", () => {
-  test("chapter 1 follows the canonical EGW Writings PP paragraph labels", () => {
-    // Source: https://m.egwwritings.org/en/book/84.68#68. The visible PP
-    // labels are the canonical paragraph boundaries; the PDF supplies pages.
+  test("chapter 1 follows the PDF folio pages on canonical EGW Writings paragraph boundaries", () => {
+    // Paragraph boundaries: https://m.egwwritings.org/en/book/84.68#68.
+    // Page labels come from the supplied PDF folios, whose TOC starts chapter 1
+    // at page 17 instead of the EGW Writings PP 33 citation label.
     const expectedLabels = [
-      "33.1",
-      "33.2",
-      "33.3",
-      "33.4",
-      "34.1",
-      "34.2",
-      "34.3",
-      "35.1",
-      "35.2",
-      "35.3",
-      "36.1",
-      "36.2",
-      "36.3",
-      "37.1",
-      "38.1",
-      "38.2",
-      "38.3",
-      "39.1",
-      "39.2",
-      "40.1",
-      "40.2",
-      "40.3",
-      "41.1",
-      "41.2",
-      "41.3",
-      "42.1",
-      "42.2",
-      "42.3",
-      "42.4",
-      "43.1",
+      "17.1",
+      "17.2",
+      "17.3",
+      "17.4",
+      "18.1",
+      "18.2",
+      "18.3",
+      "19.1",
+      "19.2",
+      "19.3",
+      "20.1",
+      "20.2",
+      "20.3",
+      "21.1",
+      "22.1",
+      "22.2",
+      "22.3",
+      "23.1",
+      "23.2",
+      "24.1",
+      "24.2",
+      "24.3",
+      "25.1",
+      "25.2",
+      "25.3",
+      "26.1",
+      "26.2",
+      "26.3",
+      "27.1",
+      "27.2",
     ]
 
     const source = loadPatriarchsAndProphets()
     const chapter1 = source.chapters.find((entry) => entry.chapter === 1)
 
     expect(source.chapters).toHaveLength(73)
-    expect(chapter1?.paragraphs.map((p) => `${p.page}.${p.page_paragraph}`))
-      .toEqual(expectedLabels)
+    expect(
+      chapter1?.paragraphs.map((p) => `${p.page}.${p.page_paragraph}`)
+    ).toEqual(expectedLabels)
     expect(chapter1?.paragraphs).toHaveLength(30)
   })
 
@@ -79,11 +81,44 @@ describe("Patriarchs and Prophets source", () => {
     expect(chapter1?.paragraphs[2]?.text).toContain("Psalm 89:13-18")
     expect(chapter1?.paragraphs[2]?.text).toContain("American Supplement")
     expect(chapter1?.paragraphs[3]?.text).toMatch(
-      /^The history of the great conflict/,
+      /^The history of the great conflict/
     )
-    expect(chapter1?.paragraphs[7]?.page).toBe(35)
+    expect(chapter1?.paragraphs[7]?.page).toBe(19)
     expect(chapter1?.paragraphs[7]?.page_paragraph).toBe(1)
-    expect(chapter1?.paragraphs[29]?.page).toBe(43)
-    expect(chapter1?.paragraphs[29]?.page_paragraph).toBe(1)
+    expect(chapter1?.paragraphs[29]?.page).toBe(27)
+    expect(chapter1?.paragraphs[29]?.page_paragraph).toBe(2)
+  })
+
+  test("uses the supplied PDF folio pages for chapter starts", () => {
+    const source = loadPatriarchsAndProphets()
+    const expectedStartPages = new Map([
+      [1, 17],
+      [2, 28],
+      [3, 36],
+      [4, 47],
+      [5, 55],
+      [6, 62],
+      [7, 72],
+      [8, 85],
+      [9, 91],
+      [10, 97],
+      [11, 103],
+      [12, 110],
+      [13, 123],
+      [14, 132],
+      [15, 145],
+      [16, 151],
+      [17, 157],
+      [18, 167],
+      [19, 174],
+      [20, 183],
+    ])
+
+    for (const [chapter, expectedPage] of expectedStartPages) {
+      const entry = source.chapters.find(
+        (candidate) => candidate.chapter === chapter
+      )
+      expect(entry?.paragraphs[0]?.page).toBe(expectedPage)
+    }
   })
 })

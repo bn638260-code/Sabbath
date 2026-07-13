@@ -12,17 +12,18 @@ describe("findChapterAnchor", () => {
       "Chapter 75-Before Annas and the Court of [698] Caiaphas This chapter is based on"
     const match = findChapterAnchor(
       text,
-      "Chapter 75-Before Annas and the Court of Caiaphas",
+      "Chapter 75-Before Annas and the Court of Caiaphas"
     )
 
     expect(match).not.toBeNull()
     expect(text.slice(match!.pos, match!.pos + match!.length)).toBe(
-      "Chapter 75-Before Annas and the Court of [698] Caiaphas",
+      "Chapter 75-Before Annas and the Court of [698] Caiaphas"
     )
   })
 
   it("returns the last occurrence for a plain anchor", () => {
-    const text = "Contents Chapter 74-Gethsemane . . 599 body Chapter 74-Gethsemane [681]"
+    const text =
+      "Contents Chapter 74-Gethsemane . . 599 body Chapter 74-Gethsemane [681]"
     const match = findChapterAnchor(text, "Chapter 74-Gethsemane")
 
     expect(match).not.toBeNull()
@@ -31,7 +32,9 @@ describe("findChapterAnchor", () => {
   })
 
   it("returns null when the anchor is absent", () => {
-    expect(findChapterAnchor("no chapters here", "Chapter 1-Missing")).toBeNull()
+    expect(
+      findChapterAnchor("no chapters here", "Chapter 1-Missing")
+    ).toBeNull()
   })
 })
 
@@ -43,7 +46,7 @@ describe("stripChapterFurniture", () => {
     const out = stripChapterFurniture(
       "Our ideas of education take too narrow and too low a range.",
       "Education",
-      "Source and Aim of True Education",
+      "Source and Aim of True Education"
     )
     expect(out).toContain("ideas of education take")
   })
@@ -54,7 +57,7 @@ describe("stripChapterFurniture", () => {
     const out = stripChapterFurniture(
       "This is the great controversy between Christ and Satan.",
       "The Great Controversy",
-      "The Destruction of Jerusalem",
+      "The Destruction of Jerusalem"
     )
     expect(out.toLowerCase()).toContain("great controversy between christ")
   })
@@ -67,7 +70,7 @@ describe("stripChapterFurniture", () => {
     const out = stripChapterFurniture(
       "More and more fully would he 10 Education have fulfilled the object of his creation.",
       "Education",
-      "Source and Aim of True Education",
+      "Source and Aim of True Education"
     )
     expect(out).not.toContain("[10]")
     expect(out).toContain("would he")
@@ -79,7 +82,7 @@ describe("stripChapterFurniture", () => {
     const out = stripChapterFurniture(
       "the wisdom of God. Source and Aim of True Education 11 More and more fully he lived.",
       "Education",
-      "Source and Aim of True Education",
+      "Source and Aim of True Education"
     )
     expect(out).not.toContain("[11]")
     expect(out).not.toContain("11")
@@ -87,11 +90,21 @@ describe("stripChapterFurniture", () => {
     expect(out).toContain("More and more fully he lived")
   })
 
+  it("removes an odd-page header that drops a leading article from the chapter title", () => {
+    const out = stripChapterFurniture(
+      "faith Education of Israel 25 in Him.",
+      "Education",
+      "The Education of Israel"
+    )
+
+    expect(out).toBe("faith   in Him.")
+  })
+
   it("removes an odd-page header for a quoted chapter title", () => {
     const out = stripChapterFurniture(
       'He gave back the scepter into the "God With Us" 12 Father\'s hands.',
       "The Desire of Ages",
-      '"God With Us"',
+      '"God With Us"'
     )
 
     expect(out).not.toContain("12")
@@ -102,7 +115,7 @@ describe("stripChapterFurniture", () => {
     const out = stripChapterFurniture(
       "XYZSource and Aim of True Education 11 should remain ordinary text.",
       "Education",
-      "Source and Aim of True Education",
+      "Source and Aim of True Education"
     )
 
     expect(out).toContain("XYZSource and Aim of True Education 11")

@@ -28,13 +28,15 @@ export interface EgwBookConfig {
   layout?: ParagraphLayoutOptions
   /**
    * Where printed page numbers come from. "brackets": the PDF embeds
-   * standard-edition page breaks as inline [n] markers (PP/DA/Ed/GC) — these
+   * standard-edition page breaks as inline [n] markers (PP/Ed/GC) — these
    * are the citation pages, and the PDF's own folio/header numbers are a
    * different sequence that must be ignored. "legacy" (default): no reliable
    * bracket markers (SC); standalone printed-page lines are promoted to [n]
-   * markers and the table of contents seeds chapter start pages.
+   * markers and the table of contents seeds chapter start pages. "folios"
+   * keeps bracket markers for paragraph boundaries, then remaps page labels to
+   * visible running-header folios and TOC chapter starts.
    */
-  pageSource?: "brackets" | "legacy"
+  pageSource?: "brackets" | "legacy" | "folios"
   splitReadableParagraphs?: boolean
   countContinuedPagesForPageParagraphs?: boolean
   postprocessChapters?: (chapters: EgwDraftChapter[]) => EgwDraftChapter[]
@@ -64,9 +66,21 @@ type DraftChapter = Omit<OutputChapter, "paragraphs"> & {
 export type EgwDraftChapter = DraftChapter
 
 const PAGE_MARKER_PATTERN_SOURCE = String.raw`\[([ivxlcdm\d]{1,8})\]`
+const FOLIO_MARKER_PATTERN_SOURCE = String.raw`\{\{folio:(\d{1,4})\}\}`
 
 function pageMarkerPattern(): RegExp {
   return new RegExp(PAGE_MARKER_PATTERN_SOURCE, "gi")
+}
+
+function folioMarkerPattern(): RegExp {
+  return new RegExp(FOLIO_MARKER_PATTERN_SOURCE, "g")
+}
+
+function trackingMarkerPattern(): RegExp {
+  return new RegExp(
+    `${PAGE_MARKER_PATTERN_SOURCE}|${FOLIO_MARKER_PATTERN_SOURCE}`,
+    "gi"
+  )
 }
 
 function repoRoot(): string {
@@ -125,6 +139,18 @@ function stripPageMarkers(text: string): string {
   return text.replace(pageMarkerPattern(), " ")
 }
 
+function folioMarker(page: number): string {
+  return `{{folio:${page}}}`
+}
+
+function stripFolioMarkers(text: string): string {
+  return text.replace(folioMarkerPattern(), " ")
+}
+
+function stripTrackingMarkers(text: string): string {
+  return stripFolioMarkers(stripPageMarkers(text))
+}
+
 function hasNumericBracketPageMarker(text: string): boolean {
   const pattern = pageMarkerPattern()
   let match: RegExpExecArray | null
@@ -136,7 +162,9 @@ function hasNumericBracketPageMarker(text: string): boolean {
   return false
 }
 
-function standalonePrintedPageLine(lines: string[]): { index: number; page: number } | null {
+function standalonePrintedPageLine(
+  lines: string[]
+): { index: number; page: number } | null {
   const candidates = [0, lines.length - 1]
   for (const index of candidates) {
     const page = parseNumericPageMarker(lines[index]?.trim() ?? "")
@@ -165,12 +193,40 @@ function preserveStandalonePrintedPageMarker(text: string): string {
   return body ? `[${marker.page}]\n${body}` : `[${marker.page}]`
 }
 
+function printedFolioFromRunningHeader(text: string): number | null {
+  const leading = text.match(/^(\d{1,4})\s+\D/)
+  if (leading?.[1]) {
+    return parseNumericPageMarker(leading[1])
+  }
+
+  const trailing = text.match(/\D\s+(\d{1,4})$/)
+  return trailing?.[1] ? parseNumericPageMarker(trailing[1]) : null
+}
+
+function visibleFolioFromPageText(text: string): number | undefined {
+  const lines = stripPageMarkers(text)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+  if (lines.length === 0) return undefined
+
+  const headerPage = printedFolioFromRunningHeader(lines[0] ?? "")
+  if (headerPage != null) return headerPage
+
+  return standalonePrintedPageLine(lines)?.page
+}
+
 function splitParagraphsWithPages(
   chapterText: string,
   chapterStartPage?: number,
+  pageSource: "page-markers" | "folio-markers" = "page-markers"
 ): Array<{ page?: number; continued_pages?: number[]; text: string }> {
   let currentPage = chapterStartPage
-  const paragraphs: Array<{ page?: number; continued_pages?: number[]; text: string }> = []
+  const paragraphs: Array<{
+    page?: number
+    continued_pages?: number[]
+    text: string
+  }> = []
 
   for (const rawChunk of chapterText.split(/\n\s*\n/g)) {
     const chunk = rawChunk.trim()
@@ -180,16 +236,22 @@ function splitParagraphsWithPages(
     let sawTextBeforeMarker = false
     let lastIndex = 0
     const continuedPages: number[] = []
-    const markerPattern = pageMarkerPattern()
+    const markerPattern =
+      pageSource === "folio-markers"
+        ? trackingMarkerPattern()
+        : pageMarkerPattern()
 
     let match: RegExpExecArray | null
     while ((match = markerPattern.exec(chunk)) !== null) {
       const before = chunk.slice(lastIndex, match.index)
-      if (before.trim()) {
+      if (stripTrackingMarkers(before).trim()) {
         sawTextBeforeMarker = true
       }
 
-      const markerPage = parseNumericPageMarker(match[1] ?? "")
+      const markerPage =
+        pageSource === "folio-markers"
+          ? parseNumericPageMarker(match[2] ?? "")
+          : parseNumericPageMarker(match[1] ?? "")
       if (markerPage != null) {
         if (!sawTextBeforeMarker) {
           pageForParagraph = markerPage
@@ -203,7 +265,7 @@ function splitParagraphsWithPages(
       lastIndex = match.index + match[0].length
     }
 
-    const text = cleanParagraph(stripPageMarkers(chunk))
+    const text = cleanParagraph(stripTrackingMarkers(chunk))
     if (text.length > 0) {
       paragraphs.push({
         page: pageForParagraph,
@@ -216,34 +278,99 @@ function splitParagraphsWithPages(
   return paragraphs
 }
 
+function alignFolioParagraphs(
+  chapter: number,
+  citationParagraphs: Array<{ text: string }>,
+  folioParagraphs: Array<{
+    page?: number
+    continued_pages?: number[]
+    text: string
+  }>
+): Array<{ page?: number; continued_pages?: number[]; text: string }> {
+  const aligned: Array<{
+    page?: number
+    continued_pages?: number[]
+    text: string
+  }> = []
+  let folioIndex = 0
+
+  for (
+    let citationIndex = 0;
+    citationIndex < citationParagraphs.length;
+    citationIndex += 1
+  ) {
+    const citation = citationParagraphs[citationIndex]
+    while (
+      folioIndex < folioParagraphs.length &&
+      folioParagraphs[folioIndex]?.text !== citation.text
+    ) {
+      if (/^\d{1,4}$/.test(folioParagraphs[folioIndex]?.text ?? "")) {
+        folioIndex += 1
+        continue
+      }
+      throw new Error(
+        `Folio paragraph text alignment failed in chapter ${chapter} at ${citationIndex + 1}`
+      )
+    }
+
+    const folio = folioParagraphs[folioIndex]
+    if (!folio) {
+      throw new Error(
+        `Folio paragraph alignment failed in chapter ${chapter}: missing output paragraph ${citationIndex + 1}`
+      )
+    }
+    aligned.push(folio)
+    folioIndex += 1
+  }
+
+  return aligned
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function chapterHeaderTitlePatterns(title: string): string[] {
+  const variants = [title]
+  const withoutLeadingThe = title.replace(/^The\s+/i, "")
+  if (withoutLeadingThe !== title) variants.push(withoutLeadingThe)
+
+  return variants.map(escapeRegExp)
 }
 
 export function stripChapterFurniture(
   raw: string,
   bookTitle: string,
-  currentTitle: string,
+  currentTitle: string
 ): string {
   const escBook = escapeRegExp(bookTitle)
-  const escTitle = escapeRegExp(currentTitle)
-  return raw
-    // Running headers only — never a bare title word. Even pages print
-    // "<page> <Book Title>", odd pages "<Chapter Title> <page>"; both are
-    // removed number-and-all. The header number is the PDF file's own print
-    // pagination, a different sequence from the standard-edition [n] bracket
-    // markers that carry citation pages, so it must not leak into the page
-    // stream. The former `\b<Book Title>\b` strip also deleted every ordinary
-    // occurrence of the title word — erasing "education" from Education and
-    // "the great controversy" from GC — which is why only full headers match.
-    .replace(new RegExp(`\\b\\d{1,3}\\s+${escBook}\\b`, "gi"), " ")
-    .replace(new RegExp(`(?<!\\w)${escTitle}\\s+\\d{1,3}\\b`, "gi"), " ")
-    .replace(/^\s*\d+\s*$/gm, "")
-    .replace(/^\s*Contents\s*$/gim, "")
-    .replace(/^\s*Appendix\s*$/gim, "")
-    .replace(/^\s*Foreword\s*$/gim, "")
-    .replace(/^\s*Preface\s*$/gim, "")
-    .trim()
+  const chapterHeaderTitles = chapterHeaderTitlePatterns(currentTitle)
+  return (
+    chapterHeaderTitles
+      .reduce(
+        (text, escTitle) =>
+          text.replace(
+            new RegExp(`(?<!\\w)${escTitle}\\s+\\d{1,3}\\b`, "gi"),
+            " "
+          ),
+        raw
+      )
+      // Running headers only — never a bare title word. Even pages print
+      // "<page> <Book Title>", odd pages "<Chapter Title> <page>"; both are
+      // removed number-and-all. The header number is the PDF file's own print
+      // pagination, a different sequence from the standard-edition [n] bracket
+      // markers that carry citation pages, so it must not leak into the page
+      // stream. The former `\b<Book Title>\b` strip also deleted every ordinary
+      // occurrence of the title word — erasing "education" from Education and
+      // "the great controversy" from GC — which is why only full headers match.
+      .replace(new RegExp(`\\b\\d{1,3}\\s+${escBook}\\b`, "gi"), " ")
+      .replace(/^\s*\d+\s*$/gm, "")
+      .replace(/^\s*Contents\s*$/gim, "")
+      .replace(/^\s*Appendix\s*$/gim, "")
+      .replace(/^\s*Foreword\s*$/gim, "")
+      .replace(/^\s*Preface\s*$/gim, "")
+      .trim()
+  )
 }
 
 /**
@@ -256,15 +383,16 @@ export function stripChapterFurniture(
  */
 export function findChapterAnchor(
   text: string,
-  anchor: string,
+  anchor: string
 ): { pos: number; length: number } | null {
+  const markerBetweenWords = `(?:${PAGE_MARKER_PATTERN_SOURCE}|${FOLIO_MARKER_PATTERN_SOURCE})`
   const pattern = new RegExp(
     anchor
       .split(/\s+/)
       .filter(Boolean)
       .map(escapeRegExp)
-      .join(String.raw`\s+(?:\[[ivxlcdm\d]{1,8}\]\s+)?`),
-    "g",
+      .join(String.raw`\s+` + `(?:${markerBetweenWords}\\s+)?`),
+    "g"
   )
 
   let last: { pos: number; length: number } | null = null
@@ -275,19 +403,26 @@ export function findChapterAnchor(
   return last
 }
 
-function chapterAnchor(template: string, chapter: number, title: string): string {
+function chapterAnchor(
+  template: string,
+  chapter: number,
+  title: string
+): string {
   return template
     .replaceAll("{chapter}", String(chapter))
     .replaceAll("{title}", title)
 }
 
-function ensureUsableText(fullText: string, requiredTokens: readonly string[]): void {
+function ensureUsableText(
+  fullText: string,
+  requiredTokens: readonly string[]
+): void {
   const normalizedText = normalizeFullText(fullText)
   for (const token of requiredTokens) {
     const normalizedToken = normalizeFullText(token)
     if (!normalizedText.includes(normalizedToken)) {
       throw new Error(
-        `PDF text layer is not usable for deterministic conversion: missing "${token}".`,
+        `PDF text layer is not usable for deterministic conversion: missing "${token}".`
       )
     }
   }
@@ -304,27 +439,52 @@ function titlePattern(title: string): string {
     .join("\\s+")
 }
 
-function parseTocPageNumber(tocText: string, chapter: EgwChapterConfig): number | undefined {
+function parseTocPageNumber(
+  tocText: string,
+  chapter: EgwChapterConfig
+): number | undefined {
   const title = titlePattern(chapter.title)
   const chapterPattern = new RegExp(
     `\\b(?:Chapter|Chap\\.)\\s+${chapter.chapter}\\s*-\\s*["']*${title}["']*\\s*(?:\\.\\s*)+(\\d{1,4})\\b`,
-    "i",
+    "i"
   )
   const chapterMatch = tocText.match(chapterPattern)
   if (chapterMatch?.[1]) return Number(chapterMatch[1])
 
   const titleOnlyPattern = new RegExp(
     `\\b["']*${title}["']*\\s*(?:\\.\\s*)+(\\d{1,4})\\b`,
-    "i",
+    "i"
   )
   const titleMatch = tocText.match(titleOnlyPattern)
   return titleMatch?.[1] ? Number(titleMatch[1]) : undefined
 }
 
-function nearestPageMarkerBefore(text: string, pos: number): number | undefined {
+function nearestPageMarkerBefore(
+  text: string,
+  pos: number
+): number | undefined {
   const window = text.slice(Math.max(0, pos - 300), pos)
   let page: number | undefined
   const markerPattern = pageMarkerPattern()
+
+  let match: RegExpExecArray | null
+  while ((match = markerPattern.exec(window)) !== null) {
+    const parsed = parseNumericPageMarker(match[1] ?? "")
+    if (parsed != null) {
+      page = parsed
+    }
+  }
+
+  return page
+}
+
+function nearestFolioMarkerBefore(
+  text: string,
+  pos: number
+): number | undefined {
+  const window = text.slice(Math.max(0, pos - 500), pos)
+  let page: number | undefined
+  const markerPattern = folioMarkerPattern()
 
   let match: RegExpExecArray | null
   while ((match = markerPattern.exec(window)) !== null) {
@@ -342,7 +502,10 @@ function nearestPageMarkerBefore(text: string, pos: number): number | undefined 
  * opens right after roman-numeral front matter): the next numeric marker [N]
  * starts page N, so the text before it sits on page N - 1.
  */
-function pageFromNextMarkerAfter(text: string, pos: number): number | undefined {
+function pageFromNextMarkerAfter(
+  text: string,
+  pos: number
+): number | undefined {
   const markerPattern = pageMarkerPattern()
   markerPattern.lastIndex = pos
   let match: RegExpExecArray | null
@@ -355,9 +518,23 @@ function pageFromNextMarkerAfter(text: string, pos: number): number | undefined 
   return undefined
 }
 
+function pageFromNextFolioMarkerAfter(
+  text: string,
+  pos: number
+): number | undefined {
+  const markerPattern = folioMarkerPattern()
+  markerPattern.lastIndex = pos
+  const match = markerPattern.exec(text)
+  return match?.[1]
+    ? (parseNumericPageMarker(match[1]) ?? undefined)
+    : undefined
+}
+
+type PageSource = NonNullable<EgwBookConfig["pageSource"]>
+
 function assignPageParagraphNumbers(
   chapters: DraftChapter[],
-  { countContinuedPages }: { countContinuedPages: boolean },
+  { countContinuedPages }: { countContinuedPages: boolean }
 ): OutputChapter[] {
   const countsByPage = new Map<number, number>()
 
@@ -366,7 +543,7 @@ function assignPageParagraphNumbers(
     paragraphs: chapter.paragraphs.map((paragraph) => {
       if (paragraph.page == null) {
         throw new Error(
-          `Missing printed page for ${chapter.title} paragraph ${paragraph.paragraph}`,
+          `Missing printed page for ${chapter.title} paragraph ${paragraph.paragraph}`
         )
       }
       const pageParagraph = (countsByPage.get(paragraph.page) ?? 0) + 1
@@ -375,7 +552,7 @@ function assignPageParagraphNumbers(
         for (const continuedPage of paragraph.continued_pages ?? []) {
           countsByPage.set(
             continuedPage,
-            (countsByPage.get(continuedPage) ?? 0) + 1,
+            (countsByPage.get(continuedPage) ?? 0) + 1
           )
         }
       }
@@ -392,11 +569,23 @@ function assignPageParagraphNumbers(
 async function extractPages(
   pdfPath: string,
   layout: ParagraphLayoutOptions | undefined,
-  pageSource: "brackets" | "legacy",
-): Promise<Array<{ page: number; text: string; continuesFromPreviousPage: boolean }>> {
+  pageSource: PageSource
+): Promise<
+  Array<{
+    page: number
+    text: string
+    continuesFromPreviousPage: boolean
+    folioPage?: number
+  }>
+> {
   const loadingTask = getDocument(pdfPath)
   const pdf = await loadingTask.promise
-  const pages: Array<{ page: number; text: string; continuesFromPreviousPage: boolean }> = []
+  const pages: Array<{
+    page: number
+    text: string
+    continuesFromPreviousPage: boolean
+    folioPage?: number
+  }> = []
 
   for (let i = 1; i <= pdf.numPages; i += 1) {
     const page = await pdf.getPage(i)
@@ -404,15 +593,21 @@ async function extractPages(
     const items = textContent.items
 
     const reconstructed = reconstructPageParagraphs(
-      items.filter((item): item is typeof item & PdfTextItemLike => "str" in item),
-      layout,
+      items.filter(
+        (item): item is typeof item & PdfTextItemLike => "str" in item
+      ),
+      layout
     )
     // In brackets mode a standalone number line is the PDF's own folio — a
     // different pagination from the [n] citation markers — so promoting it
     // would mix two page sequences.
     const normalizedText = normalizePageText(reconstructed.text)
+    const folioPage =
+      pageSource === "folios"
+        ? visibleFolioFromPageText(normalizedText)
+        : undefined
     const text =
-      pageSource === "brackets"
+      pageSource === "brackets" || pageSource === "folios"
         ? normalizedText
         : preserveStandalonePrintedPageMarker(normalizedText)
 
@@ -420,6 +615,7 @@ async function extractPages(
       page: i,
       text,
       continuesFromPreviousPage: reconstructed.continuesFromPreviousPage,
+      folioPage,
     })
   }
 
@@ -444,18 +640,37 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
   writeFileSync(debugPagesJson, `${JSON.stringify(pages, null, 2)}\n`)
 
   let rawFullText = ""
+  let rawFolioFullText = ""
   for (const page of pages) {
+    const pageText = page.text
+    const pageFolioText =
+      pageSource === "folios" && page.folioPage != null
+        ? `${folioMarker(page.folioPage)}\n${page.text}`
+        : page.text
     if (rawFullText.length === 0) {
-      rawFullText = page.text
+      rawFullText = pageText
     } else {
       rawFullText += page.continuesFromPreviousPage ? "\n" : "\n\n"
-      rawFullText += page.text
+      rawFullText += pageText
+    }
+    if (pageSource === "folios") {
+      if (rawFolioFullText.length === 0) {
+        rawFolioFullText = pageFolioText
+      } else {
+        rawFolioFullText += page.continuesFromPreviousPage ? "\n" : "\n\n"
+        rawFolioFullText += pageFolioText
+      }
     }
   }
-  writeFileSync(debugTextTxt, rawFullText)
+  writeFileSync(
+    debugTextTxt,
+    pageSource === "folios" ? rawFolioFullText : rawFullText
+  )
 
   ensureUsableText(rawFullText, config.requiredTokens)
   const normalized = normalizeFullText(rawFullText)
+  const folioNormalized =
+    pageSource === "folios" ? normalizeFullText(rawFolioFullText) : normalized
 
   const chapterPositions: Array<{
     chapter: number
@@ -463,21 +678,30 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
     anchor: string
     pos: number
     anchorLength: number
+    folioPos?: number
+    folioAnchorLength?: number
     tocPage?: number
-  }> =
-    []
+    folioPage?: number
+  }> = []
 
   for (const chapter of config.chapters) {
     const anchor = normalizeFullText(
       chapterAnchor(
         config.chapterAnchorTemplate,
         chapter.chapter,
-        chapter.title,
-      ),
+        chapter.title
+      )
     )
     const found = findChapterAnchor(normalized, anchor)
     if (!found) {
       throw new Error(`Missing chapter anchor: ${anchor}`)
+    }
+    const folioFound =
+      pageSource === "folios"
+        ? findChapterAnchor(folioNormalized, anchor)
+        : null
+    if (pageSource === "folios" && !folioFound) {
+      throw new Error(`Missing folio chapter anchor: ${anchor}`)
     }
     chapterPositions.push({
       chapter: chapter.chapter,
@@ -485,13 +709,25 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
       anchor,
       pos: found.pos,
       anchorLength: found.length,
+      folioPos: folioFound?.pos,
+      folioAnchorLength: folioFound?.length,
     })
   }
 
   for (let i = 1; i < chapterPositions.length; i += 1) {
     if (chapterPositions[i].pos <= chapterPositions[i - 1].pos) {
       throw new Error(
-        `Chapter order broken: ${chapterPositions[i].anchor} comes before ${chapterPositions[i - 1].anchor}`,
+        `Chapter order broken: ${chapterPositions[i].anchor} comes before ${chapterPositions[i - 1].anchor}`
+      )
+    }
+    if (
+      pageSource === "folios" &&
+      chapterPositions[i].folioPos != null &&
+      chapterPositions[i - 1].folioPos != null &&
+      chapterPositions[i].folioPos <= chapterPositions[i - 1].folioPos
+    ) {
+      throw new Error(
+        `Folio chapter order broken: ${chapterPositions[i].anchor} comes before ${chapterPositions[i - 1].anchor}`
       )
     }
   }
@@ -504,17 +740,33 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
 
   const mainText =
     appendixIdx !== -1 ? normalized.slice(0, appendixIdx) : normalized
+  const folioSearchStart =
+    pageSource === "folios" && lastChapter.folioPos != null
+      ? lastChapter.folioPos + (lastChapter.folioAnchorLength ?? 0)
+      : searchStart
+  const folioAppendixIdx =
+    pageSource === "folios" && config.appendixMarker
+      ? folioNormalized.indexOf(config.appendixMarker, folioSearchStart)
+      : -1
+  const folioMainText =
+    pageSource === "folios" && folioAppendixIdx !== -1
+      ? folioNormalized.slice(0, folioAppendixIdx)
+      : folioNormalized
 
   const tocText = normalized.slice(0, chapterPositions[0].pos)
+  const folioTocText =
+    pageSource === "folios" && chapterPositions[0].folioPos != null
+      ? folioNormalized.slice(0, chapterPositions[0].folioPos)
+      : tocText
   for (const chapter of chapterPositions) {
-    if (pageSource === "brackets") {
+    if (pageSource === "brackets" || pageSource === "folios") {
       // TOC page numbers are the PDF's own pagination, not citation pages.
       // The chapter starts on the page of the [n] marker inside its heading
       // (a wrapped title can swallow one), else the page open at the anchor —
       // the nearest marker before it.
       const anchorSlice = normalized.slice(
         chapter.pos,
-        chapter.pos + chapter.anchorLength,
+        chapter.pos + chapter.anchorLength
       )
       const markerInAnchor = pageMarkerPattern().exec(anchorSlice)
       chapter.tocPage =
@@ -523,6 +775,19 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
           : undefined) ??
         nearestPageMarkerBefore(normalized, chapter.pos) ??
         pageFromNextMarkerAfter(normalized, chapter.pos + chapter.anchorLength)
+      if (pageSource === "folios") {
+        chapter.folioPage =
+          parseTocPageNumber(folioTocText, chapter) ??
+          nearestFolioMarkerBefore(
+            folioNormalized,
+            chapter.folioPos ?? chapter.pos
+          ) ??
+          pageFromNextFolioMarkerAfter(
+            folioNormalized,
+            (chapter.folioPos ?? chapter.pos) +
+              (chapter.folioAnchorLength ?? chapter.anchorLength)
+          )
+      }
     } else {
       chapter.tocPage =
         parseTocPageNumber(tocText, chapter) ??
@@ -534,7 +799,8 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
 
   for (let i = 0; i < chapterPositions.length; i += 1) {
     const current = chapterPositions[i]
-    const next = i + 1 < chapterPositions.length ? chapterPositions[i + 1] : null
+    const next =
+      i + 1 < chapterPositions.length ? chapterPositions[i + 1] : null
 
     const start = current.pos + current.anchorLength
     const end = next ? next.pos : mainText.length
@@ -544,16 +810,43 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
 
     const rawSlice = mainText.slice(start, end)
     const cleaned = stripChapterFurniture(rawSlice, config.title, current.title)
+    const outputCleaned =
+      pageSource === "folios" && current.folioPos != null
+        ? stripChapterFurniture(
+            folioMainText.slice(
+              current.folioPos + (current.folioAnchorLength ?? 0),
+              next?.folioPos ?? folioMainText.length
+            ),
+            config.title,
+            current.title
+          )
+        : cleaned
     const paragraphTexts = splitParagraphsWithPages(cleaned, current.tocPage)
+    const outputParagraphTexts =
+      pageSource === "folios"
+        ? alignFolioParagraphs(
+            current.chapter,
+            paragraphTexts,
+            splitParagraphsWithPages(
+              outputCleaned,
+              current.folioPage,
+              "folio-markers"
+            )
+          )
+        : paragraphTexts
 
     if (paragraphTexts.length === 0) {
       throw new Error(`No paragraphs extracted for chapter ${current.chapter}`)
     }
 
-    for (let paragraphIndex = 0; paragraphIndex < paragraphTexts.length; paragraphIndex += 1) {
+    for (
+      let paragraphIndex = 0;
+      paragraphIndex < paragraphTexts.length;
+      paragraphIndex += 1
+    ) {
       if (!paragraphTexts[paragraphIndex]) {
         throw new Error(
-          `Empty paragraph extracted in chapter ${current.chapter} at ${paragraphIndex + 1}`,
+          `Empty paragraph extracted in chapter ${current.chapter} at ${paragraphIndex + 1}`
         )
       }
     }
@@ -566,13 +859,15 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
           paragraph: index + 1,
           page: paragraph.page,
           continued_pages: paragraph.continued_pages,
+          output_page: outputParagraphTexts[index]?.page,
+          output_continued_pages: outputParagraphTexts[index]?.continued_pages,
           text: paragraph.text,
         })),
         {
           bookTitle: config.title,
           chapterTitle: current.title,
           splitReadableParagraphs: config.splitReadableParagraphs,
-        },
+        }
       ),
     })
   }
@@ -585,7 +880,7 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
 
   if (outputChapters.length !== config.expectedChapterCount) {
     throw new Error(
-      `Expected ${config.expectedChapterCount} chapters, got ${outputChapters.length}`,
+      `Expected ${config.expectedChapterCount} chapters, got ${outputChapters.length}`
     )
   }
 
@@ -597,7 +892,7 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
     for (let j = 0; j < chapter.paragraphs.length; j += 1) {
       if (chapter.paragraphs[j].paragraph !== j + 1) {
         throw new Error(
-          `Paragraph sequence broken in chapter ${chapter.chapter} at ${j + 1}`,
+          `Paragraph sequence broken in chapter ${chapter.chapter} at ${j + 1}`
         )
       }
     }
@@ -614,10 +909,10 @@ export async function importEgwPdf(config: EgwBookConfig): Promise<void> {
 
   const totalParagraphs = outputChapters.reduce(
     (sum, chapter) => sum + chapter.paragraphs.length,
-    0,
+    0
   )
   console.log(
-    `Imported ${config.title}: ${outputChapters.length} chapters, ${totalParagraphs} paragraphs.`,
+    `Imported ${config.title}: ${outputChapters.length} chapters, ${totalParagraphs} paragraphs.`
   )
   console.log(`Wrote JSON to ${config.outputJsonPath}`)
 }
