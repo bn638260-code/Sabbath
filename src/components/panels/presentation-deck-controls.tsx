@@ -12,18 +12,27 @@ import {
   type PresentationDeckKind,
 } from "@/lib/presentation-deck-navigation"
 import {
+  advancePresentationTarget,
+  canCrossQueueAtBoundary,
+} from "@/lib/presentation-panel-navigation"
+import {
   getQueuedHymnDeckForRenderItem,
   restoreQueuedHymnDeckForRenderItem,
 } from "@/lib/queued-hymn-deck"
 import { useEgwSlideStore } from "@/stores/egw-slide-store"
 import { useHymnSlideStore } from "@/stores/hymn-slide-store"
+import { useQueueStore } from "@/stores/queue-store"
 import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import type { PresentationRenderData } from "@/types"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 
 interface PresentationDeckControlsProps {
   item: PresentationRenderData | null
-  onNavigate: (kind: PresentationDeckKind, index: number) => void
+  onNavigate?: (kind: PresentationDeckKind, index: number) => void
+  // Live panel only: clicks route through advancePresentationTarget (the
+  // keyboard path), so at the deck's first/last slide the arrows stay enabled
+  // and cross into the adjacent queue item. onNavigate is unused in this mode.
+  crossQueueBoundaries?: boolean
 }
 
 const PREVIOUS_TITLES: Record<PresentationDeckKind, string> = {
@@ -41,7 +50,11 @@ const NEXT_TITLES: Record<PresentationDeckKind, string> = {
 export function PresentationDeckControls({
   item,
   onNavigate,
+  crossQueueBoundaries = false,
 }: PresentationDeckControlsProps) {
+  // Subscribed so boundary enabled-state updates as the queue changes.
+  useQueueStore((s) => s.activeIndex)
+  useQueueStore((s) => s.items)
   const hymnDeck = useHymnSlideStore((s) => s.deck)
   const hymnActiveIndex = useHymnSlideStore((s) => s.activeIndex)
   const sermonDeck = useSermonSlideStore((s) => s.deck)
@@ -74,20 +87,26 @@ export function PresentationDeckControls({
   const canNavigate = deckSlides.length > 0
 
   const navigate = (delta: number) => {
+    if (crossQueueBoundaries) {
+      advancePresentationTarget(delta, item, true)
+      return
+    }
     const nextIndex = clampDeckIndex(deckSlides.length, currentIndex, delta)
     if (nextIndex === currentIndex) return
     if (kind === "hymn") restoreQueuedHymnDeckForRenderItem(item)
-    onNavigate(kind, nextIndex)
+    onNavigate?.(kind, nextIndex)
   }
+
+  const canAdvance = (delta: number) =>
+    canNavigateDeck(deckSlides.length, currentIndex, delta) ||
+    (crossQueueBoundaries && canCrossQueueAtBoundary(delta, item))
 
   return (
     <div className="flex items-center gap-1">
       <Button
         size="icon-xs"
         variant="outline"
-        disabled={
-          !canNavigate || !canNavigateDeck(deckSlides.length, currentIndex, -1)
-        }
+        disabled={!canNavigate || !canAdvance(-1)}
         onClick={() => navigate(-1)}
         title={PREVIOUS_TITLES[kind]}
       >
@@ -103,9 +122,7 @@ export function PresentationDeckControls({
       <Button
         size="icon-xs"
         variant="outline"
-        disabled={
-          !canNavigate || !canNavigateDeck(deckSlides.length, currentIndex, 1)
-        }
+        disabled={!canNavigate || !canAdvance(1)}
         onClick={() => navigate(1)}
         title={NEXT_TITLES[kind]}
       >

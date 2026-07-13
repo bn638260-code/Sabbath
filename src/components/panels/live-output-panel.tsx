@@ -19,7 +19,7 @@ import {
   applyPanelFullscreen,
   tauriWindowFullscreen,
 } from "@/components/panels/live-output-panel-fullscreen"
-import { commitPreviewToLive, presentItem } from "@/lib/presentation-workflow"
+import { commitPreviewToLive } from "@/lib/presentation-workflow"
 import { cn } from "@/lib/utils"
 import { convertTauriFileSrc } from "@/lib/tauri-runtime"
 import { useBroadcastVideo } from "@/hooks/use-broadcast-video"
@@ -31,9 +31,6 @@ import {
 } from "@/stores/broadcast/live-store"
 import { selectActiveTheme, useBroadcastStore } from "@/stores/broadcast-store"
 import { useBroadcastVideoStore } from "@/stores/broadcast/video-store"
-import { useEgwSlideStore } from "@/stores/egw-slide-store"
-import { useHymnSlideStore } from "@/stores/hymn-slide-store"
-import { useSermonSlideStore } from "@/stores/sermon-slide-store"
 import { PresentationDeckControls } from "@/components/panels/presentation-deck-controls"
 import { PresentationArrowControls } from "@/components/panels/presentation-arrow-controls"
 import { presentationDeckKind } from "@/lib/presentation-deck-navigation"
@@ -149,33 +146,6 @@ function LiveVideoMedia({
   )
 }
 
-function navigateLiveDeck(
-  kind: "hymn" | "slideDeck" | "egw",
-  index: number
-): void {
-  if (kind === "hymn") {
-    const hymnSlides = useHymnSlideStore.getState()
-    const next = hymnSlides.deck[index]
-    if (!next) return
-    hymnSlides.setDeck(hymnSlides.deck, index)
-    presentItem(next)
-    return
-  }
-  if (kind === "egw") {
-    const egwSlides = useEgwSlideStore.getState()
-    const next = egwSlides.deck[index]
-    if (!next) return
-    egwSlides.setDeck(egwSlides.deck, index)
-    presentItem(next)
-    return
-  }
-  const sermonSlides = useSermonSlideStore.getState()
-  const next = sermonSlides.deck[index]
-  if (!next) return
-  sermonSlides.setDeck(sermonSlides.deck, index, sermonSlides.activeItemId)
-  presentItem(next)
-}
-
 function LiveHeaderActions({
   isLive,
   isFullscreen,
@@ -249,10 +219,7 @@ function LiveSendControls({
         Send Preview Live
       </Button>
       {isLive && presentationDeckKind(liveItem) ? (
-        <PresentationDeckControls
-          item={liveItem}
-          onNavigate={navigateLiveDeck}
-        />
+        <PresentationDeckControls item={liveItem} crossQueueBoundaries />
       ) : isLive && liveItem?.kind === "scripture" ? (
         <PresentationArrowControls item={liveItem} isLive />
       ) : null}

@@ -272,6 +272,51 @@ function queueEgwParagraphAdvance(
 // Returns `undefined` (not `false`) when the walk does not apply, so callers
 // using `?? stopAtBoundary` fall through to their kind's default boundary
 // behavior (hymn/sermon consume the key; EGW falls to paragraph navigation).
+// Resolves which queue item the current live content corresponds to, per
+// kind. Shared by the boundary walk itself and by canCrossQueueAtBoundary so
+// button enabled-state can never drift from the walk's behavior.
+function queueWalkMatcher(
+  targetItem: PresentationRenderData | null
+): ((item: QueueItem) => boolean) | null {
+  const deckKind = presentationDeckKind(targetItem)
+  if (deckKind === "hymn") return (item) => item.presentation.kind === "hymn"
+  if (deckKind === "slideDeck") {
+    return (item) => item.presentation.kind === "slideDeck"
+  }
+  if (deckKind === "egw") {
+    const paragraphId = egwParagraphFromTarget(targetItem)?.id ?? -1
+    return (item) =>
+      item.presentation.kind === "egw" &&
+      item.presentation.paragraph.id === paragraphId
+  }
+  const verse = scriptureFromTarget(targetItem)
+  if (!verse) return null
+  return (item) => {
+    const itemVerse = getVerseFromItem(item)
+    return (
+      itemVerse?.book_number === verse.book_number &&
+      itemVerse.chapter === verse.chapter &&
+      itemVerse.verse === verse.verse
+    )
+  }
+}
+
+// Pure check for the on-screen arrows: true when a live boundary click would
+// cross into an adjacent queue item (mirrors advanceQueueAtBoundary without
+// its side effects).
+export function canCrossQueueAtBoundary(
+  delta: number,
+  targetItem: PresentationRenderData | null
+): boolean {
+  const matchesActive = queueWalkMatcher(targetItem)
+  if (!matchesActive) return false
+  const queue = useQueueStore.getState()
+  if (queue.activeIndex === null) return false
+  const active = queue.items[queue.activeIndex]
+  if (!active || !matchesActive(active)) return false
+  return Boolean(queue.items[queue.activeIndex + delta])
+}
+
 function advanceQueueAtBoundary(
   delta: number,
   isLive: boolean,
@@ -367,13 +412,20 @@ function advanceHymnDeck(
     activeIndex: hymnSlides.activeIndex,
     setActive: (nextIndex) => hymnSlides.setDeck(hymnSlides.deck, nextIndex),
     stopAtBoundary: true,
-    onBoundary: () =>
-      advanceQueueAtBoundary(
-        delta,
-        isLive,
-        (item) => item.presentation.kind === "hymn"
-      ),
+    onBoundary: () => walkQueueAtBoundary(delta, targetItem, isLive),
   })
+}
+
+// Boundary walk driven by the shared matcher; undefined when the walk does
+// not apply (see advanceQueueAtBoundary).
+function walkQueueAtBoundary(
+  delta: number,
+  targetItem: PresentationRenderData | null,
+  isLive: boolean
+): boolean | undefined {
+  const matcher = queueWalkMatcher(targetItem)
+  if (!matcher) return undefined
+  return advanceQueueAtBoundary(delta, isLive, matcher)
 }
 
 function advanceEgwDeck(
@@ -388,15 +440,7 @@ function advanceEgwDeck(
     activeIndex: egwSlides.activeIndex,
     setActive: (nextIndex) => egwSlides.setDeck(egwSlides.deck, nextIndex),
     stopAtBoundary: false,
-    onBoundary: () =>
-      advanceQueueAtBoundary(
-        delta,
-        isLive,
-        (item) =>
-          item.presentation.kind === "egw" &&
-          item.presentation.paragraph.id ===
-            (egwParagraphFromTarget(targetItem)?.id ?? -1)
-      ),
+    onBoundary: () => walkQueueAtBoundary(delta, targetItem, isLive),
   })
 }
 
@@ -417,12 +461,7 @@ function advanceSermonDeck(
         sermonSlides.activeItemId
       ),
     stopAtBoundary: true,
-    onBoundary: () =>
-      advanceQueueAtBoundary(
-        delta,
-        isLive,
-        (item) => item.presentation.kind === "slideDeck"
-      ),
+    onBoundary: () => walkQueueAtBoundary(delta, targetItem, isLive),
   })
 }
 
@@ -437,18 +476,7 @@ export function advancePresentationTarget(
     // item crosses straight to the adjacent item (no slide-boundary gate).
     // When the live verse does not match (detection-driven flow), fall through
     // to ordinary verse +1/-1 navigation.
-    const liveVerse = isLive ? scriptureFromTarget(targetItem) : null
-    if (
-      liveVerse &&
-      advanceQueueAtBoundary(delta, isLive, (item) => {
-        const itemVerse = getVerseFromItem(item)
-        return (
-          itemVerse?.book_number === liveVerse.book_number &&
-          itemVerse.chapter === liveVerse.chapter &&
-          itemVerse.verse === liveVerse.verse
-        )
-      })
-    ) {
+    if (isLive && walkQueueAtBoundary(delta, targetItem, isLive)) {
       return true
     }
     return queueScriptureAdvance(delta, targetItem, isLive)
