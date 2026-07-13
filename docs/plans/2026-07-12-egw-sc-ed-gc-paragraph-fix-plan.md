@@ -447,10 +447,44 @@ fail (cleanup merge-shape, deferred to cross-page-merge sub-task); `validate:egw
 regenerated SC/Ed/GC (regeneration reverted — tracked JSONs regenerate once all shared-lib
 fixes land).
 
-**WI-A remaining:** (2) cross-page continuation merge in `cleanEgwParagraphs` (also reconciles
-the pre-existing `egw-text-cleanup.test.ts` failure); (3) poetry/scripture grouping in
-`reconstructPageParagraphs` (highest regression risk — core layout engine). Then WI-B/C/D
-regenerate tracked JSONs, WI-E validates + rebuilds `rhema.db`.
+**A.2.WI-A.2 — cross-page/same-page continuation merge.** `cleanEgwParagraphs`
+(`shouldMergeParagraphs`): a fragment without terminal punctuation followed by a lower-case/
+conjunction continuation now merges regardless of page, recording the spanned page in
+`continued_pages`. Plus a word-boundary guard on the chapter-title header pattern. Landed in
+`c0f1223` (with tests); reconciled the pre-existing `egw-text-cleanup.test.ts` failure.
+`bun test data/lib`: **23 pass / 0 fail**.
+
+### A.7 — CHANGE REPORT / VERIFICATION NOTES (WI-B/C/D/E)
+
+**Regeneration (2026-07-13).** SC/Ed/GC regenerated with the fixed lib; SC default `pdfPath`
+updated to `Steps-to-Christ (1).pdf`. Paragraph counts: SC 274→272, Ed 1454→1317, GC 1985→1879
+(merges). PP/DA untouched — validator stats byte-identical to baseline (regression guard).
+`validate:egw` PASS (SC 13 / Ed 35 / GC 42 chapters). `build:egw` PASS — rhema.db rebuilt,
+9,424 EGW paragraphs.
+
+**Spot-checks (Writings URL + PDF page per check), verified in rhema.db:**
+- **SC ch.1** (https://m.egwwritings.org/en/book/108.21#21): p1 pg9.1 = "Nature and revelation
+  alike testify of God's love…" — matches Writings SC 9.1. Psalm 145:15-16 poetry now grouped
+  as two couplets + reference (was 5 fragments).
+- **Ed ch.1** (https://m.egwwritings.org/en/book/29.5#0): epigraph rejoined ("…understanding;
+  'Acquaint now thyself with Him.'"); pg8.2 = "Our ideas of education take too narrow and too
+  low a range…" — matches Writings Ed 13.1 wording exactly (this PDF edition's page numbering
+  differs from the standard edition; PDF is the page authority per §1.1). Mid-sentence
+  "education": 0→83 in JSON / 67 db rows; printed pages 9-12 restored (13 spans inside a
+  continued paragraph).
+- **GC ch.1** (https://m.egwwritings.org/en/book/132.2#0): p1 pg14.1 = "If thou hadst known,
+  even thou, at least in this thy day…" — matches Writings GC 17.1 opening (Luke 19:42).
+  Body phrase "great controversy": 1→17 occurrences.
+
+**Known limitation (accepted under Mode C).** Poetry blocks merge at couplet granularity
+(continuation heuristic), not always into the single block Writings shows — e.g. SC ch.1
+Psalm quote is 2 paragraphs + reference instead of 1. Fixing this fully requires
+poetry-awareness in `reconstructPageParagraphs` (shared layout engine, PP/DA regression risk)
+and was deliberately deferred; sense and order are preserved.
+
+**Definition of done §1.5:** items 1-7 satisfied (item 1's boundary match is heuristic +
+manually verified per Mode C; item 6's app check pending next fresh app build — db verified
+directly via SQL).
 
 ---
 
