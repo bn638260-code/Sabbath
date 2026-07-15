@@ -3,12 +3,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crossbeam_channel::Receiver;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{SinkExt, Stream, StreamExt};
 use serde::Deserialize;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
 use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::error::SttError;
 use crate::provider::SttProvider;
@@ -68,6 +69,99 @@ pub struct SpeechmaticsClient {
 enum AudioCommand {
     Data(Vec<u8>),
     Finish(u64),
+}
+
+async fn open_speechmatics_stream(
+    api_key: &str,
+) -> Result<WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>, SttError> {
+    let mut request = SPEECHMATICS_RT_URL
+        .into_client_request()
+        .map_err(|error| SttError::ConnectionFailed(error.to_string()))?;
+    request.headers_mut().insert(
+        "Authorization",
+        HeaderValue::from_str(&format!("Bearer {api_key}"))
+            .map_err(|error| SttError::ConnectionFailed(error.to_string()))?,
+    );
+    tokio_tungstenite::connect_async(request)
+        .await
+        .map(|(stream, _)| stream)
+        .map_err(|error| SttError::ConnectionFailed(error.to_string()))
+}
+
+async fn wait_for_recognition_started<R>(read: &mut R) -> Result<(), SttError>
+where
+    R: Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
+{
+    loop {
+        let frame = tokio::time::timeout(Duration::from_secs(15), read.next())
+            .await
+            .map_err(|_| SttError::ConnectionFailed("Speechmatics startup timed out".into()))?
+            .ok_or_else(|| SttError::ConnectionFailed("Speechmatics closed at startup".into()))?
+            .map_err(|error| SttError::ConnectionFailed(error.to_string()))?;
+        if let Message::Text(text) = frame {
+            let response: Response = serde_json::from_str(&text)
+                .map_err(|error| SttError::ParseError(error.to_string()))?;
+            if response.message == "RecognitionStarted" {
+                return Ok(());
+            }
+            if response.message == "Error" {
+                return Err(parse_response(&text).unwrap_err());
+            }
+        }
+    }
+}
+
+fn spawn_audio_reader(
+    audio_rx: Receiver<Vec<i16>>,
+    audio_tx: mpsc::Sender<AudioCommand>,
+    cancelled: Arc<AtomicBool>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::task::spawn_blocking(move || {
+        let mut batch = Vec::with_capacity(BATCH_SAMPLES * 2);
+        let mut sequence = 0_u64;
+        loop {
+            if cancelled.load(Ordering::SeqCst) {
+                let _ = audio_tx.blocking_send(AudioCommand::Finish(sequence));
+                return;
+            }
+            match audio_rx.recv_timeout(Duration::from_millis(50)) {
+                Ok(samples) => {
+                    for sample in samples {
+                        batch.extend_from_slice(&sample.to_le_bytes());
+                    }
+                    if batch.len() >= BATCH_SAMPLES * 2 {
+                        sequence += 1;
+                        if audio_tx
+                            .blocking_send(AudioCommand::Data(std::mem::take(&mut batch)))
+                            .is_err()
+                        {
+                            return;
+                        }
+                    }
+                }
+                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                    if !batch.is_empty() {
+                        sequence += 1;
+                        if audio_tx
+                            .blocking_send(AudioCommand::Data(std::mem::take(&mut batch)))
+                            .is_err()
+                        {
+                            return;
+                        }
+                    }
+                }
+                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
+                    if !batch.is_empty() {
+                        sequence += 1;
+                        let _ =
+                            audio_tx.blocking_send(AudioCommand::Data(std::mem::take(&mut batch)));
+                    }
+                    let _ = audio_tx.blocking_send(AudioCommand::Finish(sequence));
+                    return;
+                }
+            }
+        }
+    })
 }
 
 pub(crate) fn build_start_payload(config: &SttConfig) -> serde_json::Value {
@@ -148,7 +242,10 @@ fn parse_response(text: &str) -> Result<(Vec<TranscriptEvent>, bool), SttError> 
     let confidence = if words.is_empty() {
         1.0
     } else {
-        words.iter().map(|word| word.confidence).sum::<f64>() / words.len() as f64
+        let word_count = u32::try_from(words.len()).map_err(|_| {
+            SttError::ParseError("Speechmatics response contained too many words".into())
+        })?;
+        words.iter().map(|word| word.confidence).sum::<f64>() / f64::from(word_count)
     };
     let events = match response.message.as_str() {
         "AddPartialTranscript" if !transcript.is_empty() => {
@@ -181,17 +278,7 @@ impl SpeechmaticsClient {
         audio_rx: Receiver<Vec<i16>>,
         event_tx: mpsc::Sender<TranscriptEvent>,
     ) -> Result<(), SttError> {
-        let mut request = SPEECHMATICS_RT_URL
-            .into_client_request()
-            .map_err(|error| SttError::ConnectionFailed(error.to_string()))?;
-        request.headers_mut().insert(
-            "Authorization",
-            HeaderValue::from_str(&format!("Bearer {}", self.config.api_key))
-                .map_err(|error| SttError::ConnectionFailed(error.to_string()))?,
-        );
-        let (stream, _) = tokio_tungstenite::connect_async(request)
-            .await
-            .map_err(|error| SttError::ConnectionFailed(error.to_string()))?;
+        let stream = open_speechmatics_stream(&self.config.api_key).await?;
         let (mut write, mut read) = stream.split();
         write
             .send(Message::Text(
@@ -200,73 +287,11 @@ impl SpeechmaticsClient {
             .await
             .map_err(|error| SttError::SendError(error.to_string()))?;
 
-        loop {
-            let frame = tokio::time::timeout(Duration::from_secs(15), read.next())
-                .await
-                .map_err(|_| SttError::ConnectionFailed("Speechmatics startup timed out".into()))?
-                .ok_or_else(|| SttError::ConnectionFailed("Speechmatics closed at startup".into()))?
-                .map_err(|error| SttError::ConnectionFailed(error.to_string()))?;
-            if let Message::Text(text) = frame {
-                let response: Response = serde_json::from_str(&text)
-                    .map_err(|error| SttError::ParseError(error.to_string()))?;
-                if response.message == "RecognitionStarted" {
-                    break;
-                }
-                if response.message == "Error" {
-                    return Err(parse_response(&text).unwrap_err());
-                }
-            }
-        }
+        wait_for_recognition_started(&mut read).await?;
         let _ = event_tx.send(TranscriptEvent::Connected).await;
 
         let (audio_tx, mut audio_commands) = mpsc::channel::<AudioCommand>(64);
-        let cancelled = self.cancelled.clone();
-        let audio_reader = tokio::task::spawn_blocking(move || {
-            let mut batch = Vec::with_capacity(BATCH_SAMPLES * 2);
-            let mut sequence = 0_u64;
-            loop {
-                if cancelled.load(Ordering::SeqCst) {
-                    let _ = audio_tx.blocking_send(AudioCommand::Finish(sequence));
-                    return;
-                }
-                match audio_rx.recv_timeout(Duration::from_millis(50)) {
-                    Ok(samples) => {
-                        for sample in samples {
-                            batch.extend_from_slice(&sample.to_le_bytes());
-                        }
-                        if batch.len() >= BATCH_SAMPLES * 2 {
-                            sequence += 1;
-                            if audio_tx
-                                .blocking_send(AudioCommand::Data(std::mem::take(&mut batch)))
-                                .is_err()
-                            {
-                                return;
-                            }
-                        }
-                    }
-                    Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                        if !batch.is_empty() {
-                            sequence += 1;
-                            if audio_tx
-                                .blocking_send(AudioCommand::Data(std::mem::take(&mut batch)))
-                                .is_err()
-                            {
-                                return;
-                            }
-                        }
-                    }
-                    Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
-                        if !batch.is_empty() {
-                            sequence += 1;
-                            let _ = audio_tx
-                                .blocking_send(AudioCommand::Data(std::mem::take(&mut batch)));
-                        }
-                        let _ = audio_tx.blocking_send(AudioCommand::Finish(sequence));
-                        return;
-                    }
-                }
-            }
-        });
+        let audio_reader = spawn_audio_reader(audio_rx, audio_tx, self.cancelled.clone());
 
         let mut finishing = false;
         loop {

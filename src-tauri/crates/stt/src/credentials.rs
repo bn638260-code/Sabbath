@@ -13,7 +13,7 @@ fn client() -> Result<Client, String> {
         .map_err(|error| format!("Could not prepare credential check: {error}"))
 }
 
-async fn validate_response(provider: &str, response: reqwest::Response) -> Result<(), String> {
+fn validate_response(provider: &str, response: &reqwest::Response) -> Result<(), String> {
     let status = response.status();
     if status.is_success() {
         return Ok(());
@@ -45,7 +45,7 @@ pub async fn validate_deepgram_api_key(api_key: &str) -> Result<(), String> {
         .send()
         .await
         .map_err(|error| format!("Could not reach Deepgram: {error}"))?;
-    validate_response("Deepgram", response).await
+    validate_response("Deepgram", &response)
 }
 
 pub async fn validate_soniox_api_key(api_key: &str) -> Result<(), String> {
@@ -55,7 +55,7 @@ pub async fn validate_soniox_api_key(api_key: &str) -> Result<(), String> {
         .send()
         .await
         .map_err(|error| format!("Could not reach Soniox: {error}"))?;
-    validate_response("Soniox", response).await
+    validate_response("Soniox", &response)
 }
 
 pub async fn validate_speechmatics_api_key(api_key: &str) -> Result<(), String> {
@@ -66,5 +66,5 @@ pub async fn validate_speechmatics_api_key(api_key: &str) -> Result<(), String> 
         .send()
         .await
         .map_err(|error| format!("Could not reach Speechmatics: {error}"))?;
-    validate_response("Speechmatics", response).await
+    validate_response("Speechmatics", &response)
 }
