@@ -1,3 +1,5 @@
+import type { SignedActivationLease } from "@/lib/verification/activation-lease"
+
 export type VerificationStatus =
   | "checking"
   | "verified"
@@ -11,6 +13,8 @@ export type VerificationErrorCode =
   | "invalid_credentials"
   | "email_not_confirmed"
   | "device_limit_reached"
+  | "device_pending"
+  | "device_revoked"
   | "suspended"
   | "trial_expired"
   | "network"
@@ -30,6 +34,8 @@ export interface VerificationStateSnapshot {
   errorCode: VerificationErrorCode | null
   /** Signed-in account email for display; absent in legacy stored metadata. */
   verifiedEmail?: string | null
+  isChurchOrganization: boolean
+  churchName: string | null
 }
 
 export interface VerificationSession {
@@ -43,4 +49,7 @@ export interface VerificationSession {
   accessExpiresAt: number | null
   /** Signed-in account email for display; absent in legacy stored metadata. */
   verifiedEmail?: string | null
+  isChurchOrganization: boolean
+  churchName: string | null
+  activationLease: SignedActivationLease | null
 }

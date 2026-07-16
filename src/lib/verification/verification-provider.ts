@@ -5,8 +5,13 @@ import {
   signOut as supabaseSignOut,
   signUpWithEmail,
 } from "@/lib/supabase/auth"
-import { registerDevice } from "@/lib/supabase/devices"
-import { getOrCreateDeviceId } from "@/lib/verification/device-id"
+import {
+  registerDevice,
+  type RegisterDeviceResult,
+} from "@/lib/supabase/devices"
+import { getOrCreateInstallationIdentity } from "@/lib/verification/device-id"
+import { verifyActivationLease } from "@/lib/verification/activation-lease"
+import type { SignedActivationLease } from "@/lib/verification/activation-lease"
 import {
   clearSessionMetadata,
   clearToken,
@@ -20,13 +25,14 @@ import type {
   VerificationSession,
   VerificationStateSnapshot,
 } from "@/types/verification"
+import type { SignUpProfile } from "@/lib/supabase/auth"
 
 const APP_VERSION = packageJson.version
 const ACCESS_ENDED_MESSAGE =
   "Your access has ended. Contact the developer to renew."
 
 /** How long a previously verified session may keep working without connectivity. */
-export const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000
+export const OFFLINE_GRACE_MS = 72 * 60 * 60 * 1000
 
 /**
  * Refresh the access token this many ms before it expires. The Supabase client
@@ -75,6 +81,8 @@ function emptySnapshot(
     error,
     errorCode,
     verifiedEmail: null,
+    isChurchOrganization: false,
+    churchName: null,
   }
 }
 
@@ -83,7 +91,11 @@ function sessionFromAuth(
   deviceId: string,
   accessTokenExpiresAt: number,
   email: string | null,
-  accessExpiresAt: number | null
+  accessExpiresAt: number | null,
+  isChurchOrganization: boolean,
+  churchName: string | null,
+  activationLease: SignedActivationLease,
+  leaseExpiresAt: number
 ): VerificationSession {
   const timestamp = now()
   return {
@@ -91,9 +103,12 @@ function sessionFromAuth(
     verifiedDeviceId: deviceId,
     accessTokenExpiresAt,
     lastVerifiedAt: timestamp,
-    offlineGraceExpiresAt: timestamp + OFFLINE_GRACE_MS,
+    offlineGraceExpiresAt: leaseExpiresAt,
     accessExpiresAt,
     verifiedEmail: email,
+    isChurchOrganization,
+    churchName,
+    activationLease,
   }
 }
 
@@ -111,6 +126,8 @@ function snapshotFromSession(
     error: null,
     errorCode: null,
     verifiedEmail: session.verifiedEmail ?? null,
+    isChurchOrganization: session.isChurchOrganization,
+    churchName: session.churchName,
   }
 }
 
@@ -119,11 +136,14 @@ async function completeVerification(
   accessTokenExpiresAt: number,
   email: string | null
 ): Promise<VerificationStateSnapshot> {
-  const deviceId = await getOrCreateDeviceId()
+  const identity = await getOrCreateInstallationIdentity()
+  const deviceId = identity.deviceId
   const registration = await registerDevice(
+    userId,
     deviceId,
     getRuntimeOs(),
-    APP_VERSION
+    APP_VERSION,
+    identity.publicKey
   )
 
   if (!registration.ok) {
@@ -132,6 +152,30 @@ async function completeVerification(
         "error",
         "This account is already registered on the maximum number of devices (2). Remove a device or contact support.",
         "device_limit_reached"
+      )
+    }
+
+    if (registration.code === "device_pending") {
+      return emptySnapshot(
+        "error",
+        "This computer is waiting for activation approval.",
+        "device_pending"
+      )
+    }
+
+    if (registration.code === "device_revoked") {
+      return emptySnapshot(
+        "error",
+        "This computer has been deactivated.",
+        "device_revoked"
+      )
+    }
+
+    if (registration.code === "device_identity_mismatch") {
+      return emptySnapshot(
+        "error",
+        "This computer could not prove its saved activation identity.",
+        "device_revoked"
       )
     }
 
@@ -155,35 +199,50 @@ async function completeVerification(
     )
   }
 
+  const lease = await verifyActivationLease(
+    registration.lease,
+    userId,
+    deviceId,
+    now()
+  )
+  if (!lease) {
+    return emptySnapshot(
+      "error",
+      "The activation service returned an invalid offline lease.",
+      "unknown"
+    )
+  }
+
   const session = sessionFromAuth(
     userId,
     deviceId,
     accessTokenExpiresAt,
     email,
-    registration.accessExpiresAt
+    registration.accessExpiresAt,
+    registration.isChurchOrganization,
+    registration.churchName,
+    registration.lease,
+    lease.expiresAt
   )
   await setSessionMetadata(session)
   return snapshotFromSession(session)
 }
 
 /**
- * Offline fallback: a session verified online within the grace window keeps
- * working when the network is unreachable. Legacy metadata written before
- * grace existed has offlineGraceExpiresAt = 0; derive the window from
- * lastVerifiedAt instead so those sessions are not locked out either.
+ * Offline fallback requires an unexpired server-signed activation lease.
  */
 async function offlineGraceSnapshot(): Promise<VerificationStateSnapshot | null> {
   const session = await getSessionMetadata()
   if (!session) return null
 
-  const graceExpiresAt =
-    session.offlineGraceExpiresAt > 0
-      ? session.offlineGraceExpiresAt
-      : session.lastVerifiedAt + OFFLINE_GRACE_MS
-  if (now() > graceExpiresAt) return null
-  if (session.accessExpiresAt === null || now() > session.accessExpiresAt) {
-    return null
-  }
+  if (!session.activationLease) return null
+  const lease = await verifyActivationLease(
+    session.activationLease,
+    session.verifiedUserId,
+    session.verifiedDeviceId,
+    now()
+  )
+  if (!lease) return null
 
   return snapshotFromSession(session)
 }
@@ -237,9 +296,10 @@ export async function signIn(
 
 export async function signUp(
   email: string,
-  password: string
+  password: string,
+  profile: SignUpProfile
 ): Promise<VerificationStateSnapshot> {
-  const result = await signUpWithEmail(email, password)
+  const result = await signUpWithEmail(email, password, profile)
   if (!result.ok) {
     return emptySnapshot("error", result.message, result.code)
   }
@@ -272,6 +332,40 @@ export async function clearVerification(): Promise<VerificationStateSnapshot> {
   return signOut()
 }
 
+async function heartbeatBlockFor(
+  registration: Exclude<RegisterDeviceResult, { ok: true }>
+): Promise<VerificationStateSnapshot | null> {
+  const details =
+    registration.code === "suspended"
+      ? [
+          "This account has been suspended. Contact support for assistance.",
+          "suspended",
+        ] as const
+      : registration.code === "trial_expired"
+        ? [ACCESS_ENDED_MESSAGE, "trial_expired"] as const
+        : registration.code === "device_limit_reached"
+          ? [
+              "This account is already registered on the maximum number of devices (2). Remove a device or contact support.",
+              "device_limit_reached",
+            ] as const
+          : registration.code === "device_pending"
+            ? [
+                "This computer is waiting for activation approval.",
+                "device_pending",
+              ] as const
+            : registration.code === "device_revoked"
+              ? ["This computer has been deactivated.", "device_revoked"] as const
+              : registration.code === "device_identity_mismatch"
+                ? [
+                    "This computer could not prove its saved activation identity.",
+                    "device_revoked",
+                  ] as const
+                : null
+  if (!details) return null
+  await clearSessionMetadata()
+  return emptySnapshot("error", details[0], details[1])
+}
+
 /**
  * Periodic re-registration while the app is running. Returns a blocking
  * snapshot when access was revoked mid-session; null means no state
@@ -281,8 +375,8 @@ export async function heartbeatDeviceRegistration(): Promise<VerificationStateSn
   if (!isTauriRuntime()) return null
 
   const cached = await getSessionMetadata()
+  if (!cached) return emptySnapshot("required")
   if (
-    cached &&
     now() > cached.accessTokenExpiresAt - ACCESS_TOKEN_REFRESH_SKEW_MS
   ) {
     const restored = await restoreSession()
@@ -297,36 +391,47 @@ export async function heartbeatDeviceRegistration(): Promise<VerificationStateSn
     })
   }
 
-  const deviceId = await getOrCreateDeviceId()
+  const identity = await getOrCreateInstallationIdentity()
+  const deviceId = identity.deviceId
   const registration = await registerDevice(
+    cached.verifiedUserId,
     deviceId,
     getRuntimeOs(),
-    APP_VERSION
+    APP_VERSION,
+    identity.publicKey
   )
 
-  if (!registration.ok && registration.code === "suspended") {
-    await clearSessionMetadata()
-    return emptySnapshot(
-      "error",
-      "This account has been suspended. Contact support for assistance.",
-      "suspended"
-    )
-  }
-
-  if (!registration.ok && registration.code === "trial_expired") {
-    await clearSessionMetadata()
-    return emptySnapshot("error", ACCESS_ENDED_MESSAGE, "trial_expired")
+  if (!registration.ok) {
+    const blockingSnapshot = await heartbeatBlockFor(registration)
+    if (blockingSnapshot) return blockingSnapshot
   }
 
   if (registration.ok) {
+    const lease = await verifyActivationLease(
+      registration.lease,
+      cached.verifiedUserId,
+      deviceId,
+      now()
+    )
+    if (!lease) {
+      await clearSessionMetadata()
+      return emptySnapshot(
+        "error",
+        "The activation service returned an invalid offline lease.",
+        "unknown"
+      )
+    }
     const session = await getSessionMetadata()
     if (session) {
       const timestamp = now()
       await setSessionMetadata({
         ...session,
         accessExpiresAt: registration.accessExpiresAt,
+        isChurchOrganization: registration.isChurchOrganization,
+        churchName: registration.churchName,
         lastVerifiedAt: timestamp,
-        offlineGraceExpiresAt: timestamp + OFFLINE_GRACE_MS,
+        offlineGraceExpiresAt: lease.expiresAt,
+        activationLease: registration.lease,
       })
     }
   }

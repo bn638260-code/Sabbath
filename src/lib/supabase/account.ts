@@ -10,6 +10,9 @@ export interface AdminAccountRow {
   device_count: number
   last_seen_at: string | null
   is_admin: boolean
+  is_church_organization: boolean
+  church_name: string | null
+  offline_lease_hours: number
 }
 
 export type AccountActionResult = { ok: true } | { ok: false; message: string }
@@ -42,7 +45,10 @@ function isAdminAccountRow(value: unknown): value is AdminAccountRow {
     typeof row.user_id === "string" &&
     typeof row.suspended === "boolean" &&
     typeof row.device_count === "number" &&
-    typeof row.is_admin === "boolean"
+    typeof row.is_admin === "boolean" &&
+    typeof row.is_church_organization === "boolean" &&
+    (row.church_name === null || typeof row.church_name === "string")
+    && typeof row.offline_lease_hours === "number"
   )
 }
 
@@ -89,6 +95,18 @@ export async function adminSetAccess(
   })
   if (!result.ok) return { ok: false, message: result.message }
   return { ok: true }
+}
+
+export async function adminSetOfflineLeaseHours(
+  userId: string,
+  hours: 24 | 72 | 168
+): Promise<AccountActionResult> {
+  const result = await callRpc<null>("admin_set_offline_lease_hours", {
+    args: { p_user_id: userId, p_hours: hours },
+    errorFallback: "Offline lease update failed.",
+    catchFallback: ACCOUNT_CATCH,
+  })
+  return result.ok ? { ok: true } : { ok: false, message: result.message }
 }
 
 export async function adminDeleteAccount(

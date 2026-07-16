@@ -16,6 +16,7 @@ keychain. The `.env` file is mainly for build-time app configuration.
 | ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `VITE_SUPABASE_URL`      | Yes for verified app builds | Supabase project URL used by the desktop verification gate.                                                              |
 | `VITE_SUPABASE_ANON_KEY` | Yes for verified app builds | Supabase anon key used by the desktop verification gate.                                                                 |
+| `VITE_ACTIVATION_LEASE_PUBLIC_KEY` | Yes for verified app builds | Public P-256 key used to verify signed 72-hour offline activation leases. |
 | `GITHUB_TOKEN`           | Optional                    | Used by the marketing site to fetch up-to-date star counts at build time without hitting the unauthenticated rate limit. |
 
 ## Where to put them
@@ -26,6 +27,7 @@ Create a file called `.env` in the project root (the same folder as
 ```bash
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_ACTIVATION_LEASE_PUBLIC_KEY=your-p256-spki-public-key-base64
 ```
 
 Restart the dev server after editing `.env` so the new value is

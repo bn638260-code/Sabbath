@@ -69,6 +69,8 @@ sysinfo = { version = "0.36", default-features = false, features = ["system"] }
 tauri-plugin-dialog = "2"
 keyring = { version = "3", features = ["windows-native"] }
 rand = "0.9"
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
+sha2 = "0.10"
 tempfile = "3"
 
 [dev-dependencies]

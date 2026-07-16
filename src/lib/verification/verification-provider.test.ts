@@ -5,12 +5,14 @@ const mockSignInWithEmail = vi.fn()
 const mockSignUpWithEmail = vi.fn()
 const mockSupabaseSignOut = vi.fn()
 const mockRegisterDevice = vi.fn()
-const mockGetOrCreateDeviceId = vi.fn()
+const mockGetOrCreateInstallationIdentity = vi.fn()
 const mockGetRefreshToken = vi.fn()
 const mockGetSessionMetadata = vi.fn()
 const mockSetSessionMetadata = vi.fn()
 const mockClearSessionMetadata = vi.fn()
 const mockClearToken = vi.fn()
+const mockVerifyActivationLease = vi.fn()
+const signedLease = { payload: "lease-payload", signature: "lease-signature" }
 
 vi.mock("@/lib/supabase/auth", () => ({
   restoreSession: (...args: unknown[]) => mockRestoreSession(...args),
@@ -24,7 +26,13 @@ vi.mock("@/lib/supabase/devices", () => ({
 }))
 
 vi.mock("@/lib/verification/device-id", () => ({
-  getOrCreateDeviceId: (...args: unknown[]) => mockGetOrCreateDeviceId(...args),
+  getOrCreateInstallationIdentity: (...args: unknown[]) =>
+    mockGetOrCreateInstallationIdentity(...args),
+}))
+
+vi.mock("@/lib/verification/activation-lease", () => ({
+  verifyActivationLease: (...args: unknown[]) =>
+    mockVerifyActivationLease(...args),
 }))
 
 vi.mock("@/lib/verification/session-storage", () => ({
@@ -44,19 +52,37 @@ describe("verification-provider", () => {
     mockSignUpWithEmail.mockReset()
     mockSupabaseSignOut.mockReset()
     mockRegisterDevice.mockReset()
-    mockGetOrCreateDeviceId.mockReset()
+    mockGetOrCreateInstallationIdentity.mockReset()
     mockGetRefreshToken.mockReset()
     mockGetSessionMetadata.mockReset()
     mockSetSessionMetadata.mockReset()
     mockClearSessionMetadata.mockReset()
     mockClearToken.mockReset()
+    mockVerifyActivationLease.mockReset()
 
-    mockGetOrCreateDeviceId.mockResolvedValue("device-1")
+    mockGetOrCreateInstallationIdentity.mockResolvedValue({
+      deviceId: "device-1",
+      publicKey: "public-key",
+    })
     mockRegisterDevice.mockResolvedValue({
       ok: true,
       accessExpiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      isChurchOrganization: false,
+      churchName: null,
+      lease: signedLease,
     })
-    mockGetSessionMetadata.mockResolvedValue(null)
+    mockGetSessionMetadata.mockResolvedValue({
+      verifiedUserId: "user-1",
+      verifiedDeviceId: "device-1",
+      accessTokenExpiresAt: Date.now() + 3_600_000,
+      lastVerifiedAt: Date.now() - 60_000,
+      offlineGraceExpiresAt: Date.now() + 60_000,
+      accessExpiresAt: Date.now() + 60_000,
+      activationLease: signedLease,
+    })
+    mockVerifyActivationLease.mockResolvedValue({
+      expiresAt: Date.now() + 60_000,
+    })
   })
 
   it("loadCachedVerification returns required when no keychain token exists", async () => {
@@ -89,6 +115,7 @@ describe("verification-provider", () => {
   })
 
   it("loadCachedVerification returns error(network) when restore fails offline with no cached session", async () => {
+    mockGetSessionMetadata.mockResolvedValue(null)
     mockGetRefreshToken.mockResolvedValue("stored-token")
     mockRestoreSession.mockResolvedValue({
       ok: false,
@@ -122,6 +149,7 @@ describe("verification-provider", () => {
       lastVerifiedAt: Date.now() - 60_000,
       offlineGraceExpiresAt: Date.now() + 60_000,
       accessExpiresAt: Date.now() + 60_000,
+      activationLease: signedLease,
     })
 
     const { loadCachedVerification } =
@@ -137,7 +165,7 @@ describe("verification-provider", () => {
     )
   })
 
-  it("loadCachedVerification derives the grace window from lastVerifiedAt when access is active", async () => {
+  it("loadCachedVerification rejects legacy offline metadata without a signed lease", async () => {
     mockGetRefreshToken.mockResolvedValue("stored-token")
     mockRestoreSession.mockResolvedValue({
       ok: false,
@@ -157,10 +185,13 @@ describe("verification-provider", () => {
       await import("@/lib/verification/verification-provider")
     const result = await loadCachedVerification()
 
-    expect(result.status).toBe("verified")
+    expect(result).toEqual(
+      expect.objectContaining({ status: "error", errorCode: "network" })
+    )
   })
 
   it("loadCachedVerification denies offline grace once the window has expired", async () => {
+    mockVerifyActivationLease.mockResolvedValue(null)
     mockGetRefreshToken.mockResolvedValue("stored-token")
     mockRestoreSession.mockResolvedValue({
       ok: false,
@@ -174,6 +205,7 @@ describe("verification-provider", () => {
       lastVerifiedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
       offlineGraceExpiresAt: Date.now() - 60_000,
       accessExpiresAt: Date.now() + 60_000,
+      activationLease: signedLease,
     })
 
     const { loadCachedVerification } =
@@ -186,6 +218,7 @@ describe("verification-provider", () => {
   })
 
   it("loadCachedVerification denies offline grace once account access has expired", async () => {
+    mockVerifyActivationLease.mockResolvedValue(null)
     mockGetRefreshToken.mockResolvedValue("stored-token")
     mockRestoreSession.mockResolvedValue({
       ok: false,
@@ -199,6 +232,7 @@ describe("verification-provider", () => {
       lastVerifiedAt: Date.now() - 60_000,
       offlineGraceExpiresAt: Date.now() + 60_000,
       accessExpiresAt: Date.now() - 1000,
+      activationLease: signedLease,
     })
 
     const { loadCachedVerification } =
@@ -230,6 +264,7 @@ describe("verification-provider", () => {
       lastVerifiedAt: Date.now() - 60_000,
       offlineGraceExpiresAt: Date.now() + 60_000,
       accessExpiresAt: Date.now() + 60_000,
+      activationLease: signedLease,
     })
 
     const { loadCachedVerification } =
@@ -349,7 +384,12 @@ describe("verification-provider", () => {
     })
 
     const { signUp } = await import("@/lib/verification/verification-provider")
-    const result = await signUp("user@example.com", "secret")
+    const profile = {
+      isChurchOrganization: true,
+      churchName: "Central SDA Church",
+      lease: signedLease,
+    }
+    const result = await signUp("user@example.com", "secret", profile)
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -358,10 +398,21 @@ describe("verification-provider", () => {
         errorCode: null,
       })
     )
+    expect(mockSignUpWithEmail).toHaveBeenCalledWith(
+      "user@example.com",
+      "secret",
+      profile
+    )
     expect(mockRegisterDevice).not.toHaveBeenCalled()
   })
 
   it("signUp verifies the immediate auth session without restoring it", async () => {
+    mockRegisterDevice.mockResolvedValue({
+      ok: true,
+      accessExpiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      isChurchOrganization: true,
+      churchName: "Central SDA Church",
+    })
     mockSignUpWithEmail.mockResolvedValue({
       ok: true,
       needsEmailConfirmation: false,
@@ -372,7 +423,10 @@ describe("verification-provider", () => {
     })
 
     const { signUp } = await import("@/lib/verification/verification-provider")
-    const result = await signUp("user@example.com", "secret")
+    const result = await signUp("user@example.com", "secret", {
+      isChurchOrganization: true,
+      churchName: "Central SDA Church",
+    })
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -380,6 +434,8 @@ describe("verification-provider", () => {
         verifiedUserId: "user-3",
         verifiedDeviceId: "device-1",
         verifiedEmail: "user@example.com",
+        isChurchOrganization: true,
+        churchName: "Central SDA Church",
       })
     )
     expect(mockRestoreSession).not.toHaveBeenCalled()
@@ -412,11 +468,49 @@ describe("verification-provider", () => {
     expect(mockClearSessionMetadata).toHaveBeenCalled()
   })
 
+  it("heartbeat blocks an active session when the device limit is returned", async () => {
+    mockRegisterDevice.mockResolvedValue({
+      ok: false,
+      code: "device_limit_reached",
+    })
+
+    const { heartbeatDeviceRegistration } =
+      await import("@/lib/verification/verification-provider")
+    const result = await heartbeatDeviceRegistration()
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "error",
+        errorCode: "device_limit_reached",
+      })
+    )
+    expect(mockClearSessionMetadata).toHaveBeenCalled()
+  })
+
+  it.each(["device_pending", "device_revoked"] as const)(
+    "heartbeat blocks an active session when the server returns %s",
+    async (errorCode) => {
+      mockRegisterDevice.mockResolvedValue({ ok: false, code: errorCode })
+
+      const { heartbeatDeviceRegistration } =
+        await import("@/lib/verification/verification-provider")
+      const result = await heartbeatDeviceRegistration()
+
+      expect(result).toEqual(
+        expect.objectContaining({ status: "error", errorCode })
+      )
+      expect(mockClearSessionMetadata).toHaveBeenCalled()
+    }
+  )
+
   it("heartbeat refreshes cached access expiry on success", async () => {
     const nextAccessExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000
     mockRegisterDevice.mockResolvedValue({
       ok: true,
       accessExpiresAt: nextAccessExpiresAt,
+      isChurchOrganization: false,
+      churchName: null,
+      lease: signedLease,
     })
     mockGetSessionMetadata.mockResolvedValue({
       verifiedUserId: "user-1",
@@ -426,6 +520,7 @@ describe("verification-provider", () => {
       offlineGraceExpiresAt: Date.now() + 60_000,
       accessExpiresAt: Date.now() + 60_000,
       verifiedEmail: "user@example.com",
+      activationLease: signedLease,
     })
 
     const { heartbeatDeviceRegistration } =

@@ -58,6 +58,10 @@ function formatErrorMessage(
         error ??
         "This account is already registered on the maximum number of devices."
       )
+    case "device_pending":
+      return "This computer is waiting for activation approval. Ask an administrator to approve it."
+    case "device_revoked":
+      return "This computer has been deactivated. Reactivate it from an approved computer or contact an administrator."
     case "suspended":
       return (
         error ??
@@ -316,18 +320,26 @@ function AuthFields({
   email,
   password,
   confirmPassword,
+  isChurchOrganization,
+  churchName,
   onEmailChange,
   onPasswordChange,
   onConfirmPasswordChange,
+  onChurchOrganizationChange,
+  onChurchNameChange,
 }: {
   mode: AuthMode
   busy: boolean
   email: string
   password: string
   confirmPassword: string
+  isChurchOrganization: boolean
+  churchName: string
   onEmailChange: (email: string) => void
   onPasswordChange: (password: string) => void
   onConfirmPasswordChange: (password: string) => void
+  onChurchOrganizationChange: (selected: boolean) => void
+  onChurchNameChange: (name: string) => void
 }) {
   return (
     <>
@@ -357,15 +369,48 @@ function AuthFields({
         onChange={(event) => onPasswordChange(event.target.value)}
       />
       {mode === "create-account" ? (
-        <Field
-          autoComplete="new-password"
-          disabled={busy}
-          label="Confirm password"
-          placeholder="Confirm password"
-          type="password"
-          value={confirmPassword}
-          onChange={(event) => onConfirmPasswordChange(event.target.value)}
-        />
+        <>
+          <Field
+            autoComplete="new-password"
+            disabled={busy}
+            label="Confirm password"
+            placeholder="Confirm password"
+            type="password"
+            value={confirmPassword}
+            onChange={(event) => onConfirmPasswordChange(event.target.value)}
+          />
+          <label className="flex items-start gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-3 py-2 text-left">
+            <input
+              checked={isChurchOrganization}
+              className="mt-0.5 size-4 accent-[var(--brand-accent)]"
+              disabled={busy}
+              type="checkbox"
+              onChange={(event) =>
+                onChurchOrganizationChange(event.target.checked)
+              }
+            />
+            <span>
+              <span className="block text-sm font-medium text-foreground">
+                We are a church organization
+              </span>
+              <span className="block text-[11px] leading-relaxed text-muted-foreground">
+                Adds a self-declared church badge to this account.
+              </span>
+            </span>
+          </label>
+          {isChurchOrganization ? (
+            <Field
+              autoComplete="organization"
+              disabled={busy}
+              help="Required for church organization accounts."
+              label="Church name"
+              maxLength={120}
+              placeholder="Example Seventh-day Adventist Church"
+              value={churchName}
+              onChange={(event) => onChurchNameChange(event.target.value)}
+            />
+          ) : null}
+        </>
       ) : null}
     </>
   )
@@ -605,6 +650,8 @@ function AuthPanel({
   email,
   password,
   confirmPassword,
+  isChurchOrganization,
+  churchName,
   message,
   tone,
   canRetry,
@@ -613,6 +660,8 @@ function AuthPanel({
   onEmailChange,
   onPasswordChange,
   onConfirmPasswordChange,
+  onChurchOrganizationChange,
+  onChurchNameChange,
   onSignIn,
   onSignUp,
   onForgotPassword,
@@ -626,6 +675,8 @@ function AuthPanel({
   email: string
   password: string
   confirmPassword: string
+  isChurchOrganization: boolean
+  churchName: string
   message: string | null
   tone: NoticeTone
   canRetry: boolean
@@ -634,6 +685,8 @@ function AuthPanel({
   onEmailChange: (email: string) => void
   onPasswordChange: (password: string) => void
   onConfirmPasswordChange: (password: string) => void
+  onChurchOrganizationChange: (selected: boolean) => void
+  onChurchNameChange: (name: string) => void
   onSignIn: (event: FormEvent<HTMLFormElement>) => void
   onSignUp: (event: FormEvent<HTMLFormElement>) => void
   onForgotPassword: () => void
@@ -674,10 +727,14 @@ function AuthPanel({
         <AuthFields
           busy={busy}
           confirmPassword={confirmPassword}
+          isChurchOrganization={isChurchOrganization}
+          churchName={churchName}
           email={email}
           mode={mode}
           password={password}
           onConfirmPasswordChange={onConfirmPasswordChange}
+          onChurchOrganizationChange={onChurchOrganizationChange}
+          onChurchNameChange={onChurchNameChange}
           onEmailChange={onEmailChange}
           onPasswordChange={onPasswordChange}
         />
@@ -720,6 +777,8 @@ export function VerificationScreen() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [isChurchOrganization, setIsChurchOrganization] = useState(false)
+  const [churchName, setChurchName] = useState("")
   const [localMessage, setLocalMessage] = useState<string | null>(null)
   const [localTone, setLocalTone] = useState<NoticeTone>("info")
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
@@ -741,6 +800,8 @@ export function VerificationScreen() {
     setLocalMessage(null)
     setLocalTone("info")
     setConfirmPassword("")
+    setIsChurchOrganization(false)
+    setChurchName("")
   }
 
   function validateCredentials(
@@ -780,10 +841,22 @@ export function VerificationScreen() {
       setLocalMessage("Passwords do not match.")
       return
     }
+    const normalizedChurchName = churchName.trim()
+    if (
+      isChurchOrganization &&
+      (normalizedChurchName.length < 2 || normalizedChurchName.length > 120)
+    ) {
+      setLocalTone("error")
+      setLocalMessage("Enter a church name between 2 and 120 characters.")
+      return
+    }
 
     setLocalMessage(null)
     setPendingAction("create-account")
-    await signUp(nextEmail, password)
+    await signUp(nextEmail, password, {
+      isChurchOrganization,
+      churchName: isChurchOrganization ? normalizedChurchName : null,
+    })
 
     const nextState = useVerificationStore.getState()
     if (nextState.status === "required" && nextState.error) {
@@ -857,6 +930,8 @@ export function VerificationScreen() {
                     busy={isBusy}
                     canRetry={feedback.canRetry}
                     confirmPassword={confirmPassword}
+                    isChurchOrganization={isChurchOrganization}
+                    churchName={churchName}
                     email={email}
                     message={feedback.message}
                     mode={mode}
@@ -867,6 +942,11 @@ export function VerificationScreen() {
                     tone={feedback.tone}
                     onClearSession={() => void signOut()}
                     onConfirmPasswordChange={setConfirmPassword}
+                    onChurchOrganizationChange={(selected) => {
+                      setIsChurchOrganization(selected)
+                      if (!selected) setChurchName("")
+                    }}
+                    onChurchNameChange={setChurchName}
                     onEmailChange={setEmail}
                     onForgotPassword={() => {
                       setLocalMessage(null)

@@ -1,5 +1,5 @@
 # Codebase Map - SabbathCue
-Created: 2026-07-12 - Last verified: 2026-07-15 - Confidence: Medium
+Created: 2026-07-12 - Last verified: 2026-07-16 - Confidence: Medium
 
 ## 0 - Snapshot
 | Field | Value |
@@ -68,6 +68,9 @@ Core modules:
 | Settings store | src/stores/settings-store.ts:6 | STT provider setting and cloud key status | Settings UI, transcript panel, transcription hook |
 | Verification store | src/stores/verification-store.ts:20 | Bounds startup/session refresh checks and exposes auth state | Verification gate and sign-in screen |
 | Verification provider | src/lib/verification/verification-provider.ts:191 | Restores sessions, clears expired credentials, and verifies device access | Verification store and heartbeat |
+| Supabase account profile | supabase/migrations/008_church_organization_profiles.sql:4 | Stores optional self-declared church organization identity and exposes it through device/admin RPCs | Signup, verification session, operator badge, admin account list |
+| Device activation boundary | supabase/functions/device-activation/index.ts:178 | Verifies installation-key signatures, invokes service-role-only activation RPCs, and signs offline leases | Verification provider and account device management |
+| Installation identity | src-tauri/src/commands/installation_identity.rs:1 | Owns the P-256 private key in the OS keychain and exposes public identity/challenge signing | Device registration and approval |
 | STT provider routing | src-tauri/src/commands/stt/provider.rs:95 | Selects Vosk, Deepgram, or Soniox and handles removed providers | Tauri STT commands |
 | Collected detections store | src/stores/collected-detections-store.ts:48 | Session-scoped reuse list of presented/queued detections | Detections panel |
 | Detection actions | src/components/panels/detections-panel.tsx:144 | Shared preview/present/queue closures for detection types | Detection cards, latest bar, collection UI |
@@ -88,6 +91,50 @@ Rejected refresh tokens clear token plus metadata and return required
   -> src/lib/verification/verification-provider.ts:200
 Verification gate renders the sign-in screen for required/error states
   -> src/components/verification/VerificationGate.tsx:22
+```
+
+### Flow: self-declared church organization signup and badges
+```text
+Trial signup optionally collects a church organization name and validates 2-120 characters
+  -> src/components/verification/VerificationScreen.tsx:313
+  -> src/components/verification/VerificationScreen.tsx:826
+Supabase signup metadata is copied into account_flags by the new-user trigger
+  -> src/lib/supabase/auth.ts:93
+  -> supabase/migrations/008_church_organization_profiles.sql:23
+Device registration returns the canonical profile into the verified desktop session
+  -> supabase/migrations/008_church_organization_profiles.sql:64
+  -> src/lib/supabase/devices.ts:58
+The operator strip renders the church badge and admins receive the same fields in their account list
+  -> src/components/layout/operator-status-strip.tsx:38
+  -> supabase/migrations/008_church_organization_profiles.sql:166
+  -> src/components/settings/sections/AccountSection.tsx:173
+```
+
+### Flow: approved-computer activation and signed offline lease
+```text
+Native command creates or restores a P-256 installation key in the OS credential manager
+and preserves an existing verification.json device ID during migration
+  -> src-tauri/src/commands/installation_identity.rs:1
+  -> src/lib/verification/device-id.ts:64
+Registration and existing-computer approval sign action-specific, timestamped challenges
+  -> src/lib/supabase/devices.ts:179
+  -> src/lib/supabase/devices.ts:224
+Authenticated Edge Function verifies the caller JWT and installation signature, then calls
+service-role-only register/approve RPCs
+  -> supabase/functions/device-activation/index.ts:178
+  -> supabase/migrations/009_device_activation_management.sql:32
+  -> supabase/migrations/009_device_activation_management.sql:162
+Successful registration returns a signed lease with a 72-hour default and admin policy
+choices of 24, 72, or 168 hours
+  -> supabase/functions/device-activation/index.ts:135
+  -> supabase/migrations/009_device_activation_management.sql:203
+Offline startup verifies signature, user, device, account expiry, and lease expiry before access
+  -> src/lib/verification/activation-lease.ts:51
+  -> src/lib/verification/verification-provider.ts:231
+Heartbeat classifies suspension, expiry, pending, revoked, identity mismatch, and device limit
+as blocking responses
+  -> src/lib/verification/verification-provider.ts:335
+  -> src/lib/verification/verification-provider.ts:374
 ```
 
 ### Flow: STT provider selection
@@ -232,8 +279,11 @@ Build script imports the generated JSON into egw_books / egw_paragraphs
 | Broadcast themes | Broadcast Zustand slice | activeThemeId, themes, kinetic flag | Theme catalog and renderer | src/components/broadcast/KineticThemesPage.tsx:146, src/components/broadcast/theme-library.tsx:54 |
 | Bible/EGW content | SQLite | translations, verses, EGW paragraphs | Search/detection/presentation | README.md:49, src-tauri/Cargo.toml:75 |
 | EGW source JSON | data/sources/egw/*.json | book_number, chapter, paragraph, page, page_paragraph, text | Built into SQLite by `build:egw` | data/build-egw.ts:2, data/validate-egw-sources.ts:7 |
+| Account flags | Supabase Postgres | user_id, access_expires_at, suspended, is_church_organization, church_name | Auth user, registered devices, admin account list | supabase/migrations/008_church_organization_profiles.sql:4 |
+| Device activations | Supabase Postgres | user_id, device_id, public_key, status, first/last seen, approved/revoked timestamps | Account, installation identity, admin/user management | supabase/migrations/009_device_activation_management.sql:4 |
+| Signed activation lease | Tauri store, verified against build-time public key | payload, signature, user/device binding, issued/expires/access expiry | Offline verification session | src/lib/verification/activation-lease.ts:1, src/lib/verification/session-storage.ts:21 |
 
-Migrations / schema management: not fully mapped in this pass. See open questions.
+Account/access schema changes are versioned in `/supabase/migrations`; migration 008 extends the existing trial/device/admin RPC contract with the optional church organization profile. Receipt: supabase/migrations/008_church_organization_profiles.sql:1.
 
 ## 8 - Interfaces & integrations
 Public interfaces:
@@ -249,6 +299,8 @@ External services:
 | Soniox | Cloud STT | watch | src-tauri/crates/stt/src/lib.rs:12 |
 | Speechmatics | Cloud STT | watch | src-tauri/crates/stt/src/speechmatics.rs:17 |
 | Vosk | Local STT worker/model | healthy | src-tauri/crates/stt/src/lib.rs:39 |
+| Supabase | Account auth, trial/device access, optional church profile, admin account listing | critical | src/lib/supabase/client.ts:6, supabase/migrations/008_church_organization_profiles.sql:23 |
+| Supabase Edge Function | Installation proof verification and signed activation lease issuance | critical | supabase/functions/device-activation/index.ts:178 |
 
 ## 9 - Configuration & environments
 | Variable / setting | Purpose | Required | Default | Read at |
@@ -260,6 +312,9 @@ External services:
 | Soniox API key | Cloud STT auth | only for Soniox | absent | src/stores/settings-store.ts:190 |
 | Speechmatics API key | Cloud STT auth | only for Speechmatics | absent | src/stores/settings-store.ts:198 |
 | Vosk model/worker resources | Local STT runtime | required for local STT | downloaded/bundled by scripts | src-tauri/tauri.conf.json:42, src-tauri/tauri.conf.json:44 |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Supabase account/auth client | required for account-enabled builds | absent | src/lib/supabase/client.ts:6 |
+| `VITE_ACTIVATION_LEASE_PUBLIC_KEY` | Verify server-signed offline leases | required for offline access | absent | src/lib/verification/activation-lease.ts:94 |
+| `ACTIVATION_LEASE_PRIVATE_KEY` | Sign offline leases in the Edge Function | required in Supabase Function secrets | absent | supabase/functions/device-activation/index.ts:64 |
 
 Environments: development uses Vite/Tauri commands; release uses Tauri build and bundled public assets. Receipts: package.json:7, package.json:14, README.md:32.
 
@@ -272,10 +327,14 @@ npm.cmd run typecheck
 npm.cmd run test:unit
 # Result before edits: 128 files passed, 934 tests passed, 1 skipped.
 # Result after implementation: 131 files passed, 941 tests passed, 1 skipped.
+# Result after church organization signup/profile implementation: 134 files passed, 964 tests passed, 1 skipped.
+# Result after approved-computer activation hardening: 136 files passed, 981 tests passed, 1 skipped.
 
 npm.cmd run lint
 # Result before edits: passed with existing complexity warning in data/lib/egw-pdf-importer.ts.
 # Result after implementation: passed with the same existing complexity warning in data/lib/egw-pdf-importer.ts.
+# Result after church organization signup/profile implementation: passed with three existing data/test complexity warnings and no errors.
+# Result after approved-computer activation hardening: passed with the same three existing data/test complexity warnings and no new warnings.
 
 cargo test --workspace
 # Result before edits: passed.
@@ -289,6 +348,8 @@ npx.cmd vitest run src/lib/quick-search.test.ts src/components/panels/search/Qui
 
 npm.cmd run build
 # Result after implementation: passed; Vite reported existing large chunk warning class.
+# Result after church organization signup/profile implementation: passed; Vite reported the existing large chunk warning class.
+# Result after approved-computer activation hardening: passed; Vite reported the existing large chunk warning class.
 
 git diff --check
 # Result after implementation: passed; Git reported line-ending notices only.
@@ -356,3 +417,5 @@ Top risks (ranked): 1. STT provider removal can leave stale docs or tests if his
 | 2026-07-15 | Added provider-specific cloud-key onboarding and validation plus Speechmatics real-time transcription. | 2, 5-9, 15 |
 | 2026-07-16 | Added provider-aware visible transcript coalescing for adjacent Speechmatics final spans without delaying detection. | 6, 15 |
 | 2026-07-16 | Tuned Deepgram endpointing to 250 ms and Speechmatics flexible final delay to 1.0 second. | 9, 15 |
+| 2026-07-16 | Added optional self-declared church organization signup metadata, verified-session/operator badge display, and admin account visibility. | 5-10, 15 |
+| 2026-07-16 | Replaced UUID-only device counting with managed approved/pending/revoked activations, OS-keychain P-256 identity proof, service-role-only registration/approval, and signed configurable offline leases. | 5-11, 15 |

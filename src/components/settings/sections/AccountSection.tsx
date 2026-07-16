@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import {
   BanIcon,
   CalendarPlusIcon,
+  LaptopIcon,
   LogOutIcon,
   RefreshCwIcon,
   ShieldIcon,
@@ -14,6 +15,7 @@ import {
   adminDeleteAccount,
   adminListAccounts,
   adminSetAccess,
+  adminSetOfflineLeaseHours,
   adminSetSuspended,
   deleteOwnAccount,
   fetchIsAdmin,
@@ -26,10 +28,24 @@ import {
 } from "@/lib/support-contact"
 import { useVerificationStore } from "@/stores/verification-store"
 import { AnnouncementsAdminPanel } from "@/components/settings/sections/AnnouncementsAdminPanel"
+import {
+  adminListDevices,
+  adminSetDeviceStatus,
+  approveOwnDevice,
+  deactivateOwnDevice,
+  listOwnDevices,
+  type DeviceActivation,
+} from "@/lib/supabase/devices"
 
 const ACCESS_EXTENSION_OPTIONS = [
   { days: 30, label: "Extend 30 days", toastLabel: "30 days" },
   { days: 365, label: "Extend 1 year", toastLabel: "1 year" },
+] as const
+
+const OFFLINE_LEASE_OPTIONS = [
+  { hours: 24, label: "24h" },
+  { hours: 72, label: "72h" },
+  { hours: 168, label: "7d" },
 ] as const
 
 function formatTimestamp(value: string | null): string {
@@ -48,6 +64,214 @@ function formatAccessExpiry(value: string | null, isAdmin: boolean): string {
   return parsed.getTime() <= Date.now()
     ? `ended ${parsed.toLocaleString()}`
     : `until ${parsed.toLocaleString()}`
+}
+
+function DeviceStatusBadge({ status }: { status: DeviceActivation["status"] }) {
+  const classes =
+    status === "approved"
+      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+      : status === "pending"
+        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+        : "bg-destructive/15 text-destructive"
+  return (
+    <span className={`rounded px-1.5 py-0.5 text-[10px] tracking-wide uppercase ${classes}`}>
+      {status}
+    </span>
+  )
+}
+
+function DeviceSummary({
+  device,
+  isCurrent = false,
+}: {
+  device: DeviceActivation
+  isCurrent?: boolean
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="truncate text-sm font-medium">
+          {device.label ?? `${device.os ?? "Unknown"} computer`}
+        </p>
+        {isCurrent ? (
+          <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] tracking-wide text-primary uppercase">
+            This computer
+          </span>
+        ) : null}
+        <DeviceStatusBadge status={device.status} />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {device.os ?? "Unknown OS"}
+        {device.appVersion ? ` · SabbathCue ${device.appVersion}` : ""}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Last seen {formatTimestamp(device.lastSeenAt)}
+      </p>
+    </div>
+  )
+}
+
+function OwnDevicesPanel({ onCurrentDeactivated }: { onCurrentDeactivated: () => Promise<void> }) {
+  const currentDeviceId = useVerificationStore((s) => s.verifiedDeviceId)
+  const currentUserId = useVerificationStore((s) => s.verifiedUserId)
+  const [devices, setDevices] = useState<DeviceActivation[]>([])
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState<string | null>(null)
+  const [busyDeviceId, setBusyDeviceId] = useState<string | null>(null)
+
+  const loadDevices = useCallback(async () => {
+    setLoading(true)
+    const result = await listOwnDevices()
+    if (result.ok) {
+      setDevices(result.devices)
+      setMessage(null)
+    } else {
+      setMessage(result.message)
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void listOwnDevices().then((result) => {
+      if (cancelled) return
+      if (result.ok) {
+        setDevices(result.devices)
+        setMessage(null)
+      } else {
+        setMessage(result.message)
+      }
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function deactivate(device: DeviceActivation) {
+    setBusyDeviceId(device.deviceId)
+    const result = await deactivateOwnDevice(device.deviceId)
+    setBusyDeviceId(null)
+    if (!result.ok) {
+      toast.error(result.message)
+      return
+    }
+    toast.success("Computer deactivated.")
+    if (device.deviceId === currentDeviceId) {
+      await onCurrentDeactivated()
+      return
+    }
+    await loadDevices()
+  }
+
+  async function approve(device: DeviceActivation) {
+    if (!currentUserId) return
+    setBusyDeviceId(device.deviceId)
+    const result = await approveOwnDevice(currentUserId, device.deviceId)
+    setBusyDeviceId(null)
+    if (!result.ok) {
+      toast.error(result.message)
+      return
+    }
+    toast.success("Computer approved.")
+    await loadDevices()
+  }
+
+  const currentIsApproved = devices.some(
+    (device) =>
+      device.deviceId === currentDeviceId && device.status === "approved"
+  )
+
+  return (
+    <div className="glass-panel space-y-3 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">Activated computers</p>
+          <p className="text-xs text-muted-foreground">
+            Up to two approved computers. Deactivated computers cannot reconnect without approval.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" disabled={loading} onClick={() => void loadDevices()}>
+          <RefreshCwIcon className="mr-1.5 size-3.5" />
+          Refresh
+        </Button>
+      </div>
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Loading computers...</p>
+      ) : message ? (
+        <p className="text-xs text-destructive">{message}</p>
+      ) : (
+        <div className="space-y-2">
+          {devices.map((device) => (
+            <div key={device.deviceId} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] p-3">
+              <DeviceSummary device={device} isCurrent={device.deviceId === currentDeviceId} />
+              {device.status === "pending" && currentIsApproved ? (
+                <Button variant="outline" size="sm" disabled={busyDeviceId === device.deviceId} onClick={() => void approve(device)}>
+                  Approve
+                </Button>
+              ) : device.status === "revoked" ? null : (
+                <Button variant="outline" size="sm" disabled={busyDeviceId === device.deviceId} onClick={() => void deactivate(device)}>
+                  {device.deviceId === currentDeviceId ? "Deactivate and sign out" : "Deactivate"}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AdminDeviceManager({ userId }: { userId: string }) {
+  const [devices, setDevices] = useState<DeviceActivation[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [busyDeviceId, setBusyDeviceId] = useState<string | null>(null)
+
+  const loadDevices = useCallback(async () => {
+    setLoading(true)
+    const result = await adminListDevices(userId)
+    setLoading(false)
+    if (result.ok) setDevices(result.devices)
+    else toast.error(result.message)
+  }, [userId])
+
+  async function setStatus(deviceId: string, status: "approved" | "revoked") {
+    setBusyDeviceId(deviceId)
+    const result = await adminSetDeviceStatus(userId, deviceId, status)
+    setBusyDeviceId(null)
+    if (!result.ok) {
+      toast.error(result.message)
+      return
+    }
+    toast.success(status === "approved" ? "Computer approved." : "Computer revoked.")
+    await loadDevices()
+  }
+
+  if (devices === null) {
+    return (
+      <Button variant="ghost" size="sm" disabled={loading} onClick={() => void loadDevices()}>
+        <LaptopIcon className="mr-1.5 size-3.5" />
+        {loading ? "Loading computers..." : "Manage computers"}
+      </Button>
+    )
+  }
+
+  return (
+    <div className="space-y-2 border-t border-[var(--border-subtle)] pt-2">
+      {devices.map((device) => (
+        <div key={device.deviceId} className="flex items-center justify-between gap-3 rounded-md bg-[var(--shell-bg-sunken)] p-2">
+          <DeviceSummary device={device} />
+          <div className="flex gap-2">
+            {device.status === "approved" ? (
+              <Button variant="outline" size="sm" disabled={busyDeviceId === device.deviceId} onClick={() => void setStatus(device.deviceId, "revoked")}>Revoke</Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled={busyDeviceId === device.deviceId} onClick={() => void setStatus(device.deviceId, "approved")}>Approve</Button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function AdminAccountsPanel() {
@@ -116,6 +340,21 @@ function AdminAccountsPanel() {
     }
   }
 
+  async function handleOfflineLeaseHours(
+    account: AdminAccountRow,
+    hours: 24 | 72 | 168
+  ) {
+    setBusyUserId(account.user_id)
+    const result = await adminSetOfflineLeaseHours(account.user_id, hours)
+    setBusyUserId(null)
+    if (result.ok) {
+      toast.success(`Offline allowance set to ${hours} hours.`)
+      await refresh()
+    } else {
+      toast.error(result.message)
+    }
+  }
+
   async function handleDelete(account: AdminAccountRow) {
     setBusyUserId(account.user_id)
     const result = await adminDeleteAccount(account.user_id)
@@ -170,12 +409,23 @@ function AdminAccountsPanel() {
                           Admin
                         </span>
                       ) : null}
+                      {account.is_church_organization ? (
+                        <span className="ml-2 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] tracking-wide text-emerald-700 uppercase dark:text-emerald-300">
+                          Church organization
+                        </span>
+                      ) : null}
                       {account.suspended ? (
                         <span className="ml-2 rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] tracking-wide text-destructive uppercase">
                           Suspended
                         </span>
                       ) : null}
                     </p>
+                    {account.is_church_organization &&
+                    account.church_name ? (
+                      <p className="truncate text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                        {account.church_name}
+                      </p>
+                    ) : null}
                     <p className="text-xs text-muted-foreground">
                       {account.device_count} device
                       {account.device_count === 1 ? "" : "s"} - last seen{" "}
@@ -245,6 +495,23 @@ function AdminAccountsPanel() {
                     </div>
                   )}
                 </div>
+                <AdminDeviceManager userId={account.user_id} />
+                <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-2">
+                  <span className="text-xs text-muted-foreground">
+                    Signed offline lease: {account.offline_lease_hours}h
+                  </span>
+                  {OFFLINE_LEASE_OPTIONS.map((option) => (
+                    <Button
+                      key={option.hours}
+                      variant={account.offline_lease_hours === option.hours ? "default" : "outline"}
+                      size="sm"
+                      disabled={isBusy}
+                      onClick={() => void handleOfflineLeaseHours(account, option.hours)}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
             )
           })}
@@ -257,6 +524,9 @@ function AdminAccountsPanel() {
 export function AccountSection() {
   const verifiedEmail = useVerificationStore((s) => s.verifiedEmail)
   const signOut = useVerificationStore((s) => s.signOut)
+  const offlineGraceExpiresAt = useVerificationStore(
+    (s) => s.offlineGraceExpiresAt
+  )
   const [isAdmin, setIsAdmin] = useState(false)
   const [checkingAdmin, setCheckingAdmin] = useState(true)
   const [confirmingCancellation, setConfirmingCancellation] = useState(false)
@@ -325,6 +595,11 @@ export function AccountSection() {
               {verifiedEmail ?? "Signed in"}
             </p>
             <p className="text-xs text-muted-foreground">SabbathCue account</p>
+            {offlineGraceExpiresAt ? (
+              <p className="text-xs text-muted-foreground">
+                Offline lease until {new Date(offlineGraceExpiresAt).toLocaleString()}
+              </p>
+            ) : null}
           </div>
         </div>
         <Button
@@ -337,6 +612,8 @@ export function AccountSection() {
           Sign out
         </Button>
       </div>
+
+      <OwnDevicesPanel onCurrentDeactivated={signOut} />
 
       <div className="glass-panel space-y-3 p-4">
         <div>

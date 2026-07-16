@@ -16,6 +16,7 @@ import {
 import { useQueueStore } from "@/stores/queue-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
 import { useTranscriptStore } from "@/stores/transcript-store"
+import { useVerificationStore } from "@/stores/verification-store"
 import { detectionActions } from "@/hooks/use-detection"
 import { OperatorStatusActions } from "@/components/layout/operator-status-actions"
 import {
@@ -32,6 +33,26 @@ import {
 function MicLevelMeter() {
   const rms = useAudioStore((s) => s.level.rms)
   return <LevelMeter level={rms} bars={5} />
+}
+
+function ChurchOrganizationBadge({
+  isChurchOrganization,
+  churchName,
+}: {
+  isChurchOrganization: boolean
+  churchName: string | null
+}) {
+  if (!isChurchOrganization || !churchName) return null
+
+  return (
+    <Badge
+      className="h-5 max-w-[180px] shrink-0 rounded-md border-emerald-500/30 bg-emerald-500/15 font-mono text-[0.5rem] text-emerald-700 uppercase hover:bg-emerald-500/15 dark:text-emerald-300"
+      title={"Self-declared church organization: " + churchName}
+      variant="outline"
+    >
+      <span className="truncate">Church · {churchName}</span>
+    </Badge>
+  )
 }
 
 export function OperatorStatusStrip({
@@ -54,6 +75,10 @@ export function OperatorStatusStrip({
   const latestOutputIssue = useBroadcastOutputIssueStore(
     selectLatestOutputIssue
   )
+  const isChurchOrganization = useVerificationStore(
+    (state) => state.isChurchOrganization
+  )
+  const churchName = useVerificationStore((state) => state.churchName)
 
   const [detectionPaused, setDetectionPaused] = useState(false)
 
@@ -134,6 +159,11 @@ export function OperatorStatusStrip({
         >
           {isLive ? "On air" : "Hidden"}
         </Badge>
+
+        <ChurchOrganizationBadge
+          churchName={churchName}
+          isChurchOrganization={isChurchOrganization}
+        />
 
         <div className="hidden items-center gap-1 text-muted-foreground md:flex">
           <Rows3Icon className="size-3" />

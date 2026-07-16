@@ -1,11 +1,17 @@
 import { load, type Store } from "@tauri-apps/plugin-store"
-import { isTauriRuntime } from "@/lib/tauri-runtime"
+import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
 
 const STORE_FILE = "verification.json"
 const DEVICE_ID_KEY = "deviceId"
 const BROWSER_DEVICE_ID_KEY = "sabbathcue.browserDeviceId"
 
 let storePromise: Promise<Store> | null = null
+let identityPromise: Promise<InstallationIdentity> | null = null
+
+export interface InstallationIdentity {
+  deviceId: string
+  publicKey: string | null
+}
 
 function getStore(): Promise<Store> {
   storePromise ??= load(STORE_FILE, { autoSave: false, defaults: {} })
@@ -14,6 +20,7 @@ function getStore(): Promise<Store> {
 
 export function resetDeviceIdStoreForTests(): void {
   storePromise = null
+  identityPromise = null
 }
 
 function createDeviceId(): string {
@@ -51,18 +58,38 @@ function getOrCreateBrowserDeviceId(): string {
 }
 
 export async function getOrCreateDeviceId(): Promise<string> {
+  return (await getOrCreateInstallationIdentity()).deviceId
+}
+
+export function getOrCreateInstallationIdentity(): Promise<InstallationIdentity> {
+  identityPromise ??= loadInstallationIdentity()
+  return identityPromise
+}
+
+async function loadInstallationIdentity(): Promise<InstallationIdentity> {
   if (!isTauriRuntime()) {
-    return getOrCreateBrowserDeviceId()
+    return { deviceId: getOrCreateBrowserDeviceId(), publicKey: null }
   }
 
   const store = await getStore()
   const existing = await store.get<string>(DEVICE_ID_KEY)
   if (typeof existing === "string" && existing.trim() !== "") {
-    return existing
+    await invokeTauri("adopt_installation_device_id", { deviceId: existing })
   }
 
-  const deviceId = createDeviceId()
-  await store.set(DEVICE_ID_KEY, deviceId)
-  await store.save()
-  return deviceId
+  const identity = await invokeTauri<InstallationIdentity>(
+    "get_or_create_installation_identity"
+  )
+  if (!existing?.trim()) {
+    await store.set(DEVICE_ID_KEY, identity.deviceId)
+    await store.save()
+  }
+  return identity
+}
+
+export async function signInstallationChallenge(
+  challenge: string
+): Promise<string | null> {
+  if (!isTauriRuntime()) return null
+  return invokeTauri<string>("sign_installation_challenge", { challenge })
 }

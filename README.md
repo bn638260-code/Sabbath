@@ -177,16 +177,17 @@ The key is stored in the OS keychain.
 
 #### Account verification (Supabase)
 
-SabbathCue gates the desktop app behind Supabase email/password auth. Each account may register up to **two devices**. First-time verification requires an active network connection; once verified, a session keeps working offline for up to **7 days** (offline grace) before it must reconnect.
+SabbathCue gates the desktop app behind Supabase email/password auth. Each account may activate up to **two approved computers**. The first computer is approved automatically; later computers wait for approval and can be deactivated by the user or an administrator. First-time verification requires an active network connection. A verified computer receives a signed offline lease for up to **72 hours** before it must reconnect.
 
 Add these variables to your local `.env` file (values from your Supabase project dashboard → Settings → API):
 
 ```text
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key_here
+VITE_ACTIVATION_LEASE_PUBLIC_KEY=your_p256_spki_public_key_base64
 ```
 
-Apply the SQL migration in `supabase/migrations/` to your Supabase project before testing sign-in. The `register_device` RPC enforces the two-device limit server-side.
+Generate the lease-signing key pair with `node scripts/generate-activation-lease-key.mjs`. Store `ACTIVATION_LEASE_PRIVATE_KEY` only as a Supabase Edge Function secret; put only the generated public key in the desktop build environment. Apply the SQL migrations, then deploy `supabase/functions/device-activation`. The function verifies the installation signature before calling `register_device`, and the RPC enforces the two-approved-computer limit server-side.
 
 **Email confirmation:** If enabled under Authentication → Providers → Email in the Supabase dashboard, sign-up creates the user but returns no session until the confirmation link is clicked. The app shows a “check your email” message in that case.
 
@@ -338,3 +339,4 @@ Create a `.env` file in the project root (optional):
 | ------------------------ | -------- | -------------------- |
 | `VITE_SUPABASE_URL`      | Yes      | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Yes      | Supabase anon key    |
+| `VITE_ACTIVATION_LEASE_PUBLIC_KEY` | Yes | Public P-256 key used to verify 72-hour offline activation leases |

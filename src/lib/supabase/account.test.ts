@@ -54,6 +54,9 @@ describe("supabase account lib", () => {
           device_count: 1,
           last_seen_at: null,
           is_admin: true,
+          is_church_organization: true,
+          church_name: "Central SDA Church",
+          offline_lease_hours: 72,
         },
       ],
       error: null,
@@ -75,6 +78,9 @@ describe("supabase account lib", () => {
           device_count: 1,
           last_seen_at: null,
           is_admin: true,
+          is_church_organization: true,
+          church_name: "Central SDA Church",
+          offline_lease_hours: 72,
         },
       ],
     })
@@ -132,6 +138,19 @@ describe("supabase account lib", () => {
     expect(mockRpc).toHaveBeenCalledWith("admin_set_access", {
       p_user_id: "user-1",
       p_days: 365,
+    })
+  })
+
+  it("adminSetOfflineLeaseHours sends the selected signed-lease policy", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null })
+    const { adminSetOfflineLeaseHours } = await import("@/lib/supabase/account")
+
+    await expect(adminSetOfflineLeaseHours("user-1", 168)).resolves.toEqual({
+      ok: true,
+    })
+    expect(mockRpc).toHaveBeenCalledWith("admin_set_offline_lease_hours", {
+      p_user_id: "user-1",
+      p_hours: 168,
     })
   })
 

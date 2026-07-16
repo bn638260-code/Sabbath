@@ -46,6 +46,18 @@ function normalizeSession(value: unknown): VerificationSession | null {
       typeof candidate.verifiedEmail === "string"
         ? candidate.verifiedEmail
         : null,
+    isChurchOrganization: candidate.isChurchOrganization === true,
+    churchName:
+      typeof candidate.churchName === "string" ? candidate.churchName : null,
+    activationLease:
+      candidate.activationLease &&
+      typeof candidate.activationLease === "object" &&
+      typeof (candidate.activationLease as Record<string, unknown>).payload ===
+        "string" &&
+      typeof (candidate.activationLease as Record<string, unknown>).signature ===
+        "string"
+        ? (candidate.activationLease as VerificationSession["activationLease"])
+        : null,
   }
 }
 

@@ -100,7 +100,10 @@ describe("supabase auth", () => {
     })
 
     const { signUpWithEmail } = await import("@/lib/supabase/auth")
-    const result = await signUpWithEmail("user@example.com", "secret")
+    const result = await signUpWithEmail("user@example.com", "secret", {
+      isChurchOrganization: true,
+      churchName: "Central SDA Church",
+    })
 
     expect(result).toEqual({
       ok: true,
@@ -111,6 +114,16 @@ describe("supabase auth", () => {
       accessTokenExpiresAt: 1_700_000_000_000,
     })
     expect(mockSetRefreshToken).toHaveBeenCalledWith("signup-refresh")
+    expect(mockSignUp).toHaveBeenCalledWith({
+      email: "user@example.com",
+      password: "secret",
+      options: {
+        data: {
+          is_church_organization: true,
+          church_name: "Central SDA Church",
+        },
+      },
+    })
   })
 
   it("signUpWithEmail returns needsEmailConfirmation when no session is returned", async () => {
@@ -120,7 +133,10 @@ describe("supabase auth", () => {
     })
 
     const { signUpWithEmail } = await import("@/lib/supabase/auth")
-    const result = await signUpWithEmail("user@example.com", "secret")
+    const result = await signUpWithEmail("user@example.com", "secret", {
+      isChurchOrganization: false,
+      churchName: null,
+    })
 
     expect(result).toEqual({ ok: true, needsEmailConfirmation: true })
     expect(mockSetRefreshToken).not.toHaveBeenCalled()

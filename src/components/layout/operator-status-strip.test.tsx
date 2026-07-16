@@ -2,6 +2,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach, beforeAll } from "vitest"
 import React, { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { useVerificationStore } from "@/stores/verification-store"
 
 const mockSetLive = vi.fn()
 const mockSetLiveVerse = vi.fn()
@@ -124,6 +125,10 @@ describe("OperatorStatusStrip emergency controls", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetState()
+    useVerificationStore.setState({
+      isChurchOrganization: false,
+      churchName: null,
+    })
   })
 
   afterEach(async () => {
@@ -290,6 +295,18 @@ describe("OperatorStatusStrip emergency controls", () => {
       expect(chip).toBeTruthy()
       await click(chip as HTMLButtonElement)
       expect(mockClearOutputIssue).toHaveBeenCalledWith("global:persistence")
+    })
+  })
+
+  describe("Church organization badge", () => {
+    it("shows the self-declared church name for an organization account", async () => {
+      useVerificationStore.setState({
+        isChurchOrganization: true,
+        churchName: "Central SDA Church",
+      })
+      await renderStrip()
+
+      expect(container?.textContent).toContain("Church · Central SDA Church")
     })
   })
 
