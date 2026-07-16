@@ -19,7 +19,6 @@ import { useApiKeyPromptStore } from "@/lib/api-key-prompt"
 import { isTauriRuntime } from "@/lib/tauri-runtime"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useTutorialStore } from "@/stores/tutorial-store"
-import { useColorModeStore } from "@/stores/color-mode-store"
 
 const LazyTutorialOverlay = lazy(() =>
   import("@/components/tutorial/tutorial-overlay").then((mod) => ({
@@ -158,7 +157,6 @@ export function App() {
   const setApiKeyPromptOpen = useApiKeyPromptStore((s) => s.setOpen)
   const onboardingComplete = useSettingsStore((s) => s.onboardingComplete)
   const tutorialRunning = useTutorialStore((s) => s.isRunning)
-  const colorMode = useColorModeStore((s) => s.mode)
   const shouldMountTutorial = !onboardingComplete || tutorialRunning
 
   return (
@@ -182,7 +180,7 @@ export function App() {
       ) : null}
       <Toaster
         position="bottom-right"
-        theme={colorMode}
+        theme="light"
         toastOptions={{
           classNames: {
             toast:

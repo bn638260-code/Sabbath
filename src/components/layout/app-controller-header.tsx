@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react"
-import { CircleDotIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react"
+import { CircleDotIcon, MonitorIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { APP_DISPLAY_NAME } from "@/lib/app-brand"
 import { AppLogo } from "@/components/ui/app-logo"
@@ -9,7 +9,6 @@ import {
 } from "@/stores/accent-theme-store"
 import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
 import { useBroadcastMonitorStore } from "@/stores/broadcast/monitor-store"
-import { useColorModeStore } from "@/stores/color-mode-store"
 import {
   openProjectorSetup,
   useProjectorSetupStore,
@@ -72,8 +71,6 @@ function HeaderStatusChip({
 export function AppControllerHeader() {
   const theme = useAccentThemeStore((s) => s.theme)
   const setTheme = useAccentThemeStore((s) => s.setTheme)
-  const colorMode = useColorModeStore((s) => s.mode)
-  const toggleColorMode = useColorModeStore((s) => s.toggle)
   const isLive = useBroadcastLiveStore((s) => s.isLive)
   const projectorMonitors = useProjectorSetupStore((s) => s.monitors)
   const rememberedMonitorKey = useBroadcastMonitorStore(
@@ -175,27 +172,6 @@ export function AppControllerHeader() {
         <div className="hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-3 py-1 font-mono text-xs font-semibold tracking-wider text-foreground lg:block">
           {clock}
         </div>
-        <button
-          type="button"
-          title={
-            colorMode === "dark"
-              ? "Switch to light mode"
-              : "Switch to dark mode"
-          }
-          aria-label={
-            colorMode === "dark"
-              ? "Switch to light mode"
-              : "Switch to dark mode"
-          }
-          onClick={toggleColorMode}
-          className="btn-action flex size-8 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] text-muted-foreground hover:text-foreground"
-        >
-          {colorMode === "dark" ? (
-            <SunIcon className="size-4" />
-          ) : (
-            <MoonIcon className="size-4" />
-          )}
-        </button>
         <div
           className="flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] p-1"
           data-tour="theme"

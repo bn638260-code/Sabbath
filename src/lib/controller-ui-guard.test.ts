@@ -284,6 +284,6 @@ describe("controller UI guard — legacy classes and dialog CSS", () => {
     )
     expect(app).toMatch(/<Toaster/)
     expect(app).toMatch(/glass-panel/)
-    expect(app).toMatch(/theme=\{colorMode\}/)
+    expect(app).toMatch(/theme="light"/)
   })
 })
