@@ -106,7 +106,24 @@ export function AppControllerHeader() {
 
   return (
     <header className="z-50 flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-sunken)_86%,transparent)] px-5 backdrop-blur-xl">
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-4">
+        <div className="hidden items-center gap-2.5 border-r border-[var(--border-subtle)] pr-4 2xl:flex">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white to-slate-100 shadow-[inset_0_0_0_1px_rgba(11,43,72,0.09),0_6px_16px_rgba(18,60,97,0.09)]">
+            <img
+              src="/sda-logo.png"
+              alt="Seventh-day Adventist Church logo"
+              className="size-7 object-contain"
+            />
+          </span>
+          <div className="flex flex-col leading-none">
+            <span className="text-sm font-bold tracking-tight text-[var(--shell-navy)]">
+              KNFC Conference
+            </span>
+            <span className="mt-1 text-[8px] tracking-[0.13em] text-muted-foreground uppercase">
+              Seventh-day Adventist Church
+            </span>
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           <AppLogo
             size="sm"
@@ -122,6 +139,9 @@ export function AppControllerHeader() {
           </div>
           <span className="ml-2 rounded-md border border-yellow-400/20 bg-yellow-400/10 px-2 py-0.5 font-mono text-[9px] font-semibold tracking-wider text-yellow-700 uppercase dark:text-yellow-400">
             {versionLabel}
+          </span>
+          <span className="hidden rounded-full bg-[var(--shell-navy)] px-2.5 py-1 text-[9px] font-extrabold tracking-[0.12em] whitespace-nowrap text-[var(--shell-bg-base)] uppercase shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14),0_6px_16px_rgba(11,43,72,0.18)] xl:inline">
+            Special Edition
           </span>
         </div>
       </div>

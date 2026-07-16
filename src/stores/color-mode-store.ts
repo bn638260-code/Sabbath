@@ -22,7 +22,7 @@ function readStoredMode(): ColorMode {
   } catch {
     /* private browsing / disabled storage */
   }
-  return "dark"
+  return "light"
 }
 
 interface ColorModeState {
@@ -33,7 +33,7 @@ interface ColorModeState {
 }
 
 export const useColorModeStore = create<ColorModeState>((set, get) => ({
-  mode: "dark",
+  mode: "light",
   setMode: (mode) => {
     try {
       localStorage.setItem(COLOR_MODE_STORAGE_KEY, mode)

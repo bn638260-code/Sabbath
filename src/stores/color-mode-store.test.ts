@@ -45,43 +45,43 @@ describe("color mode store", () => {
     resetStore()
   })
 
-  it("hydrates to dark by default", () => {
+  it("hydrates to light by default", () => {
     useColorModeStore.getState().hydrate()
 
-    expect(useColorModeStore.getState().mode).toBe("dark")
-    expect(classList.contains("dark")).toBe(true)
-    expect(classList.contains("light")).toBe(false)
-  })
-
-  it("sets and persists light mode", () => {
-    useColorModeStore.getState().setMode("light")
-
-    expect(storage.get(COLOR_MODE_STORAGE_KEY)).toBe("light")
     expect(useColorModeStore.getState().mode).toBe("light")
     expect(classList.contains("light")).toBe(true)
     expect(classList.contains("dark")).toBe(false)
   })
 
-  it("toggles between dark and light", () => {
-    useColorModeStore.getState().hydrate()
+  it("sets and persists dark mode", () => {
+    useColorModeStore.getState().setMode("dark")
 
-    useColorModeStore.getState().toggle()
-    expect(useColorModeStore.getState().mode).toBe("light")
+    expect(storage.get(COLOR_MODE_STORAGE_KEY)).toBe("dark")
+    expect(useColorModeStore.getState().mode).toBe("dark")
+    expect(classList.contains("dark")).toBe(true)
+    expect(classList.contains("light")).toBe(false)
+  })
+
+  it("toggles between light and dark", () => {
+    useColorModeStore.getState().hydrate()
 
     useColorModeStore.getState().toggle()
     expect(useColorModeStore.getState().mode).toBe("dark")
+
+    useColorModeStore.getState().toggle()
+    expect(useColorModeStore.getState().mode).toBe("light")
   })
 
   it("hydrates a persisted mode", () => {
-    storage.set(COLOR_MODE_STORAGE_KEY, "light")
+    storage.set(COLOR_MODE_STORAGE_KEY, "dark")
 
     useColorModeStore.getState().hydrate()
 
-    expect(useColorModeStore.getState().mode).toBe("light")
-    expect(classList.contains("light")).toBe(true)
+    expect(useColorModeStore.getState().mode).toBe("dark")
+    expect(classList.contains("dark")).toBe(true)
   })
 
-  it("falls back to dark when storage is unavailable", () => {
+  it("falls back to light when storage is unavailable", () => {
     vi.stubGlobal("localStorage", {
       getItem: () => {
         throw new Error("storage disabled")
@@ -91,7 +91,7 @@ describe("color mode store", () => {
 
     useColorModeStore.getState().hydrate()
 
-    expect(useColorModeStore.getState().mode).toBe("dark")
-    expect(classList.contains("dark")).toBe(true)
+    expect(useColorModeStore.getState().mode).toBe("light")
+    expect(classList.contains("light")).toBe(true)
   })
 })
