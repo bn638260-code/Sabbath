@@ -165,6 +165,14 @@ h1 em{font-style:italic;font-weight:400;color:var(--gold)}
 .btn-gold:hover{transform:translateY(-2px);box-shadow:0 12px 38px -8px rgba(227,176,91,.6)}
 .btn-ghost{background:transparent;color:var(--paper);border:1px solid var(--line)}
 .btn-ghost:hover{border-color:var(--slate);transform:translateY(-2px)}
+.pilot-badge{
+  display:flex;align-items:center;gap:10px;width:max-content;max-width:100%;
+  margin:4px auto 24px;
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--gold);background:rgba(227,176,91,.08);
+  border:1px solid var(--gold-dim);border-radius:99px;padding:9px 18px;
+}
+.pilot-badge::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(227,176,91,.18)}
 
 /* staged hero entrance */
 .stage{opacity:0;transform:translateY(22px);animation:rise .9s cubic-bezier(.2,.7,.2,1) forwards}
@@ -737,11 +745,12 @@ footer a:hover{color:var(--paper)}
     <div class="reveal">
       <p class="eyebrow">Ready for this Sabbath</p>
       <h2>Give your media team <em>a calmer scripture workflow.</em></h2>
+      <div class="pilot-badge">KNFC Conference Pilot Link</div>
       <div class="hero-ctas">
-        <a class="btn btn-gold" id="download-btn" href="https://pub-f00266e4b83341dea437c0114752f536.r2.dev/SabbathCue_0.1.7_x64-setup%20(11).exe" download="SabbathCue-Setup.exe">Download for Windows — start free trial</a>
+        <a class="btn btn-gold" id="download-btn" href="https://pub-f00266e4b83341dea437c0114752f536.r2.dev/SabbathCue_0.1.7_x64-setup.exe" download="SabbathCue-Setup.exe">Download for Windows — start free trial</a>
         <a class="btn btn-ghost" href="#pricing">See plans</a>
       </div>
-      <p class="trial-note centered">Latest Windows installer: v0.1.7 · 14-day free trial · no card required · HDMI/projector output today · Afrikaans workflow coming soon</p>
+      <p class="trial-note centered">Official KNFC Conference pilot build · Latest Windows installer: v0.1.7 · 14-day free trial · no card required · HDMI/projector output today · Afrikaans workflow coming soon</p>
       <p class="os-row">Available for Windows only</p>
     </div>
   </section>
