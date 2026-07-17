@@ -83,9 +83,9 @@ export function AppControllerHeader() {
   const versionLabel = `v${packageJson.version}`
 
   return (
-    <header className="z-50 mx-3 mt-3 grid min-h-[76px] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-elevated)_62%,transparent)] px-5 shadow-[var(--shell-panel-shadow)] backdrop-blur-2xl">
+    <header className="z-50 mx-3 mt-3 grid min-h-[76px] shrink-0 grid-cols-[minmax(0,1.4fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-elevated)_62%,transparent)] px-5 shadow-[var(--shell-panel-shadow)] backdrop-blur-2xl">
       <div className="flex min-w-0 items-center gap-4 overflow-hidden">
-        <div className="hidden shrink-0 items-center gap-3 border-r border-[var(--border-subtle)] pr-4 2xl:flex">
+        <div className="hidden shrink-0 items-center gap-3 border-r border-[var(--border-subtle)] pr-4 min-[1680px]:flex">
           <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-white to-slate-100 shadow-[inset_0_0_0_1px_rgba(11,43,72,0.09),0_6px_16px_rgba(18,60,97,0.09)]">
             <img
               src="/sda-logo.png"
@@ -118,13 +118,13 @@ export function AppControllerHeader() {
           <span className="ml-2 rounded-md border border-yellow-400/20 bg-yellow-400/10 px-2 py-0.5 font-mono text-[9px] font-semibold tracking-wider text-yellow-700 uppercase dark:text-yellow-400">
             {versionLabel}
           </span>
-          <span className="hidden shrink-0 rounded-full bg-[var(--shell-navy)] px-2.5 py-1 text-[9px] font-extrabold tracking-[0.12em] whitespace-nowrap text-[var(--shell-bg-base)] uppercase shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14),0_6px_16px_rgba(11,43,72,0.18)] min-[1700px]:inline">
+          <span className="hidden shrink-0 rounded-full bg-[var(--shell-navy)] px-2.5 py-1 text-[9px] font-extrabold tracking-[0.12em] whitespace-nowrap text-[var(--shell-bg-base)] uppercase shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14),0_6px_16px_rgba(11,43,72,0.18)] min-[1850px]:inline">
             Special Edition
           </span>
           <span
             title="Special Edition"
             aria-label="Special Edition"
-            className="grid size-[26px] shrink-0 place-items-center rounded-full bg-[var(--shell-navy)] text-[9px] font-extrabold tracking-[0.04em] text-yellow-400 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14),0_6px_16px_rgba(11,43,72,0.18)] min-[1700px]:hidden"
+            className="grid size-[26px] shrink-0 place-items-center rounded-full bg-[var(--shell-navy)] text-[9px] font-extrabold tracking-[0.04em] text-yellow-400 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14),0_6px_16px_rgba(11,43,72,0.18)] min-[1850px]:hidden"
           >
             SE
           </span>
