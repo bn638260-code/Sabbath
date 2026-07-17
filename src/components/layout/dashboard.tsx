@@ -208,6 +208,7 @@ export function Dashboard() {
         "fixed inset-0 overflow-hidden"
       )}
     >
+      <div className="ambient-blobs" aria-hidden="true" />
       <div className="app-shell">
         <AppControllerHeader />
 

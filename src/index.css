@@ -454,6 +454,86 @@
   );
 }
 
+/* Slow-drifting navy ambient blobs from the premium-light mockup: two huge
+   blurred conic gradients wandering on 21s/25s alternating loops. Transform-
+   only animation so the blur renders once and the GPU just moves it. */
+.light .ambient-blobs {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.light .ambient-blobs::before,
+.light .ambient-blobs::after {
+  content: "";
+  position: absolute;
+  width: 70vw;
+  height: 70vw;
+  border-radius: 45% 55% 56% 44% / 47% 42% 58% 53%;
+  filter: blur(62px);
+  opacity: 0.34;
+  will-change: transform;
+}
+
+.light .ambient-blobs::before {
+  left: -24vw;
+  top: -28vw;
+  background: conic-gradient(
+    from 210deg,
+    rgba(5, 33, 57, 0.55),
+    rgba(11, 72, 91, 0.34),
+    rgba(9, 44, 77, 0.5),
+    rgba(5, 33, 57, 0.55)
+  );
+  animation: ambientDriftOne 21s ease-in-out infinite alternate;
+}
+
+.light .ambient-blobs::after {
+  right: -28vw;
+  bottom: -34vw;
+  background: conic-gradient(
+    from 30deg,
+    rgba(8, 38, 67, 0.5),
+    rgba(37, 93, 124, 0.32),
+    rgba(13, 55, 87, 0.48),
+    rgba(8, 38, 67, 0.5)
+  );
+  animation: ambientDriftTwo 25s ease-in-out infinite alternate;
+}
+
+@keyframes ambientDriftOne {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.95);
+  }
+  50% {
+    transform: translate3d(9vw, 5vh, 0) rotate(19deg) scale(1.08);
+  }
+  100% {
+    transform: translate3d(3vw, 14vh, 0) rotate(-13deg) scale(1.02);
+  }
+}
+
+@keyframes ambientDriftTwo {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate3d(-9vw, -8vh, 0) rotate(-16deg) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-2vw, -16vh, 0) rotate(14deg) scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .light .ambient-blobs::before,
+  .light .ambient-blobs::after {
+    animation: none;
+  }
+}
+
 /* Gold selection highlight from the mockup. */
 .light ::selection {
   background: #c9972d;
