@@ -469,17 +469,19 @@
 .light .ambient-blobs::after {
   content: "";
   position: absolute;
-  width: 70vw;
-  height: 70vw;
+  width: 34vw;
+  height: 34vw;
   border-radius: 45% 55% 56% 44% / 47% 42% 58% 53%;
-  filter: blur(62px);
-  opacity: 0.34;
+  filter: blur(56px);
+  opacity: 0.3;
   will-change: transform;
 }
 
+/* One blob crosses top-left → bottom-right, the other the opposite diagonal;
+   `alternate` glides each back the way it came. */
 .light .ambient-blobs::before {
-  left: -24vw;
-  top: -28vw;
+  left: -12vw;
+  top: -12vw;
   background: conic-gradient(
     from 210deg,
     rgba(5, 33, 57, 0.55),
@@ -487,12 +489,12 @@
     rgba(9, 44, 77, 0.5),
     rgba(5, 33, 57, 0.55)
   );
-  animation: ambientDriftOne 21s ease-in-out infinite alternate;
+  animation: ambientDriftOne 38s ease-in-out infinite alternate;
 }
 
 .light .ambient-blobs::after {
-  right: -28vw;
-  bottom: -34vw;
+  right: -12vw;
+  bottom: -12vw;
   background: conic-gradient(
     from 30deg,
     rgba(8, 38, 67, 0.5),
@@ -500,30 +502,24 @@
     rgba(13, 55, 87, 0.48),
     rgba(8, 38, 67, 0.5)
   );
-  animation: ambientDriftTwo 25s ease-in-out infinite alternate;
+  animation: ambientDriftTwo 46s ease-in-out infinite alternate;
 }
 
 @keyframes ambientDriftOne {
   0% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.95);
-  }
-  50% {
-    transform: translate3d(9vw, 5vh, 0) rotate(19deg) scale(1.08);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.96);
   }
   100% {
-    transform: translate3d(3vw, 14vh, 0) rotate(-13deg) scale(1.02);
+    transform: translate3d(78vw, 76vh, 0) rotate(24deg) scale(1.06);
   }
 }
 
 @keyframes ambientDriftTwo {
   0% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
-  }
-  50% {
-    transform: translate3d(-9vw, -8vh, 0) rotate(-16deg) scale(1.08);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.04);
   }
   100% {
-    transform: translate3d(-2vw, -16vh, 0) rotate(14deg) scale(0.96);
+    transform: translate3d(-78vw, -76vh, 0) rotate(-20deg) scale(0.96);
   }
 }
 
