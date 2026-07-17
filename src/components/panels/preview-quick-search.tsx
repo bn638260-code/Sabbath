@@ -343,7 +343,7 @@ export function PreviewQuickSearch() {
       />
 
       {showDropdown ? (
-        <div className="absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[rgba(2,3,7,0.95)] shadow-lg backdrop-blur-md">
+        <div className="absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-popover text-popover-foreground shadow-lg backdrop-blur-md">
           {bibleResult.stage === "complete" &&
           bibleResult.matchedBook &&
           bibleResult.chapter &&
