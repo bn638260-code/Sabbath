@@ -454,9 +454,10 @@
   );
 }
 
-/* Slow-drifting navy ambient blobs from the premium-light mockup: two huge
-   blurred conic gradients wandering on 21s/25s alternating loops. Transform-
-   only animation so the blur renders once and the GPU just moves it. */
+/* Ambient soundwave: two compact bands of vertical navy bars shaped by an
+   elliptical mask (loud in the middle, tapering at the tips), drifting side
+   to side while breathing in height — a quiet audio waveform behind the
+   glass panels. Transform-only animation keeps it GPU-composited. */
 .light .ambient-blobs {
   position: absolute;
   inset: 0;
@@ -469,57 +470,59 @@
 .light .ambient-blobs::after {
   content: "";
   position: absolute;
-  width: 34vw;
-  height: 34vw;
-  border-radius: 45% 55% 56% 44% / 47% 42% 58% 53%;
-  filter: blur(56px);
-  opacity: 0.3;
+  left: 50%;
+  height: 150px;
+  width: 62vw;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(11, 43, 72, 0.6) 0 5px,
+    transparent 5px 16px
+  );
+  mask-image: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    #000 0%,
+    rgba(0, 0, 0, 0.72) 46%,
+    transparent 74%
+  );
+  filter: blur(1.2px);
+  opacity: 0.5;
   will-change: transform;
 }
 
-/* One blob crosses top-left → bottom-right, the other the opposite diagonal;
-   `alternate` glides each back the way it came. */
 .light .ambient-blobs::before {
-  left: -12vw;
-  top: -12vw;
-  background: conic-gradient(
-    from 210deg,
-    rgba(5, 33, 57, 0.55),
-    rgba(11, 72, 91, 0.34),
-    rgba(9, 44, 77, 0.5),
-    rgba(5, 33, 57, 0.55)
-  );
-  animation: ambientDriftOne 16s ease-in-out infinite alternate;
+  top: 22%;
+  animation: soundwaveOne 14s ease-in-out infinite alternate;
 }
 
 .light .ambient-blobs::after {
-  right: -12vw;
-  bottom: -12vw;
-  background: conic-gradient(
-    from 30deg,
-    rgba(8, 38, 67, 0.5),
-    rgba(37, 93, 124, 0.32),
-    rgba(13, 55, 87, 0.48),
-    rgba(8, 38, 67, 0.5)
-  );
-  animation: ambientDriftTwo 21s ease-in-out infinite alternate;
+  top: 62%;
+  width: 46vw;
+  height: 110px;
+  opacity: 0.38;
+  animation: soundwaveTwo 19s ease-in-out infinite alternate;
 }
 
-@keyframes ambientDriftOne {
+@keyframes soundwaveOne {
   0% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.96);
+    transform: translate3d(-76%, 0, 0) scaleY(0.7);
+  }
+  50% {
+    transform: translate3d(-50%, 1.5vh, 0) scaleY(1.2);
   }
   100% {
-    transform: translate3d(78vw, 76vh, 0) rotate(24deg) scale(1.06);
+    transform: translate3d(-24%, 0, 0) scaleY(0.85);
   }
 }
 
-@keyframes ambientDriftTwo {
+@keyframes soundwaveTwo {
   0% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.04);
+    transform: translate3d(-24%, 0, 0) scaleY(1.15);
+  }
+  50% {
+    transform: translate3d(-52%, -1.5vh, 0) scaleY(0.65);
   }
   100% {
-    transform: translate3d(-78vw, -76vh, 0) rotate(-20deg) scale(0.96);
+    transform: translate3d(-74%, 0, 0) scaleY(1.05);
   }
 }
 
