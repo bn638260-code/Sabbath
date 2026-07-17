@@ -1729,6 +1729,108 @@ function drawClothScene(
   drawClothCross(ctx, width, height, t, scale)
 }
 
+// ---------------------------------------------------------------------------
+// KNFC verse stage (premium-light mockup port): 135° gradient between the two
+// stage colors, a bottom-center glow, a conic shimmer rotating one full turn
+// per motion loop, and a faint star-dot field masked toward the vertical edges.
+// ---------------------------------------------------------------------------
+
+function hexWithAlpha(hex: string, alpha: number): string {
+  let value = hex.replace("#", "")
+  if (value.length === 3) {
+    value = value
+      .split("")
+      .map((c) => c + c)
+      .join("")
+  }
+  const n = Number.parseInt(value, 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function drawStageDots(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  spacing: number,
+  offsetX: number,
+  offsetY: number,
+  radius: number,
+  alpha: number,
+): void {
+  for (let y = offsetY; y < height; y += spacing) {
+    // The mockup masks its dot texture with a vertical fade; sin() gives the
+    // same "bright middle, quiet edges" read.
+    const fade = Math.sin((y / height) * Math.PI)
+    if (fade <= 0.01) continue
+    ctx.fillStyle = `rgba(255, 255, 255, ${(alpha * fade).toFixed(4)})`
+    for (let x = offsetX; x < width; x += spacing) {
+      ctx.beginPath()
+      ctx.arc(x, y, radius, 0, TAU)
+      ctx.fill()
+    }
+  }
+}
+
+function drawStageScene(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  k: BroadcastKineticTheme,
+  timeMs: number,
+): void {
+  const colors = colorsOf(k)
+  // Base: linear-gradient(135deg, stage-a, stage-b).
+  const angle = (135 * Math.PI) / 180
+  const cx = width / 2
+  const cy = height / 2
+  const len = Math.sqrt(width * width + height * height) / 2
+  const grad = ctx.createLinearGradient(
+    cx - Math.cos(angle) * len,
+    cy - Math.sin(angle) * len,
+    cx + Math.cos(angle) * len,
+    cy + Math.sin(angle) * len,
+  )
+  grad.addColorStop(0, colors[0])
+  grad.addColorStop(1, colors[1] ?? colors[0])
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, width, height)
+
+  // Glow: radial-gradient(circle at 52% 130%, glow, transparent 52%).
+  // colors[2] carries the stage glow; accent is the gold reference color.
+  const glow = colors[2] ?? k.accentColor
+  const gx = width * 0.52
+  const gy = height * 1.3
+  const gr = Math.max(width, height) * 1.04
+  const glowGrad = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr)
+  glowGrad.addColorStop(0, hexWithAlpha(glow, 0.36))
+  glowGrad.addColorStop(1, hexWithAlpha(glow, 0))
+  ctx.fillStyle = glowGrad
+  ctx.fillRect(0, 0, width, height)
+
+  // Shimmer: two soft white wedges rotating one turn per loop (the mockup's
+  // 18s stageShimmer conic gradient).
+  const phase = kineticLoopPhase(timeMs, k.motion.durationMs)
+  if (typeof ctx.createConicGradient === "function") {
+    const conic = ctx.createConicGradient(phase * TAU, cx, cy)
+    conic.addColorStop(0, "rgba(255, 255, 255, 0)")
+    conic.addColorStop(0.14, "rgba(255, 255, 255, 0.075)")
+    conic.addColorStop(0.28, "rgba(255, 255, 255, 0)")
+    conic.addColorStop(0.68, "rgba(255, 255, 255, 0)")
+    conic.addColorStop(0.8, "rgba(255, 255, 255, 0.05)")
+    conic.addColorStop(1, "rgba(255, 255, 255, 0)")
+    ctx.fillStyle = conic
+    ctx.fillRect(0, 0, width, height)
+  }
+
+  // Star dots: two offset grids (40px / 56px at the mockup's card scale).
+  const scale = Math.min(width, height) / 540
+  drawStageDots(ctx, width, height, 40 * scale, 8 * scale, 8 * scale, 1.2 * scale, 0.05)
+  drawStageDots(ctx, width, height, 56 * scale, 39 * scale, 22 * scale, 1.2 * scale, 0.038)
+}
+
 /**
  * Draws the kinetic moving background for `theme` at `timeMs`. Returns `true`
  * when it handled the background (caller should skip the static background) and
@@ -1748,6 +1850,11 @@ export function drawKineticBackground(
 
     if (k.backgroundKind === "cloth") {
       drawClothScene(ctx, width, height, timeMs)
+      return true
+    }
+
+    if (k.backgroundKind === "stage") {
+      drawStageScene(ctx, width, height, k, timeMs)
       return true
     }
 

@@ -179,6 +179,30 @@ describe("drawKineticBackground", () => {
     expect(r.arcs).toBe(0)
   })
 
+  it("draws the KNFC verse stage and reports handled", () => {
+    const r = createRecorder()
+    const drew = drawKineticBackground(r.ctx, preset("stage-navy"), 0)
+    expect(drew).toBe(true)
+    // Base 135° gradient + bottom glow.
+    expect(r.linear.length).toBeGreaterThan(0)
+    expect(r.radial.length).toBeGreaterThan(0)
+    // Star-dot field (two offset grids).
+    expect(r.arcs).toBeGreaterThan(50)
+  })
+
+  it("verse stage is deterministic at a fixed timeMs and survives a ctx without createConicGradient", () => {
+    // createRecorder has no createConicGradient — the shimmer layer must be
+    // skipped gracefully rather than throwing (drawKineticBackground would
+    // otherwise return false and fall back to the static background).
+    const a = createRecorder()
+    const b = createRecorder()
+    expect(drawKineticBackground(a.ctx, preset("stage-teal"), 4000)).toBe(true)
+    expect(drawKineticBackground(b.ctx, preset("stage-teal"), 4000)).toBe(true)
+    expect(a.radial).toEqual(b.radial)
+    expect(a.linear).toEqual(b.linear)
+    expect(a.arcArgs).toEqual(b.arcArgs)
+  })
+
   it("draws the desert cloth scene and reports handled", () => {
     const r = createRecorder()
     const drew = drawKineticBackground(r.ctx, preset("desert-cloth"), 0)

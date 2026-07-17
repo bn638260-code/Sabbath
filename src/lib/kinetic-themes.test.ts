@@ -36,21 +36,27 @@ const EXPECTED_PRESET_IDS = [
   "nature-aurora",
   // worship scene
   "desert-cloth",
+  // KNFC verse-stage group (premium-light mockup)
+  "stage-navy",
+  "stage-teal",
+  "stage-blue",
+  "stage-violet",
+  "stage-slate",
 ]
 
 describe("KINETIC_THEME_PRESETS", () => {
-  it("contains exactly 25 presets with the expected ids", () => {
-    expect(KINETIC_THEME_PRESETS).toHaveLength(25)
+  it("contains exactly 30 presets with the expected ids", () => {
+    expect(KINETIC_THEME_PRESETS).toHaveLength(30)
     expect(KINETIC_THEME_PRESETS.map((p) => p.presetId)).toEqual(
       EXPECTED_PRESET_IDS,
     )
   })
 
-  it("has nine classical, six modern and ten nature presets", () => {
+  it("has fourteen classical, six modern and ten nature presets", () => {
     const classical = KINETIC_THEME_PRESETS.filter((p) => p.group === "classical")
     const modern = KINETIC_THEME_PRESETS.filter((p) => p.group === "modern")
     const nature = KINETIC_THEME_PRESETS.filter((p) => p.group === "nature")
-    expect(classical).toHaveLength(9)
+    expect(classical).toHaveLength(14)
     expect(modern).toHaveLength(6)
     expect(nature).toHaveLength(10)
   })
@@ -77,7 +83,7 @@ describe("buildKineticBroadcastThemes", () => {
   const themes = buildKineticBroadcastThemes()
 
   it("produces one builtin BroadcastTheme per preset", () => {
-    expect(themes).toHaveLength(25)
+    expect(themes).toHaveLength(30)
     for (const theme of themes) {
       expect(theme.builtin).toBe(true)
       expect(theme.kinetic).toBeDefined()
