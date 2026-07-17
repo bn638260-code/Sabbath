@@ -85,7 +85,7 @@ export function AppControllerHeader() {
   return (
     <header className="z-50 mx-3 mt-3 grid min-h-[76px] shrink-0 grid-cols-[minmax(0,1.4fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-elevated)_62%,transparent)] px-5 shadow-[var(--shell-panel-shadow)] backdrop-blur-2xl">
       <div className="flex min-w-0 items-center gap-4 overflow-hidden">
-        <div className="hidden shrink-0 items-center gap-3 border-r border-[var(--border-subtle)] pr-4 min-[1680px]:flex">
+        <div className="flex shrink-0 items-center gap-3 border-r border-[var(--border-subtle)] pr-4">
           <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-white to-slate-100 shadow-[inset_0_0_0_1px_rgba(11,43,72,0.09),0_6px_16px_rgba(18,60,97,0.09)]">
             <img
               src="/sda-logo.png"
@@ -97,7 +97,7 @@ export function AppControllerHeader() {
             <span className="text-[15px] font-bold tracking-[-0.02em] text-[var(--shell-navy)]">
               KNFC Conference
             </span>
-            <span className="mt-1.5 text-[8px] tracking-[0.13em] text-muted-foreground uppercase">
+            <span className="mt-1.5 hidden text-[8px] tracking-[0.13em] text-muted-foreground uppercase lg:block">
               Seventh-day Adventist Church
             </span>
           </div>
@@ -111,7 +111,7 @@ export function AppControllerHeader() {
             <span className="text-lg font-bold tracking-[-0.035em] text-foreground">
               {APP_DISPLAY_NAME}
             </span>
-            <span className="mt-1.5 text-[9px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+            <span className="mt-1.5 hidden text-[9px] font-semibold tracking-[0.13em] text-muted-foreground uppercase lg:block">
               Automated Presentation Space
             </span>
           </div>
