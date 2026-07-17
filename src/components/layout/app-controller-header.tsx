@@ -118,16 +118,6 @@ export function AppControllerHeader() {
           <span className="ml-2 rounded-md border border-yellow-400/20 bg-yellow-400/10 px-2 py-0.5 font-mono text-[9px] font-semibold tracking-wider text-yellow-700 uppercase dark:text-yellow-400">
             {versionLabel}
           </span>
-          <span className="hidden shrink-0 rounded-full bg-[var(--shell-navy)] px-2.5 py-1 text-[9px] font-extrabold tracking-[0.12em] whitespace-nowrap text-[var(--shell-bg-base)] uppercase shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14),0_6px_16px_rgba(11,43,72,0.18)] min-[1850px]:inline">
-            Special Edition
-          </span>
-          <span
-            title="Special Edition"
-            aria-label="Special Edition"
-            className="grid size-[26px] shrink-0 place-items-center rounded-full bg-[var(--shell-navy)] text-[9px] font-extrabold tracking-[0.04em] text-yellow-400 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14),0_6px_16px_rgba(11,43,72,0.18)] min-[1850px]:hidden"
-          >
-            SE
-          </span>
         </div>
       </div>
 
