@@ -152,7 +152,8 @@
 @theme inline {
   --font-heading: var(--font-display);
   --font-display: "DM Serif Display", Georgia, serif;
-  --font-sans: "Source Sans 3 Variable", sans-serif;
+  /* Premium-light mockup typography: Inter carries the interface voice. */
+  --font-sans: "Inter Variable", "Source Sans 3 Variable", sans-serif;
   --font-serif: var(--font-display);
   --font-mono: "DM Mono", ui-monospace, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -453,8 +454,15 @@
   );
 }
 
+/* Gold selection highlight from the mockup. */
+.light ::selection {
+  background: #c9972d;
+  color: #ffffff;
+}
+
 /* Premium-light glass treatment: brighter frost, inner highlight, soft navy lift. */
 .light .glass-panel {
+  border-radius: 20px;
   border-color: rgba(255, 255, 255, 0.56);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.66),

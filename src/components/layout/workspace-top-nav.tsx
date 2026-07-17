@@ -31,7 +31,7 @@ export function WorkspaceTopNav() {
   return (
     <nav
       aria-label="Workspaces"
-      className="flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-1 py-1"
+      className="flex items-center gap-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] p-1.5"
     >
       {DASHBOARD_WORKSPACE_NAV.map((item) => {
         const Icon = item.icon
@@ -65,10 +65,10 @@ export function WorkspaceTopNav() {
                   }
                   onClick={() => selectWorkspace(item.id, item.opensPlanner)}
                   className={cn(
-                    "btn-action flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors",
+                    "btn-action flex size-9 cursor-pointer items-center justify-center rounded-xl transition-colors",
                     active
-                      ? "bg-[var(--accent-glow)] text-[var(--accent)] ring-1 ring-[var(--accent)]/40"
-                      : "text-muted-foreground hover:bg-[var(--shell-bg-sunken)] hover:text-foreground"
+                      ? "bg-[var(--accent-glow)] text-[var(--accent-dark)] shadow-[inset_0_0_0_1px_var(--accent-border)]"
+                      : "text-muted-foreground hover:bg-[var(--shell-bg-elevated)] hover:text-[var(--shell-navy)]"
                   )}
                 >
                   <Icon className="size-[18px] shrink-0" strokeWidth={2} />

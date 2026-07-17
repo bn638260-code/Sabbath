@@ -52,7 +52,7 @@ function HeaderStatusChip({
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 font-mono text-[10px] font-semibold tracking-wide uppercase",
+        "inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-[11px] font-extrabold tracking-[0.06em] uppercase",
         tone === "live"
           ? "border-red-500/35 bg-red-500/12 text-red-700 dark:text-red-300"
           : tone === "ready"
@@ -102,7 +102,7 @@ export function AppControllerHeader() {
   const versionLabel = `v${packageJson.version}`
 
   return (
-    <header className="z-50 flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-sunken)_86%,transparent)] px-5 backdrop-blur-xl">
+    <header className="z-50 mx-3 mt-3 flex min-h-[68px] shrink-0 items-center justify-between gap-4 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-elevated)_62%,transparent)] px-5 shadow-[var(--shell-panel-shadow)] backdrop-blur-2xl">
       <div className="flex items-center gap-4">
         <div className="hidden items-center gap-2.5 border-r border-[var(--border-subtle)] pr-4 2xl:flex">
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white to-slate-100 shadow-[inset_0_0_0_1px_rgba(11,43,72,0.09),0_6px_16px_rgba(18,60,97,0.09)]">
@@ -127,10 +127,10 @@ export function AppControllerHeader() {
             className="transition-transform duration-300 hover:rotate-3"
           />
           <div className="flex flex-col leading-none">
-            <span className="font-display text-xl tracking-wide text-foreground">
+            <span className="text-lg font-bold tracking-[-0.035em] text-foreground">
               {APP_DISPLAY_NAME}
             </span>
-            <span className="mt-0.5 font-mono text-[9px] tracking-wider text-muted-foreground uppercase">
+            <span className="mt-1 text-[9px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
               Automated Presentation Space
             </span>
           </div>
@@ -169,14 +169,14 @@ export function AppControllerHeader() {
             tone={isLive ? "live" : "neutral"}
           />
         </div>
-        <div className="hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-3 py-1 font-mono text-xs font-semibold tracking-wider text-foreground lg:block">
+        <div className="hidden h-9 items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-3 text-[13px] font-bold tracking-[0.04em] text-foreground tabular-nums lg:flex">
           {clock}
         </div>
         <div
-          className="flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] p-1"
+          className="flex h-9 items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-2"
           data-tour="theme"
         >
-          <span className="hidden px-2 font-mono text-[10px] font-bold text-muted-foreground uppercase sm:inline">
+          <span className="hidden px-1 text-[10px] font-bold tracking-[0.06em] text-muted-foreground uppercase sm:inline">
             Theme:
           </span>
           {ACCENT_SWATCHES.map((swatch) => (
@@ -188,9 +188,10 @@ export function AppControllerHeader() {
               aria-pressed={theme === swatch.id}
               onClick={() => setTheme(swatch.id)}
               className={cn(
-                "btn-action size-[18px] rounded-md border border-[var(--border-subtle)] transition-all hover:scale-125",
+                "btn-action size-[15px] rounded-[5px] border border-[var(--border-subtle)] transition-all hover:scale-125",
                 swatch.className,
-                theme === swatch.id && "ring-2 ring-[var(--accent-border)]"
+                theme === swatch.id &&
+                  "ring-2 ring-[var(--accent-border)] ring-offset-1"
               )}
             />
           ))}

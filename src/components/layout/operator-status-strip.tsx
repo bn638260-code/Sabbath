@@ -114,7 +114,7 @@ export function OperatorStatusStrip({
   return (
     <section
       data-slot="operator-status-strip"
-      className="flex h-11 shrink-0 scrollbar-thin items-center justify-between gap-4 overflow-x-auto border-b border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-sunken)_72%,transparent)] px-5 text-xs select-none"
+      className="mx-3 mt-2 flex h-12 shrink-0 scrollbar-thin items-center justify-between gap-4 overflow-x-auto rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-elevated)_55%,transparent)] px-4 text-xs shadow-[var(--shell-panel-shadow)] backdrop-blur-xl select-none"
     >
       <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto">
         <div className="flex shrink-0 items-center gap-2 text-muted-foreground">

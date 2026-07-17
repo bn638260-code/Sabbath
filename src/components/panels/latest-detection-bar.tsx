@@ -14,7 +14,7 @@ import type { DetectionResult } from "@/types"
 function LiveDetectionRow({ detection }: { detection: DetectionResult }) {
   const actions = getDetectionActions(detection)
   return (
-    <div className="flex min-w-0 flex-col gap-2 border-b border-[var(--border-subtle)] px-3 py-2 [contain-intrinsic-size:0_64px] [content-visibility:auto] last:border-0 sm:flex-row sm:items-center sm:gap-3">
+    <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-elevated)_72%,transparent)] px-3 py-2 [contain-intrinsic-size:0_64px] [content-visibility:auto] sm:flex-row sm:items-center sm:gap-3">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex min-w-0 items-center gap-2">
           <ConfidenceDot confidence={detection.confidence} />
@@ -87,7 +87,7 @@ export function LatestDetectionBar({ className }: { className?: string }) {
       )}
     >
       <div className="flex min-h-10 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-3 py-2">
-        <div className="flex items-center gap-1.5 text-[0.625rem] font-medium text-muted-foreground uppercase">
+        <div className="flex items-center gap-1.5 text-[0.6875rem] font-extrabold tracking-[0.055em] text-foreground/85 uppercase">
           <RadarIcon className="size-3" />
           Live detections
           {recent.length > 0 ? (
@@ -120,7 +120,7 @@ export function LatestDetectionBar({ className }: { className?: string }) {
       </div>
 
       {recent.length > 0 ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
           {recent.map((detection, index) => (
             <LiveDetectionRow
               key={`${detection.verse_ref}-${index}`}
@@ -129,8 +129,17 @@ export function LatestDetectionBar({ className }: { className?: string }) {
           ))}
         </div>
       ) : (
-        <div className="flex flex-1 items-center px-3 text-xs text-muted-foreground">
-          No detections yet
+        <div className="grid flex-1 place-items-center p-4">
+          <div className="grid w-full max-w-[340px] place-items-center rounded-2xl bg-[var(--shell-bg-sunken)] px-6 py-7 text-center shadow-[inset_0_0_0_1px_var(--border-subtle)]">
+            <RadarIcon className="mb-2 size-9 text-muted-foreground/70" />
+            <strong className="text-[15px] font-bold tracking-[-0.02em] text-foreground/90">
+              No detections yet
+            </strong>
+            <span className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              Verse detections will appear here while live transcription is
+              active.
+            </span>
+          </div>
         </div>
       )}
     </div>
