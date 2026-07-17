@@ -4,32 +4,17 @@ export type AccentTheme = "teal" | "gold" | "emerald" | "purple" | "aurora"
 
 export const ACCENT_THEME_STORAGE_KEY = "sabbathcue-accent-theme"
 
-function readStoredTheme(): AccentTheme {
-  try {
-    const raw = localStorage.getItem(ACCENT_THEME_STORAGE_KEY)
-    if (
-      raw === "teal" ||
-      raw === "gold" ||
-      raw === "emerald" ||
-      raw === "purple" ||
-      raw === "aurora"
-    ) {
-      return raw
-    }
-  } catch {
-    /* private browsing / disabled storage */
-  }
-  return "teal"
-}
-
 interface AccentThemeState {
   theme: AccentTheme
   setTheme: (theme: AccentTheme) => void
   hydrate: () => void
 }
 
+// The KNFC premium-light interface ships with a single gold accent; the
+// picker was removed from the header, and hydrate ignores any stored value
+// so installs that previously chose another accent land on gold too.
 export const useAccentThemeStore = create<AccentThemeState>((set) => ({
-  theme: "teal",
+  theme: "gold",
   setTheme: (theme) => {
     try {
       localStorage.setItem(ACCENT_THEME_STORAGE_KEY, theme)
@@ -38,7 +23,7 @@ export const useAccentThemeStore = create<AccentThemeState>((set) => ({
     }
     set({ theme })
   },
-  hydrate: () => set({ theme: readStoredTheme() }),
+  hydrate: () => set({ theme: "gold" }),
 }))
 
 export function accentThemeClassName(theme: AccentTheme): string {

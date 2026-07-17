@@ -213,15 +213,6 @@ export const TUTORIAL_STEPS: Step[] = [
   },
   {
     ...STEP_DEFAULTS,
-    ...liveStep('[data-tour="theme"]'),
-    target: '[data-tour="theme"]',
-    title: "Themes",
-    content:
-      "Use the header theme selector to switch the app accent quickly. For the live screen, open Theme Settings or Broadcast Control > Theme designer to adjust fonts, backgrounds, lower thirds, and slide positioning.",
-    placement: "bottom",
-  },
-  {
-    ...STEP_DEFAULTS,
     target: '[data-tour="settings-section-themes"]',
     title: "Theme Designer",
     content:

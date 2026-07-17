@@ -18,7 +18,7 @@ describe("AppControllerHeader color mode controls", () => {
   beforeEach(() => {
     document.documentElement.className = ""
     localStorage.clear()
-    useAccentThemeStore.setState({ theme: "teal" })
+    useAccentThemeStore.getState().hydrate()
     useColorModeStore.getState().hydrate()
   })
 
@@ -37,10 +37,11 @@ describe("AppControllerHeader color mode controls", () => {
     ).toBeNull()
   })
 
-  it("shows accent swatches", () => {
+  it("pins the gold accent: no theme picker is rendered", () => {
     renderHeader()
 
-    expect(screen.getByText("Theme:")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Soft Teal" })).toBeTruthy()
+    expect(useAccentThemeStore.getState().theme).toBe("gold")
+    expect(screen.queryByText("Theme:")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Soft Teal" })).toBeNull()
   })
 })

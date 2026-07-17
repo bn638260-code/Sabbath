@@ -11,28 +11,15 @@ import {
   useBroadcastOutputRuntime,
 } from "@/hooks/use-broadcast-output-runtime"
 import {
-  ACCENT_THEME_STORAGE_KEY,
   accentThemeClassName,
   type AccentTheme,
 } from "@/stores/accent-theme-store"
 import type { BroadcastTransitionType, PresentationRenderData } from "@/types"
 
+// The app ships with a single gold accent (the picker was removed); the
+// output window pins the same accent rather than reading a stored choice.
 function readAccentTheme(): AccentTheme {
-  try {
-    const raw = localStorage.getItem(ACCENT_THEME_STORAGE_KEY)
-    if (
-      raw === "teal" ||
-      raw === "gold" ||
-      raw === "emerald" ||
-      raw === "purple" ||
-      raw === "aurora"
-    ) {
-      return raw
-    }
-  } catch {
-    /* ignore */
-  }
-  return "teal"
+  return "gold"
 }
 
 function applyAccentThemeToDocument() {
@@ -85,14 +72,9 @@ function BroadcastCanvas() {
   useBroadcastYoutube(youtubeFrame, isYoutube)
 
   useEffect(() => {
+    // Accent is pinned to gold, so a one-time apply is enough — there is no
+    // stored accent choice to watch for anymore.
     applyAccentThemeToDocument()
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === ACCENT_THEME_STORAGE_KEY) {
-        applyAccentThemeToDocument()
-      }
-    }
-    window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
   }, [])
 
   return (

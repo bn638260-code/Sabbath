@@ -3,10 +3,6 @@ import { CircleDotIcon, MonitorIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { APP_DISPLAY_NAME } from "@/lib/app-brand"
 import { AppLogo } from "@/components/ui/app-logo"
-import {
-  useAccentThemeStore,
-  type AccentTheme,
-} from "@/stores/accent-theme-store"
 import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
 import { useBroadcastMonitorStore } from "@/stores/broadcast/monitor-store"
 import {
@@ -18,19 +14,6 @@ import { projectorReadinessCopy } from "@/lib/projector-setup/projector-readines
 import { parseRememberedSetupKey } from "@/lib/projector-setup/remembered-setup-key"
 import { WorkspaceTopNav } from "@/components/layout/workspace-top-nav"
 import packageJson from "../../../package.json"
-
-const ACCENT_SWATCHES: { id: AccentTheme; className: string; title: string }[] =
-  [
-    { id: "gold", className: "bg-yellow-400", title: "Sunrise Gold" },
-    { id: "teal", className: "bg-teal-500", title: "Soft Teal" },
-    { id: "emerald", className: "bg-emerald-500", title: "Emerald Sanctuary" },
-    {
-      id: "purple",
-      className: "bg-purple-400",
-      title: "Royal Amethyst",
-    },
-    { id: "aurora", className: "bg-sky-400", title: "Midnight Aurora" },
-  ]
 
 function formatClock(date: Date): string {
   return date.toLocaleTimeString(undefined, {
@@ -69,8 +52,6 @@ function HeaderStatusChip({
 }
 
 export function AppControllerHeader() {
-  const theme = useAccentThemeStore((s) => s.theme)
-  const setTheme = useAccentThemeStore((s) => s.setTheme)
   const isLive = useBroadcastLiveStore((s) => s.isLive)
   const projectorMonitors = useProjectorSetupStore((s) => s.monitors)
   const rememberedMonitorKey = useBroadcastMonitorStore(
@@ -102,35 +83,35 @@ export function AppControllerHeader() {
   const versionLabel = `v${packageJson.version}`
 
   return (
-    <header className="z-50 mx-3 mt-3 flex min-h-[68px] shrink-0 items-center justify-between gap-4 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-elevated)_62%,transparent)] px-5 shadow-[var(--shell-panel-shadow)] backdrop-blur-2xl">
-      <div className="flex items-center gap-4">
-        <div className="hidden items-center gap-2.5 border-r border-[var(--border-subtle)] pr-4 2xl:flex">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white to-slate-100 shadow-[inset_0_0_0_1px_rgba(11,43,72,0.09),0_6px_16px_rgba(18,60,97,0.09)]">
+    <header className="z-50 mx-3 mt-3 flex min-h-[76px] shrink-0 items-center justify-between gap-5 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--shell-bg-elevated)_62%,transparent)] px-6 shadow-[var(--shell-panel-shadow)] backdrop-blur-2xl">
+      <div className="flex min-w-0 items-center gap-5">
+        <div className="hidden shrink-0 items-center gap-3 border-r border-[var(--border-subtle)] pr-5 2xl:flex">
+          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-white to-slate-100 shadow-[inset_0_0_0_1px_rgba(11,43,72,0.09),0_6px_16px_rgba(18,60,97,0.09)]">
             <img
               src="/sda-logo.png"
               alt="Seventh-day Adventist Church logo"
-              className="size-7 object-contain"
+              className="size-8 object-contain"
             />
           </span>
-          <div className="flex flex-col leading-none">
-            <span className="text-sm font-bold tracking-tight text-[var(--shell-navy)]">
+          <div className="flex flex-col leading-none whitespace-nowrap">
+            <span className="text-[15px] font-bold tracking-[-0.02em] text-[var(--shell-navy)]">
               KNFC Conference
             </span>
-            <span className="mt-1 text-[8px] tracking-[0.13em] text-muted-foreground uppercase">
+            <span className="mt-1.5 text-[8px] tracking-[0.13em] text-muted-foreground uppercase">
               Seventh-day Adventist Church
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <AppLogo
             size="sm"
             className="transition-transform duration-300 hover:rotate-3"
           />
-          <div className="flex flex-col leading-none">
+          <div className="flex flex-col leading-none whitespace-nowrap">
             <span className="text-lg font-bold tracking-[-0.035em] text-foreground">
               {APP_DISPLAY_NAME}
             </span>
-            <span className="mt-1 text-[9px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+            <span className="mt-1.5 text-[9px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
               Automated Presentation Space
             </span>
           </div>
@@ -171,30 +152,6 @@ export function AppControllerHeader() {
         </div>
         <div className="hidden h-9 items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-3 text-[13px] font-bold tracking-[0.04em] text-foreground tabular-nums lg:flex">
           {clock}
-        </div>
-        <div
-          className="flex h-9 items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-2"
-          data-tour="theme"
-        >
-          <span className="hidden px-1 text-[10px] font-bold tracking-[0.06em] text-muted-foreground uppercase sm:inline">
-            Theme:
-          </span>
-          {ACCENT_SWATCHES.map((swatch) => (
-            <button
-              key={swatch.id}
-              type="button"
-              title={swatch.title}
-              aria-label={swatch.title}
-              aria-pressed={theme === swatch.id}
-              onClick={() => setTheme(swatch.id)}
-              className={cn(
-                "btn-action size-[15px] rounded-[5px] border border-[var(--border-subtle)] transition-all hover:scale-125",
-                swatch.className,
-                theme === swatch.id &&
-                  "ring-2 ring-[var(--accent-border)] ring-offset-1"
-              )}
-            />
-          ))}
         </div>
       </div>
     </header>

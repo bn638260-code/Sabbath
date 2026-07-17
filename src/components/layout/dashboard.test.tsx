@@ -61,7 +61,7 @@ vi.mock("@/components/broadcast/KineticThemesPage", () => ({
 beforeEach(() => {
   useDashboardWorkspaceStore.setState({ workspace: "live" })
   useServicePlanStore.setState({ plannerOpen: false })
-  useAccentThemeStore.setState({ theme: "teal" })
+  useAccentThemeStore.setState({ theme: "gold" })
   Element.prototype.scrollTo = vi.fn()
 })
 
