@@ -44,4 +44,19 @@ describe("AppControllerHeader color mode controls", () => {
     expect(screen.queryByText("Theme:")).toBeNull()
     expect(screen.queryByRole("button", { name: "Soft Teal" })).toBeNull()
   })
+
+  it("renders the Special Edition collector's mark with the app version", () => {
+    renderHeader()
+
+    const editionStamp = screen.getByLabelText(/^Special Edition v[0-9]/)
+
+    expect(editionStamp).toBeTruthy()
+    expect(editionStamp.className).toContain("h-[18px]")
+    expect(editionStamp.className).not.toContain("h-4")
+    expect(editionStamp.className).not.toContain("h-7")
+    expect(editionStamp.parentElement?.dataset.slot).toBe("product-wordmark")
+    expect(editionStamp.querySelector("svg")).toBeNull()
+    expect(screen.getByText("Special")).toBeTruthy()
+    expect(screen.getByText("Edition")).toBeTruthy()
+  })
 })

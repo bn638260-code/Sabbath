@@ -51,6 +51,19 @@ function HeaderStatusChip({
   )
 }
 
+function SpecialEditionStamp({ versionLabel }: { versionLabel: string }) {
+  return (
+    <span
+      aria-label={`Special Edition ${versionLabel}`}
+      title={`SabbathCue Special Edition ${versionLabel}`}
+      className="ml-1.5 inline-flex h-[18px] min-w-9 -rotate-2 shrink-0 flex-col items-center justify-center rounded-[3px] border border-[var(--accent-border)] bg-[var(--accent-glow)] px-1.5 text-[6px] font-black leading-[6px] tracking-[0.11em] text-[var(--accent-dark)] uppercase shadow-[inset_0_0_0_1px_rgba(255,255,255,0.62)]"
+    >
+      <span>Special</span>
+      <span>Edition</span>
+    </span>
+  )
+}
+
 export function AppControllerHeader() {
   const isLive = useBroadcastLiveStore((s) => s.isLive)
   const projectorMonitors = useProjectorSetupStore((s) => s.monitors)
@@ -108,16 +121,17 @@ export function AppControllerHeader() {
             className="transition-transform duration-300 hover:rotate-3"
           />
           <div className="flex flex-col leading-none whitespace-nowrap">
-            <span className="text-lg font-bold tracking-[-0.035em] text-foreground">
+            <span
+              data-slot="product-wordmark"
+              className="inline-flex items-center text-lg font-bold tracking-[-0.035em] text-foreground"
+            >
               {APP_DISPLAY_NAME}
+              <SpecialEditionStamp versionLabel={versionLabel} />
             </span>
             <span className="mt-1.5 hidden text-[9px] font-semibold tracking-[0.13em] text-muted-foreground uppercase lg:block">
               Automated Presentation Space
             </span>
           </div>
-          <span className="ml-2 rounded-md border border-yellow-400/20 bg-yellow-400/10 px-2 py-0.5 font-mono text-[9px] font-semibold tracking-wider text-yellow-700 uppercase dark:text-yellow-400">
-            {versionLabel}
-          </span>
         </div>
       </div>
 
