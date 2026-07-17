@@ -489,7 +489,7 @@
     rgba(9, 44, 77, 0.5),
     rgba(5, 33, 57, 0.55)
   );
-  animation: ambientDriftOne 38s ease-in-out infinite alternate;
+  animation: ambientDriftOne 16s ease-in-out infinite alternate;
 }
 
 .light .ambient-blobs::after {
@@ -502,7 +502,7 @@
     rgba(13, 55, 87, 0.48),
     rgba(8, 38, 67, 0.5)
   );
-  animation: ambientDriftTwo 46s ease-in-out infinite alternate;
+  animation: ambientDriftTwo 21s ease-in-out infinite alternate;
 }
 
 @keyframes ambientDriftOne {
