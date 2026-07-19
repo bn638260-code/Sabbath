@@ -20,10 +20,13 @@ This folder is a standalone static site, separate from the Next.js site in
 ### Option A — Vercel dashboard
 
 1. Import the GitHub repo at <https://vercel.com/new>.
-2. Set **Root Directory** to `landing`.
-3. **Framework Preset**: Other. Leave build & output commands empty
-   (it's a static site — no build step).
+2. Set **Root Directory** to `landing` (required — do not use the repo root).
+3. **Framework Preset**: Other. Leave build, install, and output commands empty
+   (it's a static site — no build step). Output directory should be `.`.
 4. Deploy.
+
+If Vercel reports **No Output Directory named "dist" found**, the project is
+still building from the repo root as Vite. Fix step 2 and redeploy.
 
 ### Option B — Vercel CLI
 
