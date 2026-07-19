@@ -342,6 +342,54 @@ h2{font-weight:800;font-size:clamp(1.65rem,3.2vw,2.4rem);line-height:1.14;letter
 .tstep p{color:var(--muted);max-width:60ch}
 .tstep .tech{margin-top:10px;font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;color:var(--muted-dim)}
 
+/* demo video */
+.video-frame{
+  margin-top:38px;border-radius:20px;overflow:hidden;
+  border:1px solid var(--line);box-shadow:var(--shadow);background:#000;
+}
+.video-frame video{display:block;width:100%;height:auto}
+.video-caption{
+  margin-top:14px;text-align:center;font-family:var(--mono);font-size:.62rem;
+  letter-spacing:.12em;color:var(--muted-dim);text-transform:uppercase;
+}
+
+/* reviews */
+.rev-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;margin-top:38px;align-items:start}
+@media (max-width:820px){.rev-grid{grid-template-columns:1fr}}
+.rev-form{
+  background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px;
+  display:grid;gap:14px;
+}
+.rev-form label{display:grid;gap:6px;font-size:.85rem;font-weight:600;color:var(--denim)}
+.rev-form input,.rev-form textarea{
+  font-family:var(--sans);font-size:.95rem;color:var(--ink);
+  background:var(--ground);border:1px solid var(--line);border-radius:10px;padding:11px 13px;
+  width:100%;resize:vertical;
+}
+.rev-form input:focus,.rev-form textarea:focus{outline:2px solid var(--azure);outline-offset:1px;border-color:var(--azure)}
+.stars{border:none;display:grid;gap:6px}
+.stars legend{font-size:.85rem;font-weight:600;color:var(--denim);margin-bottom:2px}
+.star-row{display:flex;gap:4px}
+.star-row input{position:absolute;opacity:0;width:1px;height:1px}
+.star-row label{cursor:pointer;font-size:1.55rem;line-height:1;color:var(--line);transition:color .12s ease,transform .12s ease}
+.star-row label:hover{transform:scale(1.12)}
+.star-row.r1 label:nth-child(-n+2),.star-row.r2 label:nth-child(-n+4),
+.star-row.r3 label:nth-child(-n+6),.star-row.r4 label:nth-child(-n+8),
+.star-row.r5 label:nth-child(-n+10){color:var(--azure)}
+.star-row input:focus-visible + label{outline:2px solid var(--azure);outline-offset:2px;border-radius:4px}
+.rev-status{font-family:var(--mono);font-size:.66rem;letter-spacing:.08em;color:var(--muted);min-height:1.2em}
+.rev-status.ok{color:var(--good)}
+.rev-status.err{color:#C0392B}
+.rev-list{display:grid;gap:12px}
+.rev-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px}
+.rev-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;margin-bottom:8px}
+.rev-name{font-weight:700;color:var(--denim)}
+.rev-church{font-size:.82rem;color:var(--muted-dim)}
+.rev-stars{color:var(--azure);letter-spacing:2px;font-size:.9rem}
+.rev-date{margin-left:auto;font-family:var(--mono);font-size:.6rem;color:var(--muted-dim)}
+.rev-text{color:var(--muted);font-size:.94rem}
+.rev-empty{color:var(--muted-dim);font-size:.9rem;padding:14px 4px}
+
 /* quote band */
 .quote-band{
   text-align:center;
@@ -414,11 +462,12 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
     </a>
     </div>
     <nav aria-label="Page sections">
+      <a href="#demo">Demo</a>
       <a href="#why">Why KNFC</a>
       <a href="#features">In the app</a>
       <a href="#pilot">The pilot</a>
       <a href="#setup">Setup</a>
-      <a href="#support">Support</a>
+      <a href="#reviews">Reviews</a>
     </nav>
     <div class="header-right">
       <button class="theme-btn" id="theme-toggle" aria-label="Toggle light and dark theme">Theme</button>
@@ -438,7 +487,7 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
       <p class="hero-sub stage d3">SabbathCue listens to the sermon and puts spoken Scripture on your projector &mdash; Bible verses, Ellen G. White references, and hymns. Use Manual mode to preview and approve every slide, or Auto mode to present high-confidence matches instantly. This pilot is designed for media desks serving congregations across the KwaZulu-Natal Free State Conference.</p>
       <div class="hero-ctas stage d4">
         <a class="btn btn-azure" href="https://pub-f00266e4b83341dea437c0114752f536.r2.dev/SabbathCue_0.1.7_x64-setup.exe" download="SabbathCue-Setup.exe">Download SabbathCue</a>
-        <a class="btn btn-ghost" href="https://sabbath-cue-two.vercel.app/#how">See how it works</a>
+        <a class="btn btn-ghost" href="#demo">Watch the demo</a>
       </div>
       <p class="trial-note stage d5">Windows &middot; v0.1.7 &middot; 14-day free trial &middot; no card required</p>
     </div>
@@ -479,6 +528,24 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
     <p class="stats-src rv-item">Latest official directory figures: June 2025 &middot; <a href="https://www.adventistdirectory.org/ViewAdmField.aspx?AdmFieldID=KNSC">Adventist Organizational Directory</a></p>
   </div>
 </div>
+
+<!-- ============ demo ============ -->
+<section class="surface" id="demo">
+  <div class="wrap reveal">
+    <div class="sec-head">
+      <p class="sec-eyebrow">See it work</p>
+      <h2>Watch the detection in action.</h2>
+      <p class="sec-lede">A screen recording of SabbathCue catching a spoken verse and sending it to the live screen &mdash; exactly what your operator will see on Sabbath morning.</p>
+    </div>
+    <div class="video-frame rv-item">
+      <video controls preload="metadata" playsinline aria-label="Screen recording of SabbathCue detecting a Bible verse and sending it to the live screen">
+        <source src="assets/sabbathcue-demo.mp4" type="video/mp4">
+        Your browser cannot play this video. <a href="assets/sabbathcue-demo.mp4">Download the demo recording</a> instead.
+      </video>
+    </div>
+    <p class="video-caption">Recording from a live English test &middot; real-time detection &middot; operator previews before sending</p>
+  </div>
+</section>
 
 <!-- ============ why ============ -->
 <section id="why">
@@ -644,6 +711,45 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
       <p class="ask rv-item"><span class="tick">&#10003;</span><span>Use SabbathCue in <b>at least one full sermon</b> during your trial.</span></p>
       <p class="ask rv-item"><span class="tick">&#10003;</span><span>Note <b>missed or wrong detections</b> &mdash; the reference and roughly what was said.</span></p>
       <p class="ask rv-item"><span class="tick">&#10003;</span><span><b>Email your notes</b>, with your church name, after the service.</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ reviews ============ -->
+<section id="reviews">
+  <div class="wrap reveal">
+    <div class="sec-head">
+      <p class="sec-eyebrow">Pilot reviews</p>
+      <h2>What churches are saying.</h2>
+      <p class="sec-lede">Reviews from pastors, operators and media teams in the pilot. Add yours after your first service &mdash; it is public and visible to everyone who visits this page.</p>
+    </div>
+    <div class="rev-grid">
+      <form class="rev-form rv-item" id="rev-form">
+        <label>Name
+          <input id="rf-name" maxlength="60" required autocomplete="name" placeholder="Your name">
+        </label>
+        <label>Church <span style="font-weight:400;color:var(--muted-dim)">(optional)</span>
+          <input id="rf-church" maxlength="80" placeholder="e.g. Pinetown SDA Church">
+        </label>
+        <fieldset class="stars">
+          <legend>Rating</legend>
+          <div class="star-row r5" id="star-row">
+            <input type="radio" name="rating" id="st1" value="1"><label for="st1" title="1 star">&#9733;</label>
+            <input type="radio" name="rating" id="st2" value="2"><label for="st2" title="2 stars">&#9733;</label>
+            <input type="radio" name="rating" id="st3" value="3"><label for="st3" title="3 stars">&#9733;</label>
+            <input type="radio" name="rating" id="st4" value="4"><label for="st4" title="4 stars">&#9733;</label>
+            <input type="radio" name="rating" id="st5" value="5" checked><label for="st5" title="5 stars">&#9733;</label>
+          </div>
+        </fieldset>
+        <label>Your review
+          <textarea id="rf-text" maxlength="600" rows="4" required placeholder="What did it catch? What did it miss? How was it for your operator?"></textarea>
+        </label>
+        <button class="btn btn-azure" type="submit" id="rev-submit">Submit review</button>
+        <p class="rev-status" id="rev-status" role="status"></p>
+      </form>
+      <div class="rev-list" id="rev-list">
+        <p class="rev-empty">Loading reviews&hellip;</p>
+      </div>
     </div>
   </div>
 </section>
@@ -833,6 +939,93 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
       else { playCue(cues[idx]); }
     });
   }
+
+  /* ============ pilot reviews ============ */
+  var API='/api/reviews';
+  var revList=document.getElementById('rev-list');
+  var revForm=document.getElementById('rev-form');
+  var revStatus=document.getElementById('rev-status');
+  var revSubmit=document.getElementById('rev-submit');
+  var starRow=document.getElementById('star-row');
+
+  starRow.addEventListener('change',function(){
+    var r=starRow.querySelector('input:checked');
+    starRow.className='star-row r'+(r?r.value:'5');
+  });
+
+  function starStr(n){
+    var s=''; for(var i=0;i<5;i++){ s+= i<n ? '★' : '☆'; } return s;
+  }
+  var currentReviews=[];
+  function renderReviews(list){
+    currentReviews=list;
+    revList.innerHTML='';
+    if(!list.length){
+      var p=document.createElement('p'); p.className='rev-empty';
+      p.textContent='No reviews yet — be the first after your service this Sabbath.';
+      revList.appendChild(p); return;
+    }
+    list.forEach(function(r){
+      var card=document.createElement('div'); card.className='rev-card';
+      var head=document.createElement('div'); head.className='rev-head';
+      var nm=document.createElement('span'); nm.className='rev-name'; nm.textContent=r.name||'';
+      head.appendChild(nm);
+      if(r.church){ var ch=document.createElement('span'); ch.className='rev-church'; ch.textContent=r.church; head.appendChild(ch); }
+      var st=document.createElement('span'); st.className='rev-stars';
+      st.textContent=starStr(Math.max(1,Math.min(5,r.rating|0)));
+      st.setAttribute('aria-label',(r.rating|0)+' out of 5 stars');
+      head.appendChild(st);
+      if(r.date){ var dt=document.createElement('span'); dt.className='rev-date'; dt.textContent=r.date; head.appendChild(dt); }
+      var tx=document.createElement('p'); tx.className='rev-text'; tx.textContent=r.text||'';
+      card.appendChild(head); card.appendChild(tx);
+      revList.appendChild(card);
+    });
+  }
+  function reviewsOffline(){
+    revList.innerHTML='';
+    var p=document.createElement('p'); p.className='rev-empty';
+    p.textContent='Reviews load on the live pilot site.';
+    revList.appendChild(p);
+    revSubmit.disabled=true;
+    revStatus.textContent='Review submission is available on the live pilot site.';
+  }
+  fetch(API,{cache:'no-store'}).then(function(r){
+    if(!r.ok) throw new Error('bad status');
+    return r.json();
+  }).then(renderReviews).catch(reviewsOffline);
+
+  revForm.addEventListener('submit',function(e){
+    e.preventDefault();
+    var rating=starRow.querySelector('input:checked');
+    var payload={
+      name:document.getElementById('rf-name').value.trim(),
+      church:document.getElementById('rf-church').value.trim(),
+      text:document.getElementById('rf-text').value.trim(),
+      rating:rating?Number(rating.value):0
+    };
+    if(!payload.name||!payload.text||!payload.rating){
+      revStatus.className='rev-status err';
+      revStatus.textContent='Please fill in your name, rating and review.';
+      return;
+    }
+    revSubmit.disabled=true;
+    revStatus.className='rev-status';
+    revStatus.textContent='Submitting…';
+    fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)})
+      .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error||'failed'); return j; }); })
+      .then(function(j){
+        renderReviews([j.review].concat(currentReviews));
+        revForm.reset();
+        starRow.className='star-row r5';
+        revStatus.className='rev-status ok';
+        revStatus.textContent='Thank you — your review is now live.';
+      })
+      .catch(function(err){
+        revStatus.className='rev-status err';
+        revStatus.textContent=(err&&err.message)?err.message:'Could not submit. Please try again.';
+      })
+      .then(function(){ revSubmit.disabled=false; });
+  });
 })();
 </script>
 
