@@ -1,5 +1,5 @@
 # Codebase Map - SabbathCue
-Created: 2026-07-12 - Last verified: 2026-07-16 - Confidence: Medium
+Created: 2026-07-12 - Last verified: 2026-07-19 - Confidence: Medium
 
 ## 0 - Snapshot
 | Field | Value |
@@ -52,7 +52,7 @@ Where the pattern is violated or watchlisted: the theme catalog still exports `K
 | `/src-tauri/src/commands` | Tauri command layer for native features and STT orchestration. | Receipts: src-tauri/src/commands/stt/provider.rs:95, src-tauri/src/lib.rs:126 |
 | `/src-tauri/crates/stt` | STT provider implementations and shared provider traits. | Receipts: src-tauri/crates/stt/src/lib.rs:27, src-tauri/crates/stt/src/lib.rs:32 |
 | `/data` | Bible/EGW source conversion, validation, and SQLite import scripts. | Receipts: data/build-egw.ts:2, data/convert-egw-sc-pdf.ts:26, data/lib/egw-pdf-importer.ts:18 |
-| `/landing` and `/web/content/docs` | Public marketing/docs content aligned with app capabilities. | Receipts: landing/index.html:544, web/content/docs/getting-started/speech-to-text.mdx:9 |
+| `/landing`, `/landing-knfcpilot`, and `/web/content/docs` | Public marketing/docs content. `landing/knfc.html` is the canonical KNFC pilot page; `landing-knfcpilot/index.html` is its standalone Vercel deployment copy and reuses the KNFC logo and product-demo video from `landing/assets`. | Receipts: landing/knfc.html:7, landing/knfc.html:296, landing-knfcpilot/.vercel/project.json:1, scripts/vercel-build.mjs:4, web/content/docs/getting-started/speech-to-text.mdx:9 |
 
 ## 5 - Entry points & core modules
 | Entry point | Location | What it starts |
@@ -61,6 +61,7 @@ Where the pattern is violated or watchlisted: the theme catalog still exports `K
 | Tauri app | package.json:13 | Desktop shell and native command handlers |
 | Tauri command registration | src-tauri/src/lib.rs:126 | Native commands including STT lifecycle |
 | STT crate exports | src-tauri/crates/stt/src/lib.rs:32 | Deepgram, Soniox, Speechmatics, and Vosk providers |
+| KNFC static deployment | landing-knfcpilot/index.html:1 | Static landing page linked to Vercel project `knfcpilot` |
 
 Core modules:
 | Module | Location | Responsibility | Depended on by |
@@ -202,6 +203,19 @@ Preview quick search uses helper before rendering ghost text
 Search-panel quick search uses same helper
   -> src/components/panels/search/QuickVerseSearch.tsx:28
   -> src/components/panels/search/QuickVerseSearch.tsx:36
+```
+
+### Flow: KNFC landing deployment
+```text
+Canonical KNFC marketing copy is maintained in landing/knfc.html
+  -> landing/knfc.html:1
+Standalone deployment copy is landing-knfcpilot/index.html
+  -> landing-knfcpilot/index.html:1
+The standalone folder is linked to Vercel project knfcpilot
+  -> landing-knfcpilot/.vercel/project.json:1
+Repo-root Vercel builds for project knfcsabbathcue copy that same standalone page into dist
+  -> scripts/vercel-build.mjs:4
+  -> vercel.json:4
 ```
 
 ### Flow: Steps to Christ EGW source alignment
@@ -374,7 +388,7 @@ npm.cmd run build:egw
 # Result after Education folio alignment: passed; EGW import complete with 8,731 paragraphs.
 ```
 
-CI/CD & deployment: not fully mapped in this pass. See open questions.
+KNFC deployment is mapped above; broader app/docs CI/CD remains only partially mapped. See open questions.
 
 ## 11 - Quality, risks & tech debt
 | Observation | Area | Severity | Receipt |
@@ -394,7 +408,7 @@ Top risks (ranked): 1. STT provider removal can leave stale docs or tests if his
 - Quick-search ghost overlays must use `getGhostSuggestionSuffix` instead of local slicing.
 
 ## 13 - Open questions
-- [ ] Full CI/CD and deployment flow is not mapped in this scoped pass.
+- [ ] Full desktop-app and documentation CI/CD is not mapped in this scoped pass; the KNFC Vercel static deployment is mapped.
 - [ ] Full database build/migration ownership for Bible/EGW content is not mapped in this scoped pass.
 - [ ] Full broadcast renderer path beyond theme selection is not mapped in this scoped pass.
 
@@ -419,3 +433,5 @@ Top risks (ranked): 1. STT provider removal can leave stale docs or tests if his
 | 2026-07-16 | Tuned Deepgram endpointing to 250 ms and Speechmatics flexible final delay to 1.0 second. | 9, 15 |
 | 2026-07-16 | Added optional self-declared church organization signup metadata, verified-session/operator badge display, and admin account visibility. | 5-10, 15 |
 | 2026-07-16 | Replaced UUID-only device counting with managed approved/pending/revoked activations, OS-keychain P-256 identity proof, service-role-only registration/approval, and signed configurable offline leases. | 5-11, 15 |
+| 2026-07-19 | Mapped the dedicated KNFC pilot landing entry point and its local visual/demo assets after the cinematic product-story redesign. | 4, 15 |
+| 2026-07-19 | Traced the standalone `knfcpilot` Vercel folder and repo-root static build branch, and aligned the KNFC copy with verified app behavior. | 4-6, 10, 13, 15 |

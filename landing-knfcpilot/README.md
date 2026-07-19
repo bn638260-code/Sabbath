@@ -1,6 +1,6 @@
 # KNFC Conference pilot landing page
 
-Self-contained static landing page for the KNFC × SabbathCue partnership pilot
+Self-contained static landing page for the SabbathCue KNFC media-team pilot
 (single `index.html`, no build step).
 
 ## Deploy to Vercel
