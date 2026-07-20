@@ -813,6 +813,10 @@
   display: none !important;
 }
 
+body[data-live-output-fullscreen="true"] [data-slot="collected-detections-panel"] {
+  display: none !important;
+}
+
 /* prettier-ignore */
 [data-slot="live-output-panel"][data-fullscreen-layout="true"] [data-slot="live-output-stage"],
 [data-slot="live-output-panel"]:fullscreen [data-slot="live-output-stage"] {

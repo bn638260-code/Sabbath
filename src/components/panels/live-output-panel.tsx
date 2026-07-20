@@ -423,6 +423,17 @@ export function LiveOutputPanel({ className }: { className?: string }) {
     }
   }, [isFullscreenLayout])
 
+  useEffect(() => {
+    if (isFullscreenLayout) {
+      document.body.dataset.liveOutputFullscreen = "true"
+      return () => {
+        delete document.body.dataset.liveOutputFullscreen
+      }
+    }
+
+    delete document.body.dataset.liveOutputFullscreen
+  }, [isFullscreenLayout])
+
   return (
     <div
       ref={panelRef}

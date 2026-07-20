@@ -20,11 +20,6 @@ const MAX_SEMANTIC_DETECTIONS: usize = 5;
 /// result (capped at two extra), rewarding cross-strategy corroboration.
 const AGREEMENT_BONUS: f64 = 0.02;
 
-/// Cap on sentence chunks searched per utterance in ensemble mode (each chunk
-/// costs ~3 embed calls). Utterances are 1-4 sentences, so this only trims
-/// pathological run-on fragments.
-const MAX_ENSEMBLE_CHUNKS: usize = 6;
-
 /// Orchestrator that combines text chunking, embedding, vector search,
 /// and caching to detect Bible verses from transcript text using
 /// semantic similarity.
@@ -117,7 +112,7 @@ impl SemanticDetector {
             };
 
             let mut best_by_verse: HashMap<i64, Detection> = HashMap::new();
-            for chunk in search_chunks.iter().take(MAX_ENSEMBLE_CHUNKS) {
+            for chunk in &search_chunks {
                 match self.ensemble.search(
                     chunk,
                     self.embedder.as_ref(),
@@ -503,6 +498,35 @@ mod tests {
                 .iter()
                 .any(|q| q == "for every sin that repents, there is joy in heaven"),
             "the stripped quote clause must be embedded on its own: {recorded:?}"
+        );
+    }
+
+    #[test]
+    fn ensemble_path_searches_a_late_scripture_quote_in_a_long_sermon() {
+        let queries = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut detector = SemanticDetector::new(
+            Box::new(RecordingEmbedder {
+                inner: StubEmbedder::new(128),
+                queries: queries.clone(),
+            }),
+            Box::new(FakeIndex {
+                results: vec![SearchResult {
+                    verse_id: 23_001,
+                    similarity: 0.85,
+                }],
+            }),
+        );
+
+        detector.detect(
+            "Testing one two three four five. Today we will consider Matthew chapter one. Then we will consider Romans chapter eight. Now we will listen carefully to scripture. The Lord is my shepherd I shall not want He makes me lie down in green pastures He restores my soul.",
+        );
+
+        let recorded = queries.lock().unwrap();
+        assert!(
+            recorded
+                .iter()
+                .any(|query| query.contains("The Lord is my shepherd I shall not want")),
+            "late scripture quotations must reach semantic search: {recorded:?}"
         );
     }
 

@@ -98,6 +98,7 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
     }
     container = document.createElement("div")
     document.body.appendChild(container)
+    delete document.body.dataset.liveOutputFullscreen
     root = createRoot(container)
   })
 
@@ -106,6 +107,7 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
       root.unmount()
     })
     container.remove()
+    delete document.body.dataset.liveOutputFullscreen
     vi.restoreAllMocks()
   })
 
@@ -234,6 +236,7 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
     })
     expect(setWindowFullscreenMock).toHaveBeenCalledWith(true)
     expect(panel.dataset.fullscreenLayout).toBe("true")
+    expect(document.body.dataset.liveOutputFullscreen).toBe("true")
 
     // Escape leaves fullscreen (window fullscreen has no built-in handling).
     await act(async () => {
@@ -241,6 +244,7 @@ describe("LiveOutputPanel fullscreen chrome contract", () => {
     })
     expect(setWindowFullscreenMock).toHaveBeenCalledWith(false)
     expect(panel.dataset.fullscreenLayout).toBeUndefined()
+    expect(document.body.dataset.liveOutputFullscreen).toBeUndefined()
   })
 })
 
@@ -260,6 +264,12 @@ describe("fullscreen stylesheet contract", () => {
   it("hides all panel chrome except the stage in fullscreen", () => {
     expect(css).toContain(
       '[data-slot="live-output-panel"][data-fullscreen-layout="true"] > *:not([data-slot="live-output-stage"])',
+    )
+  })
+
+  it("hides collected detections while the live output occupies fullscreen", () => {
+    expect(css).toContain(
+      'body[data-live-output-fullscreen="true"] [data-slot="collected-detections-panel"]',
     )
   })
 

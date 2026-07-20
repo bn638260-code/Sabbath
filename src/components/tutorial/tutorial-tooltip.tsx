@@ -74,7 +74,7 @@ export function TutorialTooltip({
 
   const tooltipStyle = {
     ...(tooltipProps as { style?: CSSProperties }).style,
-    background: "var(--bg-deep)",
+    background: "var(--shell-bg-deep)",
   }
 
   function advance(event: MouseEvent<HTMLButtonElement>) {
