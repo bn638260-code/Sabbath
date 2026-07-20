@@ -231,7 +231,9 @@ impl DetectionPipeline {
                         .min(1.0)
                         .max(overlap_confidence.unwrap_or(0.0));
                     if let DetectionSource::Semantic { similarity } = &mut existing.source {
-                        *similarity = existing.confidence;
+                        *similarity = (*similarity + OVERLAP_CONFIDENCE_BOOST)
+                            .min(1.0)
+                            .max(overlap_confidence.unwrap_or(0.0));
                     }
                 }
                 continue;

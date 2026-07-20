@@ -14,12 +14,19 @@ use tokio::sync::Notify;
 use super::detection::{FINAL_SEMANTIC_MIN_WORDS, LIVE_SEMANTIC_CAP, LIVE_SEMANTIC_OVERLAP_BOOST};
 use super::detection_logic::transcript_defers_to_direct;
 
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct SemanticJob {
+    pub(crate) seq: u64,
+    pub(crate) text: String,
+    pub(crate) stt_confidence: f64,
+}
+
 /// Take the latest pending semantic job from a shared slot, recovering from
 /// poisoned locks so the worker doesn't die permanently.
 pub(crate) fn take_semantic_job(
-    slot: &Arc<Mutex<Option<(u64, String)>>>,
+    slot: &Arc<Mutex<Option<SemanticJob>>>,
     label: &str,
-) -> Option<(u64, String)> {
+) -> Option<SemanticJob> {
     match slot.lock() {
         Ok(mut guard) => guard.take(),
         Err(poisoned) => {
@@ -33,8 +40,8 @@ pub(crate) fn take_semantic_job(
 /// Replace the latest pending semantic job in a shared slot, recovering from
 /// poisoned locks. Returns true if a previous job was replaced.
 pub(crate) fn replace_semantic_job(
-    slot: &Arc<Mutex<Option<(u64, String)>>>,
-    job: (u64, String),
+    slot: &Arc<Mutex<Option<SemanticJob>>>,
+    job: SemanticJob,
     label: &str,
 ) -> bool {
     match slot.lock() {
@@ -48,12 +55,13 @@ pub(crate) fn replace_semantic_job(
 }
 
 pub(crate) fn enqueue_final_semantic_job(
-    job_slot: &Arc<Mutex<Option<(u64, String)>>>,
+    job_slot: &Arc<Mutex<Option<SemanticJob>>>,
     notify: &Arc<Notify>,
     sent_counter: &Arc<AtomicU64>,
     replaced_counter: &Arc<AtomicU64>,
     seq: u64,
     text: String,
+    stt_confidence: f64,
 ) {
     if text.trim().is_empty() {
         return;
@@ -75,7 +83,15 @@ pub(crate) fn enqueue_final_semantic_job(
         return;
     }
 
-    let replaced = replace_semantic_job(job_slot, (seq, text), "final");
+    let replaced = replace_semantic_job(
+        job_slot,
+        SemanticJob {
+            seq,
+            text,
+            stt_confidence,
+        },
+        "final",
+    );
     let n = sent_counter.fetch_add(1, Ordering::Relaxed) + 1;
 
     if replaced {
@@ -93,12 +109,13 @@ pub(crate) fn enqueue_final_semantic_job(
 }
 
 pub(crate) fn enqueue_partial_semantic_job(
-    job_slot: &Arc<Mutex<Option<(u64, String)>>>,
+    job_slot: &Arc<Mutex<Option<SemanticJob>>>,
     notify: &Arc<Notify>,
     sent_counter: &Arc<AtomicU64>,
     replaced_counter: &Arc<AtomicU64>,
     seq: u64,
     text: String,
+    stt_confidence: f64,
 ) {
     if text.trim().is_empty() {
         return;
@@ -111,7 +128,15 @@ pub(crate) fn enqueue_partial_semantic_job(
         return;
     }
 
-    let replaced = replace_semantic_job(job_slot, (seq, text), "partial");
+    let replaced = replace_semantic_job(
+        job_slot,
+        SemanticJob {
+            seq,
+            text,
+            stt_confidence,
+        },
+        "partial",
+    );
     let n = sent_counter.fetch_add(1, Ordering::Relaxed) + 1;
 
     if replaced {

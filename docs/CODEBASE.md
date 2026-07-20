@@ -75,6 +75,7 @@ Core modules:
 | STT provider routing | src-tauri/src/commands/stt/provider.rs:95 | Selects Vosk, Deepgram, or Soniox and handles removed providers | Tauri STT commands |
 | Collected detections store | src/stores/collected-detections-store.ts:48 | Session-scoped reuse list of presented/queued detections | Detections panel |
 | Detection actions | src/components/panels/detections-panel.tsx:144 | Shared preview/present/queue closures for detection types | Detection cards, latest bar, collection UI |
+| Verse ranking and calibration | src-tauri/crates/detection/src/semantic/detector.rs:128, src-tauri/crates/detection/src/bin/detection_accuracy.rs:577 | Keeps internal rank evidence separate from displayed match strength and evaluates production Auto selection | Live STT detection, frontend detection workflow, desktop CI |
 | Theme catalog page | src/components/broadcast/KineticThemesPage.tsx:132 | User-facing Themes workspace with static and kinetic columns | Workspace nav |
 | Quick search helper | src/lib/quick-search.ts:167 | Prefix-safe ghost suggestion suffix | Preview and Search quick inputs |
 
@@ -194,6 +195,27 @@ Section is rendered above detections list
   -> src/components/panels/detections-panel.tsx:526
 ```
 
+### Flow: calibrated verse Auto selection
+```text
+Partial/final STT events enqueue semantic jobs with provider confidence
+  -> src-tauri/src/commands/stt/mod.rs:380
+  -> src-tauri/src/commands/stt/detection_jobs.rs:17
+Hybrid vector/FTS detection preserves ensemble evidence as rank_score
+  -> src-tauri/crates/detection/src/semantic/detector.rs:128
+  -> src-tauri/crates/detection/src/types.rs:37
+Low-confidence STT keeps suggestions visible but caps them below Auto-live
+  -> src-tauri/src/commands/stt/live_session.rs:508
+Frontend prefers direct hits; semantic hits below 95% require repeated confirmation
+  -> src/lib/verse-detection-workflow.ts:184
+Operator actions append privacy-safe local feedback without transcript content
+  -> src/lib/detection-feedback.ts:25
+Frontend profiling measures the full asynchronous event workflow, top-candidate
+switches inside the confirmation window, and first-seen-to-selection latency
+  -> src/lib/detection-profiler.ts:28
+CI replays the full-model corpus at 90% and 85% with precision/recall gates
+  -> .github/workflows/desktop-ci.yml:184
+```
+
 ### Flow: theme catalog
 ```text
 Workspace nav id remains kinetic-themes but label is Themes
@@ -304,6 +326,7 @@ Build script imports the generated JSON into egw_books / egw_paragraphs
 | STT settings | Tauri store plus Zustand hydration | sttProvider, key status booleans | Settings UI, transcription hook | src/stores/settings-store.ts:6, src/stores/settings-store.ts:188 |
 | Cloud API keys | OS keyring via Tauri commands | Deepgram/Soniox/Speechmatics key presence and validation | STT provider routing | src-tauri/Cargo.toml:70, src/components/settings/sections/ApiKeysSection.tsx:5 |
 | Collected detections | In-memory Zustand only | detection, source, kind, useCount, timestamps | Detections panel action reuse | src/stores/collected-detections-store.ts:20, src/stores/collected-detections-store.ts:85 |
+| Detection feedback | Browser localStorage, capped at 500 entries | reference, source, match strength, rank score, action, timestamp | Offline ranking evaluation; no transcript/audio content | src/lib/detection-feedback.ts:3 |
 | Broadcast themes | Broadcast Zustand slice | activeThemeId, themes, kinetic flag | Theme catalog and renderer | src/components/broadcast/KineticThemesPage.tsx:146, src/components/broadcast/theme-library.tsx:54 |
 | Bible/EGW content | SQLite | translations, verses, EGW paragraphs | Search/detection/presentation | README.md:49, src-tauri/Cargo.toml:75 |
 | EGW source JSON | data/sources/egw/*.json | book_number, chapter, paragraph, page, page_paragraph, text | Built into SQLite by `build:egw` | data/build-egw.ts:2, data/validate-egw-sources.ts:7 |
@@ -336,6 +359,7 @@ External services:
 | Variable / setting | Purpose | Required | Default | Read at |
 |---|---|---|---|---|
 | `sttProvider` | Selected STT backend | yes | Vosk-compatible fallback | src/stores/settings-store.ts:105 |
+| Auto-live match strength | Minimum score for automatic presentation | no | 0.90; legacy 0.80/0.85 values migrate to 0.90 | src/stores/settings-store.ts:9, src/stores/settings-store.ts:131 |
 | Deepgram endpointing | Finalize after a short speech pause | only for Deepgram | 250 ms | src-tauri/crates/stt/src/deepgram.rs:23 |
 | Speechmatics max delay | Upper target for final transcript latency, with flexible entity formatting | only for Speechmatics | 1.0 second | src-tauri/crates/stt/src/speechmatics.rs:22, src-tauri/crates/stt/src/speechmatics.rs:180 |
 | Deepgram API key | Cloud STT auth | only for Deepgram | absent | src/stores/settings-store.ts:188 |
@@ -418,6 +442,8 @@ KNFC deployment is mapped above; broader app/docs CI/CD remains only partially m
 | Removed Gladia remains as a compatibility error branch and settings migration only. | maintainability | watch | src-tauri/src/commands/stt/provider.rs:95, src/stores/settings-store.ts:105 |
 | Theme workspace id remains `kinetic-themes` while label is "Themes" to avoid persisted-state migration. | maintainability | watch | src/components/broadcast/KineticThemesPage.tsx:170, src/lib/dashboard-workspace-nav.ts:69 |
 | Collected detections are intentionally session-only and capped at 50. | product behavior | healthy | src/stores/collected-detections-store.ts:25, src/stores/collected-detections-store.ts:85 |
+| Full-model accuracy is CI-gated, but the curated corpus is not a substitute for a held-out multi-church audio corpus. | detection quality | watch | src-tauri/crates/detection/src/bin/detection_accuracy.rs:1, .github/workflows/desktop-ci.yml:184 |
+| Runtime performance metrics begin when ranked candidates reach the frontend; true speech-to-result latency still requires timestamped provider audio fixtures. | detection quality | watch | src/lib/detection-profiler.ts:28 |
 
 Strengths: targeted stores and shared helpers make the current STT/detection/theme changes testable.
 
@@ -459,3 +485,5 @@ Top risks (ranked): 1. STT provider removal can leave stale docs or tests if his
 | 2026-07-19 | Traced the standalone `knfcpilot` Vercel folder and repo-root static build branch, and aligned the KNFC copy with verified app behavior. | 4-6, 10, 13, 15 |
 | 2026-07-20 | Replaced trial/self-declared access with confirmed single-use KNFC invitations, Schedule A church membership, pilot activation gates, church/pilot device limits, and designated-owner admin bootstrap. | 5-11, 15 |
 | 2026-07-20 | Made pilot church/device capacity configurable and expanded onboarding into separately restartable, role-aware operator/admin training with observable task gates and readiness confirmations. | 5-11, 15 |
+| 2026-07-20 | Separated verse rank evidence from displayed match strength, added STT-aware semantic safety and repeat confirmation, production-faithful calibration gates, and privacy-safe local correction feedback. | 5-11, 15 |
+| 2026-07-20 | Added asynchronous detection latency, candidate-switch stability, and semantic confirmation-latency measurements without retaining transcript or audio. | 6, 10, 11, 15 |

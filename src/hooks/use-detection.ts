@@ -2,6 +2,7 @@ import { invokeTauri, isTauriRuntime } from "@/lib/tauri-runtime"
 import { useBroadcastOutputIssueStore as useBroadcastStore } from "@/stores/broadcast/output-issue-store"
 import { useDetectionStore } from "@/stores/detection-store"
 import type { DetectionResult } from "@/types"
+import { recordDetectionFeedback } from "@/lib/detection-feedback"
 
 export interface DetectionControlStatus {
   detection_paused: boolean
@@ -68,7 +69,13 @@ export const detectionActions = {
   getDetectionStatus,
   setDetectionPaused,
   getDetectionControlStatus,
-  clearDetections: () => useDetectionStore.getState().clearDetections(),
+  clearDetections: () => {
+    const store = useDetectionStore.getState()
+    for (const detection of store.detections) {
+      recordDetectionFeedback(detection, "dismissed")
+    }
+    store.clearDetections()
+  },
   removeDetection: (verseRef: string) =>
     useDetectionStore.getState().removeDetection(verseRef),
 }

@@ -101,8 +101,8 @@ impl DetectionMerger {
         // 3. Direct references are more trustworthy than semantic suggestions.
         deduped.sort_by(|a, b| {
             source_priority(b).cmp(&source_priority(a)).then_with(|| {
-                b.confidence
-                    .partial_cmp(&a.confidence)
+                b.rank_score()
+                    .partial_cmp(&a.rank_score())
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
         });
@@ -231,7 +231,7 @@ fn should_replace(existing: &Detection, incoming: &Detection) -> bool {
     match (existing_direct, incoming_direct) {
         (false, true) => true,
         (true, false) => false,
-        _ => incoming.confidence > existing.confidence,
+        _ => incoming.rank_score() > existing.rank_score(),
     }
 }
 

@@ -77,7 +77,7 @@ describe("settings store", () => {
     expect(state.semanticDetectionEnabled).toBe(true)
     // Defaults remain for keys with null
     expect(state.autoMode).toBe(false)
-    expect(state.confidenceThreshold).toBe(0.85)
+    expect(state.confidenceThreshold).toBe(0.9)
     expect(state.semanticConfidenceThreshold).toBe(0.7)
   })
 
@@ -106,7 +106,7 @@ describe("settings store", () => {
       await import("./settings-store")
     await hydrateSettings()
 
-    expect(useSettingsStore.getState().confidenceThreshold).toBe(0.85)
+    expect(useSettingsStore.getState().confidenceThreshold).toBe(0.9)
   })
 
   it("clamps confidence threshold updates to a finite 0-1 range", async () => {
@@ -119,7 +119,7 @@ describe("settings store", () => {
     expect(useSettingsStore.getState().confidenceThreshold).toBe(0)
 
     useSettingsStore.getState().setConfidenceThreshold(Number.NaN)
-    expect(useSettingsStore.getState().confidenceThreshold).toBe(0.85)
+    expect(useSettingsStore.getState().confidenceThreshold).toBe(0.9)
   })
 
   it("does not trust persisted Deepgram key status when keychain status is unavailable", async () => {

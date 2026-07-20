@@ -15,10 +15,13 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use rhema_bible::BibleDb;
 use rhema_detection::semantic::embedder::TextEmbedder;
-use rhema_detection::{DetectionPipeline, HnswVectorIndex, OnnxEmbedder, SemanticDetector};
+use rhema_detection::{
+    DetectionPipeline, HnswVectorIndex, MergedDetection, OnnxEmbedder, SemanticDetector,
+};
 
 const DEFAULT_EXTERNAL_CASES: &str = "data/detection-fixtures/sermon-transcript-cases.json";
 
@@ -579,6 +582,8 @@ fn main() {
     let threshold: f64 = arg(&args, "--threshold")
         .and_then(|s| s.parse().ok())
         .unwrap_or(0.90);
+    let min_precision = arg(&args, "--min-precision").and_then(|s| s.parse::<f64>().ok());
+    let min_recall = arg(&args, "--min-recall").and_then(|s| s.parse::<f64>().ok());
     let model = arg(&args, "--model")
         .unwrap_or_else(|| "models/minilm-l6-v2-int8/onnx/model_quantized.onnx".into());
     let tokenizer =
@@ -621,6 +626,9 @@ fn main() {
     let mut hint_total = 0usize;
     let mut case_hits = 0usize;
     let mut by_cat: HashMap<String, (usize, usize)> = HashMap::new(); // cat -> (hits, total)
+    let mut calibration = [(0usize, 0usize); 10];
+    let mut selector = AutoLiveSelector::default();
+    let mut detection_latencies_ms = Vec::with_capacity(cases.len());
 
     println!("Per-case outcome at threshold {:.0}%:\n", threshold * 100.0);
     let mut current_language: Option<String> = None;
@@ -634,19 +642,13 @@ fn main() {
             pipeline.direct_mut().set_stt_language(&case.language);
             current_language = Some(case.language.clone());
         }
+        let detection_started = Instant::now();
         let mut detections = pipeline.process_direct(&case.text);
         let fts = db.search_verses_bm25(&case.text, 10).unwrap_or_default();
         detections.extend(pipeline.process_hybrid_with_fts(&case.text, &fts));
+        detection_latencies_ms.push(detection_started.elapsed().as_secs_f64() * 1_000.0);
         // Auto-live fires the highest-confidence detection at/above threshold.
-        let fired = detections
-            .iter()
-            .filter(|d| d.detection.confidence >= threshold)
-            .max_by(|a, b| {
-                a.detection
-                    .confidence
-                    .partial_cmp(&b.detection.confidence)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
+        let fired = selector.select(&detections, threshold, &refs);
 
         let fired_ref = fired.and_then(|d| detection_ref(&d.detection, &refs));
         let fired_conf = fired.map(|d| d.detection.confidence);
@@ -744,6 +746,14 @@ fn main() {
             },
         };
 
+        if let Some(confidence) = fired_conf {
+            let bin = ((confidence * 10.0).floor() as usize).min(9);
+            calibration[bin].1 += 1;
+            if case_correct {
+                calibration[bin].0 += 1;
+            }
+        }
+
         if case_correct {
             case_hits += 1;
             entry.0 += 1;
@@ -815,6 +825,94 @@ fn main() {
         "  Case pass (including hint expectations):   {:.1}%",
         case_success * 100.0
     );
+
+    println!("\nMatch-strength calibration (correct / fired):");
+    for (bin, (correct, fired)) in calibration.iter().enumerate() {
+        if *fired > 0 {
+            println!("  {:>2}-{:>3}%  {correct}/{fired}", bin * 10, bin * 10 + 9);
+        }
+    }
+
+    detection_latencies_ms.sort_by(f64::total_cmp);
+    if let Some(max) = detection_latencies_ms.last() {
+        println!("\nDetection processing latency (transcript received to ranked candidates):");
+        println!(
+            "  p50: {:.1} ms  p95: {:.1} ms  max: {:.1} ms",
+            percentile(&detection_latencies_ms, 0.50),
+            percentile(&detection_latencies_ms, 0.95),
+            max
+        );
+    }
+
+    let precision_failed = min_precision.is_some_and(|minimum| precision < minimum);
+    let recall_failed = min_recall.is_some_and(|minimum| recall < minimum);
+    if precision_failed || recall_failed {
+        eprintln!(
+            "Accuracy gate failed: precision={precision:.3} recall={recall:.3} minimum_precision={min_precision:?} minimum_recall={min_recall:?}"
+        );
+        std::process::exit(1);
+    }
+}
+
+fn percentile(sorted_values: &[f64], percentile: f64) -> f64 {
+    if sorted_values.is_empty() {
+        return 0.0;
+    }
+    let index = ((sorted_values.len() - 1) as f64 * percentile).round() as usize;
+    sorted_values[index]
+}
+
+#[derive(Default)]
+struct AutoLiveSelector {
+    pending_semantic: Option<String>,
+}
+
+impl AutoLiveSelector {
+    fn select<'a>(
+        &mut self,
+        detections: &'a [MergedDetection],
+        threshold: f64,
+        refs: &HashMap<i64, String>,
+    ) -> Option<&'a MergedDetection> {
+        let best = |source_is_direct: bool| {
+            detections
+                .iter()
+                .filter(|result| {
+                    matches!(
+                        result.detection.source,
+                        rhema_detection::types::DetectionSource::DirectReference
+                    ) == source_is_direct
+                        && result.detection.confidence >= threshold
+                        && !result.detection.is_chapter_only
+                })
+                .max_by(|a, b| {
+                    a.detection
+                        .rank_score()
+                        .partial_cmp(&b.detection.rank_score())
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+        };
+
+        if let Some(direct) = best(true) {
+            self.pending_semantic = None;
+            return Some(direct);
+        }
+
+        let semantic = best(false)?;
+        if semantic.detection.confidence >= 0.95 {
+            self.pending_semantic = None;
+            return Some(semantic);
+        }
+
+        let key = detection_ref(&semantic.detection, refs)?;
+        if self.pending_semantic.as_deref() == Some(key.as_str()) {
+            self.pending_semantic = None;
+            Some(semantic)
+        } else {
+            self.pending_semantic = Some(key);
+            None
+        }
+    }
 }
 
 impl BenchCase {
@@ -1145,5 +1243,14 @@ mod tests {
     #[test]
     fn ref_eq_accepts_revelation_of_john_alias() {
         assert!(ref_eq("Revelation 5:12", "Revelation of John 5:12"));
+    }
+
+    #[test]
+    fn percentile_reports_ordered_latency_sample() {
+        let samples = [10.0, 20.0, 30.0, 40.0, 50.0];
+
+        assert_eq!(percentile(&samples, 0.50), 30.0);
+        assert_eq!(percentile(&samples, 0.95), 50.0);
+        assert_eq!(percentile(&[], 0.95), 0.0);
     }
 }

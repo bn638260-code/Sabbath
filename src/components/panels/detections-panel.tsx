@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
+import { recordDetectionFeedback } from "@/lib/detection-feedback"
 import { PanelHeader } from "@/components/ui/panel-header"
 import { PanelEmptyState } from "@/components/ui/panel-empty-state"
 import { ConfidenceDot } from "@/components/ui/confidence-dot"
@@ -146,21 +147,28 @@ export function getDetectionActions(detection: DetectionResult): {
 } {
   const recordCollected = () =>
     useCollectedDetectionsStore.getState().record(detection)
+  const recordFeedback = (
+    action: "previewed" | "presented" | "queued"
+  ) => recordDetectionFeedback(detection, action)
 
   if (isHymnDetection(detection)) {
     const { number } = detection.hymn
     return {
-      preview: () =>
+      preview: () => {
+        recordFeedback("previewed")
         void loadHymnVoiceControl().then((mod) =>
           mod.previewHymnByNumber(number)
-        ),
+        )
+      },
       present: () => {
+        recordFeedback("presented")
         recordCollected()
         void loadHymnVoiceControl().then((mod) =>
           mod.presentHymnByNumber(number)
         )
       },
       queue: () => {
+        recordFeedback("queued")
         recordCollected()
         void loadHymnVoiceControl().then((mod) => mod.queueHymnByNumber(number))
       },
@@ -170,12 +178,17 @@ export function getDetectionActions(detection: DetectionResult): {
   if (isEgwDetection(detection)) {
     const egwParagraph = detection.egw_paragraph
     return {
-      preview: () => previewEgwParagraph(egwParagraph),
+      preview: () => {
+        recordFeedback("previewed")
+        previewEgwParagraph(egwParagraph)
+      },
       present: () => {
+        recordFeedback("presented")
         recordCollected()
         presentEgwParagraph(egwParagraph)
       },
       queue: () => {
+        recordFeedback("queued")
         recordCollected()
         useQueueStore.getState().addOrFlashItem(
           createEgwQueueItem(egwParagraph, {
@@ -189,12 +202,17 @@ export function getDetectionActions(detection: DetectionResult): {
 
   const verse = detectionToVerse(detection)
   return {
-    preview: () => selectPreviewVerse(verse),
+    preview: () => {
+      recordFeedback("previewed")
+      selectPreviewVerse(verse)
+    },
     present: () => {
+      recordFeedback("presented")
       recordCollected()
       presentVerse(verse)
     },
     queue: () => {
+      recordFeedback("queued")
       recordCollected()
       useQueueStore.getState().addOrFlashItem(
         createScriptureQueueItem(verse, {

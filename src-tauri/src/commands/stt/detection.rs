@@ -53,7 +53,7 @@ mod tests {
     };
     use crate::commands::stt::detection_jobs::{
         enqueue_final_semantic_job, enqueue_partial_semantic_job, finalize_live_semantic_results,
-        replace_semantic_job, take_semantic_job, DeepgramSemanticBuffer,
+        replace_semantic_job, take_semantic_job, DeepgramSemanticBuffer, SemanticJob,
     };
     use crate::commands::stt::detection_logic;
     use crate::commands::stt::detection_logic::{
@@ -105,6 +105,7 @@ mod tests {
             &replaced,
             1,
             "John chapter 8 verse 9".to_string(),
+            0.9,
         );
         assert!(
             slot.lock().unwrap().is_none(),
@@ -119,13 +120,14 @@ mod tests {
             &replaced,
             2,
             "let's go to the next verse".to_string(),
+            0.9,
         );
         assert!(
             slot.lock().unwrap().is_none(),
             "command window must not enqueue a semantic job"
         );
 
-        enqueue_final_semantic_job(&slot, &notify, &sent, &replaced, 3, "one".to_string());
+        enqueue_final_semantic_job(&slot, &notify, &sent, &replaced, 3, "one".to_string(), 0.9);
         assert!(
             slot.lock().unwrap().is_none(),
             "tiny final window must not enqueue a semantic job"
@@ -139,9 +141,10 @@ mod tests {
             &replaced,
             4,
             "for God so loved the world that he gave his only begotten son".to_string(),
+            0.73,
         );
         assert_eq!(
-            slot.lock().unwrap().as_ref().map(|(seq, _)| *seq),
+            slot.lock().unwrap().as_ref().map(|job| job.seq),
             Some(4),
             "prose window must enqueue a semantic job"
         );
@@ -163,6 +166,7 @@ mod tests {
             chapter,
             verse,
             confidence,
+            rank_score: confidence,
             source: "semantic".to_string(),
             auto_queued: false,
             transcript_snippet: "snippet".to_string(),
@@ -727,13 +731,20 @@ mod tests {
     fn semantic_job_slot_replace_reports_whether_existing_job_was_replaced() {
         let slot = Arc::new(Mutex::new(None));
 
-        assert!(!replace_semantic_job(&slot, (1, "old".to_string()), "test"));
-        assert!(replace_semantic_job(&slot, (2, "new".to_string()), "test"));
+        let old = SemanticJob {
+            seq: 1,
+            text: "old".to_string(),
+            stt_confidence: 0.5,
+        };
+        let new = SemanticJob {
+            seq: 2,
+            text: "new".to_string(),
+            stt_confidence: 0.8,
+        };
+        assert!(!replace_semantic_job(&slot, old, "test"));
+        assert!(replace_semantic_job(&slot, new.clone(), "test"));
 
-        assert_eq!(
-            take_semantic_job(&slot, "test"),
-            Some((2, "new".to_string()))
-        );
+        assert_eq!(take_semantic_job(&slot, "test"), Some(new));
         assert_eq!(take_semantic_job(&slot, "test"), None);
     }
 
@@ -744,18 +755,30 @@ mod tests {
         let poisoned_slot = slot.clone();
         let _ = std::panic::catch_unwind(move || {
             let mut guard = poisoned_slot.lock().unwrap();
-            guard.replace((1, "poisoned".to_string()));
+            guard.replace(SemanticJob {
+                seq: 1,
+                text: "poisoned".to_string(),
+                stt_confidence: 0.4,
+            });
             panic!("poison semantic slot");
         });
 
         assert!(replace_semantic_job(
             &slot,
-            (2, "recovered".to_string()),
+            SemanticJob {
+                seq: 2,
+                text: "recovered".to_string(),
+                stt_confidence: 0.9,
+            },
             "test"
         ));
         assert_eq!(
             take_semantic_job(&slot, "test"),
-            Some((2, "recovered".to_string()))
+            Some(SemanticJob {
+                seq: 2,
+                text: "recovered".to_string(),
+                stt_confidence: 0.9,
+            })
         );
     }
 
