@@ -54,7 +54,7 @@ function detectionRank(
       ? Math.max(0, MAX_RECENCY_BONUS * (1 - ageMs / RECENCY_BONUS_WINDOW_MS))
       : 0
 
-  return detection.confidence + recencyBonus
+  return (detection.rank_score ?? detection.confidence) + recencyBonus
 }
 
 function sourcePriority(detection: DetectionResultWithMeta): number {

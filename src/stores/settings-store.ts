@@ -6,9 +6,10 @@ import { useBroadcastOutputIssueStore } from "@/stores/broadcast/output-issue-st
 export type SttProvider = "deepgram" | "soniox" | "speechmatics" | "vosk"
 export type SttLanguage = "en" | "af" | "es" | "fr" | "pt"
 
-const DEFAULT_CONFIDENCE_THRESHOLD = 0.85
+const DEFAULT_CONFIDENCE_THRESHOLD = 0.9
 const DEFAULT_SEMANTIC_CONFIDENCE_THRESHOLD = 0.7
 const LEGACY_DEFAULT_CONFIDENCE_THRESHOLD = 0.8
+const LEGACY_AUTO_LIVE_THRESHOLD = 0.85
 
 function normalizeConfidenceThreshold(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_CONFIDENCE_THRESHOLD
@@ -130,7 +131,8 @@ function parseSttLanguage(value: unknown): SttLanguage {
 function parseConfidenceThreshold(value: unknown): unknown {
   if (
     typeof value === "number" &&
-    Math.abs(value - LEGACY_DEFAULT_CONFIDENCE_THRESHOLD) < Number.EPSILON
+    (Math.abs(value - LEGACY_DEFAULT_CONFIDENCE_THRESHOLD) < Number.EPSILON ||
+      Math.abs(value - LEGACY_AUTO_LIVE_THRESHOLD) < Number.EPSILON)
   ) {
     return DEFAULT_CONFIDENCE_THRESHOLD
   }

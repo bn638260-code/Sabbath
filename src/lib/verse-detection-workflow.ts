@@ -19,6 +19,8 @@ import {
   traceReadingAdvanceDetails,
   traceVerseDetails,
 } from "@/lib/workflow-trace"
+import { recordDetectionFeedback } from "@/lib/detection-feedback"
+import { recordAutoSelectionPerformance } from "@/lib/detection-profiler"
 import type {
   DetectionResult,
   EgwParagraph,
@@ -158,7 +160,10 @@ function bestDetection(detections: DetectionResult[]): DetectionResult | null {
   let best = detections[0]
   for (let i = 1; i < detections.length; i += 1) {
     const candidate = detections[i]
-    if (candidate.confidence > best.confidence) {
+    if (
+      (candidate.rank_score ?? candidate.confidence) >
+      (best.rank_score ?? best.confidence)
+    ) {
       best = candidate
     }
   }
@@ -294,6 +299,40 @@ async function queueDetectedVerse(
 }
 
 let detectionHandlingChain: Promise<void> = Promise.resolve()
+const SEMANTIC_SINGLE_PASS_MATCH_STRENGTH = 0.95
+const SEMANTIC_CONFIRMATION_WINDOW_MS = 8_000
+let pendingSemanticConfirmation: { key: string; seenAt: number } | null = null
+
+export function resetSemanticConfirmationForTests() {
+  pendingSemanticConfirmation = null
+}
+
+function confirmedSemanticHit(
+  detection: DetectionResult | null
+): DetectionResult | null {
+  if (!detection || detection.source !== "semantic") {
+    pendingSemanticConfirmation = null
+    return detection
+  }
+
+  if (detection.confidence >= SEMANTIC_SINGLE_PASS_MATCH_STRENGTH) {
+    pendingSemanticConfirmation = null
+    return detection
+  }
+
+  const key = `${detection.book_number}:${detection.chapter}:${detection.verse}`
+  const now = Date.now()
+  if (
+    pendingSemanticConfirmation?.key === key &&
+    now - pendingSemanticConfirmation.seenAt <= SEMANTIC_CONFIRMATION_WINDOW_MS
+  ) {
+    pendingSemanticConfirmation = null
+    return detection
+  }
+
+  pendingSemanticConfirmation = { key, seenAt: now }
+  return null
+}
 
 function reportDetectionBatchError(error: unknown): void {
   useBroadcastOutputIssueStore.getState().reportOutputIssue({
@@ -322,11 +361,13 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
     semanticConfidenceThreshold: settings.semanticConfidenceThreshold,
   })
   const previewHit = autoPreview
-    ? selectPreviewHit(
-        acceptedDetections,
-        settings.confidenceThreshold,
-        settings.semanticDetectionEnabled,
-        settings.semanticConfidenceThreshold
+    ? confirmedSemanticHit(
+        selectPreviewHit(
+          acceptedDetections,
+          settings.confidenceThreshold,
+          settings.semanticDetectionEnabled,
+          settings.semanticConfidenceThreshold
+        )
       )
     : null
   const resolvedDetections = new WeakMap<
@@ -334,6 +375,8 @@ async function handleVerseDetectionsInternal(detections: DetectionResult[]) {
     ResolvedDetectionVerse
   >()
   if (previewHit) {
+    recordAutoSelectionPerformance(previewHit)
+    recordDetectionFeedback(previewHit, "auto-selected")
     if (isEgwDetection(previewHit)) {
       recordWorkflowTrace(
         "detection.preview.selected",

@@ -39,7 +39,7 @@ export function DisplayModeSection() {
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-foreground">Auto</span>
               <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
-                Automatically displays the highest-confidence detected verse on
+                Automatically displays the strongest detected verse on
                 broadcast output. A 2.5-second cooldown prevents rapid
                 flickering. Best for hands-off operation.
               </p>
@@ -86,7 +86,7 @@ export function DisplayModeSection() {
 
         <div className="flex items-center justify-between">
           <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-            Semantic confidence
+            Semantic match strength
           </label>
           <span className="text-xs text-muted-foreground tabular-nums">
             {semanticDetectionEnabled ? `${semanticThresholdPercent}%` : "Off"}
@@ -102,7 +102,7 @@ export function DisplayModeSection() {
         />
         <p className="text-[0.625rem] text-muted-foreground">
           {semanticDetectionEnabled
-            ? "Semantic verse suggestions below this confidence stay hidden."
+            ? "Semantic verse suggestions below this match strength stay hidden."
             : "Only direct spoken references will appear in detections."}
         </p>
       </div>
@@ -125,12 +125,11 @@ export function DisplayModeSection() {
             onValueChange={([v]) => setConfidenceThreshold(v / 100)}
           />
           <p className="text-[0.625rem] text-muted-foreground">
-            Only detections at or above this confidence are sent live
+            Only detections at or above this match strength are sent live
             automatically.
           </p>
           <p className="text-[0.625rem] font-medium text-foreground">
-            Tip: 85% balances hands-free output with review for uncertain
-            suggestions.
+            Tip: 90% is the validated safety setting for hands-free output.
           </p>
         </div>
       )}

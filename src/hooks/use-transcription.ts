@@ -1,7 +1,10 @@
 import { useCallback, useEffect } from "react"
 import { invokeTauri } from "@/lib/tauri-runtime"
 import { toast } from "sonner"
-import { profileDetectionEvent } from "@/lib/detection-profiler"
+import {
+  observeDetectionCandidates,
+  profileDetectionEvent,
+} from "@/lib/detection-profiler"
 import {
   handleReadingAdvance,
   handleVerseDetections,
@@ -370,11 +373,12 @@ export function useTranscriptionEventBridge() {
   )
 
   useTauriEvent<DetectionResult[]>("verse_detections", (detections) => {
+    observeDetectionCandidates(detections)
     recordWorkflowTrace("detection.event", "Verse detections event received", {
       ...traceDetectionBatchDetails(detections),
     })
     profileDetectionEvent("verse_detections", detections.length, () => {
-      void handleVerseDetections(detections)
+      return handleVerseDetections(detections)
     })
   })
 

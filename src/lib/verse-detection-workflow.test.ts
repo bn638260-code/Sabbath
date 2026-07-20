@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   handleReadingAdvance,
   handleVerseDetections,
+  resetSemanticConfirmationForTests,
 } from "./verse-detection-workflow"
 import { useBibleStore } from "@/stores/bible-store"
 import { useBroadcastStore } from "@/stores/broadcast-store"
@@ -98,6 +99,7 @@ describe("verse detection workflow", () => {
     emitToMock.mockResolvedValue(undefined)
     invokeMock.mockReset()
     invokeMock.mockResolvedValue(null)
+    resetSemanticConfirmationForTests()
 
     useBibleStore.setState({
       translations: [],
@@ -266,8 +268,25 @@ describe("verse detection workflow", () => {
     expect(useQueueStore.getState().items).toHaveLength(0)
   })
 
-  it("auto-previews semantic Bible detections at the auto-live threshold", async () => {
+  it("requires repeated semantic evidence at the auto-live threshold", async () => {
     useSettingsStore.setState({ confidenceThreshold: 0.85 })
+    await handleVerseDetections([
+      makeDetection({
+        source: "semantic",
+        verse_ref: "Daniel 7:10",
+        verse_text: "The court was seated, and the books were opened.",
+        book_name: "Daniel",
+        book_number: 27,
+        chapter: 7,
+        verse: 10,
+        confidence: 0.85,
+        auto_queued: false,
+        transcript_snippet: "the court was seated and the books were opened",
+      }),
+    ])
+
+    expect(useBibleStore.getState().selectedVerse).toBeNull()
+
     await handleVerseDetections([
       makeDetection({
         source: "semantic",
@@ -291,6 +310,18 @@ describe("verse detection workflow", () => {
     expect(useBroadcastStore.getState().liveItem?.reference).toBe(
       "Daniel 7:10 (KJV)"
     )
+  })
+
+  it("auto-previews one exceptionally strong semantic detection", async () => {
+    await handleVerseDetections([
+      makeDetection({ source: "semantic", confidence: 0.95 }),
+    ])
+
+    expect(useBibleStore.getState().selectedVerse).toMatchObject({
+      book_number: 43,
+      chapter: 3,
+      verse: 16,
+    })
   })
 
   it("does not auto-queue detections while auto mode is staging preview", async () => {

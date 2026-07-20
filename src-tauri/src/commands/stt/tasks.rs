@@ -12,7 +12,7 @@ use tokio::sync::Notify;
 
 use rhema_audio::{new_gain_handle, GainHandle};
 
-use super::detection_jobs::take_semantic_job;
+use super::detection_jobs::{take_semantic_job, SemanticJob};
 use super::live_session::run_semantic_detection;
 
 static LIVE_INPUT_GAIN: OnceLock<GainHandle> = OnceLock::new();
@@ -42,14 +42,19 @@ pub(super) fn spawn_latest_wins_semantic_worker(
     job_label: &'static str,
     app: AppHandle,
     latest_seq: Arc<AtomicU64>,
-    job_slot: Arc<Mutex<Option<(u64, String)>>>,
+    job_slot: Arc<Mutex<Option<SemanticJob>>>,
     notify: Arc<Notify>,
 ) -> tauri::async_runtime::JoinHandle<()> {
     spawn_stt_task(task_name, async move {
         loop {
             notify.notified().await;
 
-            while let Some((seq, text)) = take_semantic_job(&job_slot, job_label) {
+            while let Some(job) = take_semantic_job(&job_slot, job_label) {
+                let SemanticJob {
+                    seq,
+                    text,
+                    stt_confidence,
+                } = job;
                 let check_seq = latest_seq.load(Ordering::Acquire);
                 if seq < check_seq {
                     log::debug!(
@@ -61,7 +66,7 @@ pub(super) fn spawn_latest_wins_semantic_worker(
                 let app_clone = app.clone();
                 let latest_seq = latest_seq.clone();
                 let _ = tokio::task::spawn_blocking(move || {
-                    run_semantic_detection(&app_clone, seq, &latest_seq, &text);
+                    run_semantic_detection(&app_clone, seq, &latest_seq, &text, stt_confidence);
                 })
                 .await;
             }

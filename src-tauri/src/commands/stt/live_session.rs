@@ -283,6 +283,7 @@ pub(crate) fn run_direct_detection(
                     chapter: vr.chapter,
                     verse: vr.verse_start,
                     confidence: m.detection.confidence,
+                    rank_score: m.detection.rank_score(),
                     source: "direct".to_string(),
                     auto_queued: m.auto_queued,
                     transcript_snippet: m.detection.transcript_snippet.clone(),
@@ -365,6 +366,7 @@ pub(crate) fn run_semantic_detection(
     seq: u64,
     latest_seq: &Arc<AtomicU64>,
     transcript: &str,
+    stt_confidence: f64,
 ) {
     if !is_semantic_detection_enabled(app) {
         log::debug!("[DET-SEMANTIC] Skipping job seq={seq}; semantic detection disabled");
@@ -507,7 +509,13 @@ pub(crate) fn run_semantic_detection(
     drop(app_state);
     let results =
         filter_live_semantic_results_to_reading_scope(app, results, semantic_min_confidence);
-    let results = finalize_live_semantic_results(results, semantic_min_confidence);
+    let mut results = finalize_live_semantic_results(results, semantic_min_confidence);
+    if stt_confidence > 0.0 && stt_confidence < 0.65 {
+        for result in &mut results {
+            result.rank_score *= 0.85;
+            result.confidence = result.confidence.min(0.89);
+        }
+    }
 
     if results.is_empty() {
         log::info!(

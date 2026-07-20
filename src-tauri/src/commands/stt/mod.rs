@@ -297,9 +297,9 @@ pub async fn start_transcription(
 
     // Final and partial semantic detection each use latest-wins storage so
     // fresh speech can replace stale queued work instead of being dropped.
-    let final_semantic_job = Arc::new(Mutex::new(None::<(u64, String)>));
+    let final_semantic_job = Arc::new(Mutex::new(None::<detection_jobs::SemanticJob>));
     let final_semantic_notify = Arc::new(Notify::new());
-    let partial_semantic_job = Arc::new(Mutex::new(None::<(u64, String)>));
+    let partial_semantic_job = Arc::new(Mutex::new(None::<detection_jobs::SemanticJob>));
     let partial_semantic_notify = Arc::new(Notify::new());
 
     // Background detection channel — direct + reading mode, non-blocking
@@ -448,6 +448,7 @@ pub async fn start_transcription(
                                     &semantic_dropped_evt,
                                     seq,
                                     semantic_text,
+                                    confidence,
                                 );
                             }
                         }
@@ -556,6 +557,7 @@ pub async fn start_transcription(
                                             &semantic_dropped_evt,
                                             semantic_seq,
                                             semantic_text,
+                                            confidence,
                                         );
                                     }
                                 } else {
@@ -585,6 +587,7 @@ pub async fn start_transcription(
                                         &semantic_dropped_evt,
                                         seq,
                                         semantic_text,
+                                        confidence,
                                     );
                                 }
                             } else if semantic_detection_enabled
@@ -604,6 +607,7 @@ pub async fn start_transcription(
                                         &semantic_dropped_evt,
                                         semantic_seq,
                                         semantic_text,
+                                        confidence,
                                     );
                                 }
                             }
@@ -633,6 +637,7 @@ pub async fn start_transcription(
                                     &semantic_dropped_evt,
                                     semantic_seq,
                                     semantic_text,
+                                    0.0,
                                 );
                             }
                         }

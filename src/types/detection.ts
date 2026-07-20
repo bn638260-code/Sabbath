@@ -16,6 +16,8 @@ export interface DetectionResult {
   chapter: number
   verse: number
   confidence: number
+  /** Internal ordering evidence; confidence remains operator-facing match strength. */
+  rank_score?: number
   source: "direct" | "semantic"
   auto_queued: boolean
   transcript_snippet: string

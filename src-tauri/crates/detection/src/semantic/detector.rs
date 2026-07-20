@@ -154,6 +154,7 @@ impl SemanticDetector {
                                         existing.insert(Self::make_detection(
                                             result.verse_id,
                                             confidence,
+                                            result.score,
                                             chunk,
                                             now,
                                         ));
@@ -162,6 +163,7 @@ impl SemanticDetector {
                                         vacant.insert(Self::make_detection(
                                             result.verse_id,
                                             confidence,
+                                            result.score,
                                             chunk,
                                             now,
                                         ));
@@ -178,8 +180,8 @@ impl SemanticDetector {
             }
             detections.extend(best_by_verse.into_values());
             detections.sort_by(|a, b| {
-                b.confidence
-                    .partial_cmp(&a.confidence)
+                b.rank_score()
+                    .partial_cmp(&a.rank_score())
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
         } else {
@@ -217,6 +219,7 @@ impl SemanticDetector {
                         detections.push(Self::make_detection(
                             result.verse_id,
                             confidence,
+                            result.similarity,
                             &chunk,
                             now,
                         ));
@@ -286,7 +289,8 @@ impl SemanticDetector {
 
     fn make_detection(
         verse_id: i64,
-        similarity: f64,
+        confidence: f64,
+        rank_score: f64,
         snippet: &str,
         detected_at: u64,
     ) -> Detection {
@@ -299,8 +303,10 @@ impl SemanticDetector {
                 verse_end: None,
             },
             verse_id: Some(verse_id),
-            confidence: similarity,
-            source: DetectionSource::Semantic { similarity },
+            confidence,
+            source: DetectionSource::Semantic {
+                similarity: rank_score,
+            },
             transcript_snippet: snippet.to_string(),
             detected_at,
             is_chapter_only: false,

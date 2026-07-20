@@ -33,3 +33,14 @@ pub struct Detection {
     #[serde(default)]
     pub is_chapter_only: bool,
 }
+
+impl Detection {
+    /// Internal ordering score. Semantic similarity stores the ensemble rank,
+    /// while confidence remains the operator-facing match strength.
+    pub fn rank_score(&self) -> f64 {
+        match self.source {
+            DetectionSource::DirectReference => self.confidence,
+            DetectionSource::Semantic { similarity } => similarity,
+        }
+    }
+}
