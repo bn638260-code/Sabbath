@@ -17,12 +17,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control"
 import { APP_DISPLAY_NAME } from "@/lib/app-brand"
 import { cn } from "@/lib/utils"
 import { requestPasswordReset } from "@/lib/supabase/auth"
-import {
-  buildRenewalEmailOptions,
-  openSupportEmail,
-  RENEWAL_PLANS,
-  type RenewalPlanId,
-} from "@/lib/support-contact"
+import { redeemPilotInvite } from "@/lib/supabase/pilot"
 import {
   accentThemeClassName,
   useAccentThemeStore,
@@ -41,7 +36,7 @@ const MIN_PASSWORD_LENGTH = 6
 
 const AUTH_MODE_OPTIONS = [
   { value: "sign-in", label: "Sign in" },
-  { value: "create-account", label: "Start trial" },
+  { value: "create-account", label: "Register" },
 ] satisfies Array<{ value: AuthMode; label: string }>
 
 function formatErrorMessage(
@@ -69,6 +64,10 @@ function formatErrorMessage(
       )
     case "trial_expired":
       return error ?? "Your access has ended. Contact the developer to renew."
+    case "invite_required":
+      return "Enter the invitation code supplied by the SabbathCue administrator."
+    case "pilot_inactive":
+      return "The KNFC pilot is not active. Contact the pilot coordinator."
     case "network":
       return "Unable to connect. Check your network and try again."
     default:
@@ -97,7 +96,7 @@ function validatePassword(password: string): string | null {
 function modeTitle(mode: AuthMode, status: VerificationStatus): string {
   if (status === "expired") return "Session expired"
   if (status === "checking") return "Checking your account"
-  return mode === "create-account" ? "Start your free trial" : "Sign in"
+  return mode === "create-account" ? "Create your account" : "Sign in"
 }
 
 function modeDescription(mode: AuthMode, status: VerificationStatus): string {
@@ -108,7 +107,7 @@ function modeDescription(mode: AuthMode, status: VerificationStatus): string {
     return "This should only take a moment."
   }
   if (mode === "create-account") {
-    return "Create an account to start 14 days of SabbathCue access."
+    return "Create an account, confirm your email, then redeem your KNFC invitation."
   }
   return "Continue with your SabbathCue account."
 }
@@ -308,8 +307,8 @@ function authFeedback({
 function submitLabelFor(mode: AuthMode, pendingAction: PendingAction): string {
   if (mode === "create-account") {
     return pendingAction === "create-account"
-      ? "Starting trial"
-      : "Start 14-day trial"
+      ? "Creating account"
+      : "Create account"
   }
   return pendingAction === "sign-in" ? "Signing in" : "Sign in"
 }
@@ -320,26 +319,18 @@ function AuthFields({
   email,
   password,
   confirmPassword,
-  isChurchOrganization,
-  churchName,
   onEmailChange,
   onPasswordChange,
   onConfirmPasswordChange,
-  onChurchOrganizationChange,
-  onChurchNameChange,
 }: {
   mode: AuthMode
   busy: boolean
   email: string
   password: string
   confirmPassword: string
-  isChurchOrganization: boolean
-  churchName: string
   onEmailChange: (email: string) => void
   onPasswordChange: (password: string) => void
   onConfirmPasswordChange: (password: string) => void
-  onChurchOrganizationChange: (selected: boolean) => void
-  onChurchNameChange: (name: string) => void
 }) {
   return (
     <>
@@ -369,48 +360,15 @@ function AuthFields({
         onChange={(event) => onPasswordChange(event.target.value)}
       />
       {mode === "create-account" ? (
-        <>
-          <Field
-            autoComplete="new-password"
-            disabled={busy}
-            label="Confirm password"
-            placeholder="Confirm password"
-            type="password"
-            value={confirmPassword}
-            onChange={(event) => onConfirmPasswordChange(event.target.value)}
-          />
-          <label className="flex items-start gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-3 py-2 text-left">
-            <input
-              checked={isChurchOrganization}
-              className="mt-0.5 size-4 accent-[var(--brand-accent)]"
-              disabled={busy}
-              type="checkbox"
-              onChange={(event) =>
-                onChurchOrganizationChange(event.target.checked)
-              }
-            />
-            <span>
-              <span className="block text-sm font-medium text-foreground">
-                We are a church organization
-              </span>
-              <span className="block text-[11px] leading-relaxed text-muted-foreground">
-                Adds a self-declared church badge to this account.
-              </span>
-            </span>
-          </label>
-          {isChurchOrganization ? (
-            <Field
-              autoComplete="organization"
-              disabled={busy}
-              help="Required for church organization accounts."
-              label="Church name"
-              maxLength={120}
-              placeholder="Example Seventh-day Adventist Church"
-              value={churchName}
-              onChange={(event) => onChurchNameChange(event.target.value)}
-            />
-          ) : null}
-        </>
+        <Field
+          autoComplete="new-password"
+          disabled={busy}
+          label="Confirm password"
+          placeholder="Confirm password"
+          type="password"
+          value={confirmPassword}
+          onChange={(event) => onConfirmPasswordChange(event.target.value)}
+        />
       ) : null}
     </>
   )
@@ -476,13 +434,11 @@ function AuthFooterActions({
 function TrialExpiredPanel({
   busy,
   message,
-  onSelectPlan,
   onRetry,
   onSignOut,
 }: {
   busy: boolean
   message: string
-  onSelectPlan: (planId: RenewalPlanId) => void
   onRetry: () => void
   onSignOut: () => void
 }) {
@@ -500,27 +456,6 @@ function TrialExpiredPanel({
             {message}
           </p>
         </div>
-      </div>
-
-      <div className="grid gap-2">
-        {RENEWAL_PLANS.map((plan) => (
-          <Button
-            key={plan.id}
-            className="h-auto w-full justify-between gap-3 px-3 py-2 text-left"
-            disabled={busy}
-            type="button"
-            variant="outline"
-            onClick={() => onSelectPlan(plan.id)}
-          >
-            <span className="flex min-w-0 flex-col">
-              <span className="text-sm font-semibold">{plan.name}</span>
-              <span className="text-[11px] font-medium text-muted-foreground">
-                {plan.price} {plan.term}
-              </span>
-            </span>
-            <MailIcon className="size-4" />
-          </Button>
-        ))}
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2 border-t border-[var(--border-dim)] pt-4">
@@ -650,8 +585,6 @@ function AuthPanel({
   email,
   password,
   confirmPassword,
-  isChurchOrganization,
-  churchName,
   message,
   tone,
   canRetry,
@@ -660,8 +593,6 @@ function AuthPanel({
   onEmailChange,
   onPasswordChange,
   onConfirmPasswordChange,
-  onChurchOrganizationChange,
-  onChurchNameChange,
   onSignIn,
   onSignUp,
   onForgotPassword,
@@ -675,8 +606,6 @@ function AuthPanel({
   email: string
   password: string
   confirmPassword: string
-  isChurchOrganization: boolean
-  churchName: string
   message: string | null
   tone: NoticeTone
   canRetry: boolean
@@ -685,8 +614,6 @@ function AuthPanel({
   onEmailChange: (email: string) => void
   onPasswordChange: (password: string) => void
   onConfirmPasswordChange: (password: string) => void
-  onChurchOrganizationChange: (selected: boolean) => void
-  onChurchNameChange: (name: string) => void
   onSignIn: (event: FormEvent<HTMLFormElement>) => void
   onSignUp: (event: FormEvent<HTMLFormElement>) => void
   onForgotPassword: () => void
@@ -727,14 +654,10 @@ function AuthPanel({
         <AuthFields
           busy={busy}
           confirmPassword={confirmPassword}
-          isChurchOrganization={isChurchOrganization}
-          churchName={churchName}
           email={email}
           mode={mode}
           password={password}
           onConfirmPasswordChange={onConfirmPasswordChange}
-          onChurchOrganizationChange={onChurchOrganizationChange}
-          onChurchNameChange={onChurchNameChange}
           onEmailChange={onEmailChange}
           onPasswordChange={onPasswordChange}
         />
@@ -761,12 +684,75 @@ function AuthPanel({
   )
 }
 
+function InviteCodePanel({
+  busy,
+  onRedeemed,
+  onSignOut,
+}: {
+  busy: boolean
+  onRedeemed: () => Promise<void>
+  onSignOut: () => void
+}) {
+  const [code, setCode] = useState("")
+  const [trainingAcknowledged, setTrainingAcknowledged] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSubmitting(true)
+    setMessage(null)
+    const result = await redeemPilotInvite(code.trim(), trainingAcknowledged)
+    if (result.ok) await onRedeemed()
+    else setMessage(result.message)
+    setSubmitting(false)
+  }
+
+  return (
+    <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
+      <div className="space-y-1 text-left">
+        <h1 className="text-xl font-semibold text-foreground">Join the KNFC pilot</h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Enter the single-use code supplied by the SabbathCue administrator.
+        </p>
+      </div>
+      {message ? <AuthNotice tone="error">{message}</AuthNotice> : null}
+      <Field
+        autoCapitalize="characters"
+        autoComplete="off"
+        disabled={busy || submitting}
+        label="Invitation code"
+        placeholder="Enter invitation code"
+        value={code}
+        onChange={(event) => setCode(event.target.value.toUpperCase())}
+      />
+      <label className="flex items-start gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--shell-bg-sunken)] px-3 py-2 text-left text-xs">
+        <input
+          checked={trainingAcknowledged}
+          className="mt-0.5 size-4 accent-[var(--brand-accent)]"
+          disabled={busy || submitting}
+          type="checkbox"
+          onChange={(event) => setTrainingAcknowledged(event.target.checked)}
+        />
+        <span>I have completed or reviewed the SabbathCue training materials.</span>
+      </label>
+      <Button disabled={busy || submitting || !code.trim()} type="submit">
+        {submitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : <KeyRoundIcon className="size-4" />}
+        Redeem invitation
+      </Button>
+      <Button disabled={busy || submitting} type="button" variant="ghost" onClick={onSignOut}>
+        <ArrowLeftIcon className="size-4" />
+        Sign out
+      </Button>
+    </form>
+  )
+}
+
 export function VerificationScreen() {
   const accentTheme = useAccentThemeStore((s) => s.theme)
   const status = useVerificationStore((s) => s.status)
   const error = useVerificationStore((s) => s.error)
   const errorCode = useVerificationStore((s) => s.errorCode)
-  const verifiedEmail = useVerificationStore((s) => s.verifiedEmail)
   const signIn = useVerificationStore((s) => s.signIn)
   const signUp = useVerificationStore((s) => s.signUp)
   const signOut = useVerificationStore((s) => s.signOut)
@@ -777,8 +763,6 @@ export function VerificationScreen() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [isChurchOrganization, setIsChurchOrganization] = useState(false)
-  const [churchName, setChurchName] = useState("")
   const [localMessage, setLocalMessage] = useState<string | null>(null)
   const [localTone, setLocalTone] = useState<NoticeTone>("info")
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
@@ -792,7 +776,9 @@ export function VerificationScreen() {
     localTone,
     status,
   })
-  const isTrialExpired = status === "error" && errorCode === "trial_expired"
+  const isTrialExpired =
+    status === "error" &&
+    (errorCode === "trial_expired" || errorCode === "pilot_inactive")
 
   function setModeAndClear(nextMode: AuthMode) {
     setMode(nextMode)
@@ -800,8 +786,6 @@ export function VerificationScreen() {
     setLocalMessage(null)
     setLocalTone("info")
     setConfirmPassword("")
-    setIsChurchOrganization(false)
-    setChurchName("")
   }
 
   function validateCredentials(
@@ -841,22 +825,9 @@ export function VerificationScreen() {
       setLocalMessage("Passwords do not match.")
       return
     }
-    const normalizedChurchName = churchName.trim()
-    if (
-      isChurchOrganization &&
-      (normalizedChurchName.length < 2 || normalizedChurchName.length > 120)
-    ) {
-      setLocalTone("error")
-      setLocalMessage("Enter a church name between 2 and 120 characters.")
-      return
-    }
-
     setLocalMessage(null)
     setPendingAction("create-account")
-    await signUp(nextEmail, password, {
-      isChurchOrganization,
-      churchName: isChurchOrganization ? normalizedChurchName : null,
-    })
+    await signUp(nextEmail, password)
 
     const nextState = useVerificationStore.getState()
     if (nextState.status === "required" && nextState.error) {
@@ -893,19 +864,18 @@ export function VerificationScreen() {
                   <ShieldCheckIcon className="size-5 text-[var(--brand-accent)]" />
                 </div>
 
-                {isTrialExpired ? (
+                {errorCode === "invite_required" ? (
+                  <InviteCodePanel
+                    busy={isBusy}
+                    onRedeemed={refresh}
+                    onSignOut={() => void signOut()}
+                  />
+                ) : isTrialExpired ? (
                   <TrialExpiredPanel
                     busy={isBusy}
                     message={
                       feedback.message ??
                       "Your access has ended. Contact the developer to renew."
-                    }
-                    onSelectPlan={(planId) =>
-                      void openSupportEmail({
-                        ...buildRenewalEmailOptions(planId, {
-                          accountEmail: verifiedEmail,
-                        }),
-                      })
                     }
                     onRetry={() => void refresh()}
                     onSignOut={() => void signOut()}
@@ -930,8 +900,6 @@ export function VerificationScreen() {
                     busy={isBusy}
                     canRetry={feedback.canRetry}
                     confirmPassword={confirmPassword}
-                    isChurchOrganization={isChurchOrganization}
-                    churchName={churchName}
                     email={email}
                     message={feedback.message}
                     mode={mode}
@@ -942,11 +910,6 @@ export function VerificationScreen() {
                     tone={feedback.tone}
                     onClearSession={() => void signOut()}
                     onConfirmPasswordChange={setConfirmPassword}
-                    onChurchOrganizationChange={(selected) => {
-                      setIsChurchOrganization(selected)
-                      if (!selected) setChurchName("")
-                    }}
-                    onChurchNameChange={setChurchName}
                     onEmailChange={setEmail}
                     onForgotPassword={() => {
                       setLocalMessage(null)

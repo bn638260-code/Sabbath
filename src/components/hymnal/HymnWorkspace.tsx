@@ -19,7 +19,7 @@ export function HymnWorkspace() {
   const [mode, setMode] = useState<HymnWorkspaceMode>("library")
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-3" data-slot="hymn-workspace">
+    <div className="flex h-full min-h-0 flex-col gap-2 p-3" data-slot="hymn-workspace" data-tour="hymn-workspace">
       <div className="flex items-center gap-1">
         <Button
           size="xs"

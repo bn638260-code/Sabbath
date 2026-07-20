@@ -38,11 +38,6 @@ export type SignInResult =
     }
   | { ok: false; code: AuthErrorCode; message: string }
 
-export interface SignUpProfile {
-  isChurchOrganization: boolean
-  churchName: string | null
-}
-
 export type RestoreSessionResult =
   | {
       ok: true
@@ -85,23 +80,11 @@ function accessTokenExpiresAt(expiresAt: number | undefined): number {
 
 export async function signUpWithEmail(
   email: string,
-  password: string,
-  profile: SignUpProfile
+  password: string
 ): Promise<SignUpResult> {
   try {
     const supabase = getSupabaseClient()
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          is_church_organization: profile.isChurchOrganization,
-          church_name: profile.isChurchOrganization
-            ? profile.churchName
-            : null,
-        },
-      },
-    })
+    const { data, error } = await supabase.auth.signUp({ email, password })
 
     if (error) {
       if (isNetworkError(error)) {

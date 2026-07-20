@@ -321,7 +321,7 @@ describe("verification-provider", () => {
       expect.objectContaining({
         status: "error",
         errorCode: "trial_expired",
-        error: "Your access has ended. Contact the developer to renew.",
+        error: "The KNFC pilot is not active. Contact the pilot coordinator.",
       })
     )
     expect(mockSetSessionMetadata).not.toHaveBeenCalled()
@@ -384,12 +384,7 @@ describe("verification-provider", () => {
     })
 
     const { signUp } = await import("@/lib/verification/verification-provider")
-    const profile = {
-      isChurchOrganization: true,
-      churchName: "Central SDA Church",
-      lease: signedLease,
-    }
-    const result = await signUp("user@example.com", "secret", profile)
+    const result = await signUp("user@example.com", "secret")
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -398,11 +393,7 @@ describe("verification-provider", () => {
         errorCode: null,
       })
     )
-    expect(mockSignUpWithEmail).toHaveBeenCalledWith(
-      "user@example.com",
-      "secret",
-      profile
-    )
+    expect(mockSignUpWithEmail).toHaveBeenCalledWith("user@example.com", "secret")
     expect(mockRegisterDevice).not.toHaveBeenCalled()
   })
 
@@ -423,10 +414,7 @@ describe("verification-provider", () => {
     })
 
     const { signUp } = await import("@/lib/verification/verification-provider")
-    const result = await signUp("user@example.com", "secret", {
-      isChurchOrganization: true,
-      churchName: "Central SDA Church",
-    })
+    const result = await signUp("user@example.com", "secret")
 
     expect(result).toEqual(
       expect.objectContaining({

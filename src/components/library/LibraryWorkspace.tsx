@@ -101,7 +101,7 @@ export function LibraryWorkspace() {
   }
 
   return (
-    <div className="glass-panel flex min-h-[calc(100vh-136px)] overflow-hidden">
+    <div className="glass-panel flex min-h-[calc(100vh-136px)] overflow-hidden" data-tour="library-workspace">
       <CollectionSidebar filter={filter} onFilterChange={setFilter} />
 
       <section className="flex min-w-0 flex-1 flex-col">

@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { TUTORIAL_STEPS } from "@/components/tutorial/tutorial-steps"
+import {
+  ADMIN_TUTORIAL_STEPS,
+  TUTORIAL_STEPS,
+} from "@/components/tutorial/tutorial-steps"
 import {
   BANNED_SURFACE_TOKEN,
   isPrimitiveOwnedLine,
@@ -19,6 +22,10 @@ const TUTORIAL_DATA_TOUR_IDS = [
   "book-search",
   "context-search",
   "quick-nav",
+  "service-schedules",
+  "run-service",
+  "hymn-workspace",
+  "library-workspace",
   "broadcast",
   "broadcast-output-main",
   "broadcast-monitor-main",
@@ -36,6 +43,12 @@ const TUTORIAL_DATA_TOUR_IDS = [
   "settings-section-api-keys",
   "settings-section-account",
   "settings-section-help",
+  "pilot-admin",
+  "pilot-limits",
+  "pilot-churches",
+  "pilot-invitations",
+  "pilot-memberships",
+  "pilot-activation",
 ] as const
 
 const TUTORIAL_DATA_SLOTS = [
@@ -184,15 +197,32 @@ describe("controller UI guard — tutorial targets", () => {
     expect(alt?.target).toBe('[data-tour="broadcast-output-alt"]')
   })
 
-  it("explains the account cancellation workflow and disclaimer", () => {
+  it("explains invitation-only pilot account access", () => {
     const step = TUTORIAL_STEPS.find((item) => item.title === "Your Account")
     const content = String(step?.content ?? "")
 
     expect(step?.target).toBe('[data-tour="settings-section-account"]')
-    expect(content).toContain("request subscription cancellation")
-    expect(content).toContain("no refund")
-    expect(content).toContain("subscribed period ends")
-    expect(content).toContain("disables unless renewed")
+    expect(content).toContain("approved computers")
+    expect(content).toContain("Pilot access is managed by the administrator")
+  })
+
+  it("covers previously omitted operator and administrator workspaces", () => {
+    for (const title of [
+      "Service Schedules",
+      "Run Service Flow",
+      "SDA Hymns and song slides",
+      "Church Library",
+    ]) {
+      expect(TUTORIAL_STEPS.some((step) => step.title === title)).toBe(true)
+    }
+    expect(ADMIN_TUTORIAL_STEPS.map((step) => step.title)).toEqual([
+      "Pilot administration",
+      "Agreement capacity",
+      "Schedule A churches",
+      "Single-use invitations",
+      "Memberships and revocation",
+      "Activate only when ready",
+    ])
   })
 
   it("maps every TUTORIAL_STEPS target to a data-tour or data-slot anchor in source", () => {
@@ -216,7 +246,7 @@ describe("controller UI guard — tutorial targets", () => {
       .map((file) => readFileSync(join(REPO_ROOT, file), "utf8"))
       .join("\n")
 
-    for (const step of TUTORIAL_STEPS) {
+    for (const step of [...TUTORIAL_STEPS, ...ADMIN_TUTORIAL_STEPS]) {
       const target = typeof step.target === "string" ? step.target : ""
       const tourMatch = target.match(/data-tour="([^"]+)"/)
       const slotMatch = target.match(/data-slot="([^"]+)"/)

@@ -177,7 +177,9 @@ The key is stored in the OS keychain.
 
 #### Account verification (Supabase)
 
-SabbathCue gates the desktop app behind Supabase email/password auth. Each account may activate up to **two approved computers**. The first computer is approved automatically; later computers wait for approval and can be deactivated by the user or an administrator. First-time verification requires an active network connection. A verified computer receives a signed offline lease for up to **72 hours** before it must reconnect.
+SabbathCue gates the desktop app behind Supabase email/password auth and an invitation-only KNFC pilot membership. Participants create an account, confirm their email, then redeem a single-use code created by an administrator for a Schedule A church. Self-service church creation and legacy trial extensions do not grant pilot access.
+
+The agreement capacity defaults to **10 active churches**, **two approved computers per church**, and **20 approved computers across the pilot**. An administrator can record amended limits without a code deployment, but cannot lower them below current usage. The first church computer is approved automatically; later computers wait for approval and can be deactivated by the user or an administrator. First-time verification requires an active network connection. A verified computer receives a signed offline lease for up to **72 hours** before it must reconnect. The pilot starts in draft and can become active only after commencement/expiry dates, first payment, and onboarding are recorded in **Settings → Account → KNFC pilot administration**.
 
 Add these variables to your local `.env` file (values from your Supabase project dashboard → Settings → API):
 
@@ -187,9 +189,11 @@ VITE_SUPABASE_ANON_KEY=your_anon_key_here
 VITE_ACTIVATION_LEASE_PUBLIC_KEY=your_p256_spki_public_key_base64
 ```
 
-Generate the lease-signing key pair with `node scripts/generate-activation-lease-key.mjs`. Store `ACTIVATION_LEASE_PRIVATE_KEY` only as a Supabase Edge Function secret; put only the generated public key in the desktop build environment. Apply the SQL migrations, then deploy `supabase/functions/device-activation`. The function verifies the installation signature before calling `register_device`, and the RPC enforces the two-approved-computer limit server-side.
+Generate the lease-signing key pair with `node scripts/generate-activation-lease-key.mjs`. Store `ACTIVATION_LEASE_PRIVATE_KEY` only as a Supabase Edge Function secret; put only the generated public key in the desktop build environment. Apply the SQL migrations, then deploy `supabase/functions/device-activation`. The function verifies the installation signature before calling the service-role activation RPC; the database enforces invitation, pilot-date, church, and device limits.
 
-**Email confirmation:** If enabled under Authentication → Providers → Email in the Supabase dashboard, sign-up creates the user but returns no session until the confirmation link is clicked. The app shows a “check your email” message in that case.
+**Email confirmation:** Keep **Confirm email** enabled under Authentication → Providers → Email in the Supabase dashboard. Sign-up then creates the user but returns no session until the confirmation link is clicked. Invitation redemption also checks `email_confirmed_at` server-side.
+
+The designated owner email in migration 011 is bootstrapped into `app_admins` when that Auth account is created. The admin signs in normally and does not consume an invitation code.
 
 **E2E / automation bypass:** URLs that include the `e2e` query parameter (for example `/?e2e=1`) skip the verification gate so Playwright specs can reach the dashboard without Supabase credentials.
 

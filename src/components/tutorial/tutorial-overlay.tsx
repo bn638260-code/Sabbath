@@ -5,12 +5,13 @@ import { useBroadcastSettingsDialogStore } from "@/lib/broadcast-settings-dialog
 import { useSettingsStore } from "@/stores/settings-store"
 import { useDashboardWorkspaceStore } from "@/stores/dashboard-workspace-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
+import { fetchIsAdmin } from "@/lib/supabase/account"
 import {
   useTutorialStore,
   hydrateOnboardingState,
   persistOnboardingComplete,
 } from "@/stores/tutorial-store"
-import { TUTORIAL_STEPS } from "./tutorial-steps"
+import { tutorialStepsFor } from "./tutorial-steps"
 import { TutorialTooltip } from "./tutorial-tooltip"
 import { getTutorialArrowColor } from "./tutorial-arrow-color"
 
@@ -21,8 +22,10 @@ export function TutorialOverlay() {
 function DesktopTutorialOverlay() {
   const [isHydrated, setIsHydrated] = useState(false)
   const isRunning = useTutorialStore((s) => s.isRunning)
+  const mode = useTutorialStore((s) => s.mode)
   const onboardingComplete = useSettingsStore((s) => s.onboardingComplete)
   const [arrowColor, setArrowColor] = useState<string | undefined>()
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -36,27 +39,33 @@ function DesktopTutorialOverlay() {
 
   const steps = useMemo(
     () =>
-      TUTORIAL_STEPS.map((step) => ({
+      tutorialStepsFor(mode).map((step) => ({
         ...step,
         arrowColor,
       })),
-    [arrowColor]
+    [arrowColor, mode]
   )
 
   useEffect(() => {
-    hydrateOnboardingState().then(() => {
+    let cancelled = false
+    void Promise.all([hydrateOnboardingState(), fetchIsAdmin()]).then(([, admin]) => {
+      if (cancelled) return
+      setIsAdmin(admin)
       setIsHydrated(true)
     })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
     if (isHydrated && !onboardingComplete) {
       const timer = setTimeout(() => {
-        useTutorialStore.getState().startTutorial()
+        useTutorialStore.getState().startTutorial(isAdmin ? "all" : "operator")
       }, 500)
       return () => clearTimeout(timer)
     }
-  }, [isHydrated, onboardingComplete])
+  }, [isAdmin, isHydrated, onboardingComplete])
 
   const handleEvent = useCallback((data: EventData) => {
     if (data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {

@@ -15,6 +15,7 @@ export function ServicePlanWorkspace() {
     <div
       className="view-pane grid min-h-full grid-cols-1 gap-5 xl:grid-cols-[300px_minmax(0,1fr)]"
       data-slot="service-plan-workspace"
+      data-tour="service-schedules"
     >
       <ServicePlanLibraryPanel />
       <div className="glass-panel relative min-h-[520px] overflow-hidden">

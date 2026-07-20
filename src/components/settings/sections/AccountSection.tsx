@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   BanIcon,
-  CalendarPlusIcon,
   LaptopIcon,
   LogOutIcon,
   RefreshCwIcon,
@@ -14,7 +13,6 @@ import { Button } from "@/components/ui/button"
 import {
   adminDeleteAccount,
   adminListAccounts,
-  adminSetAccess,
   adminSetOfflineLeaseHours,
   adminSetSuspended,
   deleteOwnAccount,
@@ -28,6 +26,7 @@ import {
 } from "@/lib/support-contact"
 import { useVerificationStore } from "@/stores/verification-store"
 import { AnnouncementsAdminPanel } from "@/components/settings/sections/AnnouncementsAdminPanel"
+import { PilotAdminPanel } from "@/components/settings/sections/PilotAdminPanel"
 import {
   adminListDevices,
   adminSetDeviceStatus,
@@ -36,11 +35,6 @@ import {
   listOwnDevices,
   type DeviceActivation,
 } from "@/lib/supabase/devices"
-
-const ACCESS_EXTENSION_OPTIONS = [
-  { days: 30, label: "Extend 30 days", toastLabel: "30 days" },
-  { days: 365, label: "Extend 1 year", toastLabel: "1 year" },
-] as const
 
 const OFFLINE_LEASE_OPTIONS = [
   { hours: 24, label: "24h" },
@@ -52,18 +46,6 @@ function formatTimestamp(value: string | null): string {
   if (!value) return "never"
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? "unknown" : parsed.toLocaleString()
-}
-
-function formatAccessExpiry(value: string | null, isAdmin: boolean): string {
-  if (isAdmin) return "admin exempt"
-  if (!value) return "not active"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return "unknown"
-
-  return parsed.getTime() <= Date.now()
-    ? `ended ${parsed.toLocaleString()}`
-    : `until ${parsed.toLocaleString()}`
 }
 
 function DeviceStatusBadge({ status }: { status: DeviceActivation["status"] }) {
@@ -323,23 +305,6 @@ function AdminAccountsPanel() {
     }
   }
 
-  async function handleExtendAccess(
-    account: AdminAccountRow,
-    option: (typeof ACCESS_EXTENSION_OPTIONS)[number]
-  ) {
-    setBusyUserId(account.user_id)
-    const result = await adminSetAccess(account.user_id, option.days)
-    setBusyUserId(null)
-    if (result.ok) {
-      toast.success(
-        `Extended ${account.email ?? account.user_id} for ${option.toastLabel}`
-      )
-      await refresh()
-    } else {
-      toast.error(result.message)
-    }
-  }
-
   async function handleOfflineLeaseHours(
     account: AdminAccountRow,
     hours: 24 | 72 | 168
@@ -432,11 +397,9 @@ function AdminAccountsPanel() {
                       {formatTimestamp(account.last_seen_at)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Access{" "}
-                      {formatAccessExpiry(
-                        account.access_expires_at,
-                        account.is_admin
-                      )}
+                      {account.is_admin
+                        ? "Administrator access"
+                        : "Pilot access is managed above"}
                     </p>
                   </div>
                   {account.is_admin ? null : confirmingDelete ? (
@@ -460,20 +423,6 @@ function AdminAccountsPanel() {
                     </div>
                   ) : (
                     <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                      {ACCESS_EXTENSION_OPTIONS.map((option) => (
-                        <Button
-                          key={option.days}
-                          variant="outline"
-                          size="sm"
-                          disabled={isBusy || isSelf}
-                          onClick={() =>
-                            void handleExtendAccess(account, option)
-                          }
-                        >
-                          <CalendarPlusIcon className="mr-1.5 size-3.5" />
-                          {option.label}
-                        </Button>
-                      ))}
                       <Button
                         variant="outline"
                         size="sm"
@@ -711,6 +660,7 @@ export function AccountSection() {
 
       {isAdmin ? (
         <>
+          <PilotAdminPanel />
           <AdminAccountsPanel />
           <AnnouncementsAdminPanel />
         </>

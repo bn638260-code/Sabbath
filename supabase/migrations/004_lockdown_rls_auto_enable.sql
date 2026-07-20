@@ -16,4 +16,10 @@
 --   DROP FUNCTION public.rls_auto_enable();
 -- (If that fails because an event trigger depends on it, keep the revokes.)
 
-REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
+DO $$
+BEGIN
+  IF to_regprocedure('public.rls_auto_enable()') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated';
+  END IF;
+END;
+$$;

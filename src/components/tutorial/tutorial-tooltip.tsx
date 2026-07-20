@@ -1,6 +1,10 @@
-import { useEffect, useRef, type CSSProperties } from "react"
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react"
 import { SparklesIcon, ChevronLeftIcon } from "lucide-react"
 import type { TooltipRenderProps, Controls } from "react-joyride"
+import {
+  tutorialCompletionError,
+  type TutorialStep,
+} from "./tutorial-steps"
 
 export function TutorialTooltip({
   index,
@@ -16,18 +20,38 @@ export function TutorialTooltip({
   const controlsRef = useRef<Controls>(controls)
   const indexRef = useRef(index)
   const isLastStepRef = useRef(isLastStep)
+  const stepRef = useRef(step as TutorialStep)
+  const confirmedRef = useRef(false)
+  const [confirmedIndex, setConfirmedIndex] = useState<number | null>(null)
+  const [blocked, setBlocked] = useState<{
+    index: number
+    message: string
+  } | null>(null)
+  const tutorialStep = step as TutorialStep
+  const confirmed = confirmedIndex === index
+  const blockedMessage = blocked?.index === index ? blocked.message : null
 
   useEffect(() => {
     controlsRef.current = controls
     indexRef.current = index
     isLastStepRef.current = isLastStep
-  }, [controls, index, isLastStep])
+    stepRef.current = tutorialStep
+    confirmedRef.current = confirmed
+  }, [confirmed, controls, index, isLastStep, tutorialStep])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") {
         e.preventDefault()
         e.stopPropagation()
+        const error = tutorialCompletionError(
+          stepRef.current,
+          confirmedRef.current
+        )
+        if (error) {
+          setBlocked({ index: indexRef.current, message: error })
+          return
+        }
         if (isLastStepRef.current) {
           controlsRef.current.skip("button_skip")
         } else {
@@ -53,6 +77,16 @@ export function TutorialTooltip({
     background: "var(--bg-deep)",
   }
 
+  function advance(event: MouseEvent<HTMLButtonElement>) {
+    const error = tutorialCompletionError(tutorialStep, confirmed)
+    if (error) {
+      setBlocked({ index, message: error })
+      return
+    }
+    setBlocked(null)
+    primaryProps.onClick?.(event)
+  }
+
   return (
     <div
       {...tooltipProps}
@@ -72,6 +106,24 @@ export function TutorialTooltip({
         <p className="max-w-[40ch] text-[0.8125rem] leading-[1.6] text-muted-foreground">
           {step.content}
         </p>
+        {tutorialStep.completion?.confirmationLabel ? (
+          <label className="mt-3 flex items-start gap-2 text-xs text-foreground">
+            <input
+              checked={confirmed}
+              className="mt-0.5 size-4 accent-[var(--accent)]"
+              type="checkbox"
+              onChange={(event) =>
+                setConfirmedIndex(event.target.checked ? index : null)
+              }
+            />
+            <span>{tutorialStep.completion.confirmationLabel}</span>
+          </label>
+        ) : null}
+        {blockedMessage ? (
+          <p className="mt-2 text-xs text-amber-600" role="alert">
+            {blockedMessage}
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-2.5 border-t border-[var(--border-subtle)] px-4 py-3">
@@ -111,6 +163,7 @@ export function TutorialTooltip({
           ) : null}
           <button
             {...primaryProps}
+            onClick={advance}
             className="btn-action rounded-md bg-[var(--accent)] px-3.5 py-1 text-xs font-medium text-[var(--text-primary)] hover:brightness-110"
           >
             {isLastStep ? "Done" : "Next"}

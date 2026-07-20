@@ -5,15 +5,19 @@ import { useSettingsStore } from "./settings-store"
 
 const BROWSER_ONBOARDING_COMPLETE_KEY = "sabbathcue.onboardingComplete"
 
+export type TutorialMode = "operator" | "admin" | "all"
+
 interface TutorialState {
   isRunning: boolean
-  startTutorial: () => void
+  mode: TutorialMode
+  startTutorial: (mode?: TutorialMode) => void
   stopTutorial: () => void
 }
 
 export const useTutorialStore = create<TutorialState>((set) => ({
   isRunning: false,
-  startTutorial: () => set({ isRunning: true }),
+  mode: "operator",
+  startTutorial: (mode = "operator") => set({ isRunning: true, mode }),
   stopTutorial: () => set({ isRunning: false }),
 }))
 

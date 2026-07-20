@@ -100,10 +100,7 @@ describe("supabase auth", () => {
     })
 
     const { signUpWithEmail } = await import("@/lib/supabase/auth")
-    const result = await signUpWithEmail("user@example.com", "secret", {
-      isChurchOrganization: true,
-      churchName: "Central SDA Church",
-    })
+    const result = await signUpWithEmail("user@example.com", "secret")
 
     expect(result).toEqual({
       ok: true,
@@ -117,12 +114,6 @@ describe("supabase auth", () => {
     expect(mockSignUp).toHaveBeenCalledWith({
       email: "user@example.com",
       password: "secret",
-      options: {
-        data: {
-          is_church_organization: true,
-          church_name: "Central SDA Church",
-        },
-      },
     })
   })
 
@@ -133,10 +124,7 @@ describe("supabase auth", () => {
     })
 
     const { signUpWithEmail } = await import("@/lib/supabase/auth")
-    const result = await signUpWithEmail("user@example.com", "secret", {
-      isChurchOrganization: false,
-      churchName: null,
-    })
+    const result = await signUpWithEmail("user@example.com", "secret")
 
     expect(result).toEqual({ ok: true, needsEmailConfirmation: true })
     expect(mockSetRefreshToken).not.toHaveBeenCalled()

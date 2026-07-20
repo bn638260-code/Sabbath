@@ -9,7 +9,6 @@ import {
   signUp as providerSignUp,
 } from "@/lib/verification/verification-provider"
 import type { VerificationStateSnapshot } from "@/types/verification"
-import type { SignUpProfile } from "@/lib/supabase/auth"
 
 const HEARTBEAT_MS = 60 * 1000
 const STARTUP_VERIFICATION_TIMEOUT_MS = 15 * 1000
@@ -52,11 +51,7 @@ interface VerificationStore extends VerificationStateSnapshot {
   isHydrated: boolean
   hydrate: () => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (
-    email: string,
-    password: string,
-    profile: SignUpProfile
-  ) => Promise<void>
+  signUp: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   refresh: () => Promise<void>
   clear: () => Promise<void>
@@ -188,14 +183,14 @@ export const useVerificationStore = create<VerificationStore>(() => ({
     }
   },
 
-  signUp: async (email, password, profile) => {
+  signUp: async (email, password) => {
     useVerificationStore.setState({
       status: "checking",
       error: null,
       errorCode: null,
     })
     try {
-      applySnapshot(await providerSignUp(email, password, profile))
+      applySnapshot(await providerSignUp(email, password))
     } catch (error) {
       stopHeartbeat()
       useVerificationStore.setState({

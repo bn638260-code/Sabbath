@@ -7,6 +7,18 @@ import {
   type DashboardWorkspace,
 } from "@/stores/dashboard-workspace-store"
 import { useServicePlanStore } from "@/stores/service-plan-store"
+import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
+import { useHymnSlideStore } from "@/stores/hymn-slide-store"
+import { useLibraryStore } from "@/stores/library-store"
+import type { TutorialMode } from "@/stores/tutorial-store"
+
+export interface TutorialStep extends Step {
+  completion?: {
+    check?: () => boolean
+    confirmationLabel?: string
+    message: string
+  }
+}
 
 const STEP_DEFAULTS = {
   skipBeacon: true,
@@ -71,7 +83,7 @@ const broadcastDialogStep = (selector: string) => ({
     }),
 })
 
-export const TUTORIAL_STEPS: Step[] = [
+export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     ...STEP_DEFAULTS,
     target: "body",
@@ -156,6 +168,74 @@ export const TUTORIAL_STEPS: Step[] = [
   },
   {
     ...STEP_DEFAULTS,
+    target: "body",
+    title: "Practice: Present a verse",
+    content:
+      "Use Scripture & EGW to find a verse, preview it, then press Present. This step unlocks when the app has a live presentation item.",
+    placement: "center",
+    before: () => prepareTarget("body", { workspace: "live" }),
+    completion: {
+      check: () => Boolean(useBroadcastLiveStore.getState().liveItem),
+      message: "Present a verse or other item before continuing.",
+    },
+  },
+  {
+    ...STEP_DEFAULTS,
+    ...workspaceStep('[data-tour="service-schedules"]', "service-plans"),
+    target: '[data-tour="service-schedules"]',
+    title: "Service Schedules",
+    content:
+      "Create a service schedule from a template, add or reorder items, attach sermon slides or media, and save it before worship.",
+    placement: "top",
+    completion: {
+      check: () => Boolean(useServicePlanStore.getState().activePlan),
+      message: "Create or load a service schedule before continuing.",
+    },
+  },
+  {
+    ...STEP_DEFAULTS,
+    ...workspaceStep('[data-tour="run-service"]', "run-service"),
+    target: '[data-tour="run-service"]',
+    title: "Run Service Flow",
+    content:
+      "Start Practice from your service schedule, then use this workspace to move through prepared items, sermon slides, hymns, preview, and live output.",
+    placement: "top",
+    completion: {
+      check: () => {
+        const mode = useServicePlanStore.getState().activePlan?.mode
+        return mode === "practice" || mode === "performance"
+      },
+      message: "Open a schedule and start Practice or Live Service before continuing.",
+    },
+  },
+  {
+    ...STEP_DEFAULTS,
+    ...workspaceStep('[data-tour="hymn-workspace"]', "hymns"),
+    target: '[data-tour="hymn-workspace"]',
+    title: "SDA Hymns and song slides",
+    content:
+      "Find an SDA hymn or build song slides from text. Generate a slide deck, preview it, then queue or present it for the service.",
+    placement: "top",
+    completion: {
+      check: () => useHymnSlideStore.getState().deck.length > 0,
+      message: "Generate a hymn or song slide deck before continuing.",
+    },
+  },
+  {
+    ...STEP_DEFAULTS,
+    ...workspaceStep('[data-tour="library-workspace"]', "library"),
+    target: '[data-tour="library-workspace"]',
+    title: "Church Library",
+    content:
+      "Save reusable songs, images, themes, slide decks, and media here. Add one asset so it can be reused or attached to a service schedule.",
+    placement: "top",
+    completion: {
+      check: () => useLibraryStore.getState().assets.length > 0,
+      message: "Add or save one Church Library asset before continuing.",
+    },
+  },
+  {
+    ...STEP_DEFAULTS,
     target: '[data-tour="projector-setup"]',
     title: "Projector Setup",
     content:
@@ -163,6 +243,22 @@ export const TUTORIAL_STEPS: Step[] = [
     placement: "bottom",
     before: () =>
       prepareTarget('[data-tour="projector-setup"]', { workspace: "live" }),
+    completion: {
+      confirmationLabel: "I opened Projector Setup and rehearsed the display steps.",
+      message: "Confirm the projector rehearsal before continuing.",
+    },
+  },
+  {
+    ...STEP_DEFAULTS,
+    target: '[data-tour="settings-section-account"]',
+    title: "Pilot access",
+    content:
+      "Participants register, confirm their email, sign in, redeem the single-use invitation from the administrator, and acknowledge training. Access remains blocked while the pilot is draft, suspended, outside its dates, unpaid, or not onboarded.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="settings-section-account"]', {
+        settingsSection: "account",
+      }),
   },
   {
     ...STEP_DEFAULTS,
@@ -308,7 +404,7 @@ export const TUTORIAL_STEPS: Step[] = [
     target: '[data-tour="settings-section-account"]',
     title: "Your Account",
     content:
-      "Settings > Account shows the email you signed in with. From there you can sign out, request subscription cancellation, or delete your account. Cancellation has no refund for the current paid period; access stays active until the subscribed period ends, then disables unless renewed.",
+      "Settings > Account shows your signed-in email and approved computers. You can approve a pending second computer, deactivate a computer, sign out, or permanently delete your account. Pilot access is managed by the administrator.",
     placement: "left",
     before: () =>
       prepareTarget('[data-tour="settings-section-account"]', {
@@ -330,6 +426,19 @@ export const TUTORIAL_STEPS: Step[] = [
   {
     ...STEP_DEFAULTS,
     target: "body",
+    title: "Operator readiness check",
+    content:
+      "Before serving live, confirm that you tested the microphone and speech provider, presented a verse, practised a service schedule, generated hymn slides, saved a reusable library asset, and rehearsed the projector.",
+    placement: "center",
+    before: () => prepareTarget("body", { workspace: "live" }),
+    completion: {
+      confirmationLabel: "I completed the operator readiness checklist.",
+      message: "Confirm the readiness checklist before finishing training.",
+    },
+  },
+  {
+    ...STEP_DEFAULTS,
+    target: "body",
     title: "You're all set",
     content:
       "A good first run: start transcribing, speak a verse reference out loud, and press Present when it appears. Revisit this tour anytime from Settings > Help > Restart.",
@@ -337,3 +446,92 @@ export const TUTORIAL_STEPS: Step[] = [
     before: () => prepareTarget("body", { workspace: "live" }),
   },
 ]
+
+export const ADMIN_TUTORIAL_STEPS: TutorialStep[] = [
+  {
+    ...STEP_DEFAULTS,
+    target: '[data-tour="pilot-admin"]',
+    title: "Pilot administration",
+    content:
+      "Only administrators see this panel. It controls agreement capacity, Schedule A churches, invitations, memberships, payment, onboarding, dates, and pilot status.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="pilot-admin"]', { settingsSection: "account" }),
+  },
+  {
+    ...STEP_DEFAULTS,
+    target: '[data-tour="pilot-limits"]',
+    title: "Agreement capacity",
+    content:
+      "Set the maximum active churches, approved computers per church, and approved computers across the pilot. Limits cannot be reduced below current usage.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="pilot-limits"]', { settingsSection: "account" }),
+  },
+  {
+    ...STEP_DEFAULTS,
+    target: '[data-tour="pilot-churches"]',
+    title: "Schedule A churches",
+    content:
+      "Add each agreement church before issuing codes. Mark a church replaced when it leaves the pilot; restoring it is allowed only within the active-church limit.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="pilot-churches"]', { settingsSection: "account" }),
+  },
+  {
+    ...STEP_DEFAULTS,
+    target: '[data-tour="pilot-invitations"]',
+    title: "Single-use invitations",
+    content:
+      "Select an active church, role, and expiry, then generate a code. Copy it immediately because only its hash is stored. Revoke any unused code that should no longer work.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="pilot-invitations"]', { settingsSection: "account" }),
+  },
+  {
+    ...STEP_DEFAULTS,
+    target: '[data-tour="pilot-memberships"]',
+    title: "Memberships and revocation",
+    content:
+      "Review which account belongs to each church and role. Revoking a membership also revokes that participant's active computers.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="pilot-memberships"]', { settingsSection: "account" }),
+  },
+  {
+    ...STEP_DEFAULTS,
+    target: '[data-tour="pilot-activation"]',
+    title: "Activate only when ready",
+    content:
+      "Keep the pilot in Draft while preparing. Record commencement and expiry dates, first payment, and onboarding before selecting Active. Suspended and Expired block participant access.",
+    placement: "left",
+    before: () =>
+      prepareTarget('[data-tour="pilot-activation"]', { settingsSection: "account" }),
+    completion: {
+      confirmationLabel: "I understand the activation and revocation controls.",
+      message: "Confirm the administrator readiness check before finishing.",
+    },
+  },
+]
+
+export function tutorialStepsFor(mode: TutorialMode): TutorialStep[] {
+  if (mode === "admin") return ADMIN_TUTORIAL_STEPS
+  if (mode === "all") {
+    return [
+      ...TUTORIAL_STEPS.slice(0, -1),
+      ...ADMIN_TUTORIAL_STEPS,
+      TUTORIAL_STEPS[TUTORIAL_STEPS.length - 1],
+    ]
+  }
+  return TUTORIAL_STEPS
+}
+
+export function tutorialCompletionError(
+  step: TutorialStep,
+  confirmed: boolean
+): string | null {
+  const completion = step.completion
+  if (completion?.confirmationLabel && !confirmed) return completion.message
+  if (completion?.check && !completion.check()) return completion.message
+  return null
+}

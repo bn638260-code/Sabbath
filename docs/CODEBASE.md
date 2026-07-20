@@ -69,7 +69,7 @@ Core modules:
 | Settings store | src/stores/settings-store.ts:6 | STT provider setting and cloud key status | Settings UI, transcript panel, transcription hook |
 | Verification store | src/stores/verification-store.ts:20 | Bounds startup/session refresh checks and exposes auth state | Verification gate and sign-in screen |
 | Verification provider | src/lib/verification/verification-provider.ts:191 | Restores sessions, clears expired credentials, and verifies device access | Verification store and heartbeat |
-| Supabase account profile | supabase/migrations/008_church_organization_profiles.sql:4 | Stores optional self-declared church organization identity and exposes it through device/admin RPCs | Signup, verification session, operator badge, admin account list |
+| KNFC pilot access | supabase/migrations/010_knfc_pilot_access.sql:4 | Owns draft/active pilot state, Schedule A churches, confirmed single-use invitations, memberships, and church-scoped device limits | Signup gate, verification, pilot admin panel, device activation |
 | Device activation boundary | supabase/functions/device-activation/index.ts:178 | Verifies installation-key signatures, invokes service-role-only activation RPCs, and signs offline leases | Verification provider and account device management |
 | Installation identity | src-tauri/src/commands/installation_identity.rs:1 | Owns the P-256 private key in the OS keychain and exposes public identity/challenge signing | Device registration and approval |
 | STT provider routing | src-tauri/src/commands/stt/provider.rs:95 | Selects Vosk, Deepgram, or Soniox and handles removed providers | Tauri STT commands |
@@ -94,21 +94,35 @@ Verification gate renders the sign-in screen for required/error states
   -> src/components/verification/VerificationGate.tsx:22
 ```
 
-### Flow: self-declared church organization signup and badges
+### Flow: invitation-only KNFC pilot signup and administration
 ```text
-Trial signup optionally collects a church organization name and validates 2-120 characters
-  -> src/components/verification/VerificationScreen.tsx:313
-  -> src/components/verification/VerificationScreen.tsx:826
-Supabase signup metadata is copied into account_flags by the new-user trigger
-  -> src/lib/supabase/auth.ts:93
-  -> supabase/migrations/008_church_organization_profiles.sql:23
-Device registration returns the canonical profile into the verified desktop session
-  -> supabase/migrations/008_church_organization_profiles.sql:64
-  -> src/lib/supabase/devices.ts:58
-The operator strip renders the church badge and admins receive the same fields in their account list
-  -> src/components/layout/operator-status-strip.tsx:38
-  -> supabase/migrations/008_church_organization_profiles.sql:166
-  -> src/components/settings/sections/AccountSection.tsx:173
+Participant creates an email/password account and confirms the email
+  -> src/components/verification/VerificationScreen.tsx
+Confirmed participant acknowledges training and redeems an administrator-created code
+  -> src/lib/supabase/pilot.ts
+  -> supabase/migrations/011_confirmed_invites_and_admin_bootstrap.sql
+Redemption atomically consumes the code and assigns one account to one Schedule A church
+  -> supabase/migrations/010_knfc_pilot_access.sql
+Admin records churches, payment, onboarding, dates, memberships, and one-time invitations
+  -> src/components/settings/sections/PilotAdminPanel.tsx
+  -> src/components/settings/sections/AccountSection.tsx
+The designated owner email is bootstrapped as admin and signs in without an invite
+  -> supabase/migrations/011_confirmed_invites_and_admin_bootstrap.sql
+Agreement capacity defaults to 10 active churches, 2 approved devices per church, and 20 across the pilot; administrators may raise or safely lower the stored limits
+  -> supabase/migrations/012_configurable_pilot_limits.sql
+  -> src/components/settings/sections/PilotAdminPanel.tsx
+```
+
+### Flow: role-aware interactive training
+```text
+First-run onboarding selects the operator path for participants and the combined operator/admin path for administrators
+  -> src/components/tutorial/tutorial-overlay.tsx
+Operator training covers verse presentation, schedules, Run Service, hymns, library reuse, projector rehearsal, pilot access, and a readiness checklist
+  -> src/components/tutorial/tutorial-steps.ts
+Observable tasks read the relevant stores; hardware and readiness tasks require explicit practice confirmation while Skip remains available
+  -> src/components/tutorial/tutorial-tooltip.tsx
+Settings Help exposes separately restartable operator and administrator training, with the administrator option shown only to administrators
+  -> src/components/settings/sections/HelpSection.tsx
 ```
 
 ### Flow: approved-computer activation and signed offline lease
@@ -293,11 +307,13 @@ Build script imports the generated JSON into egw_books / egw_paragraphs
 | Broadcast themes | Broadcast Zustand slice | activeThemeId, themes, kinetic flag | Theme catalog and renderer | src/components/broadcast/KineticThemesPage.tsx:146, src/components/broadcast/theme-library.tsx:54 |
 | Bible/EGW content | SQLite | translations, verses, EGW paragraphs | Search/detection/presentation | README.md:49, src-tauri/Cargo.toml:75 |
 | EGW source JSON | data/sources/egw/*.json | book_number, chapter, paragraph, page, page_paragraph, text | Built into SQLite by `build:egw` | data/build-egw.ts:2, data/validate-egw-sources.ts:7 |
-| Account flags | Supabase Postgres | user_id, access_expires_at, suspended, is_church_organization, church_name | Auth user, registered devices, admin account list | supabase/migrations/008_church_organization_profiles.sql:4 |
-| Device activations | Supabase Postgres | user_id, device_id, public_key, status, first/last seen, approved/revoked timestamps | Account, installation identity, admin/user management | supabase/migrations/009_device_activation_management.sql:4 |
+| Account flags | Supabase Postgres | user_id, suspended, offline lease settings, compatibility church display fields | Auth user, registered devices, admin account list | supabase/migrations/009_device_activation_management.sql |
+| Pilots and churches | Supabase Postgres | status, dates, payment/onboarding timestamps, Schedule A church/contact data, configurable church/device limits | Invitations, memberships, church devices | supabase/migrations/010_knfc_pilot_access.sql, supabase/migrations/012_configurable_pilot_limits.sql |
+| Pilot invitations/memberships | Supabase Postgres | hashed one-use code, expiry/revocation/redemption, user, church, role, training acknowledgement | Confirmed Auth user and Schedule A church | supabase/migrations/010_knfc_pilot_access.sql, supabase/migrations/011_confirmed_invites_and_admin_bootstrap.sql |
+| Device activations | Supabase Postgres | user_id, church_id, device_id, public_key, status, first/last seen, approved/revoked timestamps | Account, pilot church, installation identity, admin/user management | supabase/migrations/010_knfc_pilot_access.sql |
 | Signed activation lease | Tauri store, verified against build-time public key | payload, signature, user/device binding, issued/expires/access expiry | Offline verification session | src/lib/verification/activation-lease.ts:1, src/lib/verification/session-storage.ts:21 |
 
-Account/access schema changes are versioned in `/supabase/migrations`; migration 008 extends the existing trial/device/admin RPC contract with the optional church organization profile. Receipt: supabase/migrations/008_church_organization_profiles.sql:1.
+Account/access schema changes are versioned in `/supabase/migrations`; migrations 010-011 replace trial/self-declared organization entitlement with confirmed, invitation-only, church-scoped pilot access and designated-admin bootstrap, and migration 012 makes the agreement capacity administratively configurable.
 
 ## 8 - Interfaces & integrations
 Public interfaces:
@@ -313,7 +329,7 @@ External services:
 | Soniox | Cloud STT | watch | src-tauri/crates/stt/src/lib.rs:12 |
 | Speechmatics | Cloud STT | watch | src-tauri/crates/stt/src/speechmatics.rs:17 |
 | Vosk | Local STT worker/model | healthy | src-tauri/crates/stt/src/lib.rs:39 |
-| Supabase | Account auth, trial/device access, optional church profile, admin account listing | critical | src/lib/supabase/client.ts:6, supabase/migrations/008_church_organization_profiles.sql:23 |
+| Supabase | Account auth, invitation-only KNFC pilot access, church-scoped devices, pilot administration | critical | src/lib/supabase/client.ts:6, supabase/migrations/010_knfc_pilot_access.sql |
 | Supabase Edge Function | Installation proof verification and signed activation lease issuance | critical | supabase/functions/device-activation/index.ts:178 |
 
 ## 9 - Configuration & environments
@@ -343,12 +359,16 @@ npm.cmd run test:unit
 # Result after implementation: 131 files passed, 941 tests passed, 1 skipped.
 # Result after church organization signup/profile implementation: 134 files passed, 964 tests passed, 1 skipped.
 # Result after approved-computer activation hardening: 136 files passed, 981 tests passed, 1 skipped.
+# Result after KNFC pilot access implementation: 139 files passed, 992 tests passed, 1 skipped.
+# Result after configurable limits and role-aware training: 140 files passed, 999 tests passed, 1 skipped.
 
 npm.cmd run lint
 # Result before edits: passed with existing complexity warning in data/lib/egw-pdf-importer.ts.
 # Result after implementation: passed with the same existing complexity warning in data/lib/egw-pdf-importer.ts.
 # Result after church organization signup/profile implementation: passed with three existing data/test complexity warnings and no errors.
 # Result after approved-computer activation hardening: passed with the same three existing data/test complexity warnings and no new warnings.
+# Result after KNFC pilot access implementation: passed with the same three existing data/test complexity warnings and no errors.
+# Result after configurable limits and role-aware training: passed with the same three existing data/test complexity warnings and no errors.
 
 cargo test --workspace
 # Result before edits: passed.
@@ -364,6 +384,8 @@ npm.cmd run build
 # Result after implementation: passed; Vite reported existing large chunk warning class.
 # Result after church organization signup/profile implementation: passed; Vite reported the existing large chunk warning class.
 # Result after approved-computer activation hardening: passed; Vite reported the existing large chunk warning class.
+# Result after KNFC pilot access implementation: passed; Vite reported the existing large chunk warning class.
+# Result after configurable limits and role-aware training: passed; Vite reported the existing large chunk warning class.
 
 git diff --check
 # Result after implementation: passed; Git reported line-ending notices only.
@@ -435,3 +457,5 @@ Top risks (ranked): 1. STT provider removal can leave stale docs or tests if his
 | 2026-07-16 | Replaced UUID-only device counting with managed approved/pending/revoked activations, OS-keychain P-256 identity proof, service-role-only registration/approval, and signed configurable offline leases. | 5-11, 15 |
 | 2026-07-19 | Mapped the dedicated KNFC pilot landing entry point and its local visual/demo assets after the cinematic product-story redesign. | 4, 15 |
 | 2026-07-19 | Traced the standalone `knfcpilot` Vercel folder and repo-root static build branch, and aligned the KNFC copy with verified app behavior. | 4-6, 10, 13, 15 |
+| 2026-07-20 | Replaced trial/self-declared access with confirmed single-use KNFC invitations, Schedule A church membership, pilot activation gates, church/pilot device limits, and designated-owner admin bootstrap. | 5-11, 15 |
+| 2026-07-20 | Made pilot church/device capacity configurable and expanded onboarding into separately restartable, role-aware operator/admin training with observable task gates and readiness confirmations. | 5-11, 15 |

@@ -25,11 +25,10 @@ import type {
   VerificationSession,
   VerificationStateSnapshot,
 } from "@/types/verification"
-import type { SignUpProfile } from "@/lib/supabase/auth"
 
 const APP_VERSION = packageJson.version
 const ACCESS_ENDED_MESSAGE =
-  "Your access has ended. Contact the developer to renew."
+  "The KNFC pilot is not active. Contact the pilot coordinator."
 
 /** How long a previously verified session may keep working without connectivity. */
 export const OFFLINE_GRACE_MS = 72 * 60 * 60 * 1000
@@ -191,6 +190,18 @@ async function completeVerification(
       return emptySnapshot("error", ACCESS_ENDED_MESSAGE, "trial_expired")
     }
 
+    if (registration.code === "invite_required") {
+      return emptySnapshot(
+        "error",
+        "Enter the invitation code supplied by the SabbathCue administrator.",
+        "invite_required"
+      )
+    }
+
+    if (registration.code === "pilot_inactive") {
+      return emptySnapshot("error", ACCESS_ENDED_MESSAGE, "pilot_inactive")
+    }
+
     const message = registration.message ?? "Device registration failed."
     return emptySnapshot(
       "error",
@@ -296,10 +307,9 @@ export async function signIn(
 
 export async function signUp(
   email: string,
-  password: string,
-  profile: SignUpProfile
+  password: string
 ): Promise<VerificationStateSnapshot> {
-  const result = await signUpWithEmail(email, password, profile)
+  const result = await signUpWithEmail(email, password)
   if (!result.ok) {
     return emptySnapshot("error", result.message, result.code)
   }
@@ -343,6 +353,10 @@ async function heartbeatBlockFor(
         ] as const
       : registration.code === "trial_expired"
         ? [ACCESS_ENDED_MESSAGE, "trial_expired"] as const
+        : registration.code === "invite_required"
+          ? ["Enter your KNFC pilot invitation code.", "invite_required"] as const
+          : registration.code === "pilot_inactive"
+            ? [ACCESS_ENDED_MESSAGE, "pilot_inactive"] as const
         : registration.code === "device_limit_reached"
           ? [
               "This account is already registered on the maximum number of devices (2). Remove a device or contact support.",

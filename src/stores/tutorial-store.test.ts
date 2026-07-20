@@ -44,6 +44,15 @@ describe("tutorial store", () => {
     expect(useTutorialStore.getState().isRunning).toBe(true)
   })
 
+  it("starts a separately restartable admin tutorial", async () => {
+    const { useTutorialStore } = await import("./tutorial-store")
+    useTutorialStore.getState().startTutorial("admin")
+    expect(useTutorialStore.getState()).toMatchObject({
+      isRunning: true,
+      mode: "admin",
+    })
+  })
+
   it("stopTutorial sets isRunning to false", async () => {
     const { useTutorialStore } = await import("./tutorial-store")
     useTutorialStore.getState().startTutorial()

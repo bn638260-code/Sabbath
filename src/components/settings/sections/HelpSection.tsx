@@ -12,6 +12,7 @@ import {
   RefreshCwIcon,
 } from "lucide-react"
 import { toast } from "sonner"
+import { fetchIsAdmin } from "@/lib/supabase/account"
 import {
   DASHBOARD_KEYBOARD_SHORTCUTS,
   getPrimaryShortcutModifier,
@@ -21,12 +22,23 @@ import {
 export function HelpSection() {
   const { state, loadVersion, check } = useAppUpdate()
   const [checkingManual, setCheckingManual] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const primaryModifier = getPrimaryShortcutModifier()
 
   useEffect(() => {
     if (!isTauriRuntime()) return
     void loadVersion()
   }, [loadVersion])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchIsAdmin().then((admin) => {
+      if (!cancelled) setIsAdmin(admin)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function handleCheckForUpdates() {
     setCheckingManual(true)
@@ -63,22 +75,36 @@ export function HelpSection() {
               <GraduationCapIcon className="size-4 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-medium">Interactive Tutorial</p>
+              <p className="text-sm font-medium">Interactive training</p>
               <p className="text-xs text-muted-foreground">
-                Step-by-step walkthrough of every feature
+                Guided operator tasks and pilot administration
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              useTutorialStore.getState().startTutorial()
-            }}
-          >
-            <GraduationCapIcon className="mr-1.5 size-3.5" />
-            Restart
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                useTutorialStore.getState().startTutorial("operator")
+              }}
+            >
+              <GraduationCapIcon className="mr-1.5 size-3.5" />
+              Operator training
+            </Button>
+            {isAdmin ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  useTutorialStore.getState().startTutorial("admin")
+                }}
+              >
+                <GraduationCapIcon className="mr-1.5 size-3.5" />
+                Admin training
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         <div className="glass-panel flex items-center justify-between gap-3 p-4">
@@ -89,7 +115,7 @@ export function HelpSection() {
             <div>
               <p className="text-sm font-medium">Contact developer</p>
               <p className="text-xs text-muted-foreground">
-                Renew access, request cancellation, or send a support request
+                Ask about pilot access or send a support request
               </p>
             </div>
           </div>

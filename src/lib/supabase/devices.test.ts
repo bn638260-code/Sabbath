@@ -118,6 +118,27 @@ describe("registerDevice", () => {
     expect(result).toEqual({ ok: false, code: "trial_expired" })
   })
 
+  it.each(["invite_required", "pilot_inactive"] as const)(
+    "returns %s when pilot access is unavailable",
+    async (status) => {
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { registration: { status } },
+        error: null,
+      })
+
+      const { registerDevice } = await import("@/lib/supabase/devices")
+      const result = await registerDevice(
+        "user-1",
+        "device-1",
+        "windows",
+        "0.1.7",
+        "public-key"
+      )
+
+      expect(result).toEqual({ ok: false, code: status })
+    }
+  )
+
   it("returns error when the RPC fails", async () => {
     mockFunctionsInvoke.mockResolvedValue({
       data: null,

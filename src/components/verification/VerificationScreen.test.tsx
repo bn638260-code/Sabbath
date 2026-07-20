@@ -4,11 +4,12 @@ import { createRoot, type Root } from "react-dom/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mockSignUp = vi.fn().mockResolvedValue(undefined)
+const mockRedeemPilotInvite = vi.fn()
 
 const verificationState = {
   status: "required",
   error: null,
-  errorCode: null,
+  errorCode: null as string | null,
   verifiedEmail: null,
   signIn: vi.fn(),
   signUp: mockSignUp,
@@ -30,14 +31,21 @@ vi.mock("@/stores/accent-theme-store", () => ({
     selector({ theme: "amber" }),
 }))
 
+vi.mock("@/lib/supabase/pilot", () => ({
+  redeemPilotInvite: (...args: unknown[]) => mockRedeemPilotInvite(...args),
+}))
+
 import { VerificationScreen } from "./VerificationScreen"
 
-describe("VerificationScreen church organization signup", () => {
+describe("VerificationScreen account signup", () => {
   let root: Root | null = null
   let container: HTMLDivElement | null = null
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    verificationState.status = "required"
+    verificationState.error = null
+    verificationState.errorCode = null
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -89,40 +97,40 @@ describe("VerificationScreen church organization signup", () => {
     })
   }
 
-  it("reveals the church name field and submits the self-declared profile", async () => {
-    await click(button("Start trial"))
-
-    expect(container?.textContent).not.toContain("Church name")
-    await click(input("We are a church organization"))
-    expect(container?.textContent).toContain("Church name")
-
+  it("creates an account without granting a self-declared church", async () => {
+    await click(button("Register"))
     await type(input("Email"), "church@example.com")
     await type(input("Password"), "secret1")
     await type(input("Confirm password"), "secret1")
-    await type(input("Church name"), "  Central SDA Church  ")
-    await click(button("Start 14-day trial"))
+    await click(button("Create account"))
 
-    expect(mockSignUp).toHaveBeenCalledWith(
-      "church@example.com",
-      "secret1",
-      {
-        isChurchOrganization: true,
-        churchName: "Central SDA Church",
-      }
-    )
+    expect(mockSignUp).toHaveBeenCalledWith("church@example.com", "secret1")
   })
 
-  it("requires a church name when the organization option is selected", async () => {
-    await click(button("Start trial"))
-    await click(input("We are a church organization"))
+  it("requires matching passwords", async () => {
+    await click(button("Register"))
     await type(input("Email"), "church@example.com")
     await type(input("Password"), "secret1")
-    await type(input("Confirm password"), "secret1")
-    await click(button("Start 14-day trial"))
+    await type(input("Confirm password"), "different")
+    await click(button("Create account"))
 
     expect(container?.querySelector('[role="alert"]')?.textContent).toContain(
-      "Enter a church name between 2 and 120 characters."
+      "Passwords do not match."
     )
     expect(mockSignUp).not.toHaveBeenCalled()
+  })
+
+  it("redeems an invitation only with training acknowledgement", async () => {
+    verificationState.status = "error"
+    verificationState.errorCode = "invite_required"
+    mockRedeemPilotInvite.mockResolvedValue({ ok: true })
+    await act(async () => root?.render(<VerificationScreen />))
+
+    await type(input("Invitation code"), "KNFCINVITECODE1234")
+    await click(input("completed or reviewed"))
+    await click(button("Redeem invitation"))
+
+    expect(mockRedeemPilotInvite).toHaveBeenCalledWith("KNFCINVITECODE1234", true)
+    expect(verificationState.refresh).toHaveBeenCalled()
   })
 })

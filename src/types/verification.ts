@@ -17,6 +17,8 @@ export type VerificationErrorCode =
   | "device_revoked"
   | "suspended"
   | "trial_expired"
+  | "invite_required"
+  | "pilot_inactive"
   | "network"
   | "unknown"
 

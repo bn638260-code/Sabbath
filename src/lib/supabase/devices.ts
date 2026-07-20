@@ -21,6 +21,8 @@ export type RegisterDeviceResult =
   | { ok: false; code: "device_identity_mismatch" }
   | { ok: false; code: "suspended" }
   | { ok: false; code: "trial_expired" }
+  | { ok: false; code: "invite_required" }
+  | { ok: false; code: "pilot_inactive" }
   | { ok: false; code: "error"; message: string }
 
 type RegisterDeviceStatusResult =
@@ -86,6 +88,8 @@ function parseRegisterDeviceStatus(data: unknown): RegisterDeviceStatusResult {
     return { ok: false, code: "device_identity_mismatch" }
   if (status === "suspended") return { ok: false, code: "suspended" }
   if (status === "trial_expired") return { ok: false, code: "trial_expired" }
+  if (status === "invite_required") return { ok: false, code: "invite_required" }
+  if (status === "pilot_inactive") return { ok: false, code: "pilot_inactive" }
 
   return {
     ok: false,

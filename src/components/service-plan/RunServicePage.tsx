@@ -57,7 +57,7 @@ export function RunServicePage() {
 
   if (!activePlan) {
     return (
-      <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground" data-tour="run-service">
         Load a service plan and start the service to use Run Service.
       </div>
     )
@@ -67,6 +67,7 @@ export function RunServicePage() {
     <div
       className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4"
       data-slot="run-service-page"
+      data-tour="run-service"
     >
       <ServiceLiveContextPanel />
       <LiveProductionGrid />
