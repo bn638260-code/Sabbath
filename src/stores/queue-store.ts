@@ -1,9 +1,11 @@
 import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
 import {
+  getReferenceFromItem,
   getVerseFromItem,
   type QueueItem,
 } from "@/types"
+import { notifyAction } from "@/lib/action-notifications"
 
 interface QueueState {
   items: QueueItem[]
@@ -125,6 +127,7 @@ export const useQueueStore = create<QueueState>()(
     }
 
     get().addItem(item)
+    notifyAction("Added to queue", getReferenceFromItem(item))
     return "added"
   },
   addOrFlashDetectionItem: (item) => {
@@ -158,7 +161,8 @@ export const useQueueStore = create<QueueState>()(
     get().addItem(item)
     return "added"
   },
-  removeItem: (id) =>
+  removeItem: (id) => {
+    const existed = get().items.some((i) => i.id === id)
     set((state) => {
       const removedIndex = state.items.findIndex((i) => i.id === id)
       const items = state.items.filter((i) => i.id !== id)
@@ -175,7 +179,9 @@ export const useQueueStore = create<QueueState>()(
       }
 
       return { items, activeIndex }
-    }),
+    })
+    if (existed) notifyAction("Removed from queue")
+  },
   removeItems: (ids) =>
     set((state) => {
       const idSet = new Set(ids)
@@ -243,8 +249,10 @@ export const useQueueStore = create<QueueState>()(
     }),
   setActive: (activeIndex) => set({ activeIndex }),
   clearQueue: () => {
+    const hadItems = get().items.length > 0
     clearAllFlashTimers()
     set({ items: [], activeIndex: null, highlightedId: null, highlightedIds: [] })
+    if (hadItems) notifyAction("Queue cleared")
   },
   flashItem: (id) => {
     clearFlashTimer(id)

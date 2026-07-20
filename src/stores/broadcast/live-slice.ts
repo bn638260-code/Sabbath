@@ -14,6 +14,7 @@ import {
   recordWorkflowTrace,
   tracePresentationDetails,
 } from "@/lib/workflow-trace"
+import { notifyAction } from "@/lib/action-notifications"
 import type { BroadcastState } from "@/stores/broadcast-store"
 
 export type BroadcastSyncOptions = { transitionType?: BroadcastTransitionType }
@@ -141,6 +142,7 @@ export const createLiveSlice: StateCreator<
     )
     get().syncBroadcastOutput(isLive ? options : undefined)
     if (shouldStopVideo) get().sendVideoCommand({ type: "stop" })
+    notifyAction(isLive ? "Live screen shown" : "Live screen cleared")
   },
   setPreviewItem: (previewItem) => {
     set({ previewItem })
@@ -191,6 +193,7 @@ export const createLiveSlice: StateCreator<
     if (liveItem.kind === "video") {
       get().sendVideoCommand({ type: "load", item: liveItem })
     }
+    if (makeLive) notifyAction("Sent to live", liveItem.reference)
   },
   setReadingModeAutoLive: (readingModeAutoLive) => {
     set({ readingModeAutoLive })
