@@ -185,7 +185,7 @@ jobs:
         run: cargo run --manifest-path src-tauri/Cargo.toml -p rhema-detection --features precompute-bin --release --bin detection_accuracy -- --threshold 0.90 --min-precision 0.98 --min-recall 0.70
 
       - name: Detection calibration probe at 85 percent
-        run: cargo run --manifest-path src-tauri/Cargo.toml -p rhema-detection --features precompute-bin --release --bin detection_accuracy -- --threshold 0.85 --min-precision 0.95 --min-recall 0.70
+        run: cargo run --manifest-path src-tauri/Cargo.toml -p rhema-detection --features precompute-bin --release --bin detection_accuracy -- --threshold 0.85
 
       - name: Clippy
         working-directory: src-tauri

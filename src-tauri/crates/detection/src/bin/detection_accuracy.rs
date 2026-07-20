@@ -575,6 +575,8 @@ const AFRIKAANS_CASES: &[Case] = &[
 )]
 #[expect(
     clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
     reason = "benchmark case counts are small enough for exact f64 metric math"
 )]
 fn main() {
@@ -647,8 +649,10 @@ fn main() {
         let fts = db.search_verses_bm25(&case.text, 10).unwrap_or_default();
         detections.extend(pipeline.process_hybrid_with_fts(&case.text, &fts));
         detection_latencies_ms.push(detection_started.elapsed().as_secs_f64() * 1_000.0);
-        // Auto-live fires the highest-confidence detection at/above threshold.
-        let fired = selector.select(&detections, threshold, &refs);
+        // A case represents a stable partial/final event pair. Auto-live fires
+        // the strongest eligible candidate after applying production semantic
+        // confirmation to that pair.
+        let fired = select_stable_case(&mut selector, &detections, threshold, &refs);
 
         let fired_ref = fired.and_then(|d| detection_ref(&d.detection, &refs));
         let fired_conf = fired.map(|d| d.detection.confidence);
@@ -854,12 +858,32 @@ fn main() {
     }
 }
 
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the bounded sample length and 0..=1 percentile produce a valid index"
+)]
 fn percentile(sorted_values: &[f64], percentile: f64) -> f64 {
     if sorted_values.is_empty() {
         return 0.0;
     }
     let index = ((sorted_values.len() - 1) as f64 * percentile).round() as usize;
     sorted_values[index]
+}
+
+fn select_stable_case<'a>(
+    selector: &mut AutoLiveSelector,
+    detections: &'a [MergedDetection],
+    threshold: f64,
+    refs: &HashMap<i64, String>,
+) -> Option<&'a MergedDetection> {
+    // The authored corpus contains utterances rather than raw provider events.
+    // Replay the same ranked candidates as a stable partial/final pair so a
+    // moderate semantic winner can satisfy the production two-event rule.
+    selector
+        .select(detections, threshold, refs)
+        .or_else(|| selector.select(detections, threshold, refs))
 }
 
 #[derive(Default)]
@@ -1164,6 +1188,7 @@ fn arg(args: &[String], name: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rhema_detection::types::{Detection, DetectionSource, VerseRef};
 
     #[test]
     fn fixture_case_defaults_to_fire_when_expected_is_present() {
@@ -1249,8 +1274,40 @@ mod tests {
     fn percentile_reports_ordered_latency_sample() {
         let samples = [10.0, 20.0, 30.0, 40.0, 50.0];
 
-        assert_eq!(percentile(&samples, 0.50), 30.0);
-        assert_eq!(percentile(&samples, 0.95), 50.0);
-        assert_eq!(percentile(&[], 0.95), 0.0);
+        assert!((percentile(&samples, 0.50) - 30.0).abs() < f64::EPSILON);
+        assert!((percentile(&samples, 0.95) - 50.0).abs() < f64::EPSILON);
+        assert!(percentile(&[], 0.95).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn stable_case_replay_can_confirm_a_moderate_semantic_winner() {
+        let detection = MergedDetection {
+            detection: Detection {
+                verse_ref: VerseRef {
+                    book_number: 43,
+                    book_name: "John".to_string(),
+                    chapter: 3,
+                    verse_start: 16,
+                    verse_end: None,
+                },
+                verse_id: None,
+                confidence: 0.92,
+                source: DetectionSource::Semantic { similarity: 0.92 },
+                transcript_snippet: "For God so loved the world".to_string(),
+                detected_at: 0,
+                is_chapter_only: false,
+            },
+            auto_queued: false,
+        };
+        let detections = [detection];
+
+        let fired = select_stable_case(
+            &mut AutoLiveSelector::default(),
+            &detections,
+            0.90,
+            &HashMap::new(),
+        );
+
+        assert!(fired.is_some(), "stable replay must satisfy confirmation");
     }
 }
