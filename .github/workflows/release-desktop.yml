@@ -146,11 +146,12 @@ jobs:
         continue-on-error: true
         run: cargo cyclonedx --all --format json
 
-      - name: Verify Supabase build env
+      - name: Verify desktop build env
         shell: pwsh
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ACTIVATION_LEASE_PUBLIC_KEY: ${{ secrets.VITE_ACTIVATION_LEASE_PUBLIC_KEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:VITE_SUPABASE_URL)) {
             Write-Error "Missing repository secret: VITE_SUPABASE_URL"
@@ -160,6 +161,10 @@ jobs:
             Write-Error "Missing repository secret: VITE_SUPABASE_ANON_KEY"
             exit 1
           }
+          if ([string]::IsNullOrWhiteSpace($env:VITE_ACTIVATION_LEASE_PUBLIC_KEY)) {
+            Write-Error "Missing repository secret: VITE_ACTIVATION_LEASE_PUBLIC_KEY"
+            exit 1
+          }
 
       - name: Build Tauri installer
         env:
@@ -167,6 +172,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ACTIVATION_LEASE_PUBLIC_KEY: ${{ secrets.VITE_ACTIVATION_LEASE_PUBLIC_KEY }}
         run: bun run tauri:build:release
 
       - name: Generate latest.json for updater
