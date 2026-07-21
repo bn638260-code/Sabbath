@@ -40,9 +40,13 @@ const LIVE_SEMANTIC_CAP: usize = 5;
 /// vocabulary must appear in the spoken fragment before the overlap counts as
 /// quote evidence. Guards (minimum matched words, minimum verse vocabulary)
 /// keep short verses and scattered keyword coincidences from qualifying.
+/// The verse-vocabulary floor sits at the matched-words floor so a fully
+/// spoken short verse still qualifies — Psalm 23:1 ("The LORD is my shepherd;
+/// I shall not want") has exactly four content words (lord, shepherd, shall,
+/// want), so a floor above four silently excluded famous short verses.
 const QUOTE_OVERLAP_MIN_FRACTION: f64 = 0.28;
 const QUOTE_OVERLAP_MIN_MATCHED: usize = 4;
-const QUOTE_OVERLAP_MIN_VERSE_WORDS: usize = 6;
+const QUOTE_OVERLAP_MIN_VERSE_WORDS: usize = 4;
 const QUOTE_OVERLAP_MAX_CONFIDENCE: f64 = 0.92;
 /// Words shorter than this are too common (the, and, thy, God) to count as
 /// quote evidence either way.
@@ -1011,6 +1015,43 @@ mod tests {
         assert!(
             results.is_empty(),
             "short-verse keyword mention must stay suppressed: {results:?}"
+        );
+    }
+
+    #[test]
+    fn short_verbatim_verse_earns_quote_overlap_confidence() {
+        // Psalm 23:1 has only four content words (lord, shepherd, shall, want),
+        // so a verse-vocabulary floor above four excluded it from quote overlap:
+        // a verbatim quote fell back to a ~0.72 vector score and lost to
+        // thematically similar shepherd verses (Ezekiel 34:10). A keyword-band
+        // FTS rank means only quote overlap can carry it, and a fully spoken
+        // short verse must reach fire strength.
+        let mut pipeline = DetectionPipeline::new();
+        let fts_results = vec![Bm25Result {
+            rank: -9.0,
+            book_number: 19,
+            book_name: "Psalms".to_string(),
+            chapter: 23,
+            verse: 1,
+            is_broad_match: true,
+            text: "The LORD is my shepherd; I shall not want.".to_string(),
+        }];
+
+        let results = pipeline
+            .process_hybrid_with_fts("the lord is my shepherd i shall not want", &fts_results);
+
+        let psalm = results
+            .iter()
+            .find(|r| {
+                r.detection.verse_ref.book_number == 19
+                    && r.detection.verse_ref.chapter == 23
+                    && r.detection.verse_ref.verse_start == 1
+            })
+            .expect("verbatim Psalm 23:1 must surface as a live candidate");
+        assert!(
+            psalm.detection.confidence >= 0.92,
+            "verbatim short verse must reach quote-strength confidence (got {})",
+            psalm.detection.confidence
         );
     }
 
