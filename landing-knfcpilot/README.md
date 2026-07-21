@@ -36,3 +36,14 @@ vercel --prod # production
 ```
 
 When prompted, use this folder as the project root.
+
+### Pilot review emails
+
+Each POST to `/api/reviews` emails **sabbathcue@gmail.com** (override with
+`REVIEW_NOTIFY_EMAIL` on Vercel). By default the handler uses
+[FormSubmit](https://formsubmit.co/) — the first submission triggers a one-time
+activation message to that inbox; click the link once to enable delivery.
+
+Optional: set `RESEND_API_KEY` (and `RESEND_FROM`) on the Vercel project to send
+via Resend instead. Optional: set `BLOB_READ_WRITE_TOKEN` to show submitted
+reviews on the public page.

@@ -5,5 +5,13 @@
   "trailingSlash": false,
   "installCommand": null,
   "buildCommand": null,
-  "outputDirectory": "."
+  "builds": [
+    { "src": "api/reviews.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "assets/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/reviews", "dest": "/api/reviews.js" },
+    { "handle": "filesystem" }
+  ]
 }
