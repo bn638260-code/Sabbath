@@ -93,7 +93,7 @@
   },
   "overrides": {
     "@hono/node-server": "2.0.8",
-    "brace-expansion": "2.1.1",
+    "brace-expansion": "2.1.2",
     "fast-uri": "4.1.0",
     "hono": "^4.12.25",
     "ip-address": "10.2.0",
