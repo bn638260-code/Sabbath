@@ -2,6 +2,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { useSettingsStore } from "@/stores/settings-store"
+import { useBroadcastLiveStore } from "@/stores/broadcast/live-store"
 
 export function DisplayModeSection() {
   const {
@@ -16,6 +17,10 @@ export function DisplayModeSection() {
     actionNotificationsEnabled,
     setActionNotificationsEnabled,
   } = useSettingsStore()
+  const readingModeAutoLive = useBroadcastLiveStore((s) => s.readingModeAutoLive)
+  const setReadingModeAutoLive = useBroadcastLiveStore(
+    (s) => s.setReadingModeAutoLive
+  )
 
   const thresholdPercent = Math.round(confidenceThreshold * 100)
   const semanticThresholdPercent = Math.round(semanticConfidenceThreshold * 100)
@@ -67,6 +72,25 @@ export function DisplayModeSection() {
             </div>
           </label>
         </RadioGroup>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+              Auto-live reading mode
+            </label>
+            <p className="text-[0.625rem] text-muted-foreground">
+              Send auto-staged verses straight to the live output. Stays in sync
+              with the Auto-live switch on the live screen.
+            </p>
+          </div>
+          <Switch
+            aria-label="Auto-live reading mode"
+            checked={readingModeAutoLive}
+            onCheckedChange={setReadingModeAutoLive}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
