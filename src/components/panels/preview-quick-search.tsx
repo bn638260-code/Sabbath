@@ -70,7 +70,7 @@ export function PreviewQuickSearch() {
   )
   const hymnQuery = useMemo(() => quickContentQuery(query), [query])
   const hymnMatches = useMemo(
-    () => (hymnQuery ? searchHymns(hymnQuery, 3) : []),
+    () => (hymnQuery ? searchHymns(hymnQuery, 5) : []),
     [hymnQuery]
   )
   const libraryMatches = useMemo(() => {
@@ -102,7 +102,7 @@ export function PreviewQuickSearch() {
       void invokeTauri<Verse[]>("search_verses", {
         query: q,
         translationId: activeTranslationId,
-        limit: 3,
+        limit: 5,
       })
         .then((results) => {
           if (requestId === verseSearchRequestIdRef.current)
@@ -125,7 +125,7 @@ export function PreviewQuickSearch() {
         if (requestId === egwRequestIdRef.current) setEgwMatches([])
         return
       }
-      void invokeTauri<EgwParagraph[]>("egw_search", { query: q, limit: 3 })
+      void invokeTauri<EgwParagraph[]>("egw_search", { query: q, limit: 5 })
         .then((results) => {
           if (requestId === egwRequestIdRef.current) setEgwMatches(results)
         })

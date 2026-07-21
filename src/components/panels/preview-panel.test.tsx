@@ -249,7 +249,7 @@ describe("PreviewPanel", () => {
       expect(invokeTauriMock).toHaveBeenCalledWith("search_verses", {
         query: "elkeen eerste",
         translationId: 4,
-        limit: 3,
+        limit: 5,
       })
     })
 
