@@ -57,9 +57,9 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIxOUI5ODc1RTQ5RkI3OTEKUldTUnQ1L2tkWmlic1lxaU5kVHFZYVpXN3ByY1Q2UUowSjhWRHBaaFpmZzdjeTlPRC9HMEpORGcK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEExNEYwMTQyMUVENDM4QTIKUldTaU9OUWVRZ0ZQb1prOGdwUlRGRDhHdG5aMElNcTVMbXlEZXRndkZNZW9ETVBkQTFhTS8zdXMK",
       "endpoints": [
-        "https://github.com/Bongisto/sabbathcue-releases/releases/latest/download/latest.json"
+        "https://github.com/bn638260-code/Sabbath/releases/latest/download/latest.json"
       ]
     }
   }

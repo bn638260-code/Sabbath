@@ -21,7 +21,7 @@ export const SITE = {
     owner: "Bongisto",
     name: "SabbathCue",
     url: "https://github.com/Bongisto/SabbathCue",
-    releasesLatest: "https://github.com/Bongisto/sabbathcue-releases/releases/latest",
+    releasesLatest: "https://github.com/bn638260-code/Sabbath/releases/latest",
     download: windowsInstaller.url,
     downloadFilename: windowsInstaller.saveAsFilename,
     installerVersion: windowsInstaller.version,
