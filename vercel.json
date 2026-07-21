@@ -2,5 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "node scripts/vercel-build.mjs",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "builds": [
+    { "src": "landing-knfcpilot/api/reviews.js", "use": "@vercel/node" },
+    { "src": "dist/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/reviews", "dest": "landing-knfcpilot/api/reviews.js" },
+    { "handle": "filesystem" }
+  ]
 }

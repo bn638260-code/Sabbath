@@ -941,6 +941,7 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
 
   /* ============ pilot reviews ============ */
   var API='/api/reviews';
+  var EMAIL_API='https://formsubmit.co/ajax/sabbathcue@gmail.com';
   var revList=document.getElementById('rev-list');
   var revForm=document.getElementById('rev-form');
   var revStatus=document.getElementById('rev-status');
@@ -980,18 +981,13 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
       revList.appendChild(card);
     });
   }
-  function reviewsOffline(){
-    revList.innerHTML='';
-    var p=document.createElement('p'); p.className='rev-empty';
-    p.textContent='Reviews load on the live pilot site.';
-    revList.appendChild(p);
-    revSubmit.disabled=true;
-    revStatus.textContent='Review submission is available on the live pilot site.';
+  function reviewsLoadFailed(){
+    renderReviews([]);
   }
   fetch(API,{cache:'no-store'}).then(function(r){
     if(!r.ok) throw new Error('bad status');
     return r.json();
-  }).then(renderReviews).catch(reviewsOffline);
+  }).then(renderReviews).catch(reviewsLoadFailed);
 
   revForm.addEventListener('submit',function(e){
     e.preventDefault();
@@ -1010,10 +1006,31 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
     revSubmit.disabled=true;
     revStatus.className='rev-status';
     revStatus.textContent='Submitting…';
-    fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)})
-      .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error||'failed'); return j; }); })
-      .then(function(j){
-        renderReviews([j.review].concat(currentReviews));
+    fetch(EMAIL_API,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({
+        _subject:'KNFC pilot review from '+payload.name,
+        _template:'table',
+        _captcha:'false',
+        name:payload.name,
+        church:payload.church,
+        rating:String(payload.rating)+' / 5',
+        review:payload.text
+      })
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(String(data.success)!=='true') throw new Error('Could not send your review.');
+        var review={
+          name:payload.name,
+          church:payload.church,
+          text:payload.text,
+          rating:payload.rating,
+          date:new Date().toISOString().slice(0,10)
+        };
+        renderReviews([review].concat(currentReviews));
+        fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
         revForm.reset();
         starRow.className='star-row r5';
         revStatus.className='rev-status ok';

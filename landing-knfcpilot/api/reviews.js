@@ -1,9 +1,7 @@
-// KNFC pilot reviews: email each submission; optional public list via Vercel Blob.
+// KNFC pilot reviews API — public list via Vercel Blob (optional).
 const BLOB_HOST = "https://blob.vercel-storage.com";
 const PREFIX = "pilot/reviews/";
 const MAX_REVIEWS = 300;
-const NOTIFY_EMAIL =
-  process.env.REVIEW_NOTIFY_EMAIL || "sabbathcue@gmail.com";
 
 function clean(s, max) {
   return String(s || "")
@@ -62,83 +60,6 @@ async function saveReview(review) {
   if (!r.ok) throw new Error("blob write failed: " + r.status);
 }
 
-function formatReviewEmail(review) {
-  const stars = "★".repeat(review.rating) + "☆".repeat(5 - review.rating);
-  return [
-    "New KNFC pilot review (knfcpilot.vercel.app)",
-    "",
-    "Name: " + review.name,
-    review.church ? "Church: " + review.church : null,
-    "Rating: " + stars + " (" + review.rating + "/5)",
-    "Date: " + review.date,
-    "",
-    review.text,
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-async function emailReview(review) {
-  if (process.env.RESEND_API_KEY) {
-    return emailViaResend(review);
-  }
-  return emailViaFormSubmit(review);
-}
-
-async function emailViaResend(review) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from =
-    process.env.RESEND_FROM || "SabbathCue Pilot <onboarding@resend.dev>";
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [NOTIFY_EMAIL],
-      subject: "KNFC pilot review from " + review.name,
-      text: formatReviewEmail(review),
-    }),
-  });
-  if (!r.ok) {
-    const detail = await r.text().catch(() => "");
-    throw new Error("email failed: " + r.status + " " + detail.slice(0, 200));
-  }
-}
-
-async function emailViaFormSubmit(review) {
-  const r = await fetch(
-    "https://formsubmit.co/ajax/" + encodeURIComponent(NOTIFY_EMAIL),
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        _subject: "KNFC pilot review from " + review.name,
-        _template: "table",
-        _captcha: "false",
-        name: review.name,
-        church: review.church || "",
-        rating: String(review.rating) + " / 5",
-        date: review.date,
-        review: review.text,
-      }),
-    }
-  );
-  if (!r.ok) {
-    const detail = await r.text().catch(() => "");
-    throw new Error("email failed: " + r.status + " " + detail.slice(0, 200));
-  }
-  const data = await r.json().catch(() => null);
-  if (data && data.success !== "true" && data.success !== true) {
-    throw new Error("email failed: FormSubmit rejected the request.");
-  }
-}
-
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let raw = "";
@@ -180,11 +101,10 @@ module.exports = async (req, res) => {
           .status(400)
           .json({ error: "Name, rating and review text are required." });
       }
-      await emailReview(review);
       try {
         await saveReview(review);
       } catch {
-        // Email succeeded; public list is optional when Blob is not configured.
+        // Public wall is optional when Blob is not configured.
       }
       return res.status(200).json({ ok: true, review });
     }
