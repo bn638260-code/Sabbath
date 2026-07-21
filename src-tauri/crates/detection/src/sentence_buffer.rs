@@ -48,7 +48,7 @@ impl SentenceBuffer {
 
         // Check for sentence-ending (.!?) or clause-ending (;:) punctuation
         let trimmed = self.buffer.trim_end();
-        if trimmed.ends_with(|c: char| matches!(c, '.' | '!' | '?' | ';' | ':')) {
+        if trimmed.ends_with(['.', '!', '?', ';', ':']) {
             return Some(self.flush());
         }
 
