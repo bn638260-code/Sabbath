@@ -3,6 +3,9 @@ name: Release Desktop Build
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   CARGO_HTTP_MULTIPLEXING: "false"
   CARGO_NET_RETRY: "10"
@@ -11,61 +14,10 @@ jobs:
   windows-release:
     name: Windows installer
     runs-on: windows-latest
-    env:
-      RELEASES_REPO_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Verify releases repo token
-        if: ${{ env.RELEASES_REPO_TOKEN != '' }}
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
-        run: |
-          $repo = "Bongisto/sabbathcue-releases"
-          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
-            Write-Error "Missing repository secret: RELEASES_REPO_TOKEN"
-            exit 1
-          }
-
-          $headers = @(
-            "-H", "Accept: application/vnd.github+json",
-            "-H", "Authorization: Bearer $env:GH_TOKEN",
-            "-H", "X-GitHub-Api-Version: 2022-11-28"
-          )
-
-          $repoResponsePath = Join-Path $env:RUNNER_TEMP "release-repo-access.json"
-          $repoStatus = curl.exe -sS -o $repoResponsePath -w "%{http_code}" @headers "https://api.github.com/repos/$repo"
-          $repoJson = Get-Content $repoResponsePath -Raw
-          if ($repoStatus -ne "200") {
-            Write-Error "RELEASES_REPO_TOKEN cannot access $repo. Use a token scoped to $repo with Contents: Read and write. GitHub API output: $repoJson"
-            exit 1
-          }
-
-          $probeBodyPath = Join-Path $env:RUNNER_TEMP "release-token-probe-request.json"
-          $probeResponsePath = Join-Path $env:RUNNER_TEMP "release-token-probe-response.json"
-          $probeBody = @{ tag_name = ""; name = "SabbathCue release token probe" } | ConvertTo-Json -Compress
-          [System.IO.File]::WriteAllText($probeBodyPath, $probeBody, [System.Text.UTF8Encoding]::new($false))
-
-          $probeStatus = curl.exe -sS -X POST -o $probeResponsePath -w "%{http_code}" @headers `
-            -H "Content-Type: application/json" `
-            --data-binary "@$probeBodyPath" `
-            "https://api.github.com/repos/$repo/releases"
-          $probeOutput = Get-Content $probeResponsePath -Raw
-          if ($probeStatus -eq "201") {
-            Write-Error "Release token probe unexpectedly created a release."
-            exit 1
-          }
-          if ($probeStatus -eq "403" -or $probeOutput -match "Resource not accessible by personal access token") {
-            Write-Error "RELEASES_REPO_TOKEN cannot create releases in $repo. Give the fine-grained PAT Contents: Read and write on $repo, or replace it with a classic PAT with repo/public_repo access. GitHub API output: $probeOutput"
-            exit 1
-          }
-          if ($probeStatus -ne "422" -or $probeOutput -notmatch "Validation Failed") {
-            Write-Error "Release token probe returned an unexpected response. GitHub API output: $probeOutput"
-            exit 1
-          }
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -219,6 +171,8 @@ jobs:
 
       - name: Generate latest.json for updater
         shell: pwsh
+        env:
+          RELEASES_REPO: ${{ github.repository }}
         run: |
           $bundleRoot = "src-tauri/target/release/bundle"
           $nsisDir = Join-Path $bundleRoot "nsis"
@@ -248,7 +202,7 @@ jobs:
 
           $tag = "v$version"
           $assetName = $setupExe.Name
-          $downloadUrl = "https://github.com/Bongisto/sabbathcue-releases/releases/download/$tag/$assetName"
+          $downloadUrl = "https://github.com/$env:RELEASES_REPO/releases/download/$tag/$assetName"
           $signature = (Get-Content $sigPath -Raw).Trim()
 
           $latest = [ordered]@{
@@ -316,11 +270,11 @@ jobs:
           path: |
             src-tauri/target/release/bundle/**
 
-      - name: Publish GitHub Release (sabbathcue-releases)
-        if: ${{ env.RELEASES_REPO_TOKEN != '' }}
+      - name: Publish GitHub Release
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASES_REPO: ${{ github.repository }}
         run: |
           $bundleRoot = "src-tauri/target/release/bundle"
           $conf = Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json
@@ -337,7 +291,7 @@ jobs:
           $assetArgs = $assets | Sort-Object Name -Unique | ForEach-Object { $_.FullName }
           Write-Host "Publishing $($assetArgs.Count) release assets"
 
-          $repo = "Bongisto/sabbathcue-releases"
+          $repo = $env:RELEASES_REPO
           $releaseExists = $false
           gh release view $tag --repo $repo *> $null
           if ($LASTEXITCODE -eq 0) {
