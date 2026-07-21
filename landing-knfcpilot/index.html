@@ -97,7 +97,10 @@ header{
   backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line);
 }
-.header-in{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 28px;max-width:1100px;margin:0 auto}
+.header-in{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 28px;max-width:1100px;margin:0 auto;transition:padding .35s cubic-bezier(.16,1,.3,1)}
+header{transition:background .35s ease, box-shadow .35s ease}
+header.scrolled{box-shadow:0 10px 34px -24px rgba(0,59,92,.6)}
+header.scrolled .header-in{padding-top:10px;padding-bottom:10px}
 .partner{display:flex;align-items:center;gap:13px;flex-shrink:0;min-width:0}
 .px{font-weight:300;font-size:1.15rem;color:var(--muted-dim);line-height:1}
 .sc-lockup{display:flex;align-items:center;gap:9px;text-decoration:none}
@@ -133,11 +136,13 @@ nav a:hover{color:var(--azure-deep)}
 /* ============ hero ============ */
 .hero{position:relative;overflow:hidden;padding:84px 0 88px}
 .hero::before{
-  content:"";position:absolute;inset:0;pointer-events:none;
+  content:"";position:absolute;inset:-10%;pointer-events:none;
   background:
     radial-gradient(ellipse 55% 60% at 82% 8%, color-mix(in srgb, var(--azure) 14%, transparent), transparent 65%),
     radial-gradient(ellipse 45% 50% at 8% 90%, color-mix(in srgb, var(--azure) 7%, transparent), transparent 70%);
+  animation:heroDrift 22s ease-in-out infinite alternate;
 }
+@keyframes heroDrift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(-2.5%,2%,0) scale(1.1)}}
 .hero-grid{
   position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;
 }
@@ -156,10 +161,11 @@ nav a:hover{color:var(--azure-deep)}
 .hero-ctas{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap}
 .btn{
   font-family:var(--sans);font-weight:700;font-size:.95rem;letter-spacing:.01em;
-  text-decoration:none;border-radius:12px;padding:14px 26px;display:inline-block;
-  transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+  text-decoration:none;border-radius:999px;padding:14px 30px;display:inline-block;
+  transition:transform .3s cubic-bezier(.16,1,.3,1), box-shadow .3s cubic-bezier(.16,1,.3,1), background .25s ease, border-color .25s ease;
 }
-.btn:hover{transform:translateY(-2px)}
+.btn:hover{transform:translateY(-2px) scale(1.02)}
+.btn:active{transform:translateY(0) scale(.99)}
 .btn-azure{background:var(--azure);color:var(--on-azure);box-shadow:0 12px 32px -12px color-mix(in srgb, var(--azure) 70%, transparent)}
 .btn-azure:hover{background:color-mix(in srgb, var(--azure) 85%, var(--denim))}
 .btn-ghost{border:1.5px solid var(--line);color:var(--ink);background:var(--panel)}
@@ -170,9 +176,9 @@ nav a:hover{color:var(--azure-deep)}
 }
 
 /* staged entrance */
-.stage{opacity:0;transform:translateY(16px);animation:rise .7s ease forwards}
+.stage{opacity:0;transform:translateY(20px) scale(.99);filter:blur(6px);animation:rise .95s cubic-bezier(.16,1,.3,1) forwards}
 .d1{animation-delay:.05s}.d2{animation-delay:.15s}.d3{animation-delay:.25s}.d4{animation-delay:.38s}.d5{animation-delay:.5s}
-@keyframes rise{to{opacity:1;transform:none}}
+@keyframes rise{to{opacity:1;transform:none;filter:blur(0)}}
 
 /* ============ console ============ */
 .console{
@@ -431,15 +437,16 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
 .foot-note{max-width:60ch}
 
 /* ============ scroll reveals (hidden only when JS is running) ============ */
-.js .reveal{opacity:0;transform:translateY(18px);transition:opacity .65s ease, transform .65s ease}
-.js .reveal.in{opacity:1;transform:none}
-.js .rv-item{opacity:0;transform:translateY(16px);transition:opacity .55s ease, transform .55s ease}
-.js .rv-item.in{opacity:1;transform:none}
+.js .reveal{opacity:0;transform:translateY(24px) scale(.985);filter:blur(6px);transition:opacity .9s cubic-bezier(.16,1,.3,1), transform .9s cubic-bezier(.16,1,.3,1), filter .9s cubic-bezier(.16,1,.3,1)}
+.js .reveal.in{opacity:1;transform:none;filter:none}
+.js .rv-item{opacity:0;transform:translateY(20px) scale(.985);filter:blur(5px);transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1), filter .8s cubic-bezier(.16,1,.3,1)}
+.js .rv-item.in{opacity:1;transform:none;filter:none}
 
 @media (prefers-reduced-motion: reduce){
   html{scroll-behavior:auto}
-  .stage,.reveal,.rv-item{opacity:1;transform:none;animation:none;transition:none}
-  .btn,.inc,.lang{transition:none}
+  .stage,.reveal,.rv-item{opacity:1;transform:none;filter:none;animation:none;transition:none}
+  .hero::before{animation:none}
+  .btn,.inc,.lang,header,.header-in{transition:none}
   .meter i,.c-dot{animation:none}
   .transcript .w{opacity:1;transition:none}
   .detect{opacity:1;transform:none;transition:none}
@@ -789,6 +796,14 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
       (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
     root.setAttribute('data-theme', dark?'light':'dark');
   });
+
+  /* header condenses on scroll */
+  var hdr=document.querySelector('header');
+  if(hdr){
+    var onHdrScroll=function(){ hdr.classList.toggle('scrolled', window.scrollY>8); };
+    onHdrScroll();
+    window.addEventListener('scroll',onHdrScroll,{passive:true});
+  }
 
   /* scroll reveals with stagger */
   var groups=document.querySelectorAll('.reveal');
