@@ -15,5 +15,10 @@ type BroadcastRemoteControlHook = {
   getState: () => BroadcastRemoteControlState
 }
 
-export const useBroadcastRemoteControlStore =
-  useBroadcastStore as unknown as BroadcastRemoteControlHook
+// Reference useBroadcastStore lazily (at call time) rather than capturing it at
+// module-init, so this view can't freeze to `undefined` if it is ever evaluated
+// while broadcast-store is mid-initialization inside an import cycle. See
+// output-issue-store.ts for the full rationale.
+export const useBroadcastRemoteControlStore = {
+  getState: (): BroadcastRemoteControlState => useBroadcastStore.getState(),
+} as unknown as BroadcastRemoteControlHook

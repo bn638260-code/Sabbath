@@ -28,8 +28,17 @@ type BroadcastVideoHook = {
   getState: () => BroadcastVideoState
 }
 
-export const useBroadcastVideoStore =
-  useBroadcastStore as unknown as BroadcastVideoHook
+// Reference useBroadcastStore lazily (at call time) rather than capturing it at
+// module-init, so this view can't freeze to `undefined` if it is ever evaluated
+// while broadcast-store is mid-initialization inside an import cycle. See
+// output-issue-store.ts for the full rationale.
+export const useBroadcastVideoStore = Object.assign(
+  <T>(selector: (state: BroadcastVideoState) => T): T =>
+    (useBroadcastStore as unknown as BroadcastVideoHook)(selector),
+  {
+    getState: (): BroadcastVideoState => useBroadcastStore.getState(),
+  }
+) as unknown as BroadcastVideoHook
 
 export function getBroadcastVideoStore(): BroadcastVideoState {
   return useBroadcastVideoStore.getState()
