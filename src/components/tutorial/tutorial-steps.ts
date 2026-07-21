@@ -108,7 +108,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     title: "AI Detections",
     content:
       "Detected verses appear here. Press Present to display a verse on screen, or Queue to save it for later.",
-    placement: "top",
+    placement: "center",
   },
   {
     ...STEP_DEFAULTS,
