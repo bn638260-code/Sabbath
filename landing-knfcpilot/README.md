@@ -5,37 +5,45 @@ Self-contained static landing page for the SabbathCue KNFC media-team pilot
 
 ## Deploy to Vercel
 
-This folder is a standalone static site. It must **not** deploy from the repo
-root — the root is a Vite/Tauri app whose build output is `build/`, not `dist/`.
+**Team:** [sabbathcue on Vercel](https://vercel.com/sabbathcue)  
+**Project:** `knfcpilot` → **https://knfcpilot.vercel.app/**  
+**Git:** [bn638260-code/Sabbath](https://github.com/bn638260-code/Sabbath) (production branch deploys)
 
-### Vercel dashboard (GitHub auto-deploy)
+This folder is a standalone static site. It must **not** use the repo-root Vite
+build — the root app builds to `build/`, not this landing.
 
-Preferred: point the project at this folder.
+### Vercel dashboard (GitHub auto-deploy) — recommended
 
-1. Open the **knfcsabbathcue** project in Vercel → **Settings → General**.
-2. Set **Root Directory** to `landing-knfcpilot` (not `.` or the repo root).
-3. Under **Build & Development Settings**:
-   - **Framework Preset**: Other
-   - **Build Command**: leave empty / disabled
-   - **Output Directory**: `.`
-   - **Install Command**: leave empty / disabled
-4. Redeploy the latest commit.
+1. Open **knfcpilot** under [vercel.com/sabbathcue](https://vercel.com/sabbathcue) → **Settings → General**.
+2. Set **Root Directory** to `landing-knfcpilot` (not the repo root).
+3. Under **Build & Development Settings** (or rely on this folder’s `vercel.json`):
+   - **Framework Preset:** Other
+   - **Build Command:** `node scripts/vercel-build.mjs`
+   - **Output Directory:** `dist`
+   - **Install Command:** leave empty / disabled
+4. **Deployment Protection:** turn off **Vercel Authentication** for Production so the public pilot page is reachable without login.
+5. **Redeploy** the latest `main` commit (Deployments → … → Redeploy).
 
-The committed `vercel.json` in this folder reinforces those settings once the
-root directory is correct.
+The committed `vercel.json` in this folder sets the build command and output
+directory; the dashboard root directory must still be `landing-knfcpilot`.
 
-If the project must deploy from the repo root, the root `scripts/vercel-build.mjs`
-copies this folder into `dist/` when `VERCEL_PROJECT_NAME=knfcsabbathcue`.
+### Repo root as project root (fallback)
+
+If **Root Directory** is `.`, the root `scripts/vercel-build.mjs` copies this
+folder into `dist/` when `VERCEL_PROJECT_NAME` is `knfcpilot` or
+`knfcsabbathcue`, and root `vercel.json` routes `/api/reviews` to
+`landing-knfcpilot/api/reviews.js`.
 
 ### Vercel CLI
 
+Log in to the **sabbathcue** team (not a personal scope) before deploying:
+
 ```bash
 cd landing-knfcpilot
-vercel        # preview
-vercel --prod # production
+vercel link    # select team sabbathcue, project knfcpilot
+vercel         # preview
+vercel --prod  # production → knfcpilot.vercel.app
 ```
-
-When prompted, use this folder as the project root.
 
 ### Pilot review emails
 
@@ -44,5 +52,5 @@ Submitting the review form sends email to **sabbathcue@gmail.com** via
 submission triggers a one-time activation message to that inbox — click the
 link once to enable delivery.
 
-Optional: set `BLOB_READ_WRITE_TOKEN` on Vercel so `/api/reviews` can also
-store reviews for the public list on the page.
+Optional: set `BLOB_READ_WRITE_TOKEN` on the **knfcpilot** project so
+`/api/reviews` can also store reviews for the public list on the page.

@@ -3,6 +3,9 @@
   "framework": null,
   "buildCommand": "node scripts/vercel-build.mjs",
   "outputDirectory": "dist",
+  "redirects": [
+    { "source": "/favicon.ico", "destination": "/favicon.svg", "permanent": false }
+  ],
   "builds": [
     { "src": "landing-knfcpilot/api/reviews.js", "use": "@vercel/node" },
     { "src": "dist/**", "use": "@vercel/static" }

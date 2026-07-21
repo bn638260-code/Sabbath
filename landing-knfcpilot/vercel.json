@@ -4,14 +4,9 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "installCommand": null,
-  "buildCommand": null,
-  "builds": [
-    { "src": "api/reviews.js", "use": "@vercel/node" },
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "assets/**", "use": "@vercel/static" }
-  ],
-  "routes": [
-    { "src": "/api/reviews", "dest": "/api/reviews.js" },
-    { "handle": "filesystem" }
+  "buildCommand": "node scripts/vercel-build.mjs",
+  "outputDirectory": "dist",
+  "redirects": [
+    { "source": "/favicon.ico", "destination": "/favicon.svg", "permanent": false }
   ]
 }
