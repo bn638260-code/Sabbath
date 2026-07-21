@@ -72,7 +72,7 @@ function readBody(req) {
   });
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   try {
     if (req.method === "GET") {
@@ -115,4 +115,4 @@ module.exports = async (req, res) => {
       e instanceof Error ? e.message : "Something went wrong. Please try again.";
     return res.status(500).json({ error: message });
   }
-};
+}
