@@ -34,6 +34,8 @@ interface SettingsState {
   /** Reduce CPU/RAM use on weaker machines (semantic detection runs on
    *  finished sentences only). */
   lowPowerMode: boolean
+  /** Show a brief toast for operator actions (queue, send live, clear). */
+  actionNotificationsEnabled: boolean
 
   setHasDeepgramApiKey: (has: boolean) => void
   setAudioDeviceId: (id: string | null) => void
@@ -50,6 +52,7 @@ interface SettingsState {
   setHasSonioxApiKey: (has: boolean) => void
   setHasSpeechmaticsApiKey: (has: boolean) => void
   setLowPowerMode: (enabled: boolean) => void
+  setActionNotificationsEnabled: (enabled: boolean) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -68,6 +71,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   sttProvider: "vosk",
   sttLanguage: "en",
   lowPowerMode: false,
+  actionNotificationsEnabled: false,
 
   setHasDeepgramApiKey: (hasDeepgramApiKey) => set({ hasDeepgramApiKey }),
   setHasSonioxApiKey: (hasSonioxApiKey) => set({ hasSonioxApiKey }),
@@ -91,6 +95,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSttProvider: (sttProvider) => set({ sttProvider }),
   setSttLanguage: (sttLanguage) => set({ sttLanguage }),
   setLowPowerMode: (lowPowerMode) => set({ lowPowerMode }),
+  setActionNotificationsEnabled: (actionNotificationsEnabled) =>
+    set({ actionNotificationsEnabled }),
 }))
 
 const PERSISTED_KEYS = [
@@ -106,6 +112,7 @@ const PERSISTED_KEYS = [
   "sttProvider",
   "sttLanguage",
   "lowPowerMode",
+  "actionNotificationsEnabled",
 ] as const satisfies readonly (keyof SettingsState)[]
 
 function parseSttProvider(value: unknown): SttProvider {

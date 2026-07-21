@@ -13,6 +13,8 @@ export function DisplayModeSection() {
     setSemanticDetectionEnabled,
     semanticConfidenceThreshold,
     setSemanticConfidenceThreshold,
+    actionNotificationsEnabled,
+    setActionNotificationsEnabled,
   } = useSettingsStore()
 
   const thresholdPercent = Math.round(confidenceThreshold * 100)
@@ -105,6 +107,25 @@ export function DisplayModeSection() {
             ? "Semantic verse suggestions below this match strength stay hidden."
             : "Only direct spoken references will appear in detections."}
         </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+              Action notifications
+            </label>
+            <p className="text-[0.625rem] text-muted-foreground">
+              Show a brief toast when you queue a verse, send it live, or clear
+              output.
+            </p>
+          </div>
+          <Switch
+            aria-label="Action notifications"
+            checked={actionNotificationsEnabled}
+            onCheckedChange={setActionNotificationsEnabled}
+          />
+        </div>
       </div>
 
       {autoMode && (
