@@ -135,7 +135,7 @@ describe("PreviewPanel", () => {
     fetchVerseMock.mockResolvedValue(null)
     invokeTauriMock.mockImplementation(async (command: string) => {
       if (command === "egw_search") return []
-      if (command === "search_verses") return []
+      if (command === "semantic_search") return []
       return null
     })
     activeTranslationId = 1
@@ -218,18 +218,18 @@ describe("PreviewPanel", () => {
 
   it("quick-searches Afrikaans verse text and previews the first match", async () => {
     activeTranslationId = 4
-    const verse = {
-      id: 2027,
-      translation_id: 4,
-      book_number: 40,
+    const result = {
+      verse_ref: "Matteus 20:27",
+      verse_text:
+        "En elkeen wat onder julle die eerste wil word, moet julle dienskneg wees;",
       book_name: "Matteus",
-      book_abbreviation: "Matt",
+      book_number: 40,
       chapter: 20,
       verse: 27,
-      text: "En elkeen wat onder julle die eerste wil word, moet julle dienskneg wees;",
+      similarity: 0.9,
     }
     invokeTauriMock.mockImplementation(async (command: string) => {
-      if (command === "search_verses") return [verse]
+      if (command === "semantic_search") return [result]
       if (command === "egw_search") return []
       return null
     })
@@ -246,10 +246,9 @@ describe("PreviewPanel", () => {
     })
 
     await waitFor(() => {
-      expect(invokeTauriMock).toHaveBeenCalledWith("search_verses", {
+      expect(invokeTauriMock).toHaveBeenCalledWith("semantic_search", {
         query: "elkeen eerste",
-        translationId: 4,
-        limit: 3,
+        limit: 5,
       })
     })
 

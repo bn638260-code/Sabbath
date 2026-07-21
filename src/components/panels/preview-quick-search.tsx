@@ -29,7 +29,7 @@ import { searchHymns } from "@/services/hymnal/hymnal-repository"
 import { loadHymnVoiceControl } from "@/services/hymnal/hymn-voice-control-loader"
 import { BookOpenIcon, LibraryIcon, Music2Icon, SearchIcon } from "lucide-react"
 import { invokeTauri } from "@/lib/tauri-runtime"
-import type { EgwParagraph, Verse } from "@/types"
+import type { EgwParagraph, SemanticSearchResult } from "@/types"
 import type { LibraryAsset } from "@/types/library"
 
 const QUICK_PREVIEW_DEBOUNCE_MS = 120
@@ -53,7 +53,7 @@ export function PreviewQuickSearch() {
   const assets = useLibraryStore((s) => s.assets)
   const [query, setQuery] = useState("")
   const [feedback, setFeedback] = useState("")
-  const [verseMatches, setVerseMatches] = useState<Verse[]>([])
+  const [verseMatches, setVerseMatches] = useState<SemanticSearchResult[]>([])
   const [egwMatches, setEgwMatches] = useState<EgwParagraph[]>([])
   const requestIdRef = useRef(0)
   const verseSearchRequestIdRef = useRef(0)
@@ -70,7 +70,7 @@ export function PreviewQuickSearch() {
   )
   const hymnQuery = useMemo(() => quickContentQuery(query), [query])
   const hymnMatches = useMemo(
-    () => (hymnQuery ? searchHymns(hymnQuery, 3) : []),
+    () => (hymnQuery ? searchHymns(hymnQuery, 5) : []),
     [hymnQuery]
   )
   const libraryMatches = useMemo(() => {
@@ -99,10 +99,9 @@ export function PreviewQuickSearch() {
         if (requestId === verseSearchRequestIdRef.current) setVerseMatches([])
         return
       }
-      void invokeTauri<Verse[]>("search_verses", {
+      void invokeTauri<SemanticSearchResult[]>("semantic_search", {
         query: q,
-        translationId: activeTranslationId,
-        limit: 3,
+        limit: 5,
       })
         .then((results) => {
           if (requestId === verseSearchRequestIdRef.current)
@@ -125,7 +124,7 @@ export function PreviewQuickSearch() {
         if (requestId === egwRequestIdRef.current) setEgwMatches([])
         return
       }
-      void invokeTauri<EgwParagraph[]>("egw_search", { query: q, limit: 3 })
+      void invokeTauri<EgwParagraph[]>("egw_search", { query: q, limit: 5 })
         .then((results) => {
           if (requestId === egwRequestIdRef.current) setEgwMatches(results)
         })
@@ -212,12 +211,24 @@ export function PreviewQuickSearch() {
     setFeedback("")
   }, [])
 
-  const previewVerseMatch = useCallback((verse: Verse) => {
-    selectPreviewVerse(verse)
-    setQuery("")
-    setFeedback("")
-    setVerseMatches([])
-  }, [])
+  const previewVerseMatch = useCallback(
+    (result: SemanticSearchResult) => {
+      selectPreviewVerse({
+        id: 0,
+        translation_id: activeTranslationId,
+        book_number: result.book_number,
+        book_name: result.book_name,
+        book_abbreviation: "",
+        chapter: result.chapter,
+        verse: result.verse,
+        text: result.verse_text,
+      })
+      setQuery("")
+      setFeedback("")
+      setVerseMatches([])
+    },
+    [activeTranslationId]
+  )
 
   const previewAsset = useCallback((asset: LibraryAsset) => {
     previewLibraryAsset(asset)
@@ -367,19 +378,19 @@ export function PreviewQuickSearch() {
               </span>
             </button>
           ) : null}
-          {verseMatches.map((verse) => (
+          {verseMatches.map((result) => (
             <button
-              key={verse.id}
+              key={`${result.book_number}-${result.chapter}-${result.verse}`}
               type="button"
-              onClick={() => previewVerseMatch(verse)}
+              onClick={() => previewVerseMatch(result)}
               className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground"
             >
               <BookOpenIcon className="size-3.5 text-lime-700 dark:text-lime-400" />
               <span className="shrink-0">
-                {verse.book_name} {verse.chapter}:{verse.verse}
+                {result.book_name} {result.chapter}:{result.verse}
               </span>
               <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                {verse.text}
+                {result.verse_text}
               </span>
             </button>
           ))}

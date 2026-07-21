@@ -19,7 +19,11 @@ const SPEECHMATICS_RT_URL: &str = "wss://eu2.rt.speechmatics.com/v2";
 const BATCH_SAMPLES: usize = 800;
 const MAX_RECONNECT_ATTEMPTS: u32 = 5;
 pub const SPEECHMATICS_MODEL: &str = "standard";
-const SPEECHMATICS_MAX_DELAY_SECONDS: f64 = 1.0;
+const SPEECHMATICS_MAX_DELAY_SECONDS: f64 = 0.7;
+const SENTENCE_ENDINGS: [char; 3] = ['.', '!', '?'];
+/// Commit an utterance without terminal punctuation once it reaches this many
+/// words, so detection never stalls on a long unpunctuated run.
+const MAX_UTTERANCE_WORDS: usize = 40;
 
 #[derive(Debug, Deserialize, Default)]
 struct Metadata {
@@ -106,7 +110,7 @@ where
                 return Ok(());
             }
             if response.message == "Error" {
-                return Err(parse_response(&text).unwrap_err());
+                return Err(parse_response(&text, &mut Utterance::default()).unwrap_err());
             }
         }
     }
@@ -224,7 +228,76 @@ fn response_words(response: &Response) -> Vec<Word> {
         .collect()
 }
 
-fn parse_response(text: &str) -> Result<(Vec<TranscriptEvent>, bool), SttError> {
+/// Accumulates incremental `AddTranscript` chunks into a single spoken
+/// utterance so a continuous sentence surfaces as one transcript segment
+/// instead of one segment per ~`max_delay` chunk.
+#[derive(Default)]
+pub(crate) struct Utterance {
+    text: String,
+    words: Vec<Word>,
+}
+
+impl Utterance {
+    fn push(&mut self, text: &str, mut words: Vec<Word>) {
+        if self.text.is_empty() {
+            self.text.push_str(text);
+        } else {
+            self.text.push(' ');
+            self.text.push_str(text);
+        }
+        self.words.append(&mut words);
+    }
+
+    /// A sentence-ending punctuation mark, or an over-long unpunctuated run,
+    /// closes the utterance.
+    fn is_complete(&self) -> bool {
+        self.text.trim_end().ends_with(SENTENCE_ENDINGS)
+            || self.text.split_whitespace().count() >= MAX_UTTERANCE_WORDS
+    }
+
+    /// Emit the buffered utterance as a final segment and reset, or `None`
+    /// when nothing is buffered.
+    fn take_final(&mut self) -> Option<Vec<TranscriptEvent>> {
+        let transcript = self.text.trim().to_string();
+        if transcript.is_empty() {
+            return None;
+        }
+        let confidence = average_confidence(&self.words);
+        let words = std::mem::take(&mut self.words);
+        self.text.clear();
+        Some(vec![
+            TranscriptEvent::Final {
+                transcript,
+                words,
+                confidence,
+                speech_final: true,
+            },
+            TranscriptEvent::UtteranceEnd,
+        ])
+    }
+
+    /// Buffered text plus the current unfinalized tail, for a rolling partial.
+    fn preview(&self, tail: &str) -> String {
+        match (self.text.is_empty(), tail.is_empty()) {
+            (_, true) => self.text.clone(),
+            (true, false) => tail.to_string(),
+            (false, false) => format!("{} {}", self.text, tail),
+        }
+    }
+}
+
+#[expect(clippy::cast_precision_loss, reason = "word counts stay small")]
+fn average_confidence(words: &[Word]) -> f64 {
+    if words.is_empty() {
+        return 1.0;
+    }
+    words.iter().map(|word| word.confidence).sum::<f64>() / words.len() as f64
+}
+
+fn parse_response(
+    text: &str,
+    utterance: &mut Utterance,
+) -> Result<(Vec<TranscriptEvent>, bool), SttError> {
     let response: Response =
         serde_json::from_str(text).map_err(|error| SttError::ParseError(error.to_string()))?;
     if response.message == "Error" {
@@ -240,27 +313,29 @@ fn parse_response(text: &str) -> Result<(Vec<TranscriptEvent>, bool), SttError> 
 
     let transcript = response_text(&response);
     let words = response_words(&response);
-    let confidence = if words.is_empty() {
-        1.0
-    } else {
-        let word_count = u32::try_from(words.len()).map_err(|_| {
-            SttError::ParseError("Speechmatics response contained too many words".into())
-        })?;
-        words.iter().map(|word| word.confidence).sum::<f64>() / f64::from(word_count)
-    };
     let events = match response.message.as_str() {
-        "AddPartialTranscript" if !transcript.is_empty() => {
-            vec![TranscriptEvent::Partial { transcript, words }]
+        "AddPartialTranscript" => {
+            let preview = utterance.preview(&transcript);
+            if preview.trim().is_empty() {
+                vec![]
+            } else {
+                vec![TranscriptEvent::Partial {
+                    transcript: preview,
+                    words,
+                }]
+            }
         }
-        "AddTranscript" if !transcript.is_empty() => vec![
-            TranscriptEvent::Final {
-                transcript,
-                words,
-                confidence,
-                speech_final: true,
-            },
-            TranscriptEvent::UtteranceEnd,
-        ],
+        "AddTranscript" if !transcript.is_empty() => {
+            utterance.push(&transcript, words);
+            if utterance.is_complete() {
+                utterance.take_final().unwrap_or_default()
+            } else {
+                vec![TranscriptEvent::Partial {
+                    transcript: utterance.text.clone(),
+                    words: utterance.words.clone(),
+                }]
+            }
+        }
         _ => vec![],
     };
     Ok((events, response.message == "EndOfTranscript"))
@@ -295,6 +370,7 @@ impl SpeechmaticsClient {
         let audio_reader = spawn_audio_reader(audio_rx, audio_tx, self.cancelled.clone());
 
         let mut finishing = false;
+        let mut utterance = Utterance::default();
         loop {
             tokio::select! {
                 command = audio_commands.recv(), if !finishing => match command {
@@ -310,7 +386,7 @@ impl SpeechmaticsClient {
                 },
                 frame = read.next() => match frame {
                     Some(Ok(Message::Text(text))) => {
-                        let (events, ended) = parse_response(&text)?;
+                        let (events, ended) = parse_response(&text, &mut utterance)?;
                         for event in events {
                             if event_tx.send(event).await.is_err() {
                                 audio_reader.abort();
@@ -339,6 +415,10 @@ impl SpeechmaticsClient {
                     }
                 }
             }
+        }
+        // Commit any trailing words the stream ended before a sentence boundary.
+        for event in utterance.take_final().unwrap_or_default() {
+            let _ = event_tx.send(event).await;
         }
         audio_reader.abort();
         let _ = write.close().await;
@@ -412,7 +492,7 @@ mod tests {
         assert_eq!(payload["audio_format"]["encoding"], "pcm_s16le");
         assert_eq!(payload["transcription_config"]["language"], "af");
         assert_eq!(payload["transcription_config"]["enable_partials"], true);
-        assert_eq!(payload["transcription_config"]["max_delay"], 1.0);
+        assert_eq!(payload["transcription_config"]["max_delay"], 0.7);
         assert_eq!(
             payload["transcription_config"]["max_delay_mode"],
             "flexible"
@@ -420,27 +500,75 @@ mod tests {
     }
 
     #[test]
-    fn parses_partial_final_and_error_messages() {
-        let partial =
-            r#"{"message":"AddPartialTranscript","metadata":{"transcript":"Revelation seven"}}"#;
-        assert!(matches!(
-            parse_response(partial).unwrap().0.as_slice(),
-            [TranscriptEvent::Partial { .. }]
-        ));
+    fn accumulates_chunks_until_sentence_punctuation() {
+        let mut utterance = Utterance::default();
+        // A mid-sentence chunk with no terminal punctuation stays a rolling partial.
+        let events = parse_response(
+            r#"{"message":"AddTranscript","metadata":{"transcript":"The Lord is my shepherd"}}"#,
+            &mut utterance,
+        )
+        .unwrap()
+        .0;
+        assert!(matches!(events.as_slice(), [TranscriptEvent::Partial { .. }]));
 
-        let final_text = r#"{"message":"AddTranscript","metadata":{"transcript":"Revelation seven verse thirteen"}}"#;
-        let events = parse_response(final_text).unwrap().0;
-        assert!(matches!(
-            events[0],
-            TranscriptEvent::Final {
+        // The chunk that ends the sentence commits the whole line as one final.
+        let events = parse_response(
+            r#"{"message":"AddTranscript","metadata":{"transcript":"I shall not want."}}"#,
+            &mut utterance,
+        )
+        .unwrap()
+        .0;
+        match events.as_slice() {
+            [TranscriptEvent::Final {
+                transcript,
                 speech_final: true,
                 ..
+            }, TranscriptEvent::UtteranceEnd] => {
+                assert_eq!(transcript, "The Lord is my shepherd I shall not want.");
             }
-        ));
-        assert!(matches!(events[1], TranscriptEvent::UtteranceEnd));
+            other => panic!("expected one combined final, got {other:?}"),
+        }
+    }
 
+    #[test]
+    fn partial_shows_the_accumulated_line() {
+        let mut utterance = Utterance::default();
+        parse_response(
+            r#"{"message":"AddTranscript","metadata":{"transcript":"The Lord"}}"#,
+            &mut utterance,
+        )
+        .unwrap();
+        let events = parse_response(
+            r#"{"message":"AddPartialTranscript","metadata":{"transcript":"is my shepherd"}}"#,
+            &mut utterance,
+        )
+        .unwrap()
+        .0;
+        match events.as_slice() {
+            [TranscriptEvent::Partial { transcript, .. }] => {
+                assert_eq!(transcript, "The Lord is my shepherd");
+            }
+            other => panic!("expected accumulated partial, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn word_cap_commits_a_long_unpunctuated_run() {
+        let mut utterance = Utterance::default();
+        let long = vec!["word"; MAX_UTTERANCE_WORDS].join(" ");
+        let payload =
+            format!(r#"{{"message":"AddTranscript","metadata":{{"transcript":"{long}"}}}}"#);
+        let events = parse_response(&payload, &mut utterance).unwrap().0;
+        assert!(events
+            .iter()
+            .any(|event| matches!(event, TranscriptEvent::Final { .. })));
+    }
+
+    #[test]
+    fn error_message_returns_err() {
+        let mut utterance = Utterance::default();
         let error = r#"{"message":"Error","type":"not_authorised","reason":"invalid key"}"#;
-        assert!(parse_response(error)
+        assert!(parse_response(error, &mut utterance)
             .unwrap_err()
             .to_string()
             .contains("not_authorised"));
