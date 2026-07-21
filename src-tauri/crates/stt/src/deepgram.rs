@@ -17,9 +17,9 @@ use crate::types::{SttConfig, TranscriptEvent, Word};
 
 const MAX_RECONNECT_ATTEMPTS: u32 = 5;
 const RECONNECT_DELAY: Duration = Duration::from_secs(1);
-/// Batch up to 50ms of audio before sending (at 16kHz, that is 800 samples).
+/// Batch up to 40ms of audio before sending (at 16kHz, that is 640 samples).
 /// This keeps Deepgram behaving like live captions instead of delayed dictation.
-const BATCH_SAMPLES: usize = 800;
+const BATCH_SAMPLES: usize = 640;
 pub(crate) const DEEPGRAM_ENDPOINTING_MS: &str = "250";
 pub(crate) const DEEPGRAM_UTTERANCE_END_MS: &str = "1000";
 pub(crate) const MAX_DEEPGRAM_KEYTERMS: usize = 100;
