@@ -133,6 +133,50 @@ nav.bar{
 .orb-c{width:28px;height:28px;left:18%;bottom:6%;animation-delay:-5s}
 @keyframes float{0%,100%{transform:translate3d(0,-7px,0) rotate(0)}50%{transform:translate3d(8px,12px,0) rotate(8deg)}}
 
+/* aurora glow — slow drifting light at the top of the hero */
+.aurora{position:absolute;left:0;right:0;top:-4%;height:48%;z-index:0;pointer-events:none}
+.aurora i{position:absolute;border-radius:50%;filter:blur(52px);will-change:transform;opacity:.85}
+.aurora .a1{
+  width:min(620px,56vw);height:330px;left:5%;top:6%;
+  background:radial-gradient(closest-side, rgba(132,172,232,.62), transparent 74%);
+  animation:auroraDrift 17s ease-in-out infinite alternate;
+}
+.aurora .a2{
+  width:min(560px,50vw);height:300px;right:3%;top:-2%;
+  background:radial-gradient(closest-side, rgba(232,183,96,.58), transparent 74%);
+  animation:auroraDrift 21s ease-in-out -8s infinite alternate-reverse;
+}
+@keyframes auroraDrift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(64px,28px,0) scale(1.18)}}
+
+/* rising light motes */
+.motes{position:absolute;left:0;right:0;top:0;height:64%;z-index:1;pointer-events:none}
+.motes i{
+  position:absolute;bottom:5%;width:5px;height:5px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #fff, rgba(216,183,121,.95) 55%, rgba(216,183,121,0) 78%);
+  opacity:0;will-change:transform,opacity;
+  animation:moteA 12s linear infinite;
+}
+@keyframes moteA{
+  0%{opacity:0;transform:translate3d(0,0,0) scale(.7)}
+  10%{opacity:.9}
+  80%{opacity:.35}
+  100%{opacity:0;transform:translate3d(26px,-46vh,0) scale(1.2)}
+}
+@keyframes moteB{
+  0%{opacity:0;transform:translate3d(0,0,0) scale(.7)}
+  10%{opacity:.75}
+  80%{opacity:.3}
+  100%{opacity:0;transform:translate3d(-32px,-42vh,0) scale(1.1)}
+}
+.motes i:nth-child(1){left:10%;animation-duration:12s;animation-delay:-2s}
+.motes i:nth-child(2){left:21%;width:4px;height:4px;animation:moteB 15s linear -9s infinite}
+.motes i:nth-child(3){left:33%;animation-duration:10s;animation-delay:-5s}
+.motes i:nth-child(4){left:47%;width:6px;height:6px;animation:moteB 13.5s linear -11s infinite}
+.motes i:nth-child(5){left:59%;animation-duration:9.5s;animation-delay:-3s}
+.motes i:nth-child(6){left:71%;width:4px;height:4px;animation:moteB 14s linear -7s infinite}
+.motes i:nth-child(7){left:83%;animation-duration:11s;animation-delay:-1s}
+.motes i:nth-child(8){left:91%;width:6px;height:6px;animation:moteB 12.5s linear -6s infinite}
+
 .hero-inner{width:min(1120px,100%);text-align:center;position:relative;z-index:5}
 .eyebrow{
   display:inline-flex;align-items:center;gap:9px;margin-bottom:20px;
@@ -224,11 +268,9 @@ h1 .shine{
     linear-gradient(125deg,#143360,#476a87 50%,#c7a567);
 }
 .slide::before{
-  content:"";position:absolute;inset:35% -10% -20%;z-index:-1;
-  background:
-    linear-gradient(160deg, transparent 0 18%, #101f37 19% 31%, transparent 32%),
-    linear-gradient(200deg, transparent 0 20%, #203751 21% 43%, #07182e 44%);
-  opacity:.8;will-change:transform;
+  content:"";position:absolute;left:-8%;right:-8%;bottom:-5%;height:76%;z-index:-1;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 400' preserveAspectRatio='none'%3E%3Cpath fill='%231b3a66' opacity='.75' d='M0 250Q300 170 620 235T1200 210V400H0Z'/%3E%3Cpath fill='%23081d3d' d='M0 320Q280 245 560 300T1200 295V400H0Z'/%3E%3C/svg%3E") bottom/100% 100% no-repeat;
+  opacity:.9;will-change:transform;transform-origin:50% 100%;
   animation:kenburns 24s ease-in-out infinite alternate;
 }
 @keyframes kenburns{from{transform:scale(1) translate3d(0,0,0)}to{transform:scale(1.07) translate3d(-1.5%,1%,0)}}
@@ -571,6 +613,8 @@ footer a{border-bottom:1px solid rgba(99,112,135,.35)}
       </svg>
     </div>
   </div>
+  <div class="aurora" aria-hidden="true"><i class="a1"></i><i class="a2"></i></div>
+  <div class="motes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
   <span class="orb orb-a" data-depth="18" aria-hidden="true"></span>
   <span class="orb orb-b" data-depth="-12" aria-hidden="true"></span>
   <span class="orb orb-c" data-depth="8" aria-hidden="true"></span>
