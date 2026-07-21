@@ -8,6 +8,7 @@ mkdirSync("dist", { recursive: true })
 
 if (project === "knfcsabbathcue") {
   cpSync("landing-knfcpilot/index.html", "dist/index.html")
+  cpSync("landing-knfcpilot/assets", "dist/assets", { recursive: true })
   console.log("[vercel-build] Published static KNFC landing to dist/")
   process.exit(0)
 }
