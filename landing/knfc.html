@@ -942,11 +942,10 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
 
   /* ============ pilot reviews ============ */
   var API='/api/reviews';
-  var EMAIL_API='https://formsubmit.co/ajax/sabbathcue@gmail.com';
+  var EMAIL='sabbathcue@gmail.com';
   var revList=document.getElementById('rev-list');
   var revForm=document.getElementById('rev-form');
   var revStatus=document.getElementById('rev-status');
-  var revSubmit=document.getElementById('rev-submit');
   var starRow=document.getElementById('star-row');
 
   starRow.addEventListener('change',function(){
@@ -1004,44 +1003,29 @@ footer p, footer a{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em
       revStatus.textContent='Please fill in your name, rating and review.';
       return;
     }
-    revSubmit.disabled=true;
-    revStatus.className='rev-status';
-    revStatus.textContent='Submitting…';
-    fetch(EMAIL_API,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body:JSON.stringify({
-        _subject:'KNFC pilot review from '+payload.name,
-        _template:'table',
-        _captcha:'false',
-        name:payload.name,
-        church:payload.church,
-        rating:String(payload.rating)+' / 5',
-        review:payload.text
-      })
-    })
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        if(String(data.success)!=='true') throw new Error('Could not send your review.');
-        var review={
-          name:payload.name,
-          church:payload.church,
-          text:payload.text,
-          rating:payload.rating,
-          date:new Date().toISOString().slice(0,10)
-        };
-        renderReviews([review].concat(currentReviews));
-        fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
-        revForm.reset();
-        starRow.className='star-row r5';
-        revStatus.className='rev-status ok';
-        revStatus.textContent='Thank you — your review was sent to the SabbathCue team.';
-      })
-      .catch(function(err){
-        revStatus.className='rev-status err';
-        revStatus.textContent=(err&&err.message)?err.message:'Could not submit. Please try again.';
-      })
-      .then(function(){ revSubmit.disabled=false; });
+    var subject='KNFC pilot review from '+payload.name;
+    var body=[
+      'Name: '+payload.name,
+      'Church/Team: '+(payload.church||'—'),
+      'Rating: '+payload.rating+' / 5',
+      '',
+      'Review:',
+      payload.text
+    ].join('\n');
+    window.location.href='mailto:'+EMAIL+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+    var review={
+      name:payload.name,
+      church:payload.church,
+      text:payload.text,
+      rating:payload.rating,
+      date:new Date().toISOString().slice(0,10)
+    };
+    renderReviews([review].concat(currentReviews));
+    fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
+    revForm.reset();
+    starRow.className='star-row r5';
+    revStatus.className='rev-status ok';
+    revStatus.textContent='Thanks '+payload.name+'! Your email app should open — press Send to deliver your review to the SabbathCue team.';
   });
 })();
 </script>
