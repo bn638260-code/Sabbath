@@ -11,7 +11,10 @@ const DEFAULT_FLUSH_TIMEOUT_MS: u128 = 3000;
 /// complete sentences. This buffer:
 ///
 /// 1. Accumulates `is_final` text fragments.
-/// 2. Flushes when sentence-ending punctuation (`.!?`) is detected.
+/// 2. Flushes when sentence-ending (`.!?`) or clause-ending (`;:`) punctuation
+///    is detected, so quoted verses with internal clause breaks (e.g. Psalm
+///    23:1, "The Lord is my shepherd; I shall not want") reach detection
+///    immediately instead of waiting for the timeout.
 /// 3. Flushes on timeout if no punctuation arrives (fallback).
 /// 4. Flushes on `speech_final` signal (Deepgram utterance boundary).
 #[derive(Debug)]
@@ -43,9 +46,9 @@ impl SentenceBuffer {
         self.buffer.push_str(text);
         self.last_append = Some(Instant::now());
 
-        // Check for sentence-ending punctuation
+        // Check for sentence-ending (.!?) or clause-ending (;:) punctuation
         let trimmed = self.buffer.trim_end();
-        if trimmed.ends_with('.') || trimmed.ends_with('!') || trimmed.ends_with('?') {
+        if trimmed.ends_with(|c: char| matches!(c, '.' | '!' | '?' | ';' | ':')) {
             return Some(self.flush());
         }
 
@@ -136,6 +139,21 @@ mod tests {
         let mut buf = SentenceBuffer::new();
         let result = buf.append("What does John 3:16 say?");
         assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_semicolon_flushes() {
+        // Psalm 23:1 is quoted with an internal semicolon and no terminal
+        // punctuation; it must flush on the clause break, not wait for timeout.
+        let mut buf = SentenceBuffer::new();
+        let result = buf.append("The Lord is my shepherd;");
+        assert_eq!(result.unwrap(), "The Lord is my shepherd;");
+    }
+
+    #[test]
+    fn test_colon_flushes() {
+        let mut buf = SentenceBuffer::new();
+        assert!(buf.append("And the Lord said unto him:").is_some());
     }
 
     #[test]
