@@ -37,6 +37,29 @@ Verify after release (logged-out browser / private window):
 
 `https://github.com/Bongisto/sabbathcue-releases/releases/latest/download/latest.json`
 
+## Local signed builds
+
+To produce a signed installer plus `.sig` outside CI (Git Bash):
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/sabbathcue.key"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(tail -c +4 "$HOME/.tauri/sabbathcue.key.password.txt" | tr -d '\r\n')"
+bun run tauri:build:release
+```
+
+`TAURI_SIGNING_PRIVATE_KEY` accepts either a path or the key contents.
+
+`sabbathcue.key.password.txt` was written by PowerShell with a UTF-8 BOM, so its
+first three bytes are `EF BB BF`. Passing the file verbatim fails with
+`incorrect updater private key password: Wrong password for that key` — note this
+happens *after* the installer is bundled, so the `.exe` still appears while the
+`.sig` is silently absent. `tail -c +4` drops the BOM. The same applies when
+pasting into the GitHub secret: paste the 32 password characters only.
+
+Plain `bun run tauri build` skips signing entirely (the base config sets
+`createUpdaterArtifacts: false`) and yields an installer existing installs cannot
+auto-update to.
+
 ## Bootstrap note
 
 Existing **v0.1.3** installs have no updater. Users must **manually install v0.1.4 once**. Auto-update works from v0.1.4 → v0.1.5 onward.
