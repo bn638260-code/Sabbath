@@ -457,7 +457,7 @@
 /* Slow-drifting navy ambient blobs from the premium-light mockup: two huge
    blurred conic gradients wandering on 21s/25s alternating loops. Transform-
    only animation so the blur renders once and the GPU just moves it. */
-.light .ambient-blobs {
+.ambient-blobs {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -465,21 +465,21 @@
   pointer-events: none;
 }
 
-.light .ambient-blobs::before,
-.light .ambient-blobs::after {
+.ambient-blobs::before,
+.ambient-blobs::after {
   content: "";
   position: absolute;
-  width: 34vw;
-  height: 34vw;
+  width: clamp(18rem, 34vw, 36rem);
+  height: clamp(18rem, 34vw, 36rem);
   border-radius: 45% 55% 56% 44% / 47% 42% 58% 53%;
   filter: blur(56px);
-  opacity: 0.3;
+  opacity: 0.24;
   will-change: transform;
 }
 
 /* One blob crosses top-left → bottom-right, the other the opposite diagonal;
    `alternate` glides each back the way it came. */
-.light .ambient-blobs::before {
+.ambient-blobs::before {
   left: -12vw;
   top: -12vw;
   background: conic-gradient(
@@ -492,7 +492,7 @@
   animation: ambientDriftOne 16s ease-in-out infinite alternate;
 }
 
-.light .ambient-blobs::after {
+.ambient-blobs::after {
   right: -12vw;
   bottom: -12vw;
   background: conic-gradient(
@@ -523,9 +523,39 @@
   }
 }
 
+/* Narrow screens use the same motion language with shorter travel, so one of
+   the blobs stays visible instead of drifting entirely off a tall viewport. */
+@media (max-width: 767px) {
+  .ambient-blobs::before {
+    animation-name: ambientDriftOneMobile;
+  }
+
+  .ambient-blobs::after {
+    animation-name: ambientDriftTwoMobile;
+  }
+}
+
+@keyframes ambientDriftOneMobile {
+  from {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.96);
+  }
+  to {
+    transform: translate3d(52vw, 34vh, 0) rotate(18deg) scale(1.04);
+  }
+}
+
+@keyframes ambientDriftTwoMobile {
+  from {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.04);
+  }
+  to {
+    transform: translate3d(-52vw, -34vh, 0) rotate(-16deg) scale(0.96);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .light .ambient-blobs::before,
-  .light .ambient-blobs::after {
+  .ambient-blobs::before,
+  .ambient-blobs::after {
     animation: none;
   }
 }
