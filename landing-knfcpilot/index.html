@@ -358,7 +358,9 @@ h1 .shine{
 @media (max-width:850px){
   .hero{padding-top:118px}
   .hero::before{inset:52% -25% -15%}
-  .stage{width:96vw}
+  /* stay inside the hero's 24px side padding (content box = 100vw - 48px);
+     a bare 96vw is wider than that and dragged the centered text off-screen. */
+  .stage{width:min(96vw, calc(100vw - 48px))}
   .orb-a{width:72px;height:72px;top:56%;left:-1%}
 }
 @media (max-width:560px){
